@@ -1,0 +1,26 @@
+# Grill: 05_BACKEND_SCHEMA.md structural decisions
+Date: 2026-09-16
+
+## Intent
+Produce `05_BACKEND_SCHEMA.md` — a complete, migration-ready Postgres/Supabase schema for the PS-08 platform, consistent with `Master_Approach.md`, `01_PRD.md`, `02_TRD.md`, and `03_APP_FLOW.md`.
+
+## Constraints
+- Must not re-decide what earlier documents already settled: `Master_Approach.md` §14 already specifies one canonical `ESG_Record` (not per-type tables); `02_TRD.md` §29 already committed to a single self-referencing org-hierarchy table (not one table per level).
+- Must be detailed enough for an AI coding agent to write migrations without inventing structure — column types, nullability, defaults, keys, constraints, indexes all required per table.
+
+## Key decisions
+- Decision: **Single organization tree per deployment, no `tenant_id` isolation column anywhere.** Reason: confirmed real-world path is MEIL specifically (per the TRD-stage grilling), not a multi-customer SaaS ambition. If a second customer is ever onboarded, they get their own Supabase project rather than sharing tenant-isolated rows in this one — sidesteps the entire cross-tenant-leak risk class rather than defending against it in every RLS policy. Alternative considered: a `tenant_id` column threaded through every table with RLS policies filtering on it — rejected as unnecessary complexity for a confirmed single-customer deployment, and expensive to retrofit only if actually needed, not preemptively worth building.
+- Decision: **`documents` ↔ `esg_records` is many-to-many**, via a join table (`esg_record_documents`, with an `is_primary` flag), not a simple foreign key in either direction. Reason: user confirmed both directions are real — one combined bill can spawn multiple records (utility bills covering multiple metrics), and one record can accumulate multiple supporting documents via an explicit "add another document" action. Alternative considered: a simple `esg_records.document_id` FK (1 record : 1 document, many records could still share a document) — rejected once "add another document" was confirmed, since that requires a record to reference more than one document.
+- Decision: **`conversion_factors` / `conversion_factor_versions` as two tables**, not one self-versioning table. Reason: calculations must FK to an immutable, specific version row — a single self-versioning table makes "which row does this calculation actually reference" ambiguous once a factor is edited. This is the standard, technically correct versioning pattern and follows directly from the "never silently overwrite historical data" principle already established in `Master_Approach.md` §31 and `02_TRD.md` §25, not a new decision requiring user input.
+- Decision: **`scopes` as a configurable lookup table, not a Postgres enum**, specifically so new Scope 3 categories can be added as data (admin-configurable) rather than requiring a schema change — directly implements the "modular Scope 3 architecture" principle from `02_TRD.md` §29/§42.
+- Decision: **No standalone `brsr_reporting_values` table** — BRSR values are computed live from `esg_records` + `brsr_metric_mappings` for current state, and snapshotted per-report inside `report_runs` output for point-in-time reproducibility. Reason: avoids a stale-sync problem between a "current" table and the live data it's supposed to mirror.
+- Decision: **`reports` and `report_runs` consolidated into one `report_runs` table** — every report in this product's MVP is a one-shot generation, not a reusable saved template. Reason: `03_APP_FLOW.md`'s Reports page just takes parameters and generates; no saved-configuration concept exists in the app flow to justify a second table.
+- Decision: **Org-scope assignment inherits downward through the hierarchy** — a user assigned at a Subsidiary node can see everything under that Subsidiary (BU/Project/Site/Department), not just that exact node. Reason: follows directly from how Corporate ESG/Sustainability's "org-wide monitoring" role is described in the PRD/Master Approach — this wasn't re-grilled as a separate question since it's a direct, principled inference from an already-established role description, not a new fork of user intent.
+
+## Surfaced assumptions
+- The prompt's suggested entity list included separate `user_roles` and `user_assignments` tables; consolidated into one `user_org_assignments(user_id, org_unit_id, role_id)` table since `Master_Approach.md` §4 already describes role as inherently scoped per organizational assignment (a user can hold different roles at different org nodes) — two separate tables would have required an extra join with no corresponding real-world distinction.
+- `org_units.unit_type` is implemented as a Postgres enum (not a further lookup table) as a deliberate hackathon-appropriate simplification, since Master Approach's 7-level reference hierarchy is stable enough that changing it is a rare schema-level operation, not a runtime configuration action — documented in the schema doc as a marked trade-off with its upgrade path (a lookup table) rather than silently under- or over-engineering it.
+
+## Out of scope
+- No multi-tenant isolation architecture (explicitly ruled out this session).
+- No saved/reusable report-configuration entity (folded into one-shot `report_runs`).
