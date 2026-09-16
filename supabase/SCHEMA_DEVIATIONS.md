@@ -125,6 +125,18 @@ Scope 3 categories per PRD §22 MVP list".
 - **No Scope 3 child categories** — PRD §22 has no MVP list; categories are selected and seeded in
   Phase 12 (which already lists "new `scopes` child rows under `SCOPE_3`").
 
+## D9 — Inactive users have no data access (migration `0010`)
+
+**Schema says (§16.2):** `is_admin()` and `my_org_unit_ids()` check active (unrevoked) assignments only.
+
+**Implemented:** both helpers additionally require `users.is_active = true`. A deactivated user holding
+an unexpired session token therefore reads nothing through RLS immediately. This is the database
+layer of the three-layer deactivation decision (Auth ban in the Phase 4 deactivate procedure; app-layer
+`is_active` check in the Data Access Layer) — `.grill/phase-3-auth-decisions.md`.
+
+**Why:** Supabase session tokens stay valid until expiry and refresh tokens can renew them; without this,
+deactivation would not take effect for data access until the token lapsed.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

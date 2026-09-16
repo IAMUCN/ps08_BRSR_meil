@@ -159,8 +159,10 @@ select is((select count(*)::int from public.esg_records), 1, 'PM A sees the Proj
 select is((select count(*)::int from public.documents), 1, 'PM A sees the Project X document');
 select is((select count(*)::int from public.org_units), 2, 'PM A sees Project X and its site only');
 select is((select count(*)::int from public.users), 1, 'PM A sees only their own users row');
-select is((select count(*)::int from public.user_display_names), 3,
-  'PM A can resolve all display names (unscoped view)');
+select is((select count(*)::int from public.user_display_names
+           where id in ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222',
+                        '33333333-3333-4333-8333-333333333333')), 3,
+  'PM A can resolve display names of users the users table hides (unscoped view)');
 
 select throws_ok(
   $$insert into public.esg_records (org_unit_id, reporting_period_id, metric_id, submitted_by)

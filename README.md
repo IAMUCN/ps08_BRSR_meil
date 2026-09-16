@@ -4,8 +4,9 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phase 1 (project setup) of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md`.
-> The repository is a buildable scaffold — no product features are implemented yet.
+> **Status:** Phases 1–3 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> database schema with RLS, and authentication/authorization. No ESG workflows (upload, OCR, calculation,
+> reporting) are implemented yet.
 
 ## Repository layout
 
@@ -22,7 +23,7 @@ All design and build decisions come from the documents in `ps_documents/implemen
 
 ## Prerequisites
 
-- **Node.js** 20.9 or newer (developed on Node 24)
+- **Node.js** 22.18 or newer (developed on Node 24) — needed to run the TypeScript tests and scripts natively
 - **pnpm** 12.4.2 — pinned via `packageManager`. Run `corepack enable` once (Corepack ships with Node) so a
   plain `pnpm` command is on your PATH; the root scripts call `pnpm` internally, so they need it.
 - **Python 3.12** for the OCR worker — PaddlePaddle does **not** publish wheels for Python 3.14
@@ -36,6 +37,11 @@ cp apps/web/.env.example apps/web/.env.local   # then fill in values (never comm
 pnpm dev                                       # start the dev server at http://localhost:3000
 ```
 
+For local development, fill `apps/web/.env.local` from the local Supabase stack
+(`pnpm exec supabase status -o env`): `NEXT_PUBLIC_SUPABASE_URL` ← `API_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` ← `ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` ← `SERVICE_ROLE_KEY`,
+`DATABASE_URL` ← `DB_URL`. Use `http://localhost:3000` (not `127.0.0.1`) so auth cookies and email links match.
+
 Root commands:
 
 | Command | What it does | Without `corepack enable` |
@@ -43,6 +49,7 @@ Root commands:
 | `pnpm dev` | Dev server for `apps/web` | `corepack pnpm --filter web dev` |
 | `pnpm lint` | ESLint across the workspace | `corepack pnpm -r lint` |
 | `pnpm typecheck` | TypeScript checks across the workspace | `corepack pnpm -r typecheck` |
+| `pnpm test` | Unit tests (Node's built-in test runner) | `corepack pnpm -r test` |
 | `pnpm format` / `pnpm format:check` | Prettier write / check for `apps/web` | `corepack pnpm --filter web format:check` |
 | `pnpm build` | Production build of `apps/web` | `corepack pnpm --filter web build` |
 
@@ -66,7 +73,7 @@ pnpm db:stop    # stop the local stack
 To save memory you can skip services the database work doesn't need:
 
 ```bash
-pnpm exec supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit
+pnpm exec supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor
 ```
 
 Notes:
@@ -78,6 +85,29 @@ Notes:
 - **Hosted project:** migrations are applied to the hosted development project (Mumbai) only as an
   explicit, reviewed step (`supabase login` → `supabase link` → `supabase db push`), never automatically.
 - **Real data:** use **synthetic documents only until Phase 18** (audit and security hardening).
+
+## Accounts and sign-in
+
+- **No self sign-up.** Accounts are provisioned by an Admin only. Passwords need at least 12 characters.
+- **First Admin / local development users** are created with the provisioning script, which sends an
+  invite email (the user sets their own password — no password is ever passed on the command line):
+
+  ```bash
+  # first Admin (refused if an active Admin already exists)
+  pnpm --filter web provision-user --email admin@example.com --name "Jane Admin" --role admin --org-code MEIL
+
+  # any other role, attributed to an existing active Admin
+  pnpm --filter web provision-user --email pm@example.com --name "Ravi PM" --role project_manager \
+    --org-code PRJ-X --assigned-by admin@example.com
+  ```
+
+  It reads `apps/web/.env.local` by default. After `pnpm db:reset`, provision the users again.
+- **Local emails** (invites, password resets) are caught by Mailpit at http://127.0.0.1:55324 — start the
+  stack without excluding `mailpit`. Open the email there and follow the link.
+- **Hosted project:** Supabase's built-in email service only delivers to members of the Supabase team.
+  A custom SMTP provider (Resend, TRD §13) must be configured **before any non-team user is invited**.
+- Route behavior and intentional differences from `03_APP_FLOW.md` are recorded in
+  [`apps/web/APP_FLOW_DEVIATIONS.md`](apps/web/APP_FLOW_DEVIATIONS.md).
 
 ## OCR worker (`apps/ocr-worker`)
 
@@ -144,7 +174,8 @@ image in Phase 2B (TRD §10, §35).
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and push to `main`:
-lint, typecheck and format check for the web app, and Ruff for the OCR worker. There is no deploy step yet.
+lint, typecheck, unit tests and format check for the web app, and Ruff for the OCR worker. Database tests
+(`pnpm db:test`) run locally only for now. There is no deploy step yet.
 
 ## Secrets
 
