@@ -1,0 +1,4 @@
+# OCR worker runtime dependencies (02_TRD.md §10, §14). Requires Python 3.12 —
+# PaddlePaddle publishes no wheels for Python 3.14. CPU build only (TRD §38: no GPU).
+paddlepaddle==3.3.1
+paddleocr==3.7.0

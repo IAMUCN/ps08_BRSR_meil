@@ -1,0 +1,143 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Theme 3 is the dark theme (UI brief §0.2, §4) — `dark:` utilities follow it. */
+@custom-variant dark (&:is([data-theme="theme-3"] *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+
+  /* UI brief §8: 4 / 8 / 12px, and no radius above 12px anywhere. */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 12px;
+  --radius-2xl: 12px;
+  --radius-3xl: 12px;
+  --radius-4xl: 12px;
+}
+
+/*
+ * Core tokens per UI brief §6.1. shadcn's required variables reuse documented values:
+ * foregrounds per §6.5/§6.10, input/ring per §6.5, destructive = §6.9 --status-error.
+ * Extended tokens (header, sidebar, KPI, BRSR, tables, charts, modals, status, scope)
+ * are added in Phase 4 / Phase 19.
+ */
+:root,
+[data-theme="theme-1"] {
+  --background: #ffe3b3;
+  --surface: #ffffff;
+  --surface-elevated: #fff8ef;
+  --foreground: #222222;
+  --muted-foreground: #666666;
+  --border: #ffe3b3; /* §6.1 specifies "low opacity"; exact opacity to be set in Phase 4 */
+  --primary: #ca2851;
+  --secondary: #ff6766;
+  --accent: #ffb173;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --primary-foreground: #ffffff;
+  --secondary-foreground: #222222;
+  --muted: var(--surface-elevated);
+  --accent-foreground: #222222;
+  --destructive: #d92d20;
+  --input: #ffe3b3;
+  --ring: #ca2851;
+}
+
+[data-theme="theme-2"] {
+  --background: #f4f5f7;
+  --surface: #ffffff;
+  --surface-elevated: #f4f5f7;
+  --foreground: #222222;
+  --muted-foreground: #6b6b6b;
+  --border: #dddddd;
+  --primary: #37358f;
+  --secondary: #ef102d;
+  --accent: #dddddd;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --primary-foreground: #ffffff;
+  --secondary-foreground: #222222;
+  --muted: var(--surface-elevated);
+  --accent-foreground: #222222;
+  --destructive: #d92d20;
+  --input: #dddddd;
+  --ring: #37358f;
+}
+
+[data-theme="theme-3"] {
+  color-scheme: dark;
+  --background: #1b1718;
+  --surface: #312725;
+  --surface-elevated: #493e3c;
+  --foreground: #ffffff;
+  --muted-foreground: #76757a;
+  --border: #5e5453;
+  --primary: #550916;
+  --secondary: #5e5453;
+  --accent: #493e3c;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --primary-foreground: #ffffff;
+  --secondary-foreground: #ffffff;
+  --muted: var(--surface-elevated);
+  --accent-foreground: #ffffff;
+  --destructive: #d92d20;
+  --input: #5e5453;
+  --ring: #550916;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
