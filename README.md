@@ -46,6 +46,39 @@ Root commands:
 | `pnpm format` / `pnpm format:check` | Prettier write / check for `apps/web` | `corepack pnpm --filter web format:check` |
 | `pnpm build` | Production build of `apps/web` | `corepack pnpm --filter web build` |
 
+## Database (`supabase/`)
+
+The schema from `05_BACKEND_SCHEMA.md` lives in `supabase/migrations/` (applied in numeric order).
+Intentional differences from that document — notably **server-only writes** — are recorded in
+[`supabase/SCHEMA_DEVIATIONS.md`](supabase/SCHEMA_DEVIATIONS.md). Read it before writing any code that
+touches the database.
+
+Local development runs a full Supabase stack in Docker (Docker Desktop must be running). The Supabase
+CLI is pinned as a root dev dependency, so no global install is needed:
+
+```bash
+pnpm db:start   # start local Supabase; first run pulls Docker images
+pnpm db:reset   # wipe the local database, re-apply all migrations + supabase/seed.sql
+pnpm db:test    # run the database smoke tests (supabase/tests/database)
+pnpm db:stop    # stop the local stack
+```
+
+To save memory you can skip services the database work doesn't need:
+
+```bash
+pnpm exec supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit
+```
+
+Notes:
+
+- **Ports:** local Supabase uses `553xx` ports (API `55321`, Postgres `55322`, Studio `55323`) instead of
+  the CLI default `543xx`, because Windows often reserves 53940–54439 (Hyper-V/WinNAT).
+- **Seed data:** `supabase/seed.sql` holds local-only test data (a test hierarchy and an open reporting
+  period). It is applied by `db reset`, never pushed to a hosted project.
+- **Hosted project:** migrations are applied to the hosted development project (Mumbai) only as an
+  explicit, reviewed step (`supabase login` → `supabase link` → `supabase db push`), never automatically.
+- **Real data:** use **synthetic documents only until Phase 18** (audit and security hardening).
+
 ## OCR worker (`apps/ocr-worker`)
 
 The worker's Python dependencies are listed in **`apps/ocr-worker/requirements.txt`** (PaddlePaddle +
