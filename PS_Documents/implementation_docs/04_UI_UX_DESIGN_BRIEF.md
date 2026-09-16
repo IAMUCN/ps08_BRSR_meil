@@ -51,7 +51,7 @@ Explicitly avoided, per source direction: gradients as decoration, motion for it
 | Character | Warm, modern, approachable, premium | Corporate, official, industrial, trustworthy | Premium, serious, analytical, executive |
 | Note | — | Colors are a UI approximation from a public reference, **not** a confirmed official brand spec | — |
 
-Switching lives in Profile (`/app/profile` and an Admin equivalent), implemented as a three-option segmented control, persisted per-user (localStorage as an immediate per-device fallback, synced to the user's profile record for cross-device consistency). No theme changes layout, spacing, component structure, copy, or information hierarchy — only the CSS custom property values in §6 change.
+Switching lives in Profile — `/app/profile` for non-admin roles, `/admin/profile` for Admin (same component, mounted under the Admin route namespace; both routes now explicitly defined in `03_APP_FLOW.md` §2.2/§2.3, corrected per audit finding M2) — implemented as a three-option segmented control, persisted per-user (localStorage as an immediate per-device fallback, synced to the user's profile record for cross-device consistency). No theme changes layout, spacing, component structure, copy, or information hierarchy — only the CSS custom property values in §6 change.
 
 ---
 
@@ -336,7 +336,9 @@ On the Approval Queue (`03_APP_FLOW.md` §2.2), each record expands to show: evi
 
 ### 13.1 Dashboard KPI Cards — exact recommended set
 
-Per the source direction (submission completion, evidence coverage, OCR status, validation status, approval status, Scope 1/2/3, BRSR readiness, anomalies, missing submissions, pending approvals), the Admin Control Tower uses a **two-row KPI layout**, not a single undifferentiated grid:
+Per the source direction (submission completion, evidence coverage, OCR status, validation status, approval status, Scope 1/2/3, BRSR readiness, anomalies, missing submissions, pending approvals), the Admin Control Tower uses a **two-row KPI layout**, not a single undifferentiated grid.
+
+**Header stat strip (above both KPI rows):** a compact, single-line row of three plain counts — Total Organizations · Total Projects · Active Users (`Master_Approach.md` §33) — small `--kpi-supporting-text`-weight numbers, not full KPI cards (they're context, not a metric to optimize), sitting directly under the org/period context switcher. These three were previously omitted from this section without a documented reason; restored per audit finding M5.
 
 **Row 1 — Completion pipeline (4 cards, same visual template, sequential left-to-right matching the actual pipeline order):**
 1. Submission Completion % (of expected submissions this period)

@@ -107,7 +107,7 @@ The system does not merely produce a number — it preserves *how* the number wa
 3. **EHS/Environment User** — provides environmental records: water, waste, air emissions, safety, and environmental certifications for assigned project(s)/site(s).
 4. **Finance/CSR User** — provides CSR expenditure, beneficiary, and fines/penalties evidence for an assigned scope.
 5. **Procurement User** — provides vendor/procurement-related evidence (local/MSME/women-led/SHG/SC-ST procurement records) for an assigned scope.
-6. **Corporate ESG/Sustainability User** — reviews and monitors consolidated ESG/BRSR readiness across entities; may have elevated read/review access without full Admin configuration rights (see [Section 10](#10-user-roles)).
+6. **Corporate ESG/Sustainability User** — reviews and monitors consolidated ESG/BRSR readiness across entities; may have elevated read/review access without full Admin configuration rights (see [Section 10](#10-user-roles)). Cross-entity visibility is achieved the same way any org-scope is granted — Admin assigns this user's `user_org_assignments` row at a high node (Subsidiary or Group) rather than a single Project, and the standard scope-cascades-to-descendants rule (`05_BACKEND_SCHEMA.md` §16.2) does the rest; there is no separate "global" flag or mechanism.
 7. **Admin** — platform owner: configures organization hierarchy, users, roles/permissions, reporting periods, conversion factors, BRSR mappings; monitors submissions/OCR/validation/approval across the organization; generates and drills down into reports.
 8. **Auditor / Assurance Reviewer** (secondary/future persona) — a read-only, evidence-drill-down consumer of the platform's audit trail; not necessarily a distinct login in the MVP, but a use case the evidence model must support (see [Section 36](#36-out-of-scope-items) for MVP boundary).
 
@@ -186,7 +186,7 @@ Functional requirements are detailed by module in Sections 19–35. At a system 
 - Centralized, deterministic calculation engine (Scope 1/2/3).
 - Versioned conversion/emission factor management.
 - Configurable BRSR metric-to-indicator mapping.
-- Multi-level consolidation (Site → Project → Business Unit → Subsidiary → Organization/Group).
+- Multi-level consolidation (Site → Project → Business Unit → Subsidiary → Organization/Group, plus Region/Department where a deployment populates them — see §31).
 - Approval workflow with configurable states.
 - Full audit trail of all material actions.
 - Report generation with drill-down from reported value to source document.
@@ -223,17 +223,17 @@ Functional requirements are detailed by module in Sections 19–35. At a system 
 20. Admin report generation with evidence drill-down.
 21. Audit trail (all material actions).
 22. Submission/validation/approval status tracking and visibility.
+22a. Basic in-app notifications (verification required, low confidence, returned, approval required/decided, missing documents) — per `02_TRD.md` §28's MVP scope; only the email channel is deferred to P1.
 
 ### Should Have (P1)
 
-- OCR confidence scoring surfaced in UI, with mandatory review below threshold.
-- Anomaly detection (historical comparison, unusually high/low values flagged for review).
-- Duplicate document/record detection.
+*(Note: OCR confidence-gated verification, anomaly detection, and duplicate detection are **not** listed here — they are core P0 behavior, required by §19 rule 9, §29's Validation Engine, and §39's acceptance criteria, and are already covered by P0 items 8 and 11 in §14 above. An earlier draft of this list incorrectly duplicated them as P1; corrected per audit finding C1.)*
+
 - Advanced/extended Scope 3 categories beyond the MVP basic set.
 - Data quality dashboard (completeness, evidence coverage, validation, approval, BRSR coverage).
 - BRSR readiness score/dashboard (internal management indicator, explicitly not an official regulatory score).
 - Batch/bulk document ingestion (e.g., multiple bills at once) where feasible.
-- Notification system (in-app/email) for pending tasks, low confidence, validation failures, deadlines.
+- Email notifications for pending tasks, low confidence, validation failures, deadlines. (Basic **in-app** notifications are P0 — see item 22a above; only the email channel is deferred.)
 
 ### Nice to Have / Future (P2)
 
@@ -264,7 +264,7 @@ Functional requirements are detailed by module in Sections 19–35. At a system 
 
 **BRSR Mapping Engine (Admin)** — Admin maintains metric-to-BRSR-indicator mappings as configuration data, so BRSR reporting-requirement changes do not require rewriting the application.
 
-**Consolidation** — Verified, validated, and calculated records roll up automatically from Site through Project, Business Unit, Subsidiary, to Organization/Group level, filterable by period, entity, scope, and metric.
+**Consolidation** — Verified, validated, and calculated records roll up automatically through every populated level of the configured hierarchy (Site through Project, Business Unit, Subsidiary, to Organization/Group, plus Region/Department where used — see §31), filterable by period, entity, scope, and metric.
 
 **Admin Report Generation & Drill-Down** — Admin generates consolidated ESG/BRSR reports and can click any reported value to drill down through BRSR indicator → ESG metric → calculation → verified activity data → original source document.
 
@@ -409,7 +409,7 @@ Anomalies are **review flags**, not automatic rejections, because legitimate ope
 ## 31. Consolidation Requirements
 
 - Recommended operational cadence: monthly source submission → monthly validation → monthly approval → annual aggregation → BRSR reporting.
-- Consolidation hierarchy: Site → Project → Business Unit → Subsidiary → Organization/Group.
+- Consolidation rolls up through every level of the configured organizational hierarchy (§11) generically — Department and Site records aggregate up through Project, optional Region, Business Unit, Subsidiary, to Organization/Group. No fixed subset of levels is hard-coded; whatever levels a given deployment configures participate in the same roll-up (per `Master_Approach.md` §29, corrected per audit finding C3).
 - The same metric must be aggregatable at every level of the hierarchy where applicable.
 - Admin must be able to filter consolidated views by reporting year, month, entity, subsidiary, project, region, department, scope, and metric.
 

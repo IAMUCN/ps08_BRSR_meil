@@ -278,7 +278,7 @@ Each page is specified with: Route · Access role · Purpose · Entry points · 
 - **Access role:** Admin
 - **Purpose:** Scope-specific consolidated view — totals by org level, completion %, trend across periods.
 - **Entry points:** Sidebar "Scope 1/2/3"; Admin Dashboard completion cards.
-- **Primary actions:** Drill from a consolidated total down through org levels (Organization → Subsidiary → BU → Project → Site) to the contributing records.
+- **Primary actions:** Drill from a consolidated total down through whatever levels of the configured org hierarchy exist between Organization and the contributing records (Organization → Subsidiary → Business Unit → optional Region → Project → Site → optional Department) — generic tree walk, not a fixed subset of levels (corrected per audit finding C3; see `Master_Approach.md` §29).
 - **Secondary actions:** Change period; toggle chart/table view.
 - **Navigation after action:** Drill-down → next org level in place, breadcrumb trail retained (foundation for the Journey 5 drill-down pattern).
 - **Required data:** Consolidated calculation totals per org level for the scope.
@@ -342,7 +342,7 @@ Each page is specified with: Route · Access role · Purpose · Entry points · 
 - **Access role:** Admin
 - **Purpose:** Platform-level configuration not covered by a dedicated page (org profile, retention policy, confidence thresholds).
 - **Entry points:** Sidebar "Settings."
-- **Primary actions:** Edit OCR confidence threshold, document retention policy, notification preferences at the org level.
+- **Primary actions:** Edit OCR confidence threshold, document retention policy *(stored for a future retention/purge job — no MVP process reads or enforces this value yet, per `05_BACKEND_SCHEMA.md` §15; the field is present now so it isn't a later migration, but it has no functional effect until that job is built, P2)*, notification preferences at the org level.
 - **Secondary actions:** None.
 - **Navigation after action:** Stays on page.
 - **Required data:** Org-level settings record.
@@ -400,7 +400,7 @@ Each page is specified with: Route · Access role · Purpose · Entry points · 
 - **API/backend dependency:** File → Supabase Storage; `esg_records` + `document_jobs` row creation.
 - **Loading state:** Upload-progress bar during file transfer (this is a real, brief, honest loading state — distinct from OCR processing, which happens after).
 - **Empty state:** **No open reporting period** → blocking notice before category selection is even shown, per §0.4 ("No active reporting period — contact your Admin"). **No categories assigned to this role/scope** → "No ESG categories are configured for your role yet — contact your Admin."
-- **Error state:** **Invalid file type** (inline, before upload starts) — **missing document** (submit blocked until a file is attached) — **network failure during upload** (retry option, file not silently lost) — **duplicate document detected** (same file hash/invoice number already exists for this project+period+metric — flagged as a warning the user must acknowledge before proceeding, per `Master_Approach.md` §41: flagged for review, not silently blocked).
+- **Error state:** **Invalid file type** (inline, before upload starts) — **missing document** (submit blocked until a file is attached) — **network failure during upload** (retry option, file not silently lost) — **duplicate document detected at upload time** (same file hash, or same project+period+metric combination already exists — both knowable before OCR runs — flagged as a warning the user must acknowledge before proceeding, per `Master_Approach.md` §41: flagged for review, not silently blocked). *(Invoice-number-based duplicate detection is a separate, later check — see Verify Extraction below; invoice number isn't known until OCR extracts it, so it cannot be an upload-time check. Corrected per audit finding C4.)*
 - **Success state:** Toast + immediate return to workspace (§0.1).
 - **Permission restrictions:** Category list is role- and scope-filtered; a user cannot upload against a project/category outside their assignment (enforced by RLS, not just hidden in the picker).
 
@@ -416,7 +416,7 @@ Each page is specified with: Route · Access role · Purpose · Entry points · 
 - **API/backend dependency:** `documents`, `ocr_extractions`, `ocr_fields` read; `verifications` write on confirm.
 - **Loading state:** Document + field skeleton while fetching.
 - **Empty state:** N/A (only reachable for a document that has completed OCR).
-- **Error state:** **OCR failure** (job failed — see OCR Failure Flow §4.5, shown here as "Extraction failed — you can still enter this manually as an exception" *[flagged: manual fallback entry is an exception path, not the normal workflow, and should require Admin-visible justification]*) — **low OCR confidence** (fields below threshold are visually flagged and block Confirm until explicitly reviewed, per §4.6) — **missing extracted fields** (required field wasn't found — shown as an empty, user-fillable field, clearly marked as not-from-OCR) — **document unreadable** (corrupted/blank file — same fallback as OCR failure).
+- **Error state:** **OCR failure** (job failed — see OCR Failure Flow §4.5, shown here as "Extraction failed — you can still enter this manually as an exception" *[flagged: manual fallback entry is an exception path, not the normal workflow, and should require Admin-visible justification]*) — **low OCR confidence** (fields below threshold are visually flagged and block Confirm until explicitly reviewed, per §4.6; a field marked `is_critical` in its metric's field requirements blocks Confirm the same way *regardless* of its confidence score — critical fields always require explicit acknowledgment, not just a numeric threshold, per `05_BACKEND_SCHEMA.md` §6.3, corrected per audit finding M1) — **missing extracted fields** (required field wasn't found — shown as an empty, user-fillable field, clearly marked as not-from-OCR) — **document type not identified** (OCR could not classify the document — user is prompted with a manual document-type picker before verification proceeds; required fields for calculation remain unavailable/blocked until a type is selected, per `Master_Approach.md` §12; added per audit finding M3) — **document unreadable** (corrupted/blank file — same fallback as OCR failure) — **possible duplicate by invoice number** (post-OCR check: verified invoice number matches an existing record for the same project+period+metric — flagged as a review warning the user must acknowledge before Confirm, not silently blocked, same treatment as the upload-time duplicate check; added per audit finding C4).
 - **Success state:** Toast "Verified — validation in progress."
 - **Permission restrictions:** Only the submitter or an authorized reviewer within the same org scope; cannot verify a document outside one's assignment.
 
@@ -470,11 +470,11 @@ Each page is specified with: Route · Access role · Purpose · Entry points · 
 - **Permission restrictions:** User sees only their own notifications.
 
 #### Profile
-- **Route:** `/app/profile`
+- **Route:** `/app/profile` (Admin: `/admin/profile` — same component/layout, mounted under the Admin route namespace; added per audit finding M2, since `04_UI_UX_DESIGN_BRIEF.md` §4 requires an Admin-reachable theme switcher and no Admin route previously existed for it)
 - **Access role:** All authenticated users
-- **Purpose:** View own account details, role, and org-scope assignment (read-only for the assignment; users cannot self-elevate); change password.
+- **Purpose:** View own account details, role, and org-scope assignment (read-only for the assignment; users cannot self-elevate); change password; **switch theme**.
 - **Entry points:** Top-bar profile menu.
-- **Primary actions:** Update display name; change password.
+- **Primary actions:** Update display name; change password; **select theme (Theme 1 / Theme 2 / Theme 3 segmented control, per `04_UI_UX_DESIGN_BRIEF.md` §4 — persisted per-user, immediate localStorage fallback synced to the profile record)**.
 - **Secondary actions:** Logout (also available directly from the profile menu without opening this page).
 - **Navigation after action:** Stays on page.
 - **Required data:** Current user record.
@@ -543,9 +543,9 @@ flowchart TD
 
 ### 4.6 Low-Confidence OCR Flow
 
-1. OCR completes successfully, but one or more fields fall below the configured confidence threshold (TRD §23, Admin-configurable in Settings).
-2. On Verify Extraction, those specific fields are visually flagged (e.g., amber highlight + confidence % shown).
-3. The **Confirm** action is disabled until every flagged field has been explicitly touched (either edited, or explicitly acknowledged as correct) — the user cannot blindly confirm past a low-confidence field.
+1. OCR completes successfully, but one or more fields fall below the configured confidence threshold (TRD §23, Admin-configurable in Settings), **or** one or more fields are marked `is_critical` for this metric regardless of their confidence score (`05_BACKEND_SCHEMA.md` §6.3).
+2. On Verify Extraction, those specific fields are visually flagged (e.g., amber highlight + confidence % shown) — a critical field is flagged even at high confidence, since criticality alone is sufficient to require acknowledgment.
+3. The **Confirm** action is disabled until every flagged field (low-confidence or critical) has been explicitly touched (either edited, or explicitly acknowledged as correct) — the user cannot blindly confirm past a low-confidence or critical field.
 4. Once resolved, Confirm proceeds normally into validation.
 
 ### 4.7 Validation Failure Flow
