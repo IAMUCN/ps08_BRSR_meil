@@ -4,9 +4,11 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–3 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
-> database schema with RLS, and authentication/authorization. No ESG workflows (upload, OCR, calculation,
-> reporting) are implemented yet.
+> **Status:** Phases 1–4 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> database schema with RLS, authentication/authorization, and the Admin foundation (organization
+> hierarchy, users and assignments, roles and permissions, reporting periods, profile). No ESG workflows
+> (upload, OCR, calculation, reporting) are implemented yet; dashboard KPIs are labeled development
+> placeholders until Phase 16. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
 
@@ -106,6 +108,9 @@ Notes:
   stack without excluding `mailpit`. Open the email there and follow the link.
 - **Hosted project:** Supabase's built-in email service only delivers to members of the Supabase team.
   A custom SMTP provider (Resend, TRD §13) must be configured **before any non-team user is invited**.
+- **After provisioning the first Admin**, manage everything else in the app under `/admin`: organization
+  hierarchy, users (invite, assign roles, deactivate), roles and permissions, and reporting periods. The
+  Admin role can only be assigned at the root (group) node, and the last active Admin cannot be removed.
 - Route behavior and intentional differences from `03_APP_FLOW.md` are recorded in
   [`apps/web/APP_FLOW_DEVIATIONS.md`](apps/web/APP_FLOW_DEVIATIONS.md).
 

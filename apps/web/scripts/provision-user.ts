@@ -71,10 +71,14 @@ try {
     select id, code, name from public.roles where code = ${roleCode}`;
   if (!role) fail(`unknown role "${roleCode}"`);
 
-  const [orgUnit] = await sql<{ id: string; name: string }[]>`
-    select id, name from public.org_units
+  const [orgUnit] = await sql<{ id: string; name: string; unit_type: string }[]>`
+    select id, name, unit_type from public.org_units
     where code = ${orgCode} and status = 'active' and deleted_at is null`;
   if (!orgUnit) fail(`no active org unit with code "${orgCode}"`);
+  // The admin role is organization-wide (is_admin()), so it is only assignable at the root Group.
+  if (role.code === "admin" && orgUnit.unit_type !== "group") {
+    fail("the admin role can only be assigned at the root organization (the group node)");
+  }
 
   const [existing] = await sql`select 1 from public.users where lower(email) = ${email}`;
   if (existing) fail(`a user with email ${email} already exists`);

@@ -1,5 +1,6 @@
 import "server-only";
 import { initTRPC, TRPCError } from "@trpc/server";
+import { AUTH_MESSAGES } from "@/lib/auth/messages";
 import { getSessionContext } from "@/lib/auth/session";
 
 // Internal typed API (02_TRD.md §5, §22). Identity always comes from the server session resolved by the
@@ -19,7 +20,17 @@ export const createCallerFactory = t.createCallerFactory;
 /** Requires an active, provisioned user; narrows `ctx.session` to that user's resolved scope. */
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   if (ctx.session.status !== "active") {
-    throw new TRPCError({ code: "UNAUTHORIZED" });
+    throw new TRPCError({ code: "UNAUTHORIZED", message: AUTH_MESSAGES.expired });
   }
   return next({ ctx: { session: ctx.session.session } });
 });
+
+/** Requires a specific permission code from the caller's roles (seeded catalogue, migration 0009). */
+export function permissionProcedure(permission: string) {
+  return protectedProcedure.use(({ ctx, next }) => {
+    if (!ctx.session.permissions.includes(permission)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that." });
+    }
+    return next();
+  });
+}

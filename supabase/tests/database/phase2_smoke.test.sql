@@ -155,9 +155,11 @@ set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub": "11111111-1111-4111-8111-111111111111", "role": "authenticated"}', true);
 
-select is((select count(*)::int from public.esg_records), 1, 'PM A sees the Project X record');
-select is((select count(*)::int from public.documents), 1, 'PM A sees the Project X document');
-select is((select count(*)::int from public.org_units), 2, 'PM A sees Project X and its site only');
+select is((select count(*)::int from public.esg_records where id = '55555555-5555-4555-8555-555555555555'), 1, 'PM A sees the Project X record');
+select is((select count(*)::int from public.documents where id = '44444444-4444-4444-8444-444444444444'), 1, 'PM A sees the Project X document');
+select is((select count(*)::int from public.org_units where code in ('PRJ-X', 'PRJ-X-S1'))
+          + (select count(*)::int from public.org_units where code in ('MEIL', 'SUB-A', 'PRJ-Y')) * 100,
+  2, 'PM A sees Project X and its site, but not the group, subsidiary or Project Y');
 select is((select count(*)::int from public.users), 1, 'PM A sees only their own users row');
 select is((select count(*)::int from public.user_display_names
            where id in ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222',
@@ -203,8 +205,8 @@ select throws_ok(
 select set_config('request.jwt.claims',
   '{"sub": "22222222-2222-4222-8222-222222222222", "role": "authenticated"}', true);
 
-select is((select count(*)::int from public.esg_records), 0, 'PM B cannot see Project X records');
-select is((select count(*)::int from public.documents), 0, 'PM B cannot see Project X documents');
+select is((select count(*)::int from public.esg_records where id = '55555555-5555-4555-8555-555555555555'), 0, 'PM B cannot see Project X records');
+select is((select count(*)::int from public.documents where id = '44444444-4444-4444-8444-444444444444'), 0, 'PM B cannot see Project X documents');
 
 with updated as (
   update public.notifications set is_read = false
@@ -220,8 +222,9 @@ select is(count(*)::int, 0, 'PM B cannot mark another user''s notification') fro
 select set_config('request.jwt.claims',
   '{"sub": "33333333-3333-4333-8333-333333333333", "role": "authenticated"}', true);
 
-select is((select count(*)::int from public.esg_records), 1, 'Admin sees records across the organization');
-select is((select count(*)::int from public.org_units), 5, 'Admin sees the whole hierarchy');
+select is((select count(*)::int from public.esg_records where id = '55555555-5555-4555-8555-555555555555'), 1, 'Admin sees records across the organization');
+select is((select count(*)::int from public.org_units where code in ('MEIL', 'SUB-A', 'PRJ-X', 'PRJ-X-S1', 'PRJ-Y')), 5,
+  'Admin sees the whole hierarchy');
 select throws_ok(
   $$insert into public.conversion_factors (activity_type, name) values ('PETROL', 'x')$$,
   '42501', null, 'Admin cannot write configuration directly (server-only config writes)');

@@ -137,6 +137,21 @@ layer of the three-layer deactivation decision (Auth ban in the Phase 4 deactiva
 **Why:** Supabase session tokens stay valid until expiry and refresh tokens can renew them; without this,
 deactivation would not take effect for data access until the token lapsed.
 
+## D10 — Reporting period submission window columns (migration `0011`)
+
+**Schema says (§5.1):** `reporting_periods` has `start_date`/`end_date` (the period covered), `status`,
+`opened_at`, `closed_at` — no submission window.
+
+**Implemented:** two nullable columns, `submission_opens_on date` and `submission_closes_on date`, with a
+check that the close date is on or after the open date. They are **guidance dates**: uploads remain gated
+by the manual `status = 'open'` (one open period at a time); the dates drive due-date display, the
+Phase 6 "reporting deadline approaching" notification and Control Tower missing-submission logic.
+
+**Why:** Master Approach §7C lists "Define submission windows" as an Admin capability and
+`03_APP_FLOW.md` §2.2 lists "Set submission-window dates", but the schema had nowhere to store them.
+Automatic scheduling was rejected (no scheduler component; collides with the single-open-period
+constraint) — `.grill/phase-4-admin-foundation-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

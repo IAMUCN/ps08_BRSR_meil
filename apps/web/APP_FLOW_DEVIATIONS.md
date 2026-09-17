@@ -55,3 +55,23 @@ the proxy to optimistic cookie checks (no database queries). So:
 Not covered by App Flow. An Auth user without a `public.users` profile (only possible if provisioning
 failed outside the provisioning script) is signed out and shown "Your account is not set up yet —
 contact your Admin", rather than being treated as signed in.
+
+## A5 — Phase 4 shell and Admin foundation
+
+Decisions: `.grill/phase-4-admin-foundation-decisions.md`.
+
+- **Navigation shows built pages only.** The sidebar lists only pages that exist in the current phase;
+  later-phase entries from App Flow are added as their phases land (no dead links).
+- **Deferred top-bar controls.** The organization/period context switcher and the notification bell are
+  not rendered yet; they arrive with the phases that give them data.
+- **Dashboard placeholders.** Admin KPI tiles show "—" labeled "Development placeholder — data arrives in
+  Phase 16". Header counts (subsidiaries, projects, active users, open period) are real.
+  "Organizations" in the header strip counts subsidiary/entity nodes under the group.
+- **UI brief §6.10 contrast resolutions.** Theme 1 sidebar active/hover text uses `#222222` for contrast;
+  Theme 3 header/sidebar text uses `#ffffff` instead of the brief's `#76757A`. Theme 2/3 values stay
+  provisional until the Phase 19 contrast sweep; the theme switcher is also Phase 19.
+- **Button mapping.** Secondary actions use the brief's secondary-button tokens (`outline` variant) and
+  destructive/consequence actions use the important-button tokens (`destructive` variant); consequence
+  modals carry the colored modal-header bar (§11.5).
+- **Profile pages.** `/admin/profile` and `/app/profile` (display name, password change requiring the
+  current password, which signs out other sessions).
