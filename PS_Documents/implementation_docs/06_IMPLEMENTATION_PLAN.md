@@ -130,7 +130,7 @@ Nothing is ever named generically (`data.json`, `file1.pdf`, `temp.ts`) — ever
 - Implement the `prevent_referenced_factor_version_mutation` trigger (schema §19.3).
 - Implement `is_admin()` and `my_org_unit_ids()` helper functions (schema §16.2).
 - Enable RLS on every table; implement every policy from schema §16.3, applying the same `is_admin() or org_unit_id in (select my_org_unit_ids())` pattern to every org-scoped table not explicitly detailed there (`ocr_jobs`, `ocr_extractions`, `ocr_fields`, `verifications`, `validation_results`, `esg_record_documents`, `notifications` — per that section's explicit instruction that these "must be implemented identically... not improvised per-table").
-- Seed data: 7 roles (schema §3.2), the single root `org_units` Group row plus a minimal test hierarchy (one Subsidiary, one Project, one Site — enough for Phase 3+ testing), `scopes` (SCOPE_1, SCOPE_2, SCOPE_3 parent + basic applicable Scope 3 categories per PRD §22 MVP list), `document_types` and `esg_categories`/`esg_metrics` for at minimum Diesel and Grid Electricity (needed for the critical end-to-end test, §5), one `reporting_periods` row with `status = 'open'`.
+- Seed data: 7 roles (schema §3.2), **the permission catalogue (`permissions` — e.g. `document.upload`, `record.verify`, `factor.manage`, `report.generate`, `approval.decide`, per schema §3.3's examples) and the corresponding `role_permissions` rows for each of the 7 roles** (added per audit finding M7 — previously unscheduled, leaving Phase 4's Roles & Permissions page with nothing to seed/edit), the single root `org_units` Group row plus a minimal test hierarchy (one Subsidiary, one Project, one Site — enough for Phase 3+ testing), `scopes` (SCOPE_1, SCOPE_2, SCOPE_3 parent + basic applicable Scope 3 categories per PRD §22 MVP list), `document_types` and `esg_categories`/`esg_metrics` for at minimum Diesel and Grid Electricity (needed for the critical end-to-end test, §5), one `reporting_periods` row with `status = 'open'`.
 
 **Files/modules created:** `supabase/migrations/0001_*.sql` through `NNNN_seed.sql`.
 
@@ -244,6 +244,7 @@ Nothing is ever named generically (`data.json`, `file1.pdf`, `temp.ts`) — ever
 - Build Reporting Periods page (`/admin/reporting-periods`) — CRUD + open/close, enforcing the "at most one open period" rule (schema §5.1) at the application layer.
 - Build the Admin Dashboard shell (`/admin`) — layout and navigation per UI brief §19, KPI cards wired to placeholder/zero data (real data comes in Phase 16).
 - Build the User Dashboard shell (`/app`) — layout per UI brief §20, task-card placeholders.
+- Build `/app/profile` **and `/admin/profile`** (same component, mounted under both route namespaces per `03_APP_FLOW.md` §2.2/§2.3 and `04_UI_UX_DESIGN_BRIEF.md` §4) — display name, password change; theme-switcher wiring itself is finished in Phase 19, but both routes must exist now so Phase 19 has an Admin-reachable page to attach the switcher to (added per audit finding M2).
 - Apply Theme 1 (default) tokens for real now (UI brief §6) across all shells built so far — this is the first phase where the design system's actual colors, not placeholders, should appear.
 
 **Files/modules created:** `apps/web/app/admin/organization/*`, `apps/web/app/admin/users/*`, `apps/web/app/admin/roles/*`, `apps/web/app/admin/reporting-periods/*`, `apps/web/app/admin/page.tsx`, `apps/web/app/app/page.tsx`, shared layout/nav components (`apps/web/components/shell/*`).
@@ -351,10 +352,11 @@ Nothing is ever named generically (`data.json`, `file1.pdf`, `temp.ts`) — ever
 
 **Tasks / Subtasks:**
 - Build Verify Extraction page (`/app/verify/[documentId]`) — split-screen layout exactly per UI brief §12.2: document viewer (left) + field list (right).
-- Implement per-field click-to-edit, confidence display, the low-confidence guard rail (Confirm disabled until every flagged field is explicitly touched — non-negotiable per UI brief §12.2 and Rule 8).
+- Implement per-field click-to-edit, confidence display, the low-confidence guard rail (Confirm disabled until every flagged field is explicitly touched — non-negotiable per UI brief §12.2 and Rule 8). A field is "flagged" when its confidence is below `org_settings.ocr_confidence_threshold` **or** when `metric_field_requirements.is_critical` is true for it, regardless of confidence (audit finding M1) — do not implement a second numeric threshold for critical fields, just an unconditional acknowledgment requirement.
 - Implement Confirm: writes `ocr_fields.verified_value`/`verification_status`, creates a `verifications` row, updates `esg_records.activity_value_verified`/`verification_status`, all in one transaction (schema §20.3).
 - Implement Reject: modal requiring a reason, marks the record rejected, does not silently disappear.
 - Implement the OCR-failure/manual-exception fallback path (App Flow §4.5) — flagged distinctly (`verifications.is_manual_exception`), Admin-visible.
+- Implement the "document type not identified" state (`Master_Approach.md` §12, `03_APP_FLOW.md` §2.3, audit finding M3): when `documents.document_type_id` is still `null` after OCR, show a manual `document_type_id` picker before the field list; block calculation-relevant required fields until a type is selected.
 - Implement Evidence/Document Viewer as a reusable component (UI brief §12.3) — used here and reused later in Report Drill-down (Phase 17) and Audit Trail (Phase 18).
 
 **Files/modules created:** `apps/web/app/app/verify/[documentId]/*`, `apps/web/components/verification/*`, `apps/web/components/document-viewer/*` (shared).
@@ -390,7 +392,7 @@ Nothing is ever named generically (`data.json`, `file1.pdf`, `temp.ts`) — ever
 - Implement the six validation categories (PRD §29) as TS functions operating on Zod-validated `esg_records`/`ocr_fields` data (per `02_TRD.md` §16), reading rule parameters from `validation_rules` (never hard-coded per-metric logic).
 - Format: numeric/date/unit/required-field checks against `metric_field_requirements`.
 - Organizational: project exists, user has permission (RLS backstop already covers this; this check produces a *user-visible* validation result, not just a silent 403).
-- Period: document date vs. reporting period; duplicate reporting-period submission flagged.
+- Period: document date vs. reporting period; duplicate reporting-period submission flagged; **duplicate invoice number** flagged if the verified `invoice_number` field matches an existing record for the same project+period+metric (this is the invoice-number duplicate check deferred from upload time, since invoice number isn't known until after OCR/verification — see `03_APP_FLOW.md` §2.3, audit finding C4). Sets `esg_records.is_duplicate_flag`, reviewed not auto-rejected, same as other duplicate signals.
 - Evidence: required evidence attached and readable.
 - Logical: no negative quantities where not permitted (schema §9.1's DB-level check is the backstop; this is the metric-aware version).
 - Anomaly: historical comparison against the project's own prior periods — flag, don't auto-reject (Rule/`Master_Approach.md` §23).
@@ -605,8 +607,8 @@ Nothing is ever named generically (`data.json`, `file1.pdf`, `temp.ts`) — ever
 - Seed `brsr_sections` (A/B/C) and `brsr_indicators` — **[VERIFY AGAINST AUTHORITATIVE BRSR SOURCE]**, per PRD §27/§40, flagged explicitly wherever placeholder indicator codes/text are used for demo purposes before authoritative content is sourced.
 - Seed `brsr_metric_mappings` linking every `esg_metrics` row built in Phases 10-13 to its relevant indicator(s).
 - Build BRSR Mapping page (`/admin/brsr-mapping`) — Admin CRUD on the mapping table.
-- Build the BRSR readiness tree/accordion component (UI brief §21) — Indicator → Metric → Calculation → Evidence, reusing the Evidence/Document Viewer from Phase 7.
-- Implement the BRSR Readiness % composite score (`Master_Approach.md` §34) — clearly labeled internal indicator, not an official score (Rule/PRD §35).
+- Build the BRSR readiness tree/accordion component (UI brief §21) — Indicator → Metric → Calculation → Evidence, reusing the Evidence/Document Viewer from Phase 7. **This tree itself is P0** — it's the mechanism for the signature drill-down capability.
+- *(P1 — defer under time pressure, per PRD §14 and audit finding M4)* Implement the **BRSR Readiness % composite score** (`Master_Approach.md` §34) — clearly labeled internal indicator, not an official score (Rule/PRD §35). If time-constrained, the readiness tree above still functions fully without this single composite number; cut this specific task first, not the tree.
 
 **Files/modules created:** `apps/web/app/admin/brsr-mapping/*`, `apps/web/components/brsr-tree/*` (shared with Report Drill-down, Phase 17).
 
@@ -671,7 +673,7 @@ Nothing is ever named generically (`data.json`, `file1.pdf`, `temp.ts`) — ever
 **Dependencies:** Phase 15.
 
 **Tasks / Subtasks:**
-- Implement the two-row KPI layout exactly per UI brief §13.1 (completion pipeline row + scope/readiness row).
+- Implement the header stat strip (Total Organizations · Total Projects · Active Users) plus the two-row KPI layout exactly per UI brief §13.1 (completion pipeline row + scope/readiness row).
 - Implement the Issue Panel (missing submissions, missing evidence, low-confidence OCR, validation failures, anomalies, pending approvals, incomplete BRSR indicators) — each row deep-links into its owning queue page (all already built: Submission Monitoring, OCR Monitoring, Validation Queue, Approval Queue).
 - Build Submission Monitoring (`/admin/submissions`) and ESG Data Explorer (`/admin/data-explorer`) if not already stubbed.
 - Build Approval Queue (`/admin/approval-queue`) with the self-approval-prevention rule enforced (schema §9.5, App Flow §4.9) — this is also where Phase 13's role-specific records first get a real approval workflow exercised.

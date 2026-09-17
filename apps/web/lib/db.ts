@@ -1,0 +1,29 @@
+import "server-only";
+import postgres from "postgres";
+
+// Direct Postgres access for server-side transactional mutations (.grill/phase-3-auth-decisions.md).
+// Bypasses RLS like the service role — import only from server code (tRPC procedures).
+
+const globalForDb = globalThis as unknown as { traceEsgSql?: postgres.Sql };
+
+export function db(): postgres.Sql {
+  if (!globalForDb.traceEsgSql) {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error("DATABASE_URL is not set");
+    // prepare: false is required by Supabase's transaction-mode pooler (hosted deployments).
+    // Cached on globalThis so dev hot-reloads don't open a new pool each time.
+    globalForDb.traceEsgSql = postgres(url, { prepare: false, max: 5 });
+  }
+  return globalForDb.traceEsgSql;
+}
+
+export type Tx = postgres.TransactionSql;
+
+/** Postgres SQLSTATE of a failed query, if any (e.g. 23505 unique violation). */
+export function pgErrorCode(error: unknown): string | undefined {
+  // Checked by shape, not `instanceof`: the Next.js server bundle can load a separate copy of
+  // postgres.js, which makes `instanceof postgres.PostgresError` false for real database errors.
+  const code =
+    typeof error === "object" && error !== null ? (error as { code?: unknown }).code : undefined;
+  return typeof code === "string" && /^[0-9A-Z]{5}$/.test(code) ? code : undefined;
+}

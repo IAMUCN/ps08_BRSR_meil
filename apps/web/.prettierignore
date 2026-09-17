@@ -1,0 +1,7 @@
+.next/
+out/
+build/
+next-env.d.ts
+pnpm-lock.yaml
+AGENTS.md
+CLAUDE.md

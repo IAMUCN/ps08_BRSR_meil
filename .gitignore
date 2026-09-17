@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js / build output
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment files — secrets are never committed (TRD §21, §33)
+.env
+.env.*
+!.env.example
+
+# Python / OCR worker
+.venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+# OCR model weights are downloaded (scripts/download_models.py), never committed
+apps/ocr-worker/models/
+
+# Testing
+coverage/
+
+# Deployment / credentials
+.vercel/
+*.pem
+
+# Logs and OS noise
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db

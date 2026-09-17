@@ -1,0 +1,275 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Theme 3 is the dark theme (UI brief §0.2, §4) — `dark:` utilities follow it. */
+@custom-variant dark (&:is([data-theme="theme-3"] *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+
+  /* UI brief §8: 4 / 8 / 12px, and no radius above 12px anywhere. */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 12px;
+  --radius-2xl: 12px;
+  --radius-3xl: 12px;
+  --radius-4xl: 12px;
+
+  /* Layout regions, tables, status and scope (UI brief §6.2, §6.6, §6.9, §6.11) */
+  --color-header: var(--header-bg);
+  --color-header-foreground: var(--header-fg);
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-foreground: var(--sidebar-fg);
+  --color-sidebar-active: var(--sidebar-active-bg);
+  --color-sidebar-active-foreground: var(--sidebar-active-fg);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-hover-foreground: var(--sidebar-hover-fg);
+  --color-sidebar-divider: var(--sidebar-divider);
+  --color-btn-secondary: var(--btn-secondary-bg);
+  --color-btn-secondary-foreground: var(--btn-secondary-fg);
+  --color-btn-important: var(--btn-important-bg);
+  --color-btn-important-foreground: var(--btn-important-fg);
+  --color-modal-header: var(--modal-header-bg);
+  --color-modal-header-foreground: var(--modal-header-fg);
+  --color-table-header: var(--table-header-bg);
+  --color-table-header-foreground: var(--table-header-fg);
+  --color-table-row: var(--table-row-bg);
+  --color-table-row-alt: var(--table-row-alt-bg);
+  --color-table-row-hover: var(--table-row-hover);
+  --color-table-border: var(--table-border);
+  --color-kpi-title: var(--kpi-title);
+  --color-kpi-number: var(--kpi-number);
+  --color-kpi-important: var(--kpi-important-accent);
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-error: var(--status-error);
+  --color-scope-1: var(--scope-1);
+  --color-scope-2: var(--scope-2);
+  --color-scope-3: var(--scope-3);
+}
+
+/*
+ * Core tokens per UI brief §6.1. shadcn's required variables reuse documented values:
+ * foregrounds per §6.5/§6.10, input/ring per §6.5, destructive = §6.9 --status-error.
+ * Phase 4 adds the region, KPI, table, overlay and scope tokens (§6.2–§6.11); BRSR and chart tokens
+ * arrive with the screens that use them.
+ */
+:root,
+[data-theme="theme-1"] {
+  --background: #ffe3b3;
+  --surface: #ffffff;
+  --surface-elevated: #fff8ef;
+  --foreground: #222222;
+  --muted-foreground: #666666;
+  --border: #ffe3b3; /* §6.1 specifies "low opacity"; exact opacity to be set in Phase 4 */
+  --primary: #ca2851;
+  --secondary: #ff6766;
+  --accent: #ffb173;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --primary-foreground: #ffffff;
+  --secondary-foreground: #222222;
+  --muted: var(--surface-elevated);
+  --accent-foreground: #222222;
+  --destructive: #d92d20;
+  --input: #ffe3b3;
+  --ring: #ca2851;
+
+  /* §6.2 regions. Hover/active foregrounds use dark text on coral/peach per the §6.10 contrast rule
+     (small white text is never placed on #FF6766 / #FFB173). */
+  --header-bg: #ca2851;
+  --header-fg: #ffffff;
+  --sidebar-bg: #ca2851;
+  --sidebar-fg: #ffffff;
+  --sidebar-active-bg: #ff6766;
+  --sidebar-active-fg: #222222;
+  --sidebar-hover: #ffb173;
+  --sidebar-hover-fg: #222222;
+  --sidebar-divider: rgb(255 227 179 / 0.35);
+  /* §6.3 */
+  --kpi-title: #ca2851;
+  --kpi-number: #ca2851;
+  --kpi-important-accent: #ff6766;
+  /* §6.6 */
+  --table-header-bg: #ca2851;
+  --table-header-fg: #ffffff;
+  --table-row-bg: #ffffff;
+  --table-row-alt-bg: #fff8ef;
+  --table-row-hover: #ffe3b3;
+  --table-border: #f0cfa8;
+  /* §6.5 buttons (important = destructive-adjacent; dark text on coral per §6.10) and §6.8 modals */
+  --btn-secondary-bg: #ffb173;
+  --btn-secondary-fg: #222222;
+  --btn-important-bg: #ff6766;
+  --btn-important-fg: #222222;
+  --modal-header-bg: #ca2851;
+  --modal-header-fg: #ffffff;
+  --overlay: rgba(0, 0, 0, 0.35);
+  /* §6.11 */
+  --scope-1: #ca2851;
+  --scope-2: #ff6766;
+  --scope-3: #ffb173;
+}
+
+[data-theme="theme-2"] {
+  --background: #f4f5f7;
+  --surface: #ffffff;
+  --surface-elevated: #f4f5f7;
+  --foreground: #222222;
+  --muted-foreground: #6b6b6b;
+  --border: #dddddd;
+  --primary: #37358f;
+  --secondary: #ef102d;
+  --accent: #dddddd;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --primary-foreground: #ffffff;
+  --secondary-foreground: #222222;
+  --muted: var(--surface-elevated);
+  --accent-foreground: #222222;
+  --destructive: #d92d20;
+  --input: #dddddd;
+  --ring: #37358f;
+
+  --header-bg: #ffffff;
+  --header-fg: #222222;
+  --sidebar-bg: #37358f;
+  --sidebar-fg: #ffffff;
+  --sidebar-active-bg: #ef102d;
+  --sidebar-active-fg: #ffffff;
+  --sidebar-hover: #4a48a0;
+  --sidebar-hover-fg: #ffffff;
+  --sidebar-divider: rgba(255, 255, 255, 0.15);
+  --kpi-title: #37358f;
+  --kpi-number: #37358f;
+  --kpi-important-accent: #ef102d;
+  --table-header-bg: #37358f;
+  --table-header-fg: #ffffff;
+  --table-row-bg: #ffffff;
+  --table-row-alt-bg: #f4f5f7;
+  --table-row-hover: #eef0fa;
+  --table-border: #dddddd;
+  --btn-secondary-bg: #ffffff;
+  --btn-secondary-fg: #37358f;
+  --btn-important-bg: #ef102d;
+  --btn-important-fg: #ffffff;
+  --modal-header-bg: #37358f;
+  --modal-header-fg: #ffffff;
+  --overlay: rgba(0, 0, 0, 0.4);
+  --scope-1: #37358f;
+  --scope-2: #ef102d;
+  --scope-3: #6b6b6b;
+}
+
+[data-theme="theme-3"] {
+  color-scheme: dark;
+  --background: #1b1718;
+  --surface: #312725;
+  --surface-elevated: #493e3c;
+  --foreground: #ffffff;
+  --muted-foreground: #76757a;
+  --border: #5e5453;
+  --primary: #550916;
+  --secondary: #5e5453;
+  --accent: #493e3c;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --primary-foreground: #ffffff;
+  --secondary-foreground: #ffffff;
+  --muted: var(--surface-elevated);
+  --accent-foreground: #ffffff;
+  --destructive: #d92d20;
+  --input: #5e5453;
+  --ring: #550916;
+
+  --header-bg: #1b1718;
+  --header-fg: #ffffff;
+  --sidebar-bg: #312725;
+  --sidebar-fg: #ffffff;
+  --sidebar-active-bg: #550916;
+  --sidebar-active-fg: #ffffff;
+  --sidebar-hover: #493e3c;
+  --sidebar-hover-fg: #ffffff;
+  --sidebar-divider: #5e5453;
+  --kpi-title: #76757a;
+  --kpi-number: #ffffff;
+  --kpi-important-accent: #550916;
+  --table-header-bg: #493e3c;
+  --table-header-fg: #ffffff;
+  --table-row-bg: #312725;
+  --table-row-alt-bg: #1b1718;
+  --table-row-hover: #493e3c;
+  --table-border: #5e5453;
+  --btn-secondary-bg: #493e3c;
+  --btn-secondary-fg: #ffffff;
+  --btn-important-bg: #550916;
+  --btn-important-fg: #ffffff;
+  --modal-header-bg: #493e3c;
+  --modal-header-fg: #ffffff;
+  --overlay: rgba(0, 0, 0, 0.7);
+  --scope-1: #76757a;
+  --scope-2: #550916;
+  --scope-3: #5e5453;
+}
+
+/* §6.9 status colors are shared across all themes; never substituted with brand colors. */
+:root {
+  --status-success: #1e8e5a;
+  --status-warning: #b8860b;
+  --status-error: #d92d20;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -164,8 +164,9 @@ Global (not per-org-unit) — one calendar of periods applies platform-wide, per
 | `opened_at` | `timestamptz` | Yes | `null` | | |
 | `closed_at` | `timestamptz` | Yes | `null` | | |
 | — | — | — | — | **Check:** `end_date > start_date` | |
+| — | — | — | — | Partial unique index `unique (status) where status = 'open'` — DB-level backstop for the "at most one open period" invariant, matching the rigor already used for `is_primary`/`is_current` elsewhere in this schema (added per audit Minor finding: this was previously application-layer-only) | |
 
-**Indexes:** `(status)` (the "which period is currently open" lookup is hot-path, hit on every upload).
+**Indexes:** `(status)` (the "which period is currently open" lookup is hot-path, hit on every upload); the partial unique index above doubles as this lookup's index.
 
 ---
 
@@ -179,7 +180,7 @@ Drives the "select ESG activity/category" step (`03_APP_FLOW.md` Upload Document
 |---|---|---|---|---|---|
 | `id` | `uuid` | No | — | PK | |
 | `name` | `text` | No | — | | e.g. "Fuel & Energy," "Water," "Waste," "Workforce," "Procurement," "CSR/Finance" |
-| `owning_role_id` | `uuid` | Yes | `null` | FK → `roles.id` | Which role primarily submits this category — drives role-scoped category lists |
+| `owning_role_id` | `uuid` | Yes | `null` | FK → `roles.id` | Which role primarily submits this category — drives role-scoped category lists. `null` = visible to every role's Upload category list (least-restrictive default, consistent with "configuration over hard-coding"), not hidden from all roles. |
 | `description` | `text` | Yes | `null` | | |
 
 ### 6.2 `esg_metrics`
@@ -212,7 +213,7 @@ Defines what OCR/verification fields a metric expects — drives which `ocr_fiel
 | `field_label` | `text` | No | — | | Display label |
 | `data_type` | `enum(text, number, date, unit)` | No | — | | |
 | `is_required` | `boolean` | No | `true` | | Missing → record `Incomplete` (`03_APP_FLOW.md` §4.5) |
-| `is_critical` | `boolean` | No | `false` | | Critical fields get the stricter low-confidence Confirm-block treatment (§04 UI brief §12.2) |
+| `is_critical` | `boolean` | No | `false` | | Critical fields always require explicit user acknowledgment before Confirm — **regardless of confidence score**, not via a separate/lower numeric threshold (single global `org_settings.ocr_confidence_threshold` still governs the amber-flag/percentage display for every field, critical or not). Clarified per audit finding M1; see `03_APP_FLOW.md` §4.6. |
 | — | — | — | — | Unique `(metric_id, field_key)` | |
 
 ### 6.4 `document_types`
@@ -417,7 +418,7 @@ The many-to-many evidence link, per this session's confirmed decision.
 | `added_at` | `timestamptz` | No | `now()` | | |
 | — | — | — | — | **Check:** at most one `is_primary = true` row per `esg_record_id` (enforced via a partial unique index `unique (esg_record_id) where is_primary`) | |
 
-**Cardinality:** many-to-many — one document can support many records (a combined bill), one record can have many documents ("add another document").
+**Cardinality:** many-to-many — one document can support many records (a combined bill), one record can have many documents ("add another document"). **MVP scope note (added per audit Dependency-Problem finding):** the Verify Extraction page is keyed by `documentId` (`03_APP_FLOW.md` §2.3, `/app/verify/[documentId]`) and `ocr_fields` are extracted per-document, not per-record — there is no UX anywhere in `03_APP_FLOW.md` or `06_IMPLEMENTATION_PLAN.md` for splitting one document's extracted fields across multiple `esg_records`. The one-document-supports-many-records case ("a combined bill") is therefore **not buildable in the MVP** even though the schema's many-to-many join table permits it structurally — MVP upload (`06_IMPLEMENTATION_PLAN.md` Phase 5) always creates exactly one `esg_records` row per upload, with `is_primary = true` on its single document. The join table's full many-to-many capacity (splitting one document across several records) is reserved for a future phase that would need its own dedicated verification UX; until that UX exists, treat "one document → one record" as the only supported path, and "one record → many documents" (add supporting evidence to an existing record) as the only many-sided case actually exercised.
 
 ### 9.3 `verifications`
 
@@ -463,7 +464,7 @@ Append-only history of approval decisions; `esg_records.approval_status` is the 
 | `decided_by` | `uuid` | Yes | `null` | FK → `users.id` | `null` for the `submitted` action (system/auto-transition) |
 | `decided_at` | `timestamptz` | No | `now()` | | |
 | `reason` | `text` | Yes | `null` | | Required at the application layer for `returned`/`rejected` |
-| — | — | — | — | **Check** (application-enforced, see §14.4): `decided_by` must not equal `esg_records.submitted_by` for `action in ('approved','returned')` — self-approval prevention, per `03_APP_FLOW.md` §4.9 | |
+| — | — | — | — | **Check** (application-enforced, see §14.4): `decided_by` must not equal `esg_records.submitted_by` **and** must not equal the `verified_by` of that record's latest `verifications` row, for `action in ('approved','returned')` — self-approval prevention covers both submitter and verifier, per `03_APP_FLOW.md` §4.9 and `04_UI_UX_DESIGN_BRIEF.md` §12.5 (corrected per audit finding C2 — the prior version of this constraint checked `submitted_by` only) | |
 
 **Indexes:** `(esg_record_id)`, `(decided_by)`.
 
@@ -628,7 +629,7 @@ One row per generated report (consolidates the brief's suggested `reports` + `re
 | `report_type` | `enum(esg, brsr, consolidated)` | No | — | | |
 | `status` | `enum(pending, generating, completed, failed)` | No | `'pending'` | | Non-blocking generation (`03_APP_FLOW.md` §4.10) |
 | `storage_path` | `text` | Yes | `null` | | Rendered PDF location in Storage, set on completion |
-| `snapshot_data` | `jsonb` | Yes | `null` | | Point-in-time BRSR/ESG values as of generation — the mechanism replacing a standalone `brsr_reporting_values` table (§2) |
+| `snapshot_data` | `jsonb` | Yes | `null` | | Point-in-time BRSR/ESG values as of generation — the mechanism replacing a standalone `brsr_reporting_values` table (§2). **Must include the list of contributing `esg_record_id`s per BRSR indicator/metric it reports** (e.g. `{"indicators": [{"brsr_indicator_id": "...", "esg_record_ids": ["...", "..."]}]}`) — this is what makes Master §30's `Included_In_Report` lifecycle state answerable ("was record X included in report run Y") without adding a denormalized status column to `esg_records` itself. Added per audit Missing-Requirement finding. |
 | `error_message` | `text` | Yes | `null` | | |
 | `requested_at` | `timestamptz` | No | `now()` | | |
 | `completed_at` | `timestamptz` | Yes | `null` | | |
@@ -770,6 +771,8 @@ create policy factor_versions_write on conversion_factor_versions for insert
 -- additionally refuses to mutate a version once referenced by any calculation (§10.2).
 
 -- approvals: insert restricted to Admin/Corporate ESG role, self-approval blocked
+-- for BOTH the submitter and the verifier (03_APP_FLOW.md §4.9 / UI brief §12.5;
+-- corrected per audit finding C2 — verified_by was previously unchecked)
 create policy approvals_insert on approvals for insert
   with check (
     exists (
@@ -780,6 +783,12 @@ create policy approvals_insert on approvals for insert
         and r.code in ('admin', 'corporate_esg')
     )
     and decided_by <> (select submitted_by from esg_records where id = approvals.esg_record_id)
+    and decided_by <> coalesce(
+      (select v.verified_by from verifications v
+        where v.esg_record_id = approvals.esg_record_id
+        order by v.verified_at desc limit 1),
+      '00000000-0000-0000-0000-000000000000'
+    )
   );
 
 -- audit_logs: insert-only from service role; read restricted to Admin
@@ -804,7 +813,7 @@ Every other org-scoped table (`ocr_jobs`, `ocr_extractions`, `ocr_fields`, `veri
 
 ### 16.4 Non-RLS server-side rules
 
-- **Approval decision cannot equal the submitter** — enforced both by the RLS `with check` above and redundantly in application code (defense in depth, since this is a genuine trust-boundary requirement per `03_APP_FLOW.md` §4.9, not merely a UX nicety).
+- **Approval decision cannot equal the submitter or the verifier** — enforced both by the RLS `with check` above and redundantly in application code (defense in depth, since this is a genuine trust-boundary requirement per `03_APP_FLOW.md` §4.9, not merely a UX nicety).
 - **Reporting-period upload gate** — the application layer refuses document upload if no `reporting_periods` row has `status = 'open'`, rather than relying solely on a DB constraint (a friendlier, more specific error message is needed than a raw constraint violation).
 - **Conversion factor version immutability once referenced** — enforced by a trigger (§17.3) as the authoritative backstop, since this is a correctness-critical rule that must hold even if application code has a bug.
 
@@ -829,7 +838,7 @@ Beyond the per-table indexes already specified, the following composite indexes 
 
 | Index | Table | Supports |
 |---|---|---|
-| `(org_unit_id, reporting_period_id, metric_id)` | `esg_records` | Consolidation roll-ups (Site → Project → BU → Subsidiary → Organization, TRD §29) |
+| `(org_unit_id, reporting_period_id, metric_id)` | `esg_records` | Consolidation roll-ups through every level of the configured `org_units` tree, generically (TRD §29; corrected per audit finding C3 — not a fixed subset of levels) |
 | `(org_unit_id, reporting_period_id, validation_status)` | `esg_records` | Submission/Validation Monitoring pages |
 | `(org_unit_id, reporting_period_id, approval_status)` | `esg_records` | Approval Queue |
 | `(document_id)` | `ocr_jobs`, `ocr_extractions` | OCR pipeline joins |

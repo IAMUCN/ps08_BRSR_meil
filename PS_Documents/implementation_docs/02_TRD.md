@@ -292,7 +292,7 @@ Server Components and Server Actions handle most initial-load and mutation logic
 
 Internal API (Next.js frontend ↔ Next.js backend logic): **tRPC**, fully typed, no separate schema definition/maintenance.
 
-External-facing boundary (Python OCR worker ↔ app): a small set of plain **REST** endpoints/webhooks (since the worker is not TypeScript and cannot consume tRPC), plus direct, scoped Postgres access via the `document_jobs` table described in §11. This boundary is intentionally minimal — the worker's contract with the rest of the system is "read a pending job, write back extracted fields + confidence scores + status," nothing more.
+External-facing boundary (Python OCR worker ↔ app): **no REST endpoint or webhook exists between the worker and the app** — the boundary is entirely direct, scoped Postgres access (the `document_jobs` table, described in §11) plus Supabase Storage. The worker's contract with the rest of the system is "read a pending job, write back extracted fields + confidence scores + status," nothing more; the app never calls the worker directly, and the worker never calls the app directly (corrected per audit finding M6 — an earlier draft of this section described a REST/webhook boundary that was never actually specified anywhere in §23's pipeline or built in the implementation plan). The "retry a failed job" Admin action (OCR Monitoring page, `03_APP_FLOW.md` §2.2) works the same way: it re-sets the `document_jobs` row's status to `pending` via tRPC on the app side; the worker picks it up on its next poll, same as any other job — no direct call to the worker is required.
 
 No public, versioned, third-party-facing REST API is built for the MVP — out of scope per PRD §36 (no external integrations yet); the seam for one exists at the tRPC/REST boundary if needed later (see §42).
 
@@ -402,7 +402,7 @@ P1 (Should Have): email notifications via a transactional email provider (e.g., 
 - **Database:** Supabase Postgres connection pooling (PgBouncer, included) to handle concurrent access as user/project count grows; indexes on the organization-hierarchy foreign keys and reporting-period columns, since nearly every query filters by org scope and period (per `Master_Approach.md` §46 point 14).
 - **OCR worker:** stateless with respect to job assignment (any worker instance can pick up any pending job from `document_jobs`), so horizontal scaling is "run more worker instances," not an architecture change.
 - **App:** Vercel scales the Next.js app automatically; no action needed at hackathon/early-pilot scale.
-- **Organizational hierarchy:** modeled as a single self-referencing table (or a small set of tables) with a configurable depth, not a fixed number of hard-coded levels/tables per PRD §11 — adding a subsidiary or a new project is a data insert, not a schema change.
+- **Organizational hierarchy:** modeled as a single self-referencing table (or a small set of tables) with a configurable depth, not a fixed number of hard-coded levels/tables per PRD §11 — adding a subsidiary or a new project is a data insert, not a schema change. Consolidation roll-ups (§13/§24 below and `05_BACKEND_SCHEMA.md` §13) walk this tree generically, through however many levels a given deployment actually populates — no query hard-codes a fixed 5-level chain (corrected per audit finding C3).
 
 ---
 
@@ -457,10 +457,8 @@ DATABASE_URL=
 # OCR worker
 OCR_MODEL_PATH=
 OCR_WORKER_POLL_INTERVAL_MS=
-OCR_WORKER_INTERNAL_API_KEY=
 
-# App <-> worker boundary
-APP_WEBHOOK_SECRET=
+# (No app <-> worker REST/webhook secret — the boundary is DB/Storage-only, per §22, corrected per audit finding M6)
 
 # Error tracking
 SENTRY_DSN=

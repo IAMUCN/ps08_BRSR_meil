@@ -1099,15 +1099,23 @@ Recommended operational model:
 
 Consolidation hierarchy:
 
+Roll-up walks the full configured organizational hierarchy generically (Section 5), not a fixed subset of levels. For the reference 7-level hierarchy this is:
+
+    Department (where records exist at this level)
+      ->
     Site
       ->
     Project
+      ->
+    Region (pass-through if not populated between Business Unit and Project)
       ->
     Business Unit
       ->
     Subsidiary
       ->
     Organization / Group
+
+Region and Department are ordinary nodes in the same tree as every other level — a metric aggregates upward through every ancestor node between the record's own org unit and the root, whatever levels happen to exist in a given deployment's configured hierarchy. No document should name a fixed subset of levels as "the" consolidation chain; §5's hierarchy is the single definition.
 
 The same metric must be aggregatable at each level where applicable.
 
