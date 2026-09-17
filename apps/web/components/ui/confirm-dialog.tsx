@@ -35,11 +35,12 @@ export function ConfirmDialog({
   confirmLabel: string;
   destructive?: boolean;
   pending?: boolean;
-  requireReason?: { label: string };
+  requireReason?: { label: string; minLength?: number; hint?: string };
   onConfirm: (reason: string) => void;
 }) {
   const [reason, setReason] = useState("");
-  const reasonMissing = Boolean(requireReason) && reason.trim() === "";
+  const reasonMissing =
+    Boolean(requireReason) && reason.trim().length < (requireReason?.minLength ?? 1);
 
   return (
     <Dialog
@@ -70,6 +71,9 @@ export function ConfirmDialog({
               required
               className="w-full rounded-sm border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
+            {requireReason.hint ? (
+              <p className="text-xs leading-4 text-muted-foreground">{requireReason.hint}</p>
+            ) : null}
           </div>
         ) : null}
         <DialogFooter>

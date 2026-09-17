@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import type { ActiveSession } from "@/lib/auth/session";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
 import { uploadTargets } from "@/lib/documents/rules";
 import type { OrgNode } from "@/lib/org/rules";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/storage/evidence";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { permissionProcedure, router } from "@/lib/trpc/init";
+import { documentAccess } from "@/lib/verification/access";
 
 // Phase 5 document ingestion (.grill/phase-5-document-ingestion-decisions.md; SCHEMA_DEVIATIONS.md D3).
 // Bytes first, then rows: prepareUpload issues a signed upload URL, completeUpload re-reads the stored
@@ -169,6 +171,7 @@ async function duplicateWarnings(
   orgUnitId: string,
   periodId: string,
   metricId: string,
+  replacedRecordId: string | null = null,
 ): Promise<{ sameFile: boolean; existingRecords: number }> {
   // Organization-wide on purpose (same bill filed by two projects); the message never says where.
   const [{ same_file, existing_records }] = await sql<
@@ -178,7 +181,8 @@ async function duplicateWarnings(
       exists (select 1 from public.documents where file_hash = ${hash} and deleted_at is null) as same_file,
       (select count(*)::int from public.esg_records
         where org_unit_id = ${orgUnitId} and reporting_period_id = ${periodId}
-          and metric_id = ${metricId}) as existing_records`;
+          and metric_id = ${metricId}
+          and (${replacedRecordId}::uuid is null or id <> ${replacedRecordId})) as existing_records`;
   return { sameFile: same_file, existingRecords: existing_records };
 }
 
@@ -187,10 +191,76 @@ const fileInput = {
   metricId: z.uuid(),
   mimeType: z.string().max(100),
   acknowledgeDuplicates: z.boolean().default(false),
+  /** Re-uploading a clearer copy after a failed extraction (03_APP_FLOW.md §4.5). */
+  replacesDocumentId: z.uuid().optional(),
 };
+
+export type ReplacementTarget = {
+  documentId: string;
+  recordId: string;
+  fileName: string;
+  orgUnitId: string;
+  metricId: string;
+};
+
+/**
+ * The failed document this upload replaces, or null. Only a document whose extraction failed and whose
+ * record is still waiting can be replaced, and only by someone who could verify it.
+ */
+async function replacementTarget(
+  sql: Sql,
+  session: ActiveSession,
+  documentId: string | undefined,
+  expected?: { orgUnitId: string; metricId: string },
+): Promise<ReplacementTarget | null> {
+  if (!documentId) return null;
+  const access = await documentAccess(session, documentId);
+  if (!access?.canVerify) badRequest("That document can't be replaced.");
+  const [row] = await sql<
+    {
+      record_id: string;
+      file_name: string;
+      org_unit_id: string;
+      metric_id: string;
+      job_status: string | null;
+      verification_status: string;
+      data_quality_state: string;
+    }[]
+  >`
+    select r.id as record_id, d.file_name, r.org_unit_id, r.metric_id, j.status::text as job_status,
+           r.verification_status::text, r.data_quality_state::text
+    from public.documents d
+    join public.esg_record_documents erd on erd.document_id = d.id and erd.is_primary
+    join public.esg_records r on r.id = erd.esg_record_id
+    left join public.ocr_jobs j on j.document_id = d.id
+    where d.id = ${documentId} and d.deleted_at is null`;
+  if (!row) badRequest("That document can't be replaced.");
+  if (
+    row.job_status !== "failed" ||
+    row.verification_status !== "document_uploaded" ||
+    row.data_quality_state === "rejected"
+  ) {
+    badRequest("That document no longer needs replacing.");
+  }
+  if (expected && (row.org_unit_id !== expected.orgUnitId || row.metric_id !== expected.metricId)) {
+    badRequest("A replacement must be for the same project and activity.");
+  }
+  return {
+    documentId,
+    recordId: row.record_id,
+    fileName: row.file_name,
+    orgUnitId: row.org_unit_id,
+    metricId: row.metric_id,
+  };
+}
 
 export const documentsRouter = router({
   uploadOptions: upload.query(({ ctx }) => loadUploadOptions(db(), ctx.session.userId)),
+
+  /** Context for "re-upload a clearer copy" (03_APP_FLOW.md §4.5): which failed document is replaced. */
+  replacementInfo: upload
+    .input(z.object({ documentId: z.uuid() }))
+    .query(({ ctx, input }) => replacementTarget(db(), ctx.session, input.documentId)),
 
   prepareUpload: upload
     .input(
@@ -206,6 +276,10 @@ export const documentsRouter = router({
       if (!options.openPeriod) badRequest(NO_PERIOD);
       const { target, metric } = resolveTarget(options, input.orgUnitId, input.metricId);
       checkDeclaredFile(metric, input.fileSize, input.mimeType);
+      const replaces = await replacementTarget(sql, ctx.session, input.replacesDocumentId, {
+        orgUnitId: input.orgUnitId,
+        metricId: input.metricId,
+      });
 
       const warnings = await duplicateWarnings(
         sql,
@@ -213,6 +287,7 @@ export const documentsRouter = router({
         input.orgUnitId,
         options.openPeriod.id,
         input.metricId,
+        replaces?.recordId ?? null,
       );
       if ((warnings.sameFile || warnings.existingRecords > 0) && !input.acknowledgeDuplicates) {
         return {
@@ -310,12 +385,17 @@ export const documentsRouter = router({
           if (current.openPeriod?.id !== input.reportingPeriodId) badRequest(NO_PERIOD);
           const { target } = resolveTarget(current, input.orgUnitId, input.metricId);
 
+          const replaces = await replacementTarget(tx, ctx.session, input.replacesDocumentId, {
+            orgUnitId: input.orgUnitId,
+            metricId: input.metricId,
+          });
           const warnings = await duplicateWarnings(
             tx,
             fileHash,
             input.orgUnitId,
             input.reportingPeriodId,
             input.metricId,
+            replaces?.recordId ?? null,
           );
           if ((warnings.sameFile || warnings.existingRecords > 0) && !input.acknowledgeDuplicates) {
             // Keep the uploaded bytes: the user can acknowledge and complete without re-uploading.
@@ -339,10 +419,11 @@ export const documentsRouter = router({
           await tx`
             insert into public.documents (
               id, org_unit_id, reporting_period_id, storage_path, file_name, mime_type,
-              file_size_bytes, file_hash, uploaded_by
+              file_size_bytes, file_hash, uploaded_by, related_document_id
             ) values (
               ${input.documentId}, ${input.orgUnitId}, ${input.reportingPeriodId}, ${path},
-              ${input.fileName}, ${content.mimeType}, ${bytes.length}, ${fileHash}, ${userId}
+              ${input.fileName}, ${content.mimeType}, ${bytes.length}, ${fileHash}, ${userId},
+              ${replaces?.documentId ?? null}
             )`;
           const [record] = await tx<{ id: string }[]>`
             insert into public.esg_records (
@@ -358,6 +439,26 @@ export const documentsRouter = router({
             values (${record.id}, ${input.documentId}, true, ${userId})`;
           const [job] = await tx<{ id: string }[]>`
             insert into public.ocr_jobs (document_id) values (${input.documentId}) returning id`;
+
+          if (replaces) {
+            // The replaced record closes in the same transaction, so a failed upload can never leave a
+            // half-done replacement (.grill/phase-7-ocr-verification-decisions.md).
+            await tx`
+              update public.esg_records set data_quality_state = 'rejected'
+              where id = ${replaces.recordId}`;
+            await writeAudit(tx, {
+              eventType: "verification.rejected",
+              entityType: "esg_record",
+              entityId: replaces.recordId,
+              userId,
+              reason: `Replaced by ${input.fileName}`,
+              oldValue: { document_id: replaces.documentId, file_name: replaces.fileName },
+              newValue: {
+                data_quality_state: "rejected",
+                replacement_document_id: input.documentId,
+              },
+            });
+          }
 
           await writeAudit(tx, {
             eventType: "document.uploaded",
@@ -377,6 +478,7 @@ export const documentsRouter = router({
               is_duplicate_flag: warnings.sameFile,
               existing_records_for_period: warnings.existingRecords,
               duplicates_acknowledged: warnings.sameFile || warnings.existingRecords > 0,
+              replaces_document_id: replaces?.documentId ?? null,
             },
           });
           return {

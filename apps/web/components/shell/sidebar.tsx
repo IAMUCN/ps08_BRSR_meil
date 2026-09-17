@@ -3,7 +3,9 @@
 import {
   Building2,
   CalendarRange,
+  FileStack,
   LayoutDashboard,
+  ScanText,
   ShieldCheck,
   Upload,
   UserRound,
@@ -25,6 +27,8 @@ const ICONS = {
   periods: CalendarRange,
   profile: UserRound,
   upload: Upload,
+  submissions: FileStack,
+  ocr: ScanText,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;

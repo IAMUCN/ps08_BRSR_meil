@@ -15,7 +15,7 @@ from psycopg.types.json import Jsonb
 
 from worker.config import STALE_PROCESSING_MINUTES
 from worker.errors import LostClaim
-from worker.extraction.fields import ExtractedField, FieldSpec
+from worker.extraction.fields import ExtractedField, FieldSpec, fields_needing_attention
 
 
 @dataclass(frozen=True)
@@ -96,10 +96,11 @@ def load_context(conn: psycopg.Connection, document_id: UUID) -> JobContext:
     fields, types = [], {}
     if doc["metric_id"]:
         fields = [
-            FieldSpec(r["field_key"], r["field_label"], r["data_type"])
+            FieldSpec(r["field_key"], r["field_label"], r["data_type"], r["is_required"])
             for r in conn.execute(
                 """
-                select field_key, field_label, data_type::text from public.metric_field_requirements
+                select field_key, field_label, data_type::text, is_required
+                from public.metric_field_requirements
                 where metric_id = %s order by field_key
                 """,
                 (doc["metric_id"],),
@@ -127,6 +128,30 @@ def _audit(conn, event_type: str, entity_type: str, entity_id, new_value: dict) 
         """,
         (event_type, entity_type, entity_id, Jsonb(new_value)),
     )
+
+
+def _notify(conn, document_id: UUID, kind: str, title: str, message: str) -> None:
+    """The uploader's outcome notification, written in the outcome's own transaction. Deep-links to
+    Verify Extraction (App Flow §0.2); `message` follows the file name."""
+    conn.execute(
+        """
+        insert into public.notifications
+          (user_id, type, title, message, related_entity_type, related_entity_id, deep_link_path)
+        select uploaded_by, %s, %s, file_name || %s, 'document', id, '/app/verify/' || id
+        from public.documents where id = %s
+        """,
+        (kind, title, message, document_id),
+    )
+
+
+def _confidence_threshold(conn) -> float | None:
+    row = conn.execute(
+        """
+        select (value #>> '{}')::float as threshold from public.org_settings
+        where key = 'ocr_confidence_threshold'
+        """
+    ).fetchone()
+    return row["threshold"] if row else None
 
 
 def _finish_job(conn, job: ClaimedJob, status: str, model_version: str | None, error: str | None):
@@ -194,6 +219,26 @@ def complete_job(
             """,
             (context.esg_record_id,),
         )
+        threshold = _confidence_threshold(conn)
+        attention = fields_needing_attention(fields, context.fields, threshold)
+        if attention:
+            count = f"{len(attention)} field{'s' if len(attention) > 1 else ''}"
+            needs = "needs" if len(attention) == 1 else "need"
+            _notify(
+                conn,
+                job.document_id,
+                "low_confidence",
+                "Low-confidence extraction",
+                f": {count} {needs} your attention before you confirm.",
+            )
+        else:
+            _notify(
+                conn,
+                job.document_id,
+                "verification_needed",
+                "Ready for verification",
+                " is ready for verification.",
+            )
         _audit(
             conn,
             "ocr.document_processed",
@@ -206,6 +251,8 @@ def complete_job(
                 "document_type": document_type,
                 "fields_found": sum(1 for f in fields if f.value is not None),
                 "fields_missing": [f.key for f in fields if f.value is None],
+                "confidence_threshold": threshold,
+                "fields_needing_attention": attention,
                 "attempt": job.retry_count + 1,
             },
         )
@@ -227,6 +274,7 @@ def fail_job(conn: psycopg.Connection, job: ClaimedJob, message: str) -> None:
             job.document_id,
             {"ocr_job_id": str(job.id), "error_message": message, "attempts": job.retry_count + 1},
         )
+        _notify(conn, job.document_id, "ocr_failed", "Extraction failed", f": {message}")
 
 
 def requeue_job(conn: psycopg.Connection, job: ClaimedJob, message: str) -> None:

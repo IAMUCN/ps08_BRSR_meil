@@ -88,6 +88,56 @@ Decisions: `.grill/phase-5-document-ingestion-decisions.md`.
 - **Duplicate warnings** are an inline panel with "Upload anyway" (not a modal — a warning to acknowledge,
   not a hard-to-reverse action, UI brief §15.4). Only an identical file sets `is_duplicate_flag`; an
   existing record for the same project + period + metric is a warning only.
-- **After success** the user returns to the Dashboard; My Submissions arrives in Phase 6.
+- **After success** the user returns to the Dashboard; My Submissions arrives in Phase 6 (from Phase 6
+  the user lands on My Submissions → Processing).
 - **Limits and checks.** 50 MB maximum shown on the drop zone; type detected from file content;
   truncated files and password-protected PDFs are rejected at upload.
+
+## A7 — Phase 6 OCR status, notifications and monitoring
+
+Decisions: `.grill/phase-6-ocr-integration-decisions.md`.
+
+- **Verify Extraction placeholder** (replaced by the real screen in Phase 7, see A8). Unknown or
+  out-of-scope ids redirect to `/app` with "You don't have access to that page" (§4.4).
+- **My Submissions** lists the user's own records for the open period plus older ones still in progress.
+  OCR failures sit under **Needs Verification** with an "Extraction Failed" badge and the reason (§4.5);
+  there is no separate Failed tab. The default tab is Needs Verification; after an upload the user lands
+  on Processing. Row links open Verify Extraction only for Needs Verification rows (record detail views
+  come later).
+- **Live updates by polling**, not Realtime: the bell every 30 s and on window focus; My Submissions, OCR
+  Monitoring and the verify placeholder every 15 s while a job is still running.
+- **OCR Monitoring health banner** uses the oldest waiting job (more than 5 minutes) instead of a worker
+  heartbeat, which the schema doesn't have. Retry is offered only for failed jobs whose record still
+  waits for extraction, and gives the job fresh attempts.
+- **Admin notifications.** The Admin top bar has the bell dropdown without "View all" (§2.3: no separate
+  Admin notifications page).
+- **Dashboard.** "Documents to verify" is now a real count linking to Needs Verification; "Returned for
+  correction" stays a labeled placeholder until validation and approval exist.
+
+## A8 — Phase 7 Verify Extraction
+
+Decisions: `.grill/phase-7-ocr-verification-decisions.md`.
+
+- **Reporting period is read-only** on Verify Extraction, shown beside the extracted billing period so a
+  mismatch is visible. §0.4 calls the period "editable"; with one open period there is nothing valid to
+  change it to, and moving a record into a closed period would bypass period close. Phase 8's period check
+  flags a mismatch instead.
+- **After Confirm** the record is `user_verified` with validation still `pending`, so My Submissions shows
+  it under **Processing** with a "Validation Pending" badge until Phase 8 runs validation. App Flow's
+  "record now shows Validated or Flagged" arrives with that phase.
+- **Invoice-number duplicates** are warned about here (acknowledged before Confirm, re-checked on the
+  server) per §2.3; the flag and validation result stay in Phase 8 as the plan places them.
+- **Manual exception values** are stored as `ocr_fields` under an `ocr_extractions` row marked
+  `raw_output.source = "manual_exception"` (no OCR value, no confidence), so validation and lineage read
+  manual and extracted values the same way. `verifications.is_manual_exception` is true and
+  `ocr_extraction_id` null, as schema §9.3 specifies.
+- **Re-upload a clearer copy** pre-fills Upload (`/app/upload?replaces=<documentId>`) and, when the new
+  upload completes, closes the failed record as rejected with "Replaced by <file>" and links the new
+  document through `documents.related_document_id`, all in the same transaction.
+- **Disabled Confirm explains itself with visible helper text** rather than a hover tooltip (the brief's
+  §12.2 tooltip): disabled buttons receive neither hover nor focus, so a tooltip would be unreachable.
+- **Evidence bytes** are served by `/api/documents/[documentId]/file`, which re-checks the session and org
+  scope on every request (private, no-store, sandboxed). No signed URL that works without a session is
+  ever handed to the browser.
+- **Rows in every My Submissions tab** link to `/app/verify/[documentId]`, which shows a read-only summary
+  once a record is verified or rejected; a dedicated record-detail view comes later.

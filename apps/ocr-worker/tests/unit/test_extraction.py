@@ -2,7 +2,14 @@
 
 import unittest
 
-from worker.extraction.fields import FieldSpec, TextLine, classify, extract_fields
+from worker.extraction.fields import (
+    ExtractedField,
+    FieldSpec,
+    TextLine,
+    classify,
+    extract_fields,
+    fields_needing_attention,
+)
 
 DIESEL_FIELDS = [
     FieldSpec("quantity", "Quantity", "number"),
@@ -116,6 +123,40 @@ class ExtractFieldsTest(unittest.TestCase):
                 "billing_period": "01/08/2026 to 31/08/2026",
                 "source_classification": None,
             },
+        )
+
+
+class FieldsNeedingAttentionTest(unittest.TestCase):
+    SPECS = [
+        FieldSpec("consumption", "Consumption", "number"),
+        FieldSpec("source_classification", "Source classification", "text", required=False),
+        FieldSpec("billing_period", "Billing period", "text"),
+    ]
+
+    def fields(self, **values):
+        return [
+            ExtractedField(key, key, value, confidence)
+            for key, (value, confidence) in values.items()
+        ]
+
+    def test_low_confidence_and_missing_required_fields_count(self):
+        fields = self.fields(
+            consumption=("102430", 79.9),
+            source_classification=(None, None),  # optional: missing is fine
+            billing_period=(None, None),  # required: missing needs attention
+        )
+        self.assertEqual(
+            fields_needing_attention(fields, self.SPECS, 80), ["consumption", "billing_period"]
+        )
+
+    def test_threshold_is_inclusive(self):
+        fields = self.fields(consumption=("1", 80.0), billing_period=("Aug", 99.0))
+        self.assertEqual(fields_needing_attention(fields, self.SPECS, 80), [])
+
+    def test_no_configured_threshold_flags_every_found_field(self):
+        fields = self.fields(consumption=("1", 99.0), billing_period=("Aug", 99.0))
+        self.assertEqual(
+            fields_needing_attention(fields, self.SPECS, None), ["consumption", "billing_period"]
         )
 
 
