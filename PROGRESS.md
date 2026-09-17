@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-17 — Phase 5 complete, awaiting commit._
+_Last updated: 2026-09-17 — Phase 2B complete, awaiting commit._
 
 ---
 
@@ -32,11 +32,11 @@ Big rules that shape everything:
 | `ps_documents/implementation_docs/` | **The specification** — read-only. Authority order: `Master_Approach.md` → `01_PRD` → `02_TRD` → `03_APP_FLOW` → `04_UI_UX_DESIGN_BRIEF` → `05_BACKEND_SCHEMA` → `06_IMPLEMENTATION_PLAN`, plus its `.grill/` decision records |
 | `.grill/` (repo root) | Decisions made **during implementation**, one file per phase |
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
-| `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — dependencies only so far |
+| `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket (`0001`–`0012`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements (`0001`–`0013`) |
 | `supabase/tests/database/` | pgTAP database tests |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D10) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D12) |
 | `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A6) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -50,11 +50,11 @@ may run in parallel with Phases 3–5.
 | — | Documentation consistency fixes | Done | `1be9a13` |
 | 1 | Project setup | Done | `aedd96a` |
 | 2 | Database | Done | `494a3a4` |
-| 2B | OCR worker development (Track B) | **Next** — not started (venv + `requirements.txt` only) | — |
+| 2B | OCR worker development (Track B) | **Done, not yet committed** | — |
 | 3 | Authentication and authorization | Done | `47fcc17` |
 | 4 | Organization and Admin foundation | Done | `1594389` |
-| 5 | Document ingestion | **Done, not yet committed** | — |
-| 6 | OCR pipeline integration | Waiting on 2B | — |
+| 5 | Document ingestion | Done | `1df74c8` |
+| 6 | OCR pipeline integration | **Next** | — |
 | 7 | OCR verification | Not started | — |
 | 8 | Validation engine | Not started | — |
 | 9 | Calculation engine | Not started | — |
@@ -116,29 +116,48 @@ layers (D9), `provision-user` script for the first Admin.
 - Checks: unit 16/16, DB 55/55, API end-to-end 67/67, browser (Edge) 19/19, Phase 4 regression 82/82 and
   21/21, build passes, clean `db reset` applies all migrations.
 
+**Phase 2B — OCR worker.** Decisions: `.grill/phase-2b-ocr-worker-decisions.md`.
+- `python -m worker` polls `ocr_jobs` (`for update skip locked`), downloads the file from the private
+  bucket, renders PDFs (pypdfium2), runs PaddleOCR (PP-OCRv5 mobile det + English mobile rec, CPU, models
+  pre-downloaded from Hugging Face by `scripts/download_models.py`).
+- Deterministic extraction: *which* fields come from `metric_field_requirements` (seeded early, migration
+  `0013`, D12); *how* is `worker/extraction/profiles.py` (label synonyms, value patterns, same line / right /
+  below). Missing fields are stored as null, never guessed. Confidence = recognition score (0–100).
+- Classification among the metric's mapped document types by keyword score (sets `document_type_id` only
+  when clear).
+- One transaction per outcome with system audit entries: extraction + fields, job `completed`, document
+  `ready`, record `document_uploaded → ocr_completed` (D11). Never verification/validation/calculation.
+- Failures: unreadable/empty/missing file → `failed` with a user-readable reason; transient errors retry
+  up to 3 attempts; stale `processing` jobs (15 min) reclaimed; claim token prevents double writes.
+- JSON logs, Sentry when `SENTRY_DSN` is set. oneDNN disabled (PaddlePaddle 3.3.1 bug), detector input
+  capped at 1600 px (~10 s per A4 page on a laptop CPU).
+- Checks: unit 9/9 (also in CI), integration harness 8/8 on generated synthetic documents (exact values for
+  a table-layout diesel PDF, an electricity bill PNG and a rotated/noisy scan JPG; corrupted, blank and
+  missing files; retries; stale reclaim; concurrent claims; lost claim), DB 58/58, and a real web upload
+  processed by `python -m worker --once` end to end.
+
 ## 4. What comes next
 
-**Phase 2B — OCR worker** (`06_IMPLEMENTATION_PLAN.md` §Phase 2B) is next, because Phase 6 needs both
-Track A (done through Phase 5) and Track B. It builds `apps/ocr-worker`: poll `ocr_jobs` for `pending`
-rows (`for update skip locked`), download the file from the private `evidence` bucket with the service
-role, run PaddleOCR, write `ocr_extractions` + `ocr_fields` with per-field confidence, mark the job
-`completed` or `failed` with an error message, plus a standalone test harness.
+**Phase 6 — OCR pipeline integration** (`06_IMPLEMENTATION_PLAN.md` §Phase 6) — both tracks are done:
+- Worker deployment config (Dockerfile or platform config) with model weights baked into the image
+  (`scripts/download_models.py` at build time), pointed at the same Supabase project as the app.
+- Prove real uploads reach `completed` with no manual steps (already works locally with `--once`).
+- `ocr_jobs.status` as badges on **My Submissions** (`/app/submissions`, not built yet), notification on
+  completion deep-linking to Verify Extraction, and the Admin **OCR Monitoring** page with retry.
+- tRPC: `ocr.status`, `notifications.list`.
 
-Things to remember for Phase 2B:
-- **Synthetic sample documents only** (a synthetic diesel invoice and electricity bill) until Phase 18.
-- Model weights are baked into the worker image, never fetched at runtime (TRD §35).
-- The worker never marks anything verified — extraction only.
-- Real `pending` jobs already exist locally from Phase 5 uploads (`documents.storage_path` gives the object).
-
-**Phase 6 — OCR pipeline integration** follows: real uploads flow into the worker, and OCR status shows
-as badges on My Submissions.
+Things to remember for Phase 6:
+- The OCR confidence threshold (`org_settings`) starts to matter from here (display), and Phase 7 uses it.
+- Retry from OCR Monitoring = set the job back to `pending` (TRD §22); the worker picks it up.
+- Local jobs from the Phase 5 tests already failed with reasons — useful data for the monitoring page.
+- The notification bell and My Submissions were deferred in A5; they arrive in this phase.
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (Mumbai, development only):** migrations `0001`–`0012` and auth settings are not pushed.
+- **Hosted Supabase (Mumbai, development only):** migrations `0001`–`0013` and auth settings are not pushed.
   Needs the project owner to run `supabase login` and `supabase link`, then a reviewed `supabase db push`.
 - **Email:** configure custom SMTP (Resend) before inviting anyone outside the Supabase team.
-- **CI:** database tests (`pnpm db:test`) run locally only.
+- **CI:** database tests (`pnpm db:test`) and the OCR integration harness run locally only.
 - **Deferred by design:** org/period context switcher and notification bell (with their data phases),
   theme switcher and Theme 2/3 contrast sweep (Phase 19), CSRF review of the tRPC endpoint — currently
   relies on SameSite=Lax cookies (Phase 18).
@@ -174,6 +193,8 @@ as badges on My Submissions.
   Project X Site 1 (`PRJ-X-S1`); open period "September 2026".
 - Local users are created with `pnpm --filter web provision-user` and need re-creating after `pnpm db:reset`.
 - Start Supabase with `storage-api` running (uploads need it); `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence`.
+- OCR worker: `apps/ocr-worker/.venv` (Python 3.12), `.env` copied from `apps/web/.env.local`, models in
+  `apps/ocr-worker/models/`; `python -m worker --once` processes the local queue.
 
 ## How to update this file
 

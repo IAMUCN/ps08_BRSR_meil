@@ -2,3 +2,7 @@
 # PaddlePaddle publishes no wheels for Python 3.14. CPU build only (TRD §38: no GPU).
 paddlepaddle==3.3.1
 paddleocr==3.7.0
+# Postgres job queue access (TRD §11)
+psycopg[binary]==3.3.5
+# Error tracking (TRD §19); a no-op when SENTRY_DSN is empty
+sentry-sdk==2.69.2

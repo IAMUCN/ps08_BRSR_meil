@@ -6,9 +6,10 @@ original evidence.
 
 > **Status:** Phases 1–5 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
 > database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
-> users and assignments, roles and permissions, reporting periods, profile) and document upload. OCR,
-> verification, calculation and reporting are not implemented yet (uploaded documents wait in a pending
-> OCR queue); dashboard KPIs are labeled development placeholders until Phase 16. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
+> users and assignments, roles and permissions, reporting periods, profile), document upload, and the
+> standalone OCR worker (Phase 2B; run locally, not yet deployed or surfaced in the UI). Verification,
+> calculation and reporting are not implemented yet; dashboard KPIs are labeled development placeholders
+> until Phase 16. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
 
@@ -120,8 +121,13 @@ Notes:
 
 ## OCR worker (`apps/ocr-worker`)
 
-The worker's Python dependencies are listed in **`apps/ocr-worker/requirements.txt`** (PaddlePaddle +
-PaddleOCR, pinned). Development tooling (Ruff) is in `requirements-dev.txt`.
+A standalone Python process that picks up pending OCR jobs, reads the evidence file from private Storage,
+runs PaddleOCR (PP-OCRv5 mobile, English, CPU) and writes confidence-scored field extractions back. It
+**extracts only** — nothing is verified, validated or calculated by the worker. It talks to the app only
+through the shared database and Storage (TRD §22). Decisions: `.grill/phase-2b-ocr-worker-decisions.md`.
+
+The worker's Python dependencies are listed in **`apps/ocr-worker/requirements.txt`** (PaddlePaddle,
+PaddleOCR, psycopg, sentry-sdk — pinned). Development tooling (Ruff) is in `requirements-dev.txt`.
 
 ### Using `requirements.txt`
 
@@ -177,13 +183,47 @@ PaddleOCR, pinned). Development tooling (Ruff) is in `requirements-dev.txt`.
 To add or upgrade a Python dependency, pin its exact version in `requirements.txt`, reinstall with step 4,
 and commit the updated file. The `.venv/` folder is git-ignored and must never be committed.
 
-OCR model weights are **not** part of `requirements.txt`; they are downloaded and baked into the worker
-image in Phase 2B (TRD §10, §35).
+### Model weights, running and testing
+
+OCR model weights are **not** part of `requirements.txt` or git. Download them once from the Hugging Face
+Hub into `OCR_MODEL_PATH` (default `apps/ocr-worker/models/`, git-ignored); the worker never downloads
+models at runtime (TRD §35):
+
+```bash
+python scripts/download_models.py
+```
+
+For local development, fill `.env` from `apps/web/.env.local` (`NEXT_PUBLIC_SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET_EVIDENCE`, `DATABASE_URL`). Then, with local Supabase
+running:
+
+```bash
+python -m worker          # poll for jobs forever (Ctrl+C stops after the current job)
+python -m worker --once   # process every waiting job, then exit
+
+python -m unittest discover -s tests/unit -t .          # extraction rules (no Paddle needed; runs in CI)
+python -m unittest discover -s tests/integration -t .   # full harness: real OCR on generated synthetic
+                                                        # documents against local Supabase (~1.5 min)
+```
+
+Notes:
+
+- **Which fields** are extracted comes from `metric_field_requirements`; **how** they are found (label
+  synonyms, value patterns) is in `worker/extraction/profiles.py`. Bump `EXTRACTOR_VERSION` when a rule
+  changes — it is stored with every extraction.
+- Failures: unreadable or empty files fail immediately with a user-readable reason; storage, database and
+  model errors retry up to 3 attempts; a job stuck in `processing` for 15 minutes is reclaimed.
+- Logs are JSON lines on stdout; errors go to Sentry when `SENTRY_DSN` is set.
+- PaddlePaddle 3.3.1's oneDNN (MKLDNN) path fails on these models, so it is disabled; the detector input is
+  capped at 1600 px to bound memory and CPU time (about 10 s per A4 page on a laptop CPU).
+- Test documents are generated synthetically at test time (`tests/samples.py`) — no real MEIL documents
+  until Phase 18.
 
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and push to `main`:
-lint, typecheck, unit tests and format check for the web app, and Ruff for the OCR worker. Database tests
+lint, typecheck, unit tests and format check for the web app, and Ruff plus the extraction unit tests for
+the OCR worker. Database tests
 (`pnpm db:test`) run locally only for now. There is no deploy step yet.
 
 ## Secrets

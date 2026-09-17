@@ -24,7 +24,7 @@ jobs:
       - run: pnpm format:check
 
   ocr-worker:
-    name: OCR worker (ruff)
+    name: OCR worker (ruff + extraction unit tests)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -38,3 +38,6 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
       - run: ruff format --check .
+      # Pure-Python extraction rules only; the PaddleOCR integration harness needs Supabase + models
+      # and runs locally (python -m unittest discover -s tests/integration -t .).
+      - run: python -m unittest discover -s tests/unit -t .

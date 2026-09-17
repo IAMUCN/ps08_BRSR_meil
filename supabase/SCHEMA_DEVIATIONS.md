@@ -163,6 +163,34 @@ Phase 6 "reporting deadline approaching" notification and Control Tower missing-
 Automatic scheduling was rejected (no scheduler component; collides with the single-open-period
 constraint) — `.grill/phase-4-admin-foundation-decisions.md`.
 
+## D11 — The OCR worker is a second trusted server-side writer (Phase 2B)
+
+**D1 says:** lifecycle mutations run in server-side tRPC procedures.
+
+**Implemented:** the Python OCR worker (`apps/ocr-worker`, service connection) also writes, within a
+narrow, fixed scope and always with its audit entries in the same transaction (`user_id` null — system
+events, Master Approach §31):
+
+- `ocr_jobs` claim/status/retry/error fields; `ocr_extractions` and `ocr_fields` (extracted values and
+  confidence only — never `verified_value`, `verification_status` or `verified_by`);
+- `documents.upload_status` (processing → ready | failed) and `documents.document_type_id` when the
+  document is confidently classified among the types mapped to its metric;
+- `esg_records.verification_status` from `document_uploaded` to `ocr_completed` only (guarded by the
+  current state). Validation, approval, calculation and activity-value columns are never touched.
+
+**Why:** TRD §22 makes the worker ↔ app boundary the shared tables — there is no endpoint to call — and
+Phase 7 needs `document_type_id` and a completed record state after OCR. Decision:
+`.grill/phase-2b-ocr-worker-decisions.md`.
+
+## D12 — `metric_field_requirements` seeded early (migration `0013`)
+
+**Plan says:** field requirements are seeded in Phases 10 (Diesel) and 11 (Grid Electricity).
+
+**Implemented:** the Diesel (quantity, unit, invoice_number, billing_period) and Grid Electricity
+(consumption, unit, billing_period, optional source_classification) rows are seeded in Phase 2B, with the
+field keys named in the plan, so the OCR worker reads *which* fields to extract from configuration.
+`is_critical` is left false for Phases 10–11 to decide.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

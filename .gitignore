@@ -19,6 +19,8 @@ next-env.d.ts
 __pycache__/
 *.py[cod]
 .ruff_cache/
+# OCR model weights are downloaded (scripts/download_models.py), never committed
+apps/ocr-worker/models/
 
 # Testing
 coverage/
