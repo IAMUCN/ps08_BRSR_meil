@@ -62,15 +62,26 @@ violating Master Approach §31 ("Admin modified configuration") and PRD §39.
 
 **Schema says (§16.3):** `documents_insert` is a client RLS insert policy.
 
-**Implemented:** no client insert on `documents`, `esg_record_documents` or `ocr_jobs`. The Phase 5
-upload procedure verifies scope, role/category, and the open reporting period; creates `documents`,
-`ocr_jobs`, `esg_records` and `esg_record_documents` plus the audit entry in one transaction; and
-returns a short-lived signed upload URL for the private path
-`evidence/{org_unit_id}/{reporting_period_id}/{document_id}/original.{ext}` (§15). File bytes go from
-the browser directly to Storage; the bucket stays private.
+**Implemented:** no client insert on `documents`, `esg_record_documents` or `ocr_jobs`. Uploads run in
+two server procedures, **bytes first, then rows** (amended in Phase 5,
+`.grill/phase-5-document-ingestion-decisions.md`):
+
+1. `documents.prepareUpload` verifies scope, role/category, the open reporting period, declared size and
+   type, and duplicate warnings, then returns a signed upload URL for the private path
+   `evidence/{org_unit_id}/{reporting_period_id}/{document_id}/original.{ext}` (§15). File bytes go from
+   the browser directly to Storage.
+2. `documents.completeUpload` re-reads the stored object, recomputes SHA-256, checks the file structure
+   and real type, re-checks scope/category/period under shared advisory locks, then creates `documents`,
+   `esg_records`, `esg_record_documents`, `ocr_jobs` and the audit entry in one transaction. Rejected
+   bytes are removed from Storage.
+
+The bucket (migration `0012`) is private, limited to 50 MB and PDF/JPG/PNG, and has no `storage.objects`
+policies for clients.
 
 **Why:** one upload spans several tables and an audited event (Master §31 "User uploaded document");
-a lone client `documents` insert cannot be atomic with them.
+a lone client `documents` insert cannot be atomic with them. Creating rows only after the bytes are
+verified means an OCR job never points at a missing or corrupted file. The originally planned order
+(rows first, then the signed URL) left orphan jobs whenever an upload was cancelled or failed.
 
 ## D4 — Notifications
 

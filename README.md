@@ -4,11 +4,11 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–4 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
-> database schema with RLS, authentication/authorization, and the Admin foundation (organization
-> hierarchy, users and assignments, roles and permissions, reporting periods, profile). No ESG workflows
-> (upload, OCR, calculation, reporting) are implemented yet; dashboard KPIs are labeled development
-> placeholders until Phase 16. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
+> **Status:** Phases 1–5 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
+> users and assignments, roles and permissions, reporting periods, profile) and document upload. OCR,
+> verification, calculation and reporting are not implemented yet (uploaded documents wait in a pending
+> OCR queue); dashboard KPIs are labeled development placeholders until Phase 16. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
 
@@ -72,10 +72,11 @@ pnpm db:test    # run the database smoke tests (supabase/tests/database)
 pnpm db:stop    # stop the local stack
 ```
 
-To save memory you can skip services the database work doesn't need:
+To save memory you can skip services the app doesn't use yet. Keep `storage-api` running — document upload
+needs it:
 
 ```bash
-pnpm exec supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor
+pnpm exec supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,supavisor
 ```
 
 Notes:
@@ -87,6 +88,9 @@ Notes:
 - **Hosted project:** migrations are applied to the hosted development project (Mumbai) only as an
   explicit, reviewed step (`supabase login` → `supabase link` → `supabase db push`), never automatically.
 - **Real data:** use **synthetic documents only until Phase 18** (audit and security hardening).
+- **Evidence storage:** migration `0012` creates the private `evidence` bucket (50 MB, PDF/JPG/PNG). Set
+  `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence` in `apps/web/.env.local`. Files are never publicly readable;
+  uploads use short-lived signed URLs issued by the server.
 
 ## Accounts and sign-in
 

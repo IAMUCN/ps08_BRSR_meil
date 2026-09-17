@@ -1,6 +1,9 @@
-import { CalendarRange, FileSearch, FolderX, RotateCcw } from "lucide-react";
+import { CalendarRange, FileSearch, FolderX, RotateCcw, Upload } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
+import { Button } from "@/components/ui/button";
 import { NoticeToast } from "@/components/shell/notice-toast";
 import { requireAppSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
@@ -15,7 +18,7 @@ function formatDate(iso: string) {
   });
 }
 
-// UI brief §20: task-card-first. Tasks arrive with upload/verification (Phases 5–7).
+// UI brief §20: task-card-first. Task counts need OCR results and verification (Phases 6–7).
 const TASK_CARDS = [
   { title: "Documents to verify", icon: FileSearch },
   { title: "Returned for correction", icon: RotateCcw },
@@ -29,14 +32,14 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
   // §2.3 empty state: a valid account with no assignment is not an error.
   if (workAssignments.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
+      <>
         <NoticeToast notice={notice} />
-        <FolderX className="size-12 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-        <h1 className="text-xl leading-7 font-semibold">No projects assigned</h1>
-        <p className="max-w-sm text-sm leading-5 text-muted-foreground">
-          You haven&apos;t been assigned to a project yet — contact your Admin.
-        </p>
-      </div>
+        <EmptyState
+          icon={FolderX}
+          title="No projects assigned"
+          message="You haven't been assigned to a project yet — contact your Admin."
+        />
+      </>
     );
   }
 
@@ -45,7 +48,20 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
   return (
     <div className="max-w-5xl space-y-6">
       <NoticeToast notice={notice} />
-      <PageHeader title="Dashboard" />
+      {/* UI brief §20: the Upload CTA is the most prominent element on the user dashboard. */}
+      <PageHeader
+        title="Dashboard"
+        action={
+          session.permissions.includes("document.upload") ? (
+            <Button asChild size="lg" className="h-11 px-5 text-base">
+              <Link href="/app/upload">
+                <Upload aria-hidden />
+                Upload Document
+              </Link>
+            </Button>
+          ) : null
+        }
+      />
 
       <section aria-labelledby="period-heading" className="rounded-md border bg-card p-4">
         <div className="flex items-center gap-2">
@@ -82,7 +98,7 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
               —
             </p>
             <p className="mt-1 text-xs leading-4 text-muted-foreground">
-              Development placeholder — tasks arrive with document upload (Phase 5)
+              Development placeholder — tasks arrive with OCR verification (Phases 6–7)
             </p>
           </div>
         ))}

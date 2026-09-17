@@ -75,3 +75,19 @@ Decisions: `.grill/phase-4-admin-foundation-decisions.md`.
   modals carry the colored modal-header bar (§11.5).
 - **Profile pages.** `/admin/profile` and `/app/profile` (display name, password change requiring the
   current password, which signs out other sessions).
+
+## A6 — Phase 5 Upload Document
+
+Decisions: `.grill/phase-5-document-ingestion-decisions.md`.
+
+- **"Select ESG activity/category"** is one picker of metrics grouped by category (`esg_records.metric_id`
+  is required). A **Project / site** picker appears only when the user can upload to more than one node
+  (their assigned node or its active descendants).
+- **Scope enforcement.** App Flow says "enforced by RLS"; uploads are server-issued (SCHEMA_DEVIATIONS D3),
+  so the upload procedures enforce scope and category on the server and RLS still governs reads.
+- **Duplicate warnings** are an inline panel with "Upload anyway" (not a modal — a warning to acknowledge,
+  not a hard-to-reverse action, UI brief §15.4). Only an identical file sets `is_duplicate_flag`; an
+  existing record for the same project + period + metric is a warning only.
+- **After success** the user returns to the Dashboard; My Submissions arrives in Phase 6.
+- **Limits and checks.** 50 MB maximum shown on the drop zone; type detected from file content;
+  truncated files and password-protected PDFs are rejected at upload.

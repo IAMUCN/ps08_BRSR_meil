@@ -31,7 +31,8 @@ set local role authenticated;
 -- Active PM sees their record
 select set_config('request.jwt.claims',
   '{"sub": "11111111-1111-4111-8111-111111111111", "role": "authenticated"}', true);
-select is((select count(*)::int from public.esg_records), 1, 'active PM sees their record');
+select is((select count(*)::int from public.esg_records
+           where submitted_by = '11111111-1111-4111-8111-111111111111'), 1, 'active PM sees their record');
 
 -- Active Admin is Admin
 select set_config('request.jwt.claims',

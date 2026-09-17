@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-17 — Phase 4 complete, awaiting commit._
+_Last updated: 2026-09-17 — Phase 5 complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — dependencies only so far |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data (`0001`–`0011`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket (`0001`–`0012`) |
 | `supabase/tests/database/` | pgTAP database tests |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D10) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A5) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A6) |
 | `README.md` | Setup and day-to-day commands |
 
 ## 3. Progress
@@ -50,11 +50,11 @@ may run in parallel with Phases 3–5.
 | — | Documentation consistency fixes | Done | `1be9a13` |
 | 1 | Project setup | Done | `aedd96a` |
 | 2 | Database | Done | `494a3a4` |
-| 2B | OCR worker development (Track B) | **Not started** (venv + `requirements.txt` only) | — |
+| 2B | OCR worker development (Track B) | **Next** — not started (venv + `requirements.txt` only) | — |
 | 3 | Authentication and authorization | Done | `47fcc17` |
-| 4 | Organization and Admin foundation | **Done, not yet committed** | — |
-| 5 | Document ingestion | **Next** | — |
-| 6 | OCR pipeline integration | Waiting on 2B and 5 | — |
+| 4 | Organization and Admin foundation | Done | `1594389` |
+| 5 | Document ingestion | **Done, not yet committed** | — |
+| 6 | OCR pipeline integration | Waiting on 2B | — |
 | 7 | OCR verification | Not started | — |
 | 8 | Validation engine | Not started | — |
 | 9 | Calculation engine | Not started | — |
@@ -101,32 +101,49 @@ layers (D9), `provision-user` script for the first Admin.
 - Admin dashboard: real header counts; KPI tiles are labeled **development placeholders until Phase 16**.
 - Checks: unit 12/12, DB 47/47, API end-to-end 82/82, browser (Edge) 21/21, build passes.
 
+**Phase 5 — Document ingestion.** Decisions: `.grill/phase-5-document-ingestion-decisions.md`.
+- `/app/upload` (sidebar "Upload" + dashboard CTA): automatic open period, project/site picker (assigned
+  node or its active children), ESG activity picker (metrics grouped by category, filtered by role),
+  drag-and-drop zone with progress bar and cancel, inline errors, retry on network failure.
+- **Bytes first, then rows** (amended D3): the server issues a signed upload URL; after upload it re-reads
+  the file, recomputes SHA-256, detects the real type, rejects truncated files and password-protected
+  PDFs, re-checks scope and period, then creates `documents`, a `document_uploaded` `esg_records` row, the
+  evidence link, a `pending` `ocr_jobs` row and the audit entry in one transaction.
+- Private `evidence` bucket (migration `0012`): 50 MB, PDF/JPG/PNG, no client access at all.
+- Duplicates: identical file anywhere in the organization → warning + `is_duplicate_flag`; another record
+  for the same project + period + metric → warning only. Both must be acknowledged; never blocked.
+- Empty states: no assignment, no open period (blocking), no categories for the role.
+- Checks: unit 16/16, DB 55/55, API end-to-end 67/67, browser (Edge) 19/19, Phase 4 regression 82/82 and
+  21/21, build passes, clean `db reset` applies all migrations.
+
 ## 4. What comes next
 
-**Phase 5 — Document ingestion** (`06_IMPLEMENTATION_PLAN.md` §Phase 5): `/app/upload` page with
-role-scoped categories and drag-and-drop, file validation (type, size, corrupted files), private Storage
-at `evidence/{org_unit_id}/{reporting_period_id}/{document_id}/original.{ext}`, file hash with a
-non-blocking duplicate warning, "no open period" and "no categories" empty states, and creation of the
-`documents`, draft `esg_records` and pending `ocr_jobs` rows.
+**Phase 2B — OCR worker** (`06_IMPLEMENTATION_PLAN.md` §Phase 2B) is next, because Phase 6 needs both
+Track A (done through Phase 5) and Track B. It builds `apps/ocr-worker`: poll `ocr_jobs` for `pending`
+rows (`for update skip locked`), download the file from the private `evidence` bucket with the service
+role, run PaddleOCR, write `ocr_extractions` + `ocr_fields` with per-field confidence, mark the job
+`completed` or `failed` with an error message, plus a standalone test harness.
 
-Things to remember for Phase 5:
-- Uploads are **server-issued** (deviation D3), not a direct client insert as §16.3 of the schema says.
-- Storage is needed: start Supabase **without** excluding `storage-api` (and `imgproxy` if previews need it).
-- Use **synthetic documents only** until Phase 18.
-- Re-check the open period on the server at upload time, not only in the UI.
+Things to remember for Phase 2B:
+- **Synthetic sample documents only** (a synthetic diesel invoice and electricity bill) until Phase 18.
+- Model weights are baked into the worker image, never fetched at runtime (TRD §35).
+- The worker never marks anything verified — extraction only.
+- Real `pending` jobs already exist locally from Phase 5 uploads (`documents.storage_path` gives the object).
 
-**Phase 2B — OCR worker** can start any time (it only needs Phase 2). It must also use synthetic sample
-documents.
+**Phase 6 — OCR pipeline integration** follows: real uploads flow into the worker, and OCR status shows
+as badges on My Submissions.
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (Mumbai, development only):** migrations `0001`–`0011` and auth settings are not pushed.
+- **Hosted Supabase (Mumbai, development only):** migrations `0001`–`0012` and auth settings are not pushed.
   Needs the project owner to run `supabase login` and `supabase link`, then a reviewed `supabase db push`.
 - **Email:** configure custom SMTP (Resend) before inviting anyone outside the Supabase team.
 - **CI:** database tests (`pnpm db:test`) run locally only.
 - **Deferred by design:** org/period context switcher and notification bell (with their data phases),
   theme switcher and Theme 2/3 contrast sweep (Phase 19), CSRF review of the tRPC endpoint — currently
   relies on SameSite=Lax cookies (Phase 18).
+- **Abandoned uploads:** a file uploaded but never completed (browser closed mid-flow) stays in Storage with
+  no database row. Nothing references it; add a cleanup job if it becomes noticeable.
 
 ## 6. How we work
 
@@ -156,6 +173,7 @@ documents.
 - Local test hierarchy (from `supabase/seed.sql`): MEIL → Subsidiary A (`SUB-A`) → Project X (`PRJ-X`) →
   Project X Site 1 (`PRJ-X-S1`); open period "September 2026".
 - Local users are created with `pnpm --filter web provision-user` and need re-creating after `pnpm db:reset`.
+- Start Supabase with `storage-api` running (uploads need it); `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence`.
 
 ## How to update this file
 

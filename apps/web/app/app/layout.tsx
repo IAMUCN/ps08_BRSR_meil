@@ -4,8 +4,11 @@ import { requireAppSession } from "@/lib/auth/session";
 
 // /app/* is for non-admin roles (03_APP_FLOW.md §1); page content varies by role, scope and permissions.
 
-// Built-pages-only sidebar: Upload, My Submissions, etc. are added in Phase 5+.
-const APP_NAV: NavItem[] = [{ href: "/app", label: "Dashboard", icon: "dashboard" }];
+// Built-pages-only sidebar: My Organization/Project, My Submissions, etc. are added as their phases land.
+const APP_NAV: NavItem[] = [
+  { href: "/app", label: "Dashboard", icon: "dashboard" },
+  { href: "/app/upload", label: "Upload", icon: "upload" },
+];
 
 export default async function WorkspaceLayout({ children }: LayoutProps<"/app">) {
   const session = await requireAppSession();

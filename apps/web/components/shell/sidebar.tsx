@@ -5,6 +5,7 @@ import {
   CalendarRange,
   LayoutDashboard,
   ShieldCheck,
+  Upload,
   UserRound,
   Users,
   type LucideIcon,
@@ -23,6 +24,7 @@ const ICONS = {
   roles: ShieldCheck,
   periods: CalendarRange,
   profile: UserRound,
+  upload: Upload,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;
