@@ -39,6 +39,9 @@ test("later lifecycle states take precedence over OCR state", () => {
     verificationStatus: "user_verified",
     jobStatus: "completed",
   } as const;
+  // Verified but not yet validated: Processing, never "Validated" (Phase 8 runs validation).
+  assert.equal(submissionTab(verified), "processing");
+  assert.deepEqual(submissionBadge(verified), { tone: "neutral", label: "Validation Pending" });
   assert.equal(submissionTab({ ...verified, validationStatus: "validated" }), "validated");
   assert.equal(submissionBadge({ ...verified, validationStatus: "flagged" }).label, "Flagged");
   assert.equal(submissionTab({ ...verified, validationStatus: "failed" }), "returned");

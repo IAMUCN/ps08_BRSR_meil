@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-17 — Phase 6 complete, awaiting commit._
+_Last updated: 2026-09-18 — Phase 7 complete, awaiting commit._
 
 ---
 
@@ -37,7 +37,7 @@ Big rules that shape everything:
 | `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold (`0001`–`0014`) |
 | `supabase/tests/database/` | pgTAP database tests |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D13) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A7) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A8) |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -55,9 +55,9 @@ may run in parallel with Phases 3–5.
 | 3 | Authentication and authorization | Done | `47fcc17` |
 | 4 | Organization and Admin foundation | Done | `1594389` |
 | 5 | Document ingestion | Done | `1df74c8` |
-| 6 | OCR pipeline integration | **Done, not yet committed** | — |
-| 7 | OCR verification | **Next** | — |
-| 8 | Validation engine | Not started | — |
+| 6 | OCR pipeline integration | Done | `6ac8d00` |
+| 7 | OCR verification | **Done, not yet committed** | — |
+| 8 | Validation engine | **Next** | — |
 | 9 | Calculation engine | Not started | — |
 | 10 | Scope 1 | Not started | — |
 | 11 | Scope 2 | Not started | — |
@@ -164,25 +164,49 @@ layers (D9), `provision-user` script for the first Admin.
   server secrets in the client bundle, API end-to-end 65/65 with the Docker worker image on real uploads,
   browser (Edge) 26/26.
 
+**Phase 7 — OCR verification.** Decisions: `.grill/phase-7-ocr-verification-decisions.md`.
+- **`/app/verify/[documentId]`** is the real split screen (UI brief §12.2): the document on the left
+  (pdf.js canvas or image, zoom and page controls), the extracted fields on the right with per-field
+  confidence, click-to-edit (Enter edits and saves, Escape cancels) and "Looks correct" acknowledgement.
+- **Guard rail:** Confirm stays visible but disabled until every flagged field (below the threshold, or
+  `is_critical`) is edited or acknowledged, every required field has a value, numbers parse and are not
+  negative, and a document type is selected. The same rules run on the server, so the API refuses what the
+  UI blocks. A disabled Confirm always says why.
+- **Confirm** writes, in one transaction: per-field `verified_value` + `confirmed`/`edited` status, a
+  `verifications` row, the record's `activity_value_raw`/`activity_value_verified`/`activity_unit`,
+  `user_verified` + `data_quality_state = verified`, and audit entries for the confirmation and each edit.
+  Activity value and unit come from the metric's required `number` and `unit` field requirements.
+- **Reject** (modal + reason ≥ 10 characters) marks the record rejected with the reason in the audit trail
+  and on My Submissions; the evidence file is kept.
+- **OCR failure paths:** "Re-upload a clearer copy" pre-fills Upload and closes the failed record as
+  replaced; or a **manual exception** — values typed by hand with a justification (≥ 20 characters),
+  stored as a manual `ocr_extractions` row, flagged on My Submissions and Admin OCR Monitoring.
+- **Document type not identified** (Master Approach §12): a picker appears and blocks Confirm until chosen.
+- **Invoice-number duplicates** warn and must be acknowledged before Confirm (Phase 8 flags them).
+- **Evidence route** `/api/documents/[documentId]/file`: session + scope checked per request, private,
+  no-store, sandboxed.
+- Checks: unit 25/25, DB 61/61, API end-to-end 76/76, browser (Edge) 31/31, Phase 6 regression 65/65 and
+  26/26, lint/typecheck/format, production build.
+
 ## 4. What comes next
 
-**Phase 7 — OCR verification** (`06_IMPLEMENTATION_PLAN.md` §Phase 7):
-- Replace the `/app/verify/[documentId]` placeholder with the real split screen (UI brief §12.2):
-  reusable document viewer (signed URL) on the left, extracted fields on the right with click-to-edit and
-  confidence per field.
-- Guard rail: Confirm disabled until every flagged field (below threshold **or** `is_critical`) is edited
-  or explicitly acknowledged — enforced on the server too.
-- `verification.confirm` (ocr_fields verified values, `verifications` row, record `user_verified`, audit —
-  one transaction) and `verification.reject` (reason required).
-- OCR-failure manual-exception path (`verifications.is_manual_exception`), "document type not identified"
-  picker, post-OCR duplicate warning by invoice number.
+**Phase 8 — Validation engine** (`06_IMPLEMENTATION_PLAN.md` §Phase 8):
+- Six rule categories (format, organizational, period, evidence, logical, anomaly) as TS modules reading
+  parameters from `validation_rules` — never per-metric logic in code.
+- `validation.run` executes automatically after Confirm, writing one `validation_results` row per rule and
+  setting `esg_records.validation_status` from the aggregate; hard failures return the record to the
+  submitter with the reason (App Flow §4.7/§4.8).
+- Period check owns the **invoice-number duplicate flag** (`is_duplicate_flag`) that Phase 7 only warns
+  about, and compares the verified billing period against the reporting period.
+- Admin **Validation Queue** (`/admin/validation-queue`) for flagged/failed records, plus the Validation
+  Result component (UI brief §12.4) on the record view.
 
-Things to remember for Phase 7:
-- Notifications and My Submissions already link to `/app/verify/{documentId}`; failed extractions sit under
-  Needs Verification.
-- The "needs attention" rule lives in two places that must agree: `worker/extraction/fields.py`
-  (`fields_needing_attention`) and the `fieldStats` SQL in `lib/trpc/routers/ocr.ts`.
-- `is_critical` is still false for every field (Phases 10–11 decide).
+Things to remember for Phase 8:
+- A verified record currently sits under **Processing / "Validation Pending"**; once validation runs, the
+  Validated, Returned and Flagged tabs start filling (`lib/ocr/rules.ts` already maps them).
+- Confirm's transaction is the place to trigger validation (schema §20.3 wants verification and the first
+  validation results in one transaction).
+- `metric_field_requirements.is_critical` is still false everywhere; Phases 10–11 decide.
 
 ## 5. Open items and blockers
 
@@ -199,7 +223,8 @@ Things to remember for Phase 7:
   locally only.
 - **Deferred by design:** org/period context switcher (Phase 16), theme switcher and Theme 2/3 contrast
   sweep (Phase 19), CSRF review of the tRPC endpoint — currently relies on SameSite=Lax cookies (Phase 18),
-  Submission History page and record detail views, Settings page to edit the OCR threshold.
+  Submission History page and record detail views, Settings page to edit the OCR threshold, returned-record
+  re-verification (arrives with Phase 8's returns).
 - **Abandoned uploads:** a file uploaded but never completed (browser closed mid-flow) stays in Storage with
   no database row. Nothing references it; add a cleanup job if it becomes noticeable.
 - **Local memory:** the dev server, Docker/Supabase and the OCR worker together exhaust ~12 GB machines; the

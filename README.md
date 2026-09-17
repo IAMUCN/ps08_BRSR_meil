@@ -4,13 +4,13 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–6 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> **Status:** Phases 1–7 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
 > database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
 > users and assignments, roles and permissions, reporting periods, profile), document upload, the OCR
-> worker (Phase 2B) and its integration (Phase 6: notifications, My Submissions status badges, Admin OCR
-> Monitoring, worker Docker image + Render Blueprint). Verification (Phase 7), calculation and reporting
-> are not implemented yet; the Verify Extraction route and Admin dashboard KPIs are labeled development
-> placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
+> worker (Phase 2B) and its integration (Phase 6), and OCR verification (Phase 7: document viewer beside
+> the extracted fields, confidence guard rail, Confirm/Reject, manual-exception and re-upload paths).
+> Validation, calculation and reporting are not implemented yet; Admin dashboard KPIs remain labeled
+> development placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
 
@@ -21,6 +21,10 @@ packages/shared-types/  Types shared across TS code
 supabase/migrations/ SQL migrations (schema, RLS policies)
 ps_documents/        Project documentation only — no application code
 ```
+
+Evidence files are served to the browser only through `/api/documents/[documentId]/file`, which
+re-checks the session and the caller's organization scope on every request — the private bucket is never
+exposed by a URL that works without a session.
 
 All design and build decisions come from the documents in `ps_documents/implementation_docs/`
 (Master Approach → PRD → TRD → App Flow → UI/UX Brief → Backend Schema → Implementation Plan).

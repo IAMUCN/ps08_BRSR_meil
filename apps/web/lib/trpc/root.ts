@@ -7,6 +7,7 @@ import { ocrRouter } from "@/lib/trpc/routers/ocr";
 import { organizationRouter } from "@/lib/trpc/routers/organization";
 import { profileRouter } from "@/lib/trpc/routers/profile";
 import { reportingPeriodsRouter } from "@/lib/trpc/routers/reporting-periods";
+import { verificationRouter } from "@/lib/trpc/routers/verification";
 import { rolesRouter } from "@/lib/trpc/routers/roles";
 import { usersRouter } from "@/lib/trpc/routers/users";
 
@@ -24,6 +25,7 @@ export const appRouter = router({
   documents: documentsRouter,
   ocr: ocrRouter,
   notifications: notificationsRouter,
+  verification: verificationRouter,
 });
 
 export type AppRouter = typeof appRouter;

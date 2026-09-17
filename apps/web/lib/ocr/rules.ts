@@ -39,7 +39,10 @@ export function submissionTab(r: RecordStatus): SubmissionTab {
     return "returned";
   }
   if (r.approvalStatus === "review_pending") return "pending_approval";
-  if (r.verificationStatus === "user_verified") return "validated";
+  // Verified records wait for validation, which runs automatically from Phase 8 on.
+  if (r.verificationStatus === "user_verified") {
+    return r.validationStatus === "pending" ? "processing" : "validated";
+  }
   if (r.verificationStatus === "ocr_completed" || r.jobStatus === "failed") {
     return "needs_verification";
   }
@@ -52,7 +55,9 @@ export type BadgeTone = "success" | "warning" | "error" | "neutral" | "locked";
 export function submissionBadge(r: RecordStatus): { tone: BadgeTone; label: string } {
   switch (submissionTab(r)) {
     case "processing":
-      return { tone: "neutral", label: "Processing" };
+      return r.verificationStatus === "user_verified"
+        ? { tone: "neutral", label: "Validation Pending" }
+        : { tone: "neutral", label: "Processing" };
     case "needs_verification":
       return r.jobStatus === "failed" && r.verificationStatus !== "ocr_completed"
         ? { tone: "error", label: "Extraction Failed" }

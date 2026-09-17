@@ -4,7 +4,6 @@ import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import type { OcrJobStatus, RecordStatus } from "@/lib/ocr/rules";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { adminProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 
 // Phase 6 OCR status surfacing (.grill/phase-6-ocr-integration-decisions.md). The worker owns job
@@ -57,21 +56,8 @@ export type SubmissionRow = RecordStatus & {
   submittedAt: string;
   errorMessage: string | null;
   attention: number;
-};
-
-export type DocumentOcrStatus = {
-  documentId: string;
-  fileName: string;
-  metricName: string | null;
-  orgUnitName: string;
-  periodLabel: string;
-  uploadedAt: string;
-  documentType: string | null;
-  jobStatus: OcrJobStatus | null;
-  errorMessage: string | null;
-  fieldsFound: number;
-  fieldsTotal: number;
-  attention: number;
+  rejectedReason: string | null;
+  manualException: boolean;
 };
 
 export type OcrJobRow = {
@@ -90,6 +76,7 @@ export type OcrJobRow = {
   metricName: string | null;
   periodLabel: string;
   recordAwaitingOcr: boolean;
+  manualException: boolean;
   band: "low" | "ok" | null;
   attention: number;
   fieldsFound: number;
@@ -126,12 +113,19 @@ export const ocrRouter = router({
         job_status: OcrJobStatus | null;
         error_message: string | null;
         attention: number | null;
+        rejected_reason: string | null;
+        manual_exception: boolean;
       }[]
     >`
       select r.id, r.verification_status, r.validation_status, r.approval_status,
              r.data_quality_state, r.created_at, m.name as metric_name, o.name as org_unit_name,
              p.label as period_label, d.id as document_id, d.file_name, j.status as job_status,
-             j.error_message, fs.attention
+             j.error_message, fs.attention,
+             (select a.reason from public.audit_logs a
+               where a.event_type = 'verification.rejected' and a.entity_id = r.id
+               order by a.created_at desc limit 1) as rejected_reason,
+             exists (select 1 from public.verifications v
+                      where v.esg_record_id = r.id and v.is_manual_exception) as manual_exception
       from public.esg_records r
       join public.esg_metrics m on m.id = r.metric_id
       join public.org_units o on o.id = r.org_unit_id
@@ -160,77 +154,10 @@ export const ocrRouter = router({
       submittedAt: r.created_at.toISOString(),
       errorMessage: r.job_status === "failed" ? r.error_message : null,
       attention: r.attention ?? 0,
+      rejectedReason: r.rejected_reason,
+      manualException: r.manual_exception,
     }));
   }),
-
-  /**
-   * One document's OCR status (Verify Extraction placeholder until Phase 7). Visible only when RLS lets
-   * the user read the document (org scope) and they uploaded it or may verify records.
-   */
-  status: protectedProcedure
-    .input(z.object({ documentId: z.uuid() }))
-    .query(async ({ ctx, input }): Promise<DocumentOcrStatus | null> => {
-      const supabase = await createSupabaseServerClient();
-      const { data: visible, error } = await supabase
-        .from("documents")
-        .select("id, uploaded_by")
-        .eq("id", input.documentId)
-        .is("deleted_at", null)
-        .maybeSingle();
-      if (error) throw error;
-      if (
-        !visible ||
-        (visible.uploaded_by !== ctx.session.userId &&
-          !ctx.session.permissions.includes("record.verify"))
-      ) {
-        return null;
-      }
-
-      const sql = db();
-      const [row] = await sql<
-        {
-          file_name: string;
-          metric_name: string | null;
-          org_unit_name: string;
-          period_label: string;
-          created_at: Date;
-          document_type: string | null;
-          job_status: OcrJobStatus | null;
-          error_message: string | null;
-          found: number | null;
-          total: number | null;
-          attention: number | null;
-        }[]
-      >`
-        select d.file_name, m.name as metric_name, o.name as org_unit_name, p.label as period_label,
-               d.created_at, dt.name as document_type, j.status as job_status, j.error_message,
-               fs.found, fs.total, fs.attention
-        from public.documents d
-        join public.org_units o on o.id = d.org_unit_id
-        join public.reporting_periods p on p.id = d.reporting_period_id
-        left join public.document_types dt on dt.id = d.document_type_id
-        left join public.esg_record_documents erd on erd.document_id = d.id and erd.is_primary
-        left join public.esg_records r on r.id = erd.esg_record_id
-        left join public.esg_metrics m on m.id = r.metric_id
-        left join public.ocr_jobs j on j.document_id = d.id
-        ${fieldStats(sql)}
-        where d.id = ${input.documentId}`;
-      if (!row) return null;
-      return {
-        documentId: input.documentId,
-        fileName: row.file_name,
-        metricName: row.metric_name,
-        orgUnitName: row.org_unit_name,
-        periodLabel: row.period_label,
-        uploadedAt: row.created_at.toISOString(),
-        documentType: row.document_type,
-        jobStatus: row.job_status,
-        errorMessage: row.job_status === "failed" ? row.error_message : null,
-        fieldsFound: row.found ?? 0,
-        fieldsTotal: row.total ?? 0,
-        attention: row.attention ?? 0,
-      };
-    }),
 
   /** OCR Monitoring (03_APP_FLOW.md §2.2): newest jobs plus the worker health signal. */
   jobs: adminProcedure.query(async () => {
@@ -254,6 +181,7 @@ export const ocrRouter = router({
           metric_name: string | null;
           period_label: string;
           verification_status: string | null;
+          manual_exception: boolean;
           attention: number | null;
           found: number | null;
           total: number | null;
@@ -263,8 +191,10 @@ export const ocrRouter = router({
         select j.id, j.status, j.retry_count, j.error_message, j.model_version, j.started_at,
                j.completed_at, d.id as document_id, d.file_name, d.created_at,
                u.display_name as uploaded_by, o.name as org_unit_name, m.name as metric_name,
-               p.label as period_label, r.verification_status, fs.attention, fs.found, fs.total,
-               fs.lowest
+               p.label as period_label, r.verification_status,
+               exists (select 1 from public.verifications v
+                        where v.esg_record_id = r.id and v.is_manual_exception) as manual_exception,
+               fs.attention, fs.found, fs.total, fs.lowest
         from public.ocr_jobs j
         join public.documents d on d.id = j.document_id and d.deleted_at is null
         join public.users u on u.id = d.uploaded_by
@@ -306,6 +236,7 @@ export const ocrRouter = router({
         metricName: r.metric_name,
         periodLabel: r.period_label,
         recordAwaitingOcr: r.verification_status === "document_uploaded",
+        manualException: r.manual_exception,
         band: r.status === "completed" ? ((r.attention ?? 0) > 0 ? "low" : "ok") : null,
         attention: r.attention ?? 0,
         fieldsFound: r.found ?? 0,

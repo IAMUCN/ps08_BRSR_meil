@@ -9,8 +9,9 @@ import { api } from "@/lib/trpc/server";
 export const metadata: Metadata = { title: "Upload Document · TraceESG" };
 
 // 03_APP_FLOW.md §2.3 Upload Document; UI brief §20 "almost empty by design".
-export default async function UploadPage() {
-  const session = await requireAppSession();
+export default async function UploadPage({ searchParams }: PageProps<"/app/upload">) {
+  const [session, params] = await Promise.all([requireAppSession(), searchParams]);
+  const replacesId = typeof params.replaces === "string" ? params.replaces : undefined;
 
   if (!session.assignments.some((a) => a.roleCode !== "admin")) {
     return (
@@ -22,9 +23,15 @@ export default async function UploadPage() {
     );
   }
 
+  const caller = await api();
   const options = session.permissions.includes("document.upload")
-    ? await (await api()).documents.uploadOptions()
+    ? await caller.documents.uploadOptions()
     : null;
+  // A stale or ineligible ?replaces= link just falls back to a normal upload.
+  const replaces =
+    options && replacesId
+      ? await caller.documents.replacementInfo({ documentId: replacesId }).catch(() => null)
+      : null;
 
   // §0.4: blocking notice before category selection is even shown.
   if (options && !options.openPeriod) {
@@ -56,6 +63,7 @@ export default async function UploadPage() {
         periodLabel={options.openPeriod.label}
         targets={options.targets}
         maxBytes={options.maxBytes}
+        replaces={replaces}
       />
     </div>
   );

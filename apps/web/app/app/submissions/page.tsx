@@ -148,19 +148,20 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
             ) : (
               visible.map((row) => {
                 const badge = submissionBadge(row);
-                const actionable = tab === "needs_verification" && row.documentId;
-                const detail = row.errorMessage
-                  ? row.errorMessage
-                  : row.verificationStatus === "ocr_completed" && row.attention > 0
-                    ? attentionLabel(row.attention)
-                    : null;
+                const detail = row.rejectedReason
+                  ? row.rejectedReason
+                  : row.errorMessage
+                    ? row.errorMessage
+                    : row.verificationStatus === "ocr_completed" && row.attention > 0
+                      ? attentionLabel(row.attention)
+                      : null;
                 return (
                   <tr
                     key={row.id}
                     className="border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
                   >
                     <td className="px-3 py-3 font-medium">
-                      {actionable ? (
+                      {row.documentId ? (
                         <Link
                           href={`/app/verify/${row.documentId}`}
                           className="text-primary underline-offset-4 hover:underline"
@@ -168,8 +169,13 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
                           {row.fileName}
                         </Link>
                       ) : (
-                        (row.fileName ?? <span className="text-muted-foreground">No document</span>)
+                        <span className="text-muted-foreground">No document</span>
                       )}
+                      {row.manualException ? (
+                        <span className="mt-1 block text-[11px] leading-4 tracking-wide text-muted-foreground uppercase">
+                          Manual exception
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-3 py-3">{row.metricName}</td>
                     <td className="px-3 py-3">{row.orgUnitName}</td>
@@ -183,7 +189,9 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
                         <p
                           className={cn(
                             "mt-1 max-w-xs text-xs leading-4",
-                            row.errorMessage ? "text-status-error" : "text-muted-foreground",
+                            row.errorMessage && !row.rejectedReason
+                              ? "text-status-error"
+                              : "text-muted-foreground",
                           )}
                         >
                           {detail}

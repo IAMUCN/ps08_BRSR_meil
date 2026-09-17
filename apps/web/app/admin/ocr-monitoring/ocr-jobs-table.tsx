@@ -174,6 +174,11 @@ export function OcrJobsTable({ jobs, threshold }: { jobs: OcrJobRow[]; threshold
                         Low confidence · {attentionLabel(job.attention)}
                       </span>
                     ) : null}
+                    {job.manualException ? (
+                      <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                        Manual exception
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3 text-right tabular-nums">{job.attempts}</td>
                   <td className="px-3 py-3 text-right font-mono tabular-nums">

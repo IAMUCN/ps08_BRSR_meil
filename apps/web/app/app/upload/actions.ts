@@ -7,6 +7,7 @@ type FileTarget = {
   metricId: string;
   mimeType: string;
   acknowledgeDuplicates: boolean;
+  replacesDocumentId?: string;
 };
 
 export async function prepareUploadAction(

@@ -97,10 +97,8 @@ Decisions: `.grill/phase-5-document-ingestion-decisions.md`.
 
 Decisions: `.grill/phase-6-ocr-integration-decisions.md`.
 
-- **Verify Extraction placeholder.** Notifications already store the final `/app/verify/{documentId}`
-  link. Until Phase 7 that route shows the document's real OCR status (failure reason, fields found, fields
-  needing attention), labeled a development placeholder. Unknown or out-of-scope ids redirect to `/app`
-  with "You don't have access to that page" (§4.4).
+- **Verify Extraction placeholder** (replaced by the real screen in Phase 7, see A8). Unknown or
+  out-of-scope ids redirect to `/app` with "You don't have access to that page" (§4.4).
 - **My Submissions** lists the user's own records for the open period plus older ones still in progress.
   OCR failures sit under **Needs Verification** with an "Extraction Failed" badge and the reason (§4.5);
   there is no separate Failed tab. The default tab is Needs Verification; after an upload the user lands
@@ -115,3 +113,31 @@ Decisions: `.grill/phase-6-ocr-integration-decisions.md`.
   Admin notifications page).
 - **Dashboard.** "Documents to verify" is now a real count linking to Needs Verification; "Returned for
   correction" stays a labeled placeholder until validation and approval exist.
+
+## A8 — Phase 7 Verify Extraction
+
+Decisions: `.grill/phase-7-ocr-verification-decisions.md`.
+
+- **Reporting period is read-only** on Verify Extraction, shown beside the extracted billing period so a
+  mismatch is visible. §0.4 calls the period "editable"; with one open period there is nothing valid to
+  change it to, and moving a record into a closed period would bypass period close. Phase 8's period check
+  flags a mismatch instead.
+- **After Confirm** the record is `user_verified` with validation still `pending`, so My Submissions shows
+  it under **Processing** with a "Validation Pending" badge until Phase 8 runs validation. App Flow's
+  "record now shows Validated or Flagged" arrives with that phase.
+- **Invoice-number duplicates** are warned about here (acknowledged before Confirm, re-checked on the
+  server) per §2.3; the flag and validation result stay in Phase 8 as the plan places them.
+- **Manual exception values** are stored as `ocr_fields` under an `ocr_extractions` row marked
+  `raw_output.source = "manual_exception"` (no OCR value, no confidence), so validation and lineage read
+  manual and extracted values the same way. `verifications.is_manual_exception` is true and
+  `ocr_extraction_id` null, as schema §9.3 specifies.
+- **Re-upload a clearer copy** pre-fills Upload (`/app/upload?replaces=<documentId>`) and, when the new
+  upload completes, closes the failed record as rejected with "Replaced by <file>" and links the new
+  document through `documents.related_document_id`, all in the same transaction.
+- **Disabled Confirm explains itself with visible helper text** rather than a hover tooltip (the brief's
+  §12.2 tooltip): disabled buttons receive neither hover nor focus, so a tooltip would be unreachable.
+- **Evidence bytes** are served by `/api/documents/[documentId]/file`, which re-checks the session and org
+  scope on every request (private, no-store, sandboxed). No signed URL that works without a session is
+  ever handed to the browser.
+- **Rows in every My Submissions tab** link to `/app/verify/[documentId]`, which shows a read-only summary
+  once a record is verified or rejected; a dedicated record-detail view comes later.

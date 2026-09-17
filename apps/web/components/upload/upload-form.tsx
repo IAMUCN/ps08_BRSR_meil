@@ -9,7 +9,11 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { ORG_UNIT_TYPE_LABELS, isOrgUnitType } from "@/lib/org/rules";
 import { acceptedTypesLabel, formatMegabytes } from "@/lib/storage/evidence";
-import type { DuplicateWarnings, UploadTarget } from "@/lib/trpc/routers/documents";
+import type {
+  DuplicateWarnings,
+  ReplacementTarget,
+  UploadTarget,
+} from "@/lib/trpc/routers/documents";
 import { completeUploadAction, prepareUploadAction } from "@/app/app/upload/actions";
 import { DropZone } from "./drop-zone";
 
@@ -52,18 +56,20 @@ export function UploadForm({
   periodLabel,
   targets,
   maxBytes,
+  replaces,
 }: {
   periodLabel: string;
   targets: UploadTarget[];
   maxBytes: number;
+  replaces?: ReplacementTarget | null;
 }) {
   const router = useRouter();
   const metricFieldId = useId();
   const nodeFieldId = useId();
   const xhrRef = useRef<XMLHttpRequest | null>(null);
 
-  const [orgUnitId, setOrgUnitId] = useState(targets[0].orgUnitId);
-  const [metricId, setMetricId] = useState("");
+  const [orgUnitId, setOrgUnitId] = useState(replaces?.orgUnitId ?? targets[0].orgUnitId);
+  const [metricId, setMetricId] = useState(replaces?.metricId ?? "");
   const [file, setFile] = useState<File | null>(null);
   const [metricError, setMetricError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -107,6 +113,7 @@ export function UploadForm({
       mimeType: chosen.type,
       fileName: chosen.name,
       acknowledgeDuplicates: acknowledge,
+      replacesDocumentId: replaces?.documentId,
     });
     setPhase("idle");
     if (!result.ok) {
@@ -143,6 +150,7 @@ export function UploadForm({
         fileSize: file.size,
         sha256: await sha256Hex(file),
         acknowledgeDuplicates: acknowledge,
+        replacesDocumentId: replaces?.documentId,
       });
       if (!prepared.ok) {
         setPhase("idle");
@@ -183,7 +191,15 @@ export function UploadForm({
         Reporting period: <span className="font-medium">{periodLabel}</span>
       </p>
 
-      {targets.length > 1 ? (
+      {replaces ? (
+        <div className="rounded-md border border-status-warning/50 bg-status-warning/10 p-3 text-sm leading-5">
+          <span className="font-semibold">Replacing {replaces.fileName}</span> — its extraction
+          failed. The project and activity are fixed to match; the old record closes when this
+          upload finishes.
+        </div>
+      ) : null}
+
+      {targets.length > 1 && !replaces ? (
         <div className="space-y-2">
           <Label htmlFor={nodeFieldId}>Project / site</Label>
           <NativeSelect
@@ -215,7 +231,7 @@ export function UploadForm({
         <NativeSelect
           id={metricFieldId}
           value={metricId}
-          disabled={busy}
+          disabled={busy || Boolean(replaces)}
           aria-invalid={metricError ? true : undefined}
           aria-describedby={metricError ? `${metricFieldId}-error` : undefined}
           onChange={(event) => {
