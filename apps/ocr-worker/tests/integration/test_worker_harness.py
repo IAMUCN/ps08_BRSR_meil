@@ -15,6 +15,8 @@ import uuid
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+from psycopg.types.json import Jsonb
+
 from tests.samples import all_samples, blank_png, corrupted_pdf
 from worker import db, errors
 from worker.config import MAX_ATTEMPTS, load_settings
@@ -95,6 +97,7 @@ class WorkerHarnessTest(unittest.TestCase):
             )
             conn.execute("delete from public.esg_records where id = any(%s)", (records,))
             conn.execute("delete from public.documents where id = any(%s)", (docs,))
+            conn.execute("delete from public.notifications where user_id = %s", (cls.user_id,))
             conn.execute("delete from public.users where id = %s", (cls.user_id,))
             conn.execute("delete from auth.users where id = %s", (cls.user_id,))
         cls._storage_request(
@@ -198,6 +201,15 @@ class WorkerHarnessTest(unittest.TestCase):
             (event_type, list(entity_ids)),
         ).fetchone()["n"]
 
+    def notifications(self, document_id):
+        return self.conn.execute(
+            """
+            select user_id, type, title, message, related_entity_type, deep_link_path, is_read
+            from public.notifications where related_entity_id = %s
+            """,
+            (document_id,),
+        ).fetchall()
+
     def run_job(self, job_id, settings=None) -> bool:
         return process_next(
             self.conn, settings or self.settings, self.engine, only_job_ids=[job_id]
@@ -265,6 +277,14 @@ class WorkerHarnessTest(unittest.TestCase):
                 self.assertIsNone(record["verified_by"])
 
                 self.assertEqual(self.audit_count("ocr.document_processed", [document_id]), 1)
+                (note,) = self.notifications(document_id)
+                self.assertIn(note["type"], ("verification_needed", "low_confidence"))
+                self.assertEqual(
+                    (note["user_id"], note["related_entity_type"], note["deep_link_path"]),
+                    (self.user_id, "document", f"/app/verify/{document_id}"),
+                )
+                self.assertTrue(note["message"].startswith("harness."))
+                self.assertFalse(note["is_read"])
                 field_ids = [f["id"] for f in fields.values()]
                 self.assertEqual(self.audit_count("ocr.field_extracted", field_ids), len(fields))
 
@@ -283,6 +303,40 @@ class WorkerHarnessTest(unittest.TestCase):
             ).fetchone()
         )
         self.assertEqual(self.audit_count("ocr.document_failed", [document_id]), 1)
+        (note,) = self.notifications(document_id)
+        self.assertEqual(
+            (note["type"], note["title"], note["message"]),
+            ("ocr_failed", "Extraction failed", f"harness.pdf: {errors.UNREADABLE}"),
+        )
+
+    def test_threshold_decides_the_notification_type(self):
+        sample = all_samples()[0]  # diesel PDF: every field found at ~95%
+        previous = self.conn.execute(
+            "select value from public.org_settings where key = 'ocr_confidence_threshold'"
+        ).fetchone()["value"]
+        try:
+            for threshold, expected in ((50, "verification_needed"), (99.99, "low_confidence")):
+                self.conn.execute(
+                    "update public.org_settings set value = %s"
+                    " where key = 'ocr_confidence_threshold'",
+                    (Jsonb(threshold),),
+                )
+                document_id, _, job_id = self.seed_job(
+                    sample.data, sample.mime_type, sample.metric_code
+                )
+                self.run_job(job_id)
+                (note,) = self.notifications(document_id)
+                self.assertEqual(note["type"], expected)
+                if expected == "low_confidence":
+                    self.assertEqual(
+                        note["message"],
+                        "harness.pdf: 4 fields need your attention before you confirm.",
+                    )
+        finally:
+            self.conn.execute(
+                "update public.org_settings set value = %s where key = 'ocr_confidence_threshold'",
+                (Jsonb(previous),),
+            )
 
     def test_blank_page_fails_as_no_text(self):
         _, _, job_id = self.seed_job(blank_png(), "image/png", "GRID_ELECTRICITY")
@@ -353,6 +407,7 @@ class WorkerHarnessTest(unittest.TestCase):
             db.fail_job(self.conn, claimed, "should not be written")
         self.assertEqual(self.job(job_id)["status"], "processing")
         self.assertEqual(self.audit_count("ocr.document_failed", [document_id]), 0)
+        self.assertEqual(self.notifications(document_id), [])
 
 
 if __name__ == "__main__":

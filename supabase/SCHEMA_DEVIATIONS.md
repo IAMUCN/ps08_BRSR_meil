@@ -177,6 +177,8 @@ events, Master Approach §31):
   document is confidently classified among the types mapped to its metric;
 - `esg_records.verification_status` from `document_uploaded` to `ocr_completed` only (guarded by the
   current state). Validation, approval, calculation and activity-value columns are never touched.
+- `notifications` (added in Phase 6): one outcome notification for the uploader — `verification_needed`,
+  `low_confidence` or `ocr_failed` — in the same transaction as the job result.
 
 **Why:** TRD §22 makes the worker ↔ app boundary the shared tables — there is no endpoint to call — and
 Phase 7 needs `document_type_id` and a completed record state after OCR. Decision:
@@ -190,6 +192,18 @@ Phase 7 needs `document_type_id` and a completed record state after OCR. Decisio
 (consumption, unit, billing_period, optional source_classification) rows are seeded in Phase 2B, with the
 field keys named in the plan, so the OCR worker reads *which* fields to extract from configuration.
 `is_critical` is left false for Phases 10–11 to decide.
+
+## D13 — `org_settings.updated_by` nullable; OCR threshold seeded (migration `0014`)
+
+**Schema says (§14.2):** `updated_by uuid not null`.
+
+**Implemented:** `updated_by` is nullable, and `ocr_confidence_threshold = 80` (percent, the
+`ocr_fields.confidence` scale) is seeded with `updated_by` null, meaning "system default". Admin changes
+(Settings page, later phase) always set it.
+
+**Why:** the threshold must exist as configuration from the first upload (TRD §23: not hard-coded), but a
+migration runs before any user exists, so a not-null `updated_by` made seeding impossible. Decision:
+`.grill/phase-6-ocr-integration-decisions.md`.
 
 ## Documentation cross-reference errors noticed (no schema impact)
 

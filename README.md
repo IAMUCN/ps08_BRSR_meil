@@ -4,12 +4,13 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–5 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> **Status:** Phases 1–6 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
 > database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
-> users and assignments, roles and permissions, reporting periods, profile), document upload, and the
-> standalone OCR worker (Phase 2B; run locally, not yet deployed or surfaced in the UI). Verification,
-> calculation and reporting are not implemented yet; dashboard KPIs are labeled development placeholders
-> until Phase 16. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
+> users and assignments, roles and permissions, reporting periods, profile), document upload, the OCR
+> worker (Phase 2B) and its integration (Phase 6: notifications, My Submissions status badges, Admin OCR
+> Monitoring, worker Docker image + Render Blueprint). Verification (Phase 7), calculation and reporting
+> are not implemented yet; the Verify Extraction route and Admin dashboard KPIs are labeled development
+> placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
 
@@ -218,6 +219,36 @@ Notes:
   capped at 1600 px to bound memory and CPU time (about 10 s per A4 page on a laptop CPU).
 - Test documents are generated synthetically at test time (`tests/samples.py`) — no real MEIL documents
   until Phase 18.
+- When a job finishes, the worker notifies the uploader in the same transaction (`verification_needed`,
+  `low_confidence` when a found field is below `org_settings.ocr_confidence_threshold` — seeded at 80 — or a
+  required field is missing, or `ocr_failed` with the reason).
+
+### Deployment (Docker / Render)
+
+`apps/ocr-worker/Dockerfile` builds the worker with the model weights baked in (downloaded at build time,
+never at runtime). It holds no secrets; configure it through environment variables only.
+
+```bash
+docker build -t traceesg-ocr-worker apps/ocr-worker
+# local check against local Supabase (.env.docker is git-ignored; fill it like .env)
+docker run --rm --env-file apps/ocr-worker/.env.docker traceesg-ocr-worker python -m worker --once
+```
+
+For a container talking to local Supabase use `http://host.docker.internal:55321` and
+`postgresql://postgres:postgres@host.docker.internal:55322/postgres`.
+
+`render.yaml` (repository root) is a Render Blueprint: an always-on **background worker** (Singapore,
+`standard` plan — 2 GB RAM; free tiers sleep). Applying it in the Render dashboard asks for each secret —
+enter them there, never in the repository:
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | the Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | the project's service-role key (server-only; never in the web client bundle) |
+| `DATABASE_URL` | Supabase **Session pooler** connection string (the direct connection is IPv6-only) |
+| `SENTRY_DSN` | optional |
+
+Push the database migrations to the same Supabase project first (`supabase link` → `supabase db push`).
 
 ## CI
 

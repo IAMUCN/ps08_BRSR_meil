@@ -88,6 +88,30 @@ Decisions: `.grill/phase-5-document-ingestion-decisions.md`.
 - **Duplicate warnings** are an inline panel with "Upload anyway" (not a modal — a warning to acknowledge,
   not a hard-to-reverse action, UI brief §15.4). Only an identical file sets `is_duplicate_flag`; an
   existing record for the same project + period + metric is a warning only.
-- **After success** the user returns to the Dashboard; My Submissions arrives in Phase 6.
+- **After success** the user returns to the Dashboard; My Submissions arrives in Phase 6 (from Phase 6
+  the user lands on My Submissions → Processing).
 - **Limits and checks.** 50 MB maximum shown on the drop zone; type detected from file content;
   truncated files and password-protected PDFs are rejected at upload.
+
+## A7 — Phase 6 OCR status, notifications and monitoring
+
+Decisions: `.grill/phase-6-ocr-integration-decisions.md`.
+
+- **Verify Extraction placeholder.** Notifications already store the final `/app/verify/{documentId}`
+  link. Until Phase 7 that route shows the document's real OCR status (failure reason, fields found, fields
+  needing attention), labeled a development placeholder. Unknown or out-of-scope ids redirect to `/app`
+  with "You don't have access to that page" (§4.4).
+- **My Submissions** lists the user's own records for the open period plus older ones still in progress.
+  OCR failures sit under **Needs Verification** with an "Extraction Failed" badge and the reason (§4.5);
+  there is no separate Failed tab. The default tab is Needs Verification; after an upload the user lands
+  on Processing. Row links open Verify Extraction only for Needs Verification rows (record detail views
+  come later).
+- **Live updates by polling**, not Realtime: the bell every 30 s and on window focus; My Submissions, OCR
+  Monitoring and the verify placeholder every 15 s while a job is still running.
+- **OCR Monitoring health banner** uses the oldest waiting job (more than 5 minutes) instead of a worker
+  heartbeat, which the schema doesn't have. Retry is offered only for failed jobs whose record still
+  waits for extraction, and gives the job fresh attempts.
+- **Admin notifications.** The Admin top bar has the bell dropdown without "View all" (§2.3: no separate
+  Admin notifications page).
+- **Dashboard.** "Documents to verify" is now a real count linking to Needs Verification; "Returned for
+  correction" stays a labeled placeholder until validation and approval exist.

@@ -119,7 +119,7 @@ export function UploadForm({
       return;
     }
     toast.success("Document received, processing");
-    router.push("/app");
+    router.push("/app/submissions?tab=processing");
   }
 
   async function submit(acknowledge: boolean) {

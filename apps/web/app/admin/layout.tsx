@@ -12,6 +12,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/users", label: "Users", icon: "users" },
   { href: "/admin/roles", label: "Roles & Permissions", icon: "roles" },
   { href: "/admin/reporting-periods", label: "Reporting Periods", icon: "periods" },
+  { href: "/admin/ocr-monitoring", label: "OCR Monitoring", icon: "ocr" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {

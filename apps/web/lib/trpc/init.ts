@@ -25,6 +25,14 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   return next({ ctx: { session: ctx.session.session } });
 });
 
+/** Admin-only pages with no dedicated permission code (e.g. OCR Monitoring, 03_APP_FLOW.md §2.2). */
+export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!ctx.session.isAdmin) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that." });
+  }
+  return next();
+});
+
 /** Requires a specific permission code from the caller's roles (seeded catalogue, migration 0009). */
 export function permissionProcedure(permission: string) {
   return protectedProcedure.use(({ ctx, next }) => {

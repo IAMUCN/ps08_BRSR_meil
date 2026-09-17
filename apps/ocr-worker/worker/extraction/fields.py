@@ -27,6 +27,7 @@ class FieldSpec:
     key: str
     label: str
     data_type: str
+    required: bool = True
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,21 @@ class ExtractedField:
     value: str | None
     confidence: float | None  # 0–100
     source: dict = field(default_factory=dict)  # how it was found, for raw_output
+
+
+def fields_needing_attention(
+    fields: list[ExtractedField], specs: list[FieldSpec], threshold: float | None
+) -> list[str]:
+    """Found fields below the confidence threshold plus required fields that weren't found
+    (.grill/phase-6-ocr-integration-decisions.md). With no threshold configured every found field
+    counts — fail safe."""
+    required = {s.key for s in specs if s.required}
+    return [
+        f.key
+        for f in fields
+        if (f.value is None and f.key in required)
+        or (f.value is not None and (threshold is None or f.confidence < threshold))
+    ]
 
 
 _NUMBER = re.compile(r"(?<![\d.,])(\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?![\d,]*\d)")

@@ -1,0 +1,32 @@
+# Render Blueprint for the OCR worker (02_TRD.md §12; .grill/phase-6-ocr-integration-decisions.md).
+# An always-on background worker built from apps/ocr-worker/Dockerfile (model weights baked in).
+# No values live here: Render asks for every `sync: false` variable when the Blueprint is first applied.
+services:
+  - type: worker
+    name: traceesg-ocr-worker
+    runtime: docker
+    dockerfilePath: ./apps/ocr-worker/Dockerfile
+    dockerContext: ./apps/ocr-worker
+    # Closest Render region to the Supabase Mumbai project (TRD §12 known constraint).
+    region: singapore
+    # Paid, always-on instance (TRD §12: free tiers sleep). 2 GB RAM: the worker measured ~460 MiB on a
+    # one-page invoice locally; 512 MB (starter) leaves no headroom for 10-page PDFs.
+    plan: standard
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/ocr-worker/**
+    envVars:
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Supabase "Session pooler" connection string (the direct connection is IPv6-only).
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET_EVIDENCE
+        value: evidence
+      - key: OCR_WORKER_POLL_INTERVAL_MS
+        value: "5000"
+      - key: SENTRY_DSN
+        sync: false

@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-17 — Phase 2B complete, awaiting commit._
+_Last updated: 2026-09-17 — Phase 6 complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,11 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements (`0001`–`0013`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold (`0001`–`0014`) |
 | `supabase/tests/database/` | pgTAP database tests |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D12) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A6) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D13) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A7) |
+| `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
 ## 3. Progress
@@ -50,12 +51,12 @@ may run in parallel with Phases 3–5.
 | — | Documentation consistency fixes | Done | `1be9a13` |
 | 1 | Project setup | Done | `aedd96a` |
 | 2 | Database | Done | `494a3a4` |
-| 2B | OCR worker development (Track B) | **Done, not yet committed** | — |
+| 2B | OCR worker development (Track B) | Done | `013cbc0` |
 | 3 | Authentication and authorization | Done | `47fcc17` |
 | 4 | Organization and Admin foundation | Done | `1594389` |
 | 5 | Document ingestion | Done | `1df74c8` |
-| 6 | OCR pipeline integration | **Next** | — |
-| 7 | OCR verification | Not started | — |
+| 6 | OCR pipeline integration | **Done, not yet committed** | — |
+| 7 | OCR verification | **Next** | — |
 | 8 | Validation engine | Not started | — |
 | 9 | Calculation engine | Not started | — |
 | 10 | Scope 1 | Not started | — |
@@ -136,33 +137,73 @@ layers (D9), `provision-user` script for the first Admin.
   missing files; retries; stale reclaim; concurrent claims; lost claim), DB 58/58, and a real web upload
   processed by `python -m worker --once` end to end.
 
+**Phase 6 — OCR pipeline integration.** Decisions: `.grill/phase-6-ocr-integration-decisions.md`.
+- The worker writes one notification for the uploader in the same transaction as the job result:
+  `verification_needed`, `low_confidence` (a found field below the threshold or a required field missing,
+  "N fields need your attention") or `ocr_failed` (with the reason). All deep-link to
+  `/app/verify/{documentId}` (D11 amended).
+- Threshold is configuration: migration `0014` seeds `ocr_confidence_threshold = 80` and makes
+  `org_settings.updated_by` nullable for system seeds (D13).
+- **Notification bell** in both top bars (red dot, 5 most recent, polls every 30 s and on focus);
+  **`/app/notifications`** with type filter and mark all read (Admin: dropdown only).
+- **My Submissions** (`/app/submissions`): App Flow's seven status tabs with real counts; OCR status as
+  badges (Processing / Needs Verification / Extraction Failed + reason / "N fields need attention");
+  refreshes every 15 s while a job runs. After upload the user lands on Processing. The dashboard
+  "Documents to verify" card is now a real count.
+- **`/app/verify/[documentId]`** is a scope-checked, clearly labeled development placeholder showing the
+  real OCR status until Phase 7 builds the screen.
+- **`/admin/ocr-monitoring`**: status and confidence-band filters, lowest confidence, detail drawer with
+  read-only extracted fields, Retry for failed jobs (fresh attempts, audited `ocr.job_retried`), banner
+  when the oldest pending job waited over 5 minutes.
+- tRPC: `ocr.submissions`, `ocr.status`, `ocr.jobs`, `ocr.jobFields`, `ocr.retry`, `notifications.list`,
+  `notifications.markRead`, `notifications.markAllRead`; `adminProcedure` helper.
+- Deployment: `apps/ocr-worker/Dockerfile` (weights baked in at build, non-root) and root `render.yaml`
+  (background worker, Singapore, standard plan, secrets `sync: false`). Image built and run locally
+  (~460 MiB peak on a one-page invoice); not yet deployed to Render.
+- Checks: worker unit 12/12, harness 9/9, DB 61/61, web unit 19/19, lint/typecheck/format, build, no
+  server secrets in the client bundle, API end-to-end 65/65 with the Docker worker image on real uploads,
+  browser (Edge) 26/26.
+
 ## 4. What comes next
 
-**Phase 6 — OCR pipeline integration** (`06_IMPLEMENTATION_PLAN.md` §Phase 6) — both tracks are done:
-- Worker deployment config (Dockerfile or platform config) with model weights baked into the image
-  (`scripts/download_models.py` at build time), pointed at the same Supabase project as the app.
-- Prove real uploads reach `completed` with no manual steps (already works locally with `--once`).
-- `ocr_jobs.status` as badges on **My Submissions** (`/app/submissions`, not built yet), notification on
-  completion deep-linking to Verify Extraction, and the Admin **OCR Monitoring** page with retry.
-- tRPC: `ocr.status`, `notifications.list`.
+**Phase 7 — OCR verification** (`06_IMPLEMENTATION_PLAN.md` §Phase 7):
+- Replace the `/app/verify/[documentId]` placeholder with the real split screen (UI brief §12.2):
+  reusable document viewer (signed URL) on the left, extracted fields on the right with click-to-edit and
+  confidence per field.
+- Guard rail: Confirm disabled until every flagged field (below threshold **or** `is_critical`) is edited
+  or explicitly acknowledged — enforced on the server too.
+- `verification.confirm` (ocr_fields verified values, `verifications` row, record `user_verified`, audit —
+  one transaction) and `verification.reject` (reason required).
+- OCR-failure manual-exception path (`verifications.is_manual_exception`), "document type not identified"
+  picker, post-OCR duplicate warning by invoice number.
 
-Things to remember for Phase 6:
-- The OCR confidence threshold (`org_settings`) starts to matter from here (display), and Phase 7 uses it.
-- Retry from OCR Monitoring = set the job back to `pending` (TRD §22); the worker picks it up.
-- Local jobs from the Phase 5 tests already failed with reasons — useful data for the monitoring page.
-- The notification bell and My Submissions were deferred in A5; they arrive in this phase.
+Things to remember for Phase 7:
+- Notifications and My Submissions already link to `/app/verify/{documentId}`; failed extractions sit under
+  Needs Verification.
+- The "needs attention" rule lives in two places that must agree: `worker/extraction/fields.py`
+  (`fields_needing_attention`) and the `fieldStats` SQL in `lib/trpc/routers/ocr.ts`.
+- `is_critical` is still false for every field (Phases 10–11 decide).
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (Mumbai, development only):** migrations `0001`–`0013` and auth settings are not pushed.
-  Needs the project owner to run `supabase login` and `supabase link`, then a reviewed `supabase db push`.
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0001`–`0014` were pushed on
+  2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
+  verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
+  users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
+  `supabase config push` after `supabase login`, or set in the dashboard), rotate the database password
+  (it was shared in chat), provision the first hosted Admin.
+- **Worker deployment:** apply `render.yaml` in Render and enter the secrets there (DATABASE_URL = session
+  pooler string). The Blueprint file is unvalidated until Render reads it.
 - **Email:** configure custom SMTP (Resend) before inviting anyone outside the Supabase team.
-- **CI:** database tests (`pnpm db:test`) and the OCR integration harness run locally only.
-- **Deferred by design:** org/period context switcher and notification bell (with their data phases),
-  theme switcher and Theme 2/3 contrast sweep (Phase 19), CSRF review of the tRPC endpoint — currently
-  relies on SameSite=Lax cookies (Phase 18).
+- **CI:** database tests (`pnpm db:test`), the OCR integration harness and the Docker image build run
+  locally only.
+- **Deferred by design:** org/period context switcher (Phase 16), theme switcher and Theme 2/3 contrast
+  sweep (Phase 19), CSRF review of the tRPC endpoint — currently relies on SameSite=Lax cookies (Phase 18),
+  Submission History page and record detail views, Settings page to edit the OCR threshold.
 - **Abandoned uploads:** a file uploaded but never completed (browser closed mid-flow) stays in Storage with
   no database row. Nothing references it; add a cleanup job if it becomes noticeable.
+- **Local memory:** the dev server, Docker/Supabase and the OCR worker together exhaust ~12 GB machines; the
+  dev server's CSS worker crashed once during Phase 6 testing. Run the worker container only when needed.
 
 ## 6. How we work
 
@@ -194,7 +235,8 @@ Things to remember for Phase 6:
 - Local users are created with `pnpm --filter web provision-user` and need re-creating after `pnpm db:reset`.
 - Start Supabase with `storage-api` running (uploads need it); `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence`.
 - OCR worker: `apps/ocr-worker/.venv` (Python 3.12), `.env` copied from `apps/web/.env.local`, models in
-  `apps/ocr-worker/models/`; `python -m worker --once` processes the local queue.
+  `apps/ocr-worker/models/`; `python -m worker --once` processes the local queue. Docker alternative:
+  `docker build -t traceesg-ocr-worker apps/ocr-worker` (see README → Deployment).
 
 ## How to update this file
 
