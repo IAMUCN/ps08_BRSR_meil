@@ -122,9 +122,8 @@ Decisions: `.grill/phase-7-ocr-verification-decisions.md`.
   mismatch is visible. §0.4 calls the period "editable"; with one open period there is nothing valid to
   change it to, and moving a record into a closed period would bypass period close. Phase 8's period check
   flags a mismatch instead.
-- **After Confirm** the record is `user_verified` with validation still `pending`, so My Submissions shows
-  it under **Processing** with a "Validation Pending" badge until Phase 8 runs validation. App Flow's
-  "record now shows Validated or Flagged" arrives with that phase.
+- **After Confirm** (Phase 7 only): the record showed "Validation Pending" until Phase 8 added validation
+  to the Confirm transaction — see A9.
 - **Invoice-number duplicates** are warned about here (acknowledged before Confirm, re-checked on the
   server) per §2.3; the flag and validation result stay in Phase 8 as the plan places them.
 - **Manual exception values** are stored as `ocr_fields` under an `ocr_extractions` row marked
@@ -141,3 +140,46 @@ Decisions: `.grill/phase-7-ocr-verification-decisions.md`.
   ever handed to the browser.
 - **Rows in every My Submissions tab** link to `/app/verify/[documentId]`, which shows a read-only summary
   once a record is verified or rejected; a dedicated record-detail view comes later.
+
+## A9 — Phase 8 validation
+
+Decisions: `.grill/phase-8-validation-engine-decisions.md`.
+
+- **Validation runs inside Confirm's transaction** (schema §20.3), so the result is known when Confirm
+  returns. Instead of App Flow's "Verified — validation in progress." toast, the user is told the actual
+  outcome ("Verified and validated.", "Verified — flagged for review by an Admin.", or "Verified, but
+  validation found problems — the record is back with you to correct.") and lands on the matching My
+  Submissions tab (Validated or Returned).
+- **`validation.run` is not a client-callable endpoint.** The plan names it as a tRPC procedure "invoked
+  automatically post-Confirm"; it is implemented as the engine function called inside the Confirm
+  transaction, because a browser-callable "run validation" would let a client trigger lifecycle changes
+  (SCHEMA_DEVIATIONS D1).
+- **Hard-failed records** are shown in the Admin Validation Queue as view-only: they are already back with
+  the submitter, and only the submitter's correction clears them. Accept/Return apply to flagged records,
+  each with a written reason (≥ 10 characters).
+- **Returned records** (hard fail or Admin return) reopen Verify Extraction with the prior confirmed
+  values, the reason, the per-category validation result and a validation message on each failing field
+  (§4.8). Re-confirming writes a new `verifications` row ("Re-verified after return") and re-runs
+  validation from the top.
+- **Notifications:** `returned` to the submitter (hard fail or Admin return), `validation_review` to every
+  active Admin (flag). The Admin bell deep-links to the Validation Queue.
+- **The plan's "one module per rule category"** is one module (`lib/validation/checks.ts`) with one section
+  per category, plus the engine (`lib/validation/engine.ts`); the checks are small pure functions and are
+  unit-tested together.
+- **Dashboard "Returned for correction"** is now a real count linking to the Returned tab.
+
+## A10 — Approval pulled forward into Phase 8
+
+Decisions: `.grill/phase-8-validation-engine-decisions.md` (2026-09-19).
+
+- **The single approval step (App Flow §4.9) is built in Phase 8**, not Phase 16, so verified records can
+  reach Approved. A validated record goes straight to Pending Approval; the Confirm toast says "Verified
+  and validated — sent for approval." and lands on that tab. Flagged records land on Validated until an
+  Admin accepts them, then go to Pending Approval.
+- **Approvers:** non-Admin holders of `approval.decide` whose scope covers the project use `/app/approvals`
+  (sidebar "Approvals"); Admins use `/admin/approval-queue`. Both show the same table and 720px drawer
+  (submitter, verifier, verified values, validation result, the document) with Approve / Return (reason
+  ≥ 10 characters). Whoever submitted or verified a record cannot decide on it.
+- **Calculation trace in the approval drawer is a labeled development placeholder** until Phase 9;
+  Phase 9 decides whether approval must wait for a calculation.
+- Multi-level approval chains and the Control Tower's approval cards stay in Phase 16.

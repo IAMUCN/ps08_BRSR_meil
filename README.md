@@ -7,10 +7,11 @@ original evidence.
 > **Status:** Phases 1–7 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
 > database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
 > users and assignments, roles and permissions, reporting periods, profile), document upload, the OCR
-> worker (Phase 2B) and its integration (Phase 6), and OCR verification (Phase 7: document viewer beside
-> the extracted fields, confidence guard rail, Confirm/Reject, manual-exception and re-upload paths).
-> Validation, calculation and reporting are not implemented yet; Admin dashboard KPIs remain labeled
-> development placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
+> worker (Phase 2B) and its integration (Phase 6), OCR verification (Phase 7: document viewer beside the
+> extracted fields, confidence guard rail, Confirm/Reject, manual-exception and re-upload paths) and the
+> validation engine (Phase 8: six rule categories from configurable `validation_rules`, returns and
+> re-verification, Admin Validation Queue, and a single approval step pulled forward from Phase 16). Calculation and reporting are not implemented yet; Admin
+> dashboard KPIs remain labeled development placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
 
@@ -94,6 +95,12 @@ Notes:
 - **Hosted project:** migrations are applied to the hosted development project (Mumbai) only as an
   explicit, reviewed step (`supabase login` → `supabase link` → `supabase db push`), never automatically.
 - **Real data:** use **synthetic documents only until Phase 18** (audit and security hardening).
+- **Validation rules:** migration `0015` seeds the configured checks (`validation_rules`): allowed units per
+  metric, quantity > 0, billing period in the reporting period, duplicate invoice numbers, duplicate grid
+  bills per period, and the historical anomaly check (×2 of the median over 3+ prior periods). Check kinds
+  live in `apps/web/lib/validation/checks.ts`; parameters and severity are data.
+- **Records verified before Phase 8** can be validated once with `pnpm --filter web validate-pending`
+  (runs the same engine as Confirm; records already validated are skipped).
 - **Evidence storage:** migration `0012` creates the private `evidence` bucket (50 MB, PDF/JPG/PNG). Set
   `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence` in `apps/web/.env.local`. Files are never publicly readable;
   uploads use short-lived signed URLs issued by the server.
@@ -222,7 +229,8 @@ Notes:
 - PaddlePaddle 3.3.1's oneDNN (MKLDNN) path fails on these models, so it is disabled; the detector input is
   capped at 1600 px to bound memory and CPU time (about 10 s per A4 page on a laptop CPU).
 - Test documents are generated synthetically at test time (`tests/samples.py`) — no real MEIL documents
-  until Phase 18.
+  until Phase 18. For a manual upload, `.venv/Scripts/python scripts/make_sample_invoice.py --out x.pdf`
+  writes a diesel invoice with a unique invoice number (`--invoice` to choose one).
 - When a job finishes, the worker notifies the uploader in the same transaction (`verification_needed`,
   `low_confidence` when a found field is below `org_settings.ocr_confidence_threshold` — seeded at 80 — or a
   required field is missing, or `ocr_failed` with the reason).

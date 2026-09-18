@@ -58,6 +58,7 @@ export type SubmissionRow = RecordStatus & {
   attention: number;
   rejectedReason: string | null;
   manualException: boolean;
+  returnReason: string | null;
 };
 
 export type OcrJobRow = {
@@ -115,6 +116,7 @@ export const ocrRouter = router({
         attention: number | null;
         rejected_reason: string | null;
         manual_exception: boolean;
+        return_reason: string | null;
       }[]
     >`
       select r.id, r.verification_status, r.validation_status, r.approval_status,
@@ -125,7 +127,22 @@ export const ocrRouter = router({
                where a.event_type = 'verification.rejected' and a.entity_id = r.id
                order by a.created_at desc limit 1) as rejected_reason,
              exists (select 1 from public.verifications v
-                      where v.esg_record_id = r.id and v.is_manual_exception) as manual_exception
+                      where v.esg_record_id = r.id and v.is_manual_exception) as manual_exception,
+             case
+               when r.approval_status = 'returned' then (
+                 select ap.reason from public.approvals ap
+                 where ap.esg_record_id = r.id and ap.action = 'returned'
+                 order by ap.decided_at desc limit 1)
+               when r.validation_status = 'returned' then (
+                 select a.reason from public.audit_logs a
+                 where a.event_type = 'validation.returned' and a.entity_id = r.id
+                 order by a.created_at desc limit 1)
+               when r.validation_status = 'failed' then (
+                 select string_agg(vr.message, ' ') from public.validation_results vr
+                 where vr.esg_record_id = r.id and vr.result = 'fail'
+                   and vr.evaluated_at = (select max(evaluated_at) from public.validation_results
+                                          where esg_record_id = r.id))
+             end as return_reason
       from public.esg_records r
       join public.esg_metrics m on m.id = r.metric_id
       join public.org_units o on o.id = r.org_unit_id
@@ -156,6 +173,7 @@ export const ocrRouter = router({
       attention: r.attention ?? 0,
       rejectedReason: r.rejected_reason,
       manualException: r.manual_exception,
+      returnReason: r.return_reason,
     }));
   }),
 

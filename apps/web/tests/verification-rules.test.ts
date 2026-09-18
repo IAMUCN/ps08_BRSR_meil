@@ -132,4 +132,13 @@ test("the verify page state follows the record and its job", () => {
     verifyState({ ...base, dataQualityState: "rejected", jobStatus: "failed" }),
     "rejected",
   );
+  // Phase 8: a failed validation or an Admin return reopens the record for correction (§4.8).
+  const verified = {
+    ...base,
+    verificationStatus: "user_verified",
+    jobStatus: "completed",
+  } as const;
+  assert.equal(verifyState({ ...verified, validationStatus: "failed" }), "returned");
+  assert.equal(verifyState({ ...verified, validationStatus: "returned" }), "returned");
+  assert.equal(verifyState({ ...verified, validationStatus: "flagged" }), "verified");
 });
