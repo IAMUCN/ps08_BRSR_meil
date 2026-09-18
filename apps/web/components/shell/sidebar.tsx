@@ -3,9 +3,11 @@
 import {
   Building2,
   CalendarRange,
+  ClipboardCheck,
   FileStack,
   LayoutDashboard,
   ScanText,
+  ShieldAlert,
   ShieldCheck,
   Upload,
   UserRound,
@@ -29,6 +31,8 @@ const ICONS = {
   upload: Upload,
   submissions: FileStack,
   ocr: ScanText,
+  validation: ShieldAlert,
+  approvals: ClipboardCheck,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;

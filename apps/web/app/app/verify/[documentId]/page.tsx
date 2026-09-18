@@ -8,6 +8,7 @@ import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ValidationResult } from "@/components/validation/validation-result";
 import { VerifyWorkspace } from "@/components/verification/verify-workspace";
 import { requireAppSession } from "@/lib/auth/session";
 import { JOB_STATUS_LABELS, JOB_STATUS_TONES } from "@/lib/ocr/rules";
@@ -45,10 +46,24 @@ function StatePanel({ doc }: { doc: VerifyDocument }) {
             ? "Extraction in progress"
             : doc.state === "verified"
               ? "Verified"
-              : "Rejected"}
+              : doc.state === "returned"
+                ? "Returned for correction"
+                : "Rejected"}
         </h2>
         {doc.state === "verified" ? (
-          <StatusBadge tone="success">Verified</StatusBadge>
+          doc.approvalStatus === "approved" ? (
+            <StatusBadge tone="success">Approved</StatusBadge>
+          ) : doc.approvalStatus === "review_pending" ? (
+            <StatusBadge tone="neutral">Pending Approval</StatusBadge>
+          ) : doc.validation?.status === "flagged" ? (
+            <StatusBadge tone="warning">Flagged</StatusBadge>
+          ) : doc.validation?.status === "validated" ? (
+            <StatusBadge tone="success">Validated</StatusBadge>
+          ) : (
+            <StatusBadge tone="neutral">Validation Pending</StatusBadge>
+          )
+        ) : doc.state === "returned" ? (
+          <StatusBadge tone="error">Returned</StatusBadge>
         ) : doc.state === "rejected" ? (
           <StatusBadge tone="locked">Rejected</StatusBadge>
         ) : doc.jobStatus ? (
@@ -96,10 +111,33 @@ function StatePanel({ doc }: { doc: VerifyDocument }) {
               </div>
             ))}
           </dl>
+          {doc.validation ? (
+            <section aria-labelledby="validation-heading" className="mt-4 space-y-2">
+              <h3 id="validation-heading" className="text-sm leading-5 font-semibold">
+                Validation
+              </h3>
+              <ValidationResult results={doc.validation.results} />
+              {doc.validation.status === "flagged" ? (
+                <p className="text-xs leading-4 text-muted-foreground">
+                  Flagged for review — an Admin will accept it or return it to you.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
           <p className="mt-3 text-xs leading-4 text-muted-foreground">
-            Validation and calculation arrive in Phases 8 and 9 — this record is waiting for them.
+            {doc.approvalStatus === "review_pending"
+              ? "Waiting for approval by Corporate ESG or an Admin. "
+              : ""}
+            Calculation arrives in Phase 9.
           </p>
         </>
+      ) : null}
+
+      {doc.state === "returned" ? (
+        <div className="mt-3 space-y-3">
+          {doc.returnReason ? <p className="text-sm leading-5">{doc.returnReason}</p> : null}
+          {doc.validation ? <ValidationResult results={doc.validation.results} /> : null}
+        </div>
       ) : null}
 
       <dl className="mt-5 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
@@ -130,7 +168,8 @@ export default async function VerifyPage({ params }: PageProps<"/app/verify/[doc
     : null;
   if (!doc) redirect("/app?notice=forbidden");
 
-  const workable = (doc.state === "ready" || doc.state === "failed") && doc.canVerify;
+  const workable =
+    (doc.state === "ready" || doc.state === "failed" || doc.state === "returned") && doc.canVerify;
 
   return (
     <div className="space-y-4">

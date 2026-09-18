@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node --test \"tests/**/*.test.ts\"",
-    "provision-user": "node --env-file-if-exists=.env.local scripts/provision-user.ts"
+    "provision-user": "node --env-file-if-exists=.env.local scripts/provision-user.ts",
+    "validate-pending": "node --conditions=react-server --env-file-if-exists=.env.local scripts/validate-pending.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

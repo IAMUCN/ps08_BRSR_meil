@@ -1,6 +1,16 @@
 "use client";
 
-import { AlertTriangle, Bell, FileSearch, FileX, type LucideIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle2,
+  ClipboardCheck,
+  FileSearch,
+  FileX,
+  RotateCcw,
+  ShieldAlert,
+  type LucideIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "cn";
 import { markNotificationReadAction } from "@/lib/notifications/actions";
@@ -11,6 +21,10 @@ const ICONS: Record<string, { icon: LucideIcon; className: string }> = {
   verification_needed: { icon: FileSearch, className: "text-primary" },
   low_confidence: { icon: AlertTriangle, className: "text-status-warning" },
   ocr_failed: { icon: FileX, className: "text-status-error" },
+  returned: { icon: RotateCcw, className: "text-status-error" },
+  validation_review: { icon: ShieldAlert, className: "text-status-warning" },
+  approval_needed: { icon: ClipboardCheck, className: "text-primary" },
+  approved: { icon: CheckCircle2, className: "text-status-success" },
 };
 
 const relative = new Intl.RelativeTimeFormat("en-IN", { numeric: "auto" });

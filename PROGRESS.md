@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-18 — Phase 7 complete, awaiting commit._
+_Last updated: 2026-09-19 — Phase 8 (with approval pulled forward) complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold (`0001`–`0014`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules (`0001`–`0015`) |
 | `supabase/tests/database/` | pgTAP database tests |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D13) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A8) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A9) |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -56,9 +56,9 @@ may run in parallel with Phases 3–5.
 | 4 | Organization and Admin foundation | Done | `1594389` |
 | 5 | Document ingestion | Done | `1df74c8` |
 | 6 | OCR pipeline integration | Done | `6ac8d00` |
-| 7 | OCR verification | **Done, not yet committed** | — |
-| 8 | Validation engine | **Next** | — |
-| 9 | Calculation engine | Not started | — |
+| 7 | OCR verification | Done | `04fc05f` |
+| 8 | Validation engine | **Done, not yet committed** | — |
+| 9 | Calculation engine | **Next** | — |
 | 10 | Scope 1 | Not started | — |
 | 11 | Scope 2 | Not started | — |
 | 12 | Scope 3 foundation | Not started | — |
@@ -188,29 +188,55 @@ layers (D9), `provision-user` script for the first Admin.
 - Checks: unit 25/25, DB 61/61, API end-to-end 76/76, browser (Edge) 31/31, Phase 6 regression 65/65 and
   26/26, lint/typecheck/format, production build.
 
+**Phase 8 — Validation engine.** Decisions: `.grill/phase-8-validation-engine-decisions.md`.
+- **Six categories** (PRD §29) run inside Confirm's transaction (schema §20.3): built-in format (required
+  fields, numbers), organizational (project active and inside the submitter's scope) and evidence
+  (attached and read by OCR — manual exceptions are always flagged); configured checks from
+  `validation_rules` (migration `0015`): allowed units, quantity > 0, billing period overlapping the
+  reporting period, duplicate invoice number (flag + `is_duplicate_flag`), duplicate grid bill per period,
+  and the anomaly check (×2 / ½ of the project's median over 3+ prior periods, else "not enough history").
+- One `validation_results` row per check (`validation_rule_id` null for built-ins); record status from the
+  aggregate: any fail → `failed`, any flag → `flagged`, else `validated`; audited as a system event.
+- **Returns and re-verification** (App Flow §4.7/§4.8): hard fails notify the submitter (`returned`) and
+  reopen Verify Extraction with prior values, the reason, the per-category result and a message on each
+  failing field; re-confirming records a new verification and re-validates from the top.
+- **Admin Validation Queue** (`/admin/validation-queue`): status and category filters, 720px drawer with the
+  validation result and the document, Accept or Return to submitter for flagged records (reason required,
+  audited); Admins are notified of flags (`validation_review`).
+- Validation Result component (UI brief §12.4) on the verify summary, the returned screen and the queue;
+  My Submissions shows return reasons and "Awaiting Admin review"; the dashboard "Returned for correction"
+  card is real.
+- **Approval pulled forward** (A10, after the owner found nothing ever reached Approved): validated records
+  go to Pending Approval; approvers in scope (`/app/approvals`) or Admins (`/admin/approval-queue`) Approve
+  or Return with a reason; no self-approval; submitter notified either way.
+- Synthetic sample invoices now get unique invoice numbers (`apps/ocr-worker/scripts/make_sample_invoice.py`)
+  — the shared number had flagged every test record as a duplicate. `pnpm --filter web validate-pending`
+  validated the 29 local records confirmed before Phase 8.
+- Checks: unit 34/34, DB 66/66, API end-to-end 58/58 + approvals 36/36, browser (Edge) 16/16 + approval
+  scenario 8/8, lint/typecheck/format, production build.
+
 ## 4. What comes next
 
-**Phase 8 — Validation engine** (`06_IMPLEMENTATION_PLAN.md` §Phase 8):
-- Six rule categories (format, organizational, period, evidence, logical, anomaly) as TS modules reading
-  parameters from `validation_rules` — never per-metric logic in code.
-- `validation.run` executes automatically after Confirm, writing one `validation_results` row per rule and
-  setting `esg_records.validation_status` from the aggregate; hard failures return the record to the
-  submitter with the reason (App Flow §4.7/§4.8).
-- Period check owns the **invoice-number duplicate flag** (`is_duplicate_flag`) that Phase 7 only warns
-  about, and compares the verified billing period against the reporting period.
-- Admin **Validation Queue** (`/admin/validation-queue`) for flagged/failed records, plus the Validation
-  Result component (UI brief §12.4) on the record view.
+**Phase 9 — Calculation engine** (`06_IMPLEMENTATION_PLAN.md` §Phase 9):
+- Deterministic calculation for validated records only: unit normalisation to the metric's canonical unit,
+  the version-effective conversion/emission factor, the result and a full calculation trace stored in
+  `calculations` (new row + `is_current` flip in one transaction, schema §20.3).
+- Factor management (`conversion_factors`, `conversion_factor_versions`) — never overwrite, always version.
+- Records become calculable when `validation_status = validated` (including Admin-accepted flags).
+- Replace the approval drawer's "Calculation trace" placeholder, and decide whether approval must wait
+  for a calculation (records are already being approved without one).
 
-Things to remember for Phase 8:
-- A verified record currently sits under **Processing / "Validation Pending"**; once validation runs, the
-  Validated, Returned and Flagged tabs start filling (`lib/ocr/rules.ts` already maps them).
-- Confirm's transaction is the place to trigger validation (schema §20.3 wants verification and the first
-  validation results in one transaction).
-- `metric_field_requirements.is_critical` is still false everywhere; Phases 10–11 decide.
+Things to remember for Phase 9:
+- Allowed unit spellings (e.g. Ltr, Litres, KL; kWh, Units) are accepted by validation but still need
+  normalising — that mapping belongs to Phase 9.
+- `calculation_status` is still `pending` on every diesel/grid record.
+- Locally an Admin granted `approval.decide` to the Project Manager role (Roles & Permissions); PMs can
+  approve others' records in their scope but never their own.
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0001`–`0014` were pushed on
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migration `0015` (validation rules) is
+  not pushed yet. Migrations `0001`–`0014` were pushed on
   2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
   verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
   users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
@@ -223,8 +249,7 @@ Things to remember for Phase 8:
   locally only.
 - **Deferred by design:** org/period context switcher (Phase 16), theme switcher and Theme 2/3 contrast
   sweep (Phase 19), CSRF review of the tRPC endpoint — currently relies on SameSite=Lax cookies (Phase 18),
-  Submission History page and record detail views, Settings page to edit the OCR threshold, returned-record
-  re-verification (arrives with Phase 8's returns).
+  Submission History page and record detail views, Settings page to edit the OCR threshold.
 - **Abandoned uploads:** a file uploaded but never completed (browser closed mid-flow) stays in Storage with
   no database row. Nothing references it; add a cleanup job if it becomes noticeable.
 - **Local memory:** the dev server, Docker/Supabase and the OCR worker together exhaust ~12 GB machines; the

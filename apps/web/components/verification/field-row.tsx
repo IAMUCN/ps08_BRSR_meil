@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Pencil } from "lucide-react";
+import { OUTCOME_ICON } from "@/components/validation/validation-result";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ export function FieldRow({
   entry,
   threshold,
   error,
+  validation,
   disabled,
   onChange,
 }: {
@@ -29,6 +31,8 @@ export function FieldRow({
   entry: FieldEntry;
   threshold: number | null;
   error: string | null;
+  /** The last validation run's verdict on this field (UI brief §12.2 item 4). */
+  validation?: { outcome: "fail" | "flagged"; message: string } | null;
   disabled: boolean;
   onChange: (next: FieldEntry) => void;
 }) {
@@ -147,6 +151,20 @@ export function FieldRow({
             {error}
           </p>
         ) : null}
+        {validation
+          ? (() => {
+              const { icon: Icon, className, label } = OUTCOME_ICON[validation.outcome];
+              return (
+                <p className="flex items-start gap-1.5 text-xs leading-4">
+                  <Icon className={`mt-px size-3.5 shrink-0 ${className}`} aria-hidden />
+                  <span>
+                    <span className="sr-only">Validation {label}: </span>
+                    {validation.message}
+                  </span>
+                </p>
+              );
+            })()
+          : null}
         {missing && changed ? (
           <span className="rounded-sm border border-border px-1.5 text-[11px] leading-4 text-muted-foreground uppercase">
             Not from OCR

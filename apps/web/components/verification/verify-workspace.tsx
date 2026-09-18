@@ -3,9 +3,10 @@
 import { AlertTriangle, CheckCircle2, Loader2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
+import { ValidationResult } from "@/components/validation/validation-result";
 import { FieldRow } from "@/components/verification/field-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -35,11 +36,24 @@ const INVOICE_FIELD = "invoice_number";
 export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
   const router = useRouter();
   const manual = doc.state === "failed";
+  const returned = doc.state === "returned";
+  // A returned record reopens with its prior confirmed values (03_APP_FLOW.md §4.8 step 3).
+  const initialValue = (f: VerifyDocument["fields"][number]) =>
+    (returned ? f.verifiedValue : null) ?? f.extractedValue ?? "";
   const [entries, setEntries] = useState<Record<string, FieldEntry>>(() =>
     Object.fromEntries(
-      doc.fields.map((f) => [f.id, { value: f.extractedValue ?? "", acknowledged: false }]),
+      doc.fields.map((f) => [f.id, { value: initialValue(f), acknowledged: false }]),
     ),
   );
+  // Per-field validation state (UI brief §12.2 item 4) from the last run, worst outcome per field.
+  const fieldValidation = new Map<string, { outcome: "fail" | "flagged"; message: string }>();
+  for (const r of doc.validation?.results ?? []) {
+    if (!r.field || r.outcome === "pass") continue;
+    const current = fieldValidation.get(r.field);
+    if (!current || (current.outcome === "flagged" && r.outcome === "fail")) {
+      fieldValidation.set(r.field, { outcome: r.outcome, message: r.message });
+    }
+  }
   const [documentTypeId, setDocumentTypeId] = useState(doc.documentTypeId ?? "");
   const [justification, setJustification] = useState("");
   const [duplicates, setDuplicates] = useState(0);
@@ -52,10 +66,7 @@ export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
   // request (the upload form follows the same pattern).
   const [pending, setPending] = useState(false);
 
-  const dirty = useMemo(
-    () => doc.fields.some((f) => (entries[f.id]?.value ?? "") !== (f.extractedValue ?? "")),
-    [doc.fields, entries],
-  );
+  const dirty = doc.fields.some((f) => (entries[f.id]?.value ?? "") !== initialValue(f));
 
   // Unsaved edits live only in this page until Confirm (.grill/phase-7-ocr-verification-decisions.md).
   useEffect(() => {
@@ -102,7 +113,10 @@ export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
     setFailure(null);
     setPending(true);
     const result = (await action()) as
-      | { ok: true; data: { status?: string; duplicates?: number } | null }
+      | {
+          ok: true;
+          data: { status?: string; duplicates?: number; validation?: string } | null;
+        }
       | { ok: false; error: string };
     setPending(false);
     setConfirmOpen(false);
@@ -117,8 +131,20 @@ export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
       setFailure("This invoice number is already recorded — review the warning below.");
       return;
     }
-    toast.success("Verified — validation in progress.");
-    router.push("/app/submissions?tab=processing");
+    // Validation ran in the same transaction (schema §20.3): say what actually happened.
+    const outcome = result.data?.validation;
+    if (outcome === "failed") {
+      toast.error(
+        "Verified, but validation found problems — the record is back with you to correct.",
+      );
+      router.push("/app/submissions?tab=returned");
+    } else if (outcome === "flagged") {
+      toast.success("Verified — flagged for review by an Admin.");
+      router.push("/app/submissions?tab=validated");
+    } else {
+      toast.success("Verified and validated — sent for approval.");
+      router.push("/app/submissions?tab=pending_approval");
+    }
   }
 
   async function saveDocumentType(next: string) {
@@ -177,6 +203,20 @@ export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
           )}
         </div>
 
+        {returned ? (
+          <div className="space-y-3 border-b bg-status-error/5 p-4">
+            <p className="flex items-center gap-2 text-sm leading-5 font-semibold">
+              <AlertTriangle className="size-4 text-status-error" aria-hidden />
+              Returned for correction
+            </p>
+            {doc.returnReason ? <p className="text-sm leading-5">{doc.returnReason}</p> : null}
+            <p className="text-sm leading-5 text-muted-foreground">
+              Correct the values below and confirm again — validation runs from the top.
+            </p>
+            {doc.validation ? <ValidationResult results={doc.validation.results} /> : null}
+          </div>
+        ) : null}
+
         {manual ? (
           <div className="border-b bg-status-error/5 p-4">
             <p className="flex items-center gap-2 text-sm leading-5 font-semibold">
@@ -207,6 +247,7 @@ export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
                 entry={entry}
                 threshold={manual ? null : doc.threshold}
                 error={check.errors[field.id] ?? null}
+                validation={returned ? (fieldValidation.get(field.key) ?? null) : null}
                 disabled={pending}
                 onChange={(next) => setEntries((current) => ({ ...current, [field.id]: next }))}
               />

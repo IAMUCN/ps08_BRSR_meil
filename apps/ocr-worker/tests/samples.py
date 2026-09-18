@@ -41,11 +41,14 @@ def _page(draw_body) -> Image.Image:
     return image
 
 
-def _diesel_table(draw: ImageDraw.ImageDraw) -> None:
+DEFAULT_INVOICE = "SMP-INV-2026-0042"
+
+
+def _diesel_table(draw: ImageDraw.ImageDraw, invoice_number: str = DEFAULT_INVOICE) -> None:
     big, body = _font(40), _font(28)
     draw.text((60, 110), "Northwind Fuels Pvt Ltd (fictitious)", fill="black", font=big)
     draw.text((60, 170), "TAX INVOICE", fill="black", font=big)
-    draw.text((60, 260), "Invoice No: SMP-INV-2026-0042", fill="black", font=body)
+    draw.text((60, 260), f"Invoice No: {invoice_number}", fill="black", font=body)
     draw.text((60, 305), "Invoice Date: 05-Sep-2026", fill="black", font=body)
     draw.text((60, 350), "Bill To: Sample Project Site Office", fill="black", font=body)
     y = 460
@@ -112,16 +115,22 @@ def _encode(image: Image.Image, fmt: str, **options) -> bytes:
 DIESEL_EXPECTED = {
     "quantity": "1250.00",
     "unit": "Ltr",
-    "invoice_number": "SMP-INV-2026-0042",
+    "invoice_number": DEFAULT_INVOICE,
     "billing_period": "05-Sep-2026",
 }
+
+
+def diesel_invoice_pdf(invoice_number: str = DEFAULT_INVOICE) -> bytes:
+    """The table-layout diesel invoice with a chosen invoice number (manual testing: each upload can
+    carry its own number, so the duplicate-invoice path is only exercised on purpose)."""
+    return _encode(_page(lambda draw: _diesel_table(draw, invoice_number)), "PDF", resolution=150)
 
 
 def all_samples() -> list[Sample]:
     return [
         Sample(
             "diesel_invoice_table.pdf",
-            _encode(_page(_diesel_table), "PDF", resolution=150),
+            diesel_invoice_pdf(),
             "application/pdf",
             "DIESEL_CONSUMPTION",
             DIESEL_EXPECTED,

@@ -12,6 +12,8 @@ export type VerifyField = {
   critical: boolean;
   extractedValue: string | null;
   confidence: number | null;
+  /** The last confirmed value; a returned record reopens with it (03_APP_FLOW.md §4.8). */
+  verifiedValue?: string | null;
 };
 
 /** What the user currently has in the screen for one field. */
@@ -123,16 +125,25 @@ export function activityFieldKeys(
   return { ok: true, valueKey: numbers[0].key, unitKey: unit?.key ?? null };
 }
 
-export type VerifyState = "processing" | "ready" | "failed" | "verified" | "rejected";
+export type VerifyState = "processing" | "ready" | "failed" | "verified" | "returned" | "rejected";
 
 /** What the Verify Extraction page shows for this record/job combination. */
 export function verifyState(input: {
   verificationStatus: "draft" | "document_uploaded" | "ocr_completed" | "user_verified";
   dataQualityState: string;
   jobStatus: "pending" | "processing" | "completed" | "failed" | null;
+  validationStatus?: string;
+  approvalStatus?: string;
 }): VerifyState {
   if (input.dataQualityState === "rejected") return "rejected";
-  if (input.verificationStatus === "user_verified") return "verified";
+  if (input.verificationStatus === "user_verified") {
+    // A failed validation or an Admin return sends the record back for correction (§4.7/§4.8).
+    return input.validationStatus === "failed" ||
+      input.validationStatus === "returned" ||
+      input.approvalStatus === "returned"
+      ? "returned"
+      : "verified";
+  }
   if (input.verificationStatus === "ocr_completed") return "ready";
   if (input.jobStatus === "failed") return "failed";
   return "processing";

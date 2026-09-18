@@ -5,6 +5,8 @@ import { writeAudit } from "@/lib/audit";
 import type { ActiveSession } from "@/lib/auth/session";
 import { db, type Tx } from "@/lib/db";
 import type { OcrJobStatus } from "@/lib/ocr/rules";
+import type { Outcome, RuleType } from "@/lib/validation/checks";
+import { runValidation } from "@/lib/validation/engine";
 import { confidenceThreshold, documentAccess } from "@/lib/verification/access";
 import {
   MANUAL_JUSTIFICATION_MIN,
@@ -54,6 +56,14 @@ export type VerifyDocument = {
     values: { label: string; value: string | null }[];
   } | null;
   rejectedReason: string | null;
+  /** Latest validation run (UI brief §12.4); null before the first Confirm. */
+  validation: {
+    status: string;
+    results: { ruleType: RuleType; outcome: Outcome; message: string; field: string | null }[];
+  } | null;
+  /** Why a returned record came back: the Admin's reason, or the failed checks. */
+  returnReason: string | null;
+  approvalStatus: string;
 };
 
 type Sql = Tx | ReturnType<typeof db>;
@@ -114,6 +124,8 @@ async function loadDocument(sql: Sql, documentId: string) {
       metric_unit: string | null;
       verification_status: "draft" | "document_uploaded" | "ocr_completed" | "user_verified";
       data_quality_state: string;
+      validation_status: string;
+      approval_status: string;
       job_status: OcrJobStatus | null;
       error_message: string | null;
       extraction_id: string | null;
@@ -125,6 +137,8 @@ async function loadDocument(sql: Sql, documentId: string) {
            r.id as record_id, r.metric_id, m.name as metric_name, m.unit as metric_unit,
            coalesce(r.verification_status::text, 'draft') as verification_status,
            coalesce(r.data_quality_state::text, 'incomplete') as data_quality_state,
+           coalesce(r.validation_status::text, 'pending') as validation_status,
+           coalesce(r.approval_status::text, 'not_submitted') as approval_status,
            j.status as job_status, j.error_message, e.id as extraction_id
     from public.documents d
     join public.users u on u.id = d.uploaded_by
@@ -180,14 +194,19 @@ async function lockPendingRecord(tx: Tx, documentId: string) {
       metric_id: string;
       verification_status: string;
       data_quality_state: string;
+      validation_status: string;
+      approval_status: string;
       job_status: OcrJobStatus | null;
       extraction_id: string | null;
+      extraction_source: string | null;
       ocr_job_id: string | null;
       document_type_id: string | null;
     }[]
   >`
     select r.id, r.org_unit_id, r.reporting_period_id, r.metric_id, r.verification_status::text,
-           r.data_quality_state::text, j.status as job_status, e.id as extraction_id,
+           r.data_quality_state::text, r.validation_status::text,
+           r.approval_status::text, j.status as job_status,
+           e.id as extraction_id, e.raw_output->>'source' as extraction_source,
            j.id as ocr_job_id, d.document_type_id
     from public.documents d
     join public.esg_record_documents erd on erd.document_id = d.id and erd.is_primary
@@ -200,10 +219,15 @@ async function lockPendingRecord(tx: Tx, documentId: string) {
   if (row.data_quality_state === "rejected") {
     throw new TRPCError({ code: "CONFLICT", message: "This record was rejected." });
   }
-  if (row.verification_status === "user_verified") {
+  const returned =
+    row.verification_status === "user_verified" &&
+    (row.validation_status === "failed" ||
+      row.validation_status === "returned" ||
+      row.approval_status === "returned");
+  if (row.verification_status === "user_verified" && !returned) {
     throw new TRPCError({ code: "CONFLICT", message: "This document was already verified." });
   }
-  return row;
+  return { ...row, returned };
 }
 
 async function requireAccess(session: ActiveSession, documentId: string) {
@@ -232,26 +256,51 @@ export const verificationRouter = router({
       const row = await loadDocument(sql, input.documentId);
       if (!row) return null;
 
-      const [fieldRows, threshold, typeOptions, verification, rejection] = await Promise.all([
-        loadFields(sql, input.documentId, row.metric_id),
-        confidenceThreshold(sql),
-        sql<{ id: string; name: string }[]>`
+      const [fieldRows, threshold, typeOptions, verification, rejection, results, adminReturn] =
+        await Promise.all([
+          loadFields(sql, input.documentId, row.metric_id),
+          confidenceThreshold(sql),
+          sql<{ id: string; name: string }[]>`
           select dt.id, dt.name from public.document_type_metric_mappings map
           join public.document_types dt on dt.id = map.document_type_id
           where map.metric_id = ${row.metric_id}
           order by dt.name`,
-        sql<
-          { verified_at: Date; is_manual_exception: boolean; notes: string | null; name: string }[]
-        >`
+          sql<
+            {
+              verified_at: Date;
+              is_manual_exception: boolean;
+              notes: string | null;
+              name: string;
+            }[]
+          >`
           select v.verified_at, v.is_manual_exception, v.notes, u.display_name as name
           from public.verifications v join public.users u on u.id = v.verified_by
           where v.esg_record_id = ${row.record_id}
           order by v.verified_at desc limit 1`,
-        sql<{ reason: string | null }[]>`
+          sql<{ reason: string | null }[]>`
           select reason from public.audit_logs
           where event_type = 'verification.rejected' and entity_id = ${row.record_id}
           order by created_at desc limit 1`,
-      ]);
+          // The latest run: every result of one run shares its transaction's timestamp.
+          sql<{ rule_type: RuleType; outcome: Outcome; message: string; field: string | null }[]>`
+          select vr.rule_type::text as rule_type, vr.result::text as outcome, vr.message,
+                 rule.rule_definition->>'field' as field
+          from public.validation_results vr
+          left join public.validation_rules rule on rule.id = vr.validation_rule_id
+          where vr.esg_record_id = ${row.record_id}
+            and vr.evaluated_at = (
+              select max(evaluated_at) from public.validation_results
+              where esg_record_id = ${row.record_id})
+          order by vr.rule_type, vr.result desc`,
+          sql<{ reason: string | null }[]>`
+          select reason from (
+            select reason, created_at from public.audit_logs
+            where event_type = 'validation.returned' and entity_id = ${row.record_id}
+            union all
+            select reason, decided_at from public.approvals
+            where action = 'returned' and esg_record_id = ${row.record_id}
+          ) returns order by created_at desc limit 1`,
+        ]);
 
       const fields: VerifyField[] = fieldRows
         .filter((f) => f.id)
@@ -264,12 +313,23 @@ export const verificationRouter = router({
           critical: f.is_critical,
           extractedValue: f.extracted_value,
           confidence: f.confidence,
+          verifiedValue: f.verified_value,
         }));
       const state = verifyState({
         verificationStatus: row.verification_status,
         dataQualityState: row.data_quality_state,
         jobStatus: row.job_status,
+        validationStatus: row.validation_status,
+        approvalStatus: row.approval_status,
       });
+      // Results name "activity_value" for the metric's activity field; point them at the real field.
+      const activityKey = fields.find((f) => f.dataType === "number" && f.required)?.key ?? null;
+      const validationResults = results.map((r) => ({
+        ruleType: r.rule_type,
+        outcome: r.outcome,
+        message: r.message,
+        field: r.field === "activity_value" ? activityKey : r.field,
+      }));
 
       return {
         state,
@@ -318,6 +378,19 @@ export const verificationRouter = router({
               }
             : null,
         rejectedReason: state === "rejected" ? (rejection[0]?.reason ?? null) : null,
+        approvalStatus: row.approval_status,
+        validation: validationResults.length
+          ? { status: row.validation_status, results: validationResults }
+          : null,
+        returnReason:
+          state !== "returned"
+            ? null
+            : row.validation_status === "returned" || row.approval_status === "returned"
+              ? (adminReturn[0]?.reason ?? "Returned by a reviewer.")
+              : validationResults
+                  .filter((r) => r.outcome === "fail")
+                  .map((r) => r.message)
+                  .join(" "),
       };
     }),
 
@@ -385,7 +458,10 @@ export const verificationRouter = router({
 
       return db().begin(async (tx) => {
         const record = await lockPendingRecord(tx, input.documentId);
-        if (record.verification_status !== "ocr_completed" || !record.extraction_id) {
+        if (
+          (record.verification_status !== "ocr_completed" && !record.returned) ||
+          !record.extraction_id
+        ) {
           throw new TRPCError({
             code: "CONFLICT",
             message: "This document has no completed extraction to verify.",
@@ -470,9 +546,13 @@ export const verificationRouter = router({
           if (activity.unitKey && field.key === activity.unitKey) activityUnit = value || null;
         }
 
+        // A re-confirmed manual exception stays a manual exception (schema §9.3).
+        const manual = record.extraction_source === "manual_exception";
         await tx`
-          insert into public.verifications (esg_record_id, ocr_extraction_id, verified_by)
-          values (${record.id}, ${record.extraction_id}, ${userId})`;
+          insert into public.verifications
+            (esg_record_id, ocr_extraction_id, verified_by, is_manual_exception, notes)
+          values (${record.id}, ${manual ? null : record.extraction_id}, ${userId}, ${manual},
+                  ${record.returned ? "Re-verified after return" : null})`;
         await tx`
           update public.esg_records
           set activity_value_raw = ${activityRaw}, activity_value_verified = ${activityValue},
@@ -496,7 +576,12 @@ export const verificationRouter = router({
             duplicate_invoice_matches: duplicates,
           },
         });
-        return { status: "verified" as const, recordId: record.id };
+        const validation = await runValidation(tx, record.id);
+        return {
+          status: "verified" as const,
+          recordId: record.id,
+          validation: validation.status,
+        };
       });
     }),
 
@@ -620,7 +705,12 @@ export const verificationRouter = router({
             duplicate_invoice_matches: duplicates,
           },
         });
-        return { status: "verified" as const, recordId: record.id };
+        const validation = await runValidation(tx, record.id);
+        return {
+          status: "verified" as const,
+          recordId: record.id,
+          validation: validation.status,
+        };
       });
     }),
 

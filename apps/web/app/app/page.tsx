@@ -43,6 +43,7 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
     caller.ocr.submissions(),
   ]);
   const toVerify = submissions.filter((s) => submissionTab(s) === "needs_verification").length;
+  const returned = submissions.filter((s) => submissionTab(s) === "returned").length;
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -101,18 +102,19 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
             Extracted or failed documents waiting for you
           </p>
         </Link>
-        <div className="rounded-md border bg-card p-4">
+        <Link
+          href="/app/submissions?tab=returned"
+          className="rounded-md border bg-card p-4 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
           <div className="flex items-center gap-2">
-            <RotateCcw className="size-5 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+            <RotateCcw className="size-5 text-status-error" strokeWidth={1.5} aria-hidden />
             <h2 className="text-sm leading-5 font-semibold">Returned for correction</h2>
           </div>
-          <p className="mt-2 text-2xl leading-8 font-semibold" aria-label="No data yet">
-            —
-          </p>
+          <p className="mt-2 text-2xl leading-8 font-semibold tabular-nums">{returned}</p>
           <p className="mt-1 text-xs leading-4 text-muted-foreground">
-            Development placeholder — returns arrive with validation and approval (Phases 8, 16)
+            Records that failed validation or were sent back by a reviewer
           </p>
-        </div>
+        </Link>
       </section>
 
       <section aria-labelledby="assignments-heading" className="rounded-md border bg-card p-4">

@@ -150,11 +150,15 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
                 const badge = submissionBadge(row);
                 const detail = row.rejectedReason
                   ? row.rejectedReason
-                  : row.errorMessage
-                    ? row.errorMessage
-                    : row.verificationStatus === "ocr_completed" && row.attention > 0
-                      ? attentionLabel(row.attention)
-                      : null;
+                  : row.returnReason
+                    ? row.returnReason
+                    : row.validationStatus === "flagged"
+                      ? "Awaiting Admin review."
+                      : row.errorMessage
+                        ? row.errorMessage
+                        : row.verificationStatus === "ocr_completed" && row.attention > 0
+                          ? attentionLabel(row.attention)
+                          : null;
                 return (
                   <tr
                     key={row.id}
