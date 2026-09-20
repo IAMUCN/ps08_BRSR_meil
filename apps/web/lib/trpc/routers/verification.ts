@@ -2,6 +2,8 @@ import "server-only";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import { loadCalculations } from "@/lib/calculation/lookup";
+import type { CalculationState } from "@/lib/calculation/trace";
 import type { ActiveSession } from "@/lib/auth/session";
 import { db, type Tx } from "@/lib/db";
 import type { OcrJobStatus } from "@/lib/ocr/rules";
@@ -61,6 +63,8 @@ export type VerifyDocument = {
     status: string;
     results: { ruleType: RuleType; outcome: Outcome; message: string; field: string | null }[];
   } | null;
+  /** The stored calculation for this record, or why there isn't one yet (Phase 9). */
+  calculation: CalculationState;
   /** Why a returned record came back: the Admin's reason, or the failed checks. */
   returnReason: string | null;
   approvalStatus: string;
@@ -379,6 +383,9 @@ export const verificationRouter = router({
             : null,
         rejectedReason: state === "rejected" ? (rejection[0]?.reason ?? null) : null,
         approvalStatus: row.approval_status,
+        calculation: (row.record_id
+          ? (await loadCalculations(sql, [row.record_id])).get(row.record_id)
+          : null) ?? { trace: null, blockedReason: null },
         validation: validationResults.length
           ? { status: row.validation_status, results: validationResults }
           : null,

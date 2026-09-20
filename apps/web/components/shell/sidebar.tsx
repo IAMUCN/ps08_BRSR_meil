@@ -3,7 +3,9 @@
 import {
   Building2,
   CalendarRange,
+  Calculator,
   ClipboardCheck,
+  Factory,
   FileStack,
   LayoutDashboard,
   ScanText,
@@ -33,6 +35,8 @@ const ICONS = {
   ocr: ScanText,
   validation: ShieldAlert,
   approvals: ClipboardCheck,
+  factors: Calculator,
+  scope: Factory,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;

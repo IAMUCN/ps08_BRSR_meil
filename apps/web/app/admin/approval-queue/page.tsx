@@ -25,7 +25,7 @@ export default async function AdminApprovalQueuePage() {
           message="Validated records appear here as soon as they pass validation."
         />
       ) : (
-        <ApprovalQueue rows={rows} />
+        <ApprovalQueue rows={rows} canRecalculate />
       )}
     </div>
   );

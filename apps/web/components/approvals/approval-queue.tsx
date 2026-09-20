@@ -1,9 +1,10 @@
 "use client";
 
-import { CheckCircle2, RotateCcw } from "lucide-react";
+import { Calculator, CheckCircle2, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { CalculationTraceView } from "@/components/calculation/calculation-trace";
 import { DocumentViewer } from "@/components/document-viewer/document-viewer";
 import { ValidationResult } from "@/components/validation/validation-result";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { decideApprovalAction } from "@/lib/approvals/actions";
+import { decideApprovalAction, recalculateAction } from "@/lib/approvals/actions";
 import { formatNumber } from "@/lib/validation/checks";
 import type { ApprovalRow } from "@/lib/trpc/routers/approvals";
 
@@ -37,12 +38,31 @@ function formatDateTime(iso: string | null) {
  * drawer shows the evidence, the verified values, the validation result and who submitted and verified the
  * record, then Approve (primary) or Return for correction (important, reason required).
  */
-export function ApprovalQueue({ rows }: { rows: ApprovalRow[] }) {
+export function ApprovalQueue({
+  rows,
+  canRecalculate = false,
+}: {
+  rows: ApprovalRow[];
+  /** The viewer holds `factor.manage`, so they can re-run a blocked calculation from here. */
+  canRecalculate?: boolean;
+}) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [decision, setDecision] = useState<"approve" | "return" | null>(null);
   const [pending, setPending] = useState(false);
   const selected = rows.find((r) => r.recordId === selectedId) ?? null;
+
+  async function recalculate(recordId: string) {
+    setPending(true);
+    const result = await recalculateAction(recordId);
+    setPending(false);
+    if (result.ok) {
+      toast.success("Calculated");
+      router.refresh();
+    } else {
+      toast.error(result.error);
+    }
+  }
 
   async function decide(reason: string) {
     if (!selected || !decision) return;
@@ -141,17 +161,31 @@ export function ApprovalQueue({ rows }: { rows: ApprovalRow[] }) {
                   ))}
                 </dl>
                 <ValidationResult results={selected.results} />
-                <p className="rounded-md border border-dashed p-3 text-xs leading-4 text-muted-foreground">
-                  Calculation trace — development placeholder: emissions are calculated from Phase
-                  9.
-                </p>
+                {selected.requiresCalculation ? (
+                  <CalculationTraceView state={selected.calculation} />
+                ) : null}
+                {selected.requiresCalculation && !selected.calculation.trace && canRecalculate ? (
+                  <Button
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => void recalculate(selected.recordId)}
+                  >
+                    <Calculator aria-hidden />
+                    Run calculation
+                  </Button>
+                ) : null}
                 {selected.ownRecord ? (
                   <p className="text-sm leading-5 text-status-error">
                     You submitted or verified this record, so another approver must decide on it.
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    <Button onClick={() => setDecision("approve")} disabled={pending}>
+                    <Button
+                      onClick={() => setDecision("approve")}
+                      disabled={
+                        pending || (selected.requiresCalculation && !selected.calculation.trace)
+                      }
+                    >
                       <CheckCircle2 aria-hidden />
                       Approve
                     </Button>
@@ -163,6 +197,12 @@ export function ApprovalQueue({ rows }: { rows: ApprovalRow[] }) {
                       <RotateCcw aria-hidden />
                       Return for correction
                     </Button>
+                    {selected.requiresCalculation && !selected.calculation.trace ? (
+                      <p className="w-full text-sm leading-5 text-status-error">
+                        Approve is disabled until this record has a calculation — return it, or add
+                        the conversion factor and run the calculation.
+                      </p>
+                    ) : null}
                   </div>
                 )}
                 {selected.documentId && selected.mimeType ? (

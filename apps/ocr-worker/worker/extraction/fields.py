@@ -59,8 +59,14 @@ _TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9/\-]*[A-Za-z0-9]")
 _DATE = r"\d{1,2}[-/. ](?:\d{1,2}|[A-Za-z]{3,9})[-/. ]\d{2,4}"
 _PERIOD_RANGE = re.compile(rf"({_DATE})\s*(?:to|till|until|-|–|—)\s*({_DATE})", re.IGNORECASE)
 _SINGLE_DATE = re.compile(rf"({_DATE})")
+# Volume, energy, weight (Scope 3 waste) and currency (spend-based business travel).
 _UNIT = re.compile(
-    r"(?<![A-Za-z])(kwh|kvah|litres|liters|litre|liter|ltrs|ltr|kl|l)(?![A-Za-z])", re.IGNORECASE
+    r"(?<![A-Za-z])"
+    r"(kwh|kvah|mwh|litres|liters|litre|liter|ltrs|ltr|kl|l"
+    r"|kilograms|kilogram|kgs|kg|tonnes|tonne|mt"
+    r"|rupees|inr|rs)"
+    r"(?![A-Za-z])",
+    re.IGNORECASE,
 )
 _LEADING_SEPARATORS = re.compile(r"^[\s:.#\-–=|()]+")
 

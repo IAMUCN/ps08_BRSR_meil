@@ -1,4 +1,4 @@
-import { CalendarRange, FileSearch, FolderX, RotateCcw, Upload } from "lucide-react";
+import { CalendarRange, Factory, FileSearch, FolderX, RotateCcw, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "@/components/shell/empty-state";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { NoticeToast } from "@/components/shell/notice-toast";
 import { requireAppSession } from "@/lib/auth/session";
 import { submissionTab } from "@/lib/ocr/rules";
+import { formatTotal } from "@/lib/scope/display";
 import { api } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Dashboard · TraceESG" };
@@ -38,10 +39,21 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
     );
   }
 
-  const [openPeriod, submissions] = await Promise.all([
+  const [openPeriod, submissions, myTotals] = await Promise.all([
     caller.dashboard.openPeriod(),
     caller.ocr.submissions(),
+    // Phases 10–12: this user's own project totals for every configured scope — never an
+    // organisation-wide figure, and never a hard-coded list of scopes.
+    caller.scope.topLevel().then((all) =>
+      Promise.all(
+        all.map(async (scope) => ({
+          name: scope.name,
+          view: await caller.scope.myTotal({ scopeCode: scope.code }),
+        })),
+      ),
+    ),
   ]);
+  const scopes = myTotals.filter((s) => s.view !== null);
   const toVerify = submissions.filter((s) => submissionTab(s) === "needs_verification").length;
   const returned = submissions.filter((s) => submissionTab(s) === "returned").length;
 
@@ -116,6 +128,55 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
           </p>
         </Link>
       </section>
+
+      {scopes.length > 0 ? (
+        <section aria-labelledby="scopes-heading" className="rounded-md border bg-card p-4">
+          <div className="flex items-center gap-2">
+            <Factory className="size-5 text-primary" strokeWidth={1.5} aria-hidden />
+            <h2 id="scopes-heading" className="text-base leading-6 font-semibold">
+              Your project&apos;s emissions · {scopes[0].view!.node.name},{" "}
+              {scopes[0].view!.periodLabel}
+            </h2>
+          </div>
+          <dl className="mt-3 space-y-3">
+            {scopes.map(({ name, view }) => (
+              <div key={name}>
+                <dt className="text-sm leading-5 font-medium">{name}</dt>
+                {view!.node.totals.length > 0 ? (
+                  view!.node.totals.map((total) => (
+                    <dd
+                      key={total.unit}
+                      className="flex flex-wrap items-baseline gap-x-3 text-sm leading-5"
+                    >
+                      <span className="font-mono font-semibold">
+                        {formatTotal(total.approved, total.unit)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        approved · {total.records} record(s)
+                      </span>
+                      {total.awaitingApproval > 0 ? (
+                        <span className="text-xs text-status-warning">
+                          {formatTotal(total.awaitingApproval, total.unit)} awaiting approval
+                        </span>
+                      ) : null}
+                    </dd>
+                  ))
+                ) : (
+                  <dd className="text-sm leading-5 text-muted-foreground">
+                    Nothing calculated for this period yet.
+                  </dd>
+                )}
+                {view!.node.notCalculated > 0 ? (
+                  <dd className="text-xs leading-4 text-status-warning">
+                    {view!.node.notCalculated} verified record(s) are waiting on a conversion
+                    factor.
+                  </dd>
+                ) : null}
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
 
       <section aria-labelledby="assignments-heading" className="rounded-md border bg-card p-4">
         <h2 id="assignments-heading" className="text-base leading-6 font-semibold">

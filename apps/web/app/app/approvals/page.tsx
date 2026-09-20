@@ -28,7 +28,7 @@ export default async function ApprovalsPage() {
           message="Validated records appear here as soon as they pass validation."
         />
       ) : (
-        <ApprovalQueue rows={rows} />
+        <ApprovalQueue rows={rows} canRecalculate={session.permissions.includes("factor.manage")} />
       )}
     </div>
   );

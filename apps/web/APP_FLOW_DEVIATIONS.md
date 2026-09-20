@@ -183,3 +183,77 @@ Decisions: `.grill/phase-8-validation-engine-decisions.md` (2026-09-19).
 - **Calculation trace in the approval drawer is a labeled development placeholder** until Phase 9;
   Phase 9 decides whether approval must wait for a calculation.
 - Multi-level approval chains and the Control Tower's approval cards stay in Phase 16.
+
+## A11 — Phase 9 calculation
+
+Decisions: `.grill/phase-9-calculation-engine-decisions.md`.
+
+- **Calculation runs when a record enters the approval queue** (inside Confirm's transaction, and on an
+  Admin's Accept of a flagged record), so the approval drawer shows the real trace instead of the Phase 8
+  placeholder.
+- **A missing factor blocks the number, not the queue.** The record still appears under Pending Approval
+  with "Not calculated yet" and the reason; Approve is disabled and says why, Return stays available, and
+  Admins are notified once per reason (`calculation_blocked`, deep-linking to Conversion Factors). An
+  Admin with `factor.manage` gets a "Run calculation" button in the drawer.
+- **The calculation trace is shown to the submitter** on their own record (App Flow only promises it to
+  reviewers and the drill-down), because the number is derived from their evidence.
+- **Recalculation is explicit and pre-approval only.** Approved records are closed; nothing recalculates
+  automatically when a factor changes.
+- **Conversion Factors is an Admin-area page only** (`/admin/conversion-factors`), gated on
+  `factor.manage`. If that permission is ever granted to another role, an `/app` mirror follows, as
+  Approvals did.
+
+## A12 — Phase 10 Scope 1
+
+Decisions: `.grill/phase-10-scope-1-decisions.md`.
+
+- **No placeholder conversion factors**, although the Phase 10 plan permits clearly-marked ones. Phase 9's
+  rule stands: an Admin enters each factor with the source they verified it against, and the dashboard
+  shows an honest empty state until then.
+- **The headline total counts approved records only**, with "awaiting approval" and "N verified records
+  have no calculation yet" beside it, so an unreviewed number never reads as reportable and the gaps stay
+  visible. The App Flow says "totals by org level" without saying which records count.
+- **Totals are grouped by result unit and never mixed**; a kilogram unit also shows the tonne figure
+  (arithmetic, not a factor).
+- **The chart view is inline SVG** built from the brief's chart tokens — no charting dependency — and the
+  table is the default, per the brief's warning against chart-first dashboards.
+- **Drilling ends at the evidence**: org level → … → contributing records → a drawer with the calculation
+  trace and the original document. The App Flow leaves the record level to Phase 17's drill-down; doing it
+  here proves the whole lineage chain now.
+- **Non-admins see their own project's Scope 1 total** on their dashboard (`scope.myTotal`, limited to
+  their assignments). `/admin/scope-1` itself stays Admin-only as specified.
+
+## A13 — Phase 11 Scope 2
+
+Decisions: `.grill/phase-11-scope-2-decisions.md`.
+
+- **Renewable electricity is its own activity**, not a factor chosen from the verified grid/renewable
+  classification. PRD §21 asks the system to distinguish them; doing it by metric keeps factor selection
+  out of user-typed values and needs no engine change. Grid's `source_classification` field stays
+  optional and informational.
+- **A conversion factor may be exactly zero** (market-based renewable treatment). The source reference is
+  still required and negative values are still refused.
+- **The scope dashboards also break totals down by activity**, which the App Flow doesn't specify — it is
+  the next question any reviewer asks, and Scope 3's categories will need it.
+- **The user dashboard lists every scope their project has data for**, in one card, instead of the
+  Scope 1-only card Phase 10 added.
+- `/admin/scope-2` is the Phase 10 component with a different scope code; no new procedure was added.
+
+## A14 — Phase 12 Scope 3
+
+Decisions: `.grill/phase-12-scope-3-decisions.md`.
+
+- **Scope 3's categories are rows under the `SCOPE_3` scope**, ten candidates seeded inactive and two
+  (waste, business travel) activated, so the dashboard's "X of Y categories active" is a true statement
+  and enabling another is configuration. `scope.getTotal` now rolls a scope up through its children, which
+  is why Scope 3 needed no new procedure.
+- **The Scope 3 page leads with the category table** — active categories with their totals, the rest
+  labelled "Not enabled" — above the activity, org-unit and record sections the other scopes show.
+- **Each Scope 3 category belongs to the role that owns its evidence** (waste → EHS, business travel →
+  Finance/CSR) through `esg_categories.owning_role_id`, so a Project Manager is not offered them.
+- **The user dashboard lists every configured scope** rather than a fixed pair, so a new scope or category
+  appears without a code change.
+- **Business travel is spend-based** (invoice amount × kgCO2e per rupee), because ticket invoices print an
+  amount and almost never a distance. The OCR extractor learned the extra label spellings (certificate
+  number, disposal date, treatment route, mode) and the weight and currency units; `EXTRACTOR_VERSION` is
+  now `rules-2`.

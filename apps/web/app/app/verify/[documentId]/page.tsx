@@ -8,6 +8,7 @@ import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { CalculationTraceView } from "@/components/calculation/calculation-trace";
 import { ValidationResult } from "@/components/validation/validation-result";
 import { VerifyWorkspace } from "@/components/verification/verify-workspace";
 import { requireAppSession } from "@/lib/auth/session";
@@ -124,12 +125,17 @@ function StatePanel({ doc }: { doc: VerifyDocument }) {
               ) : null}
             </section>
           ) : null}
-          <p className="mt-3 text-xs leading-4 text-muted-foreground">
-            {doc.approvalStatus === "review_pending"
-              ? "Waiting for approval by Corporate ESG or an Admin. "
-              : ""}
-            Calculation arrives in Phase 9.
-          </p>
+          <section aria-labelledby="calculation-heading" className="mt-4 space-y-2">
+            <h3 id="calculation-heading" className="text-sm leading-5 font-semibold">
+              Calculation
+            </h3>
+            <CalculationTraceView state={doc.calculation} />
+          </section>
+          {doc.approvalStatus === "review_pending" ? (
+            <p className="mt-3 text-xs leading-4 text-muted-foreground">
+              Waiting for approval by Corporate ESG or an Admin.
+            </p>
+          ) : null}
         </>
       ) : null}
 

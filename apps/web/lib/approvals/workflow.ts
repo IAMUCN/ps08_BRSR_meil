@@ -1,4 +1,5 @@
 import "server-only";
+import { runCalculation } from "../calculation/engine.ts";
 import type { Tx } from "../db.ts";
 
 // Approval flow (03_APP_FLOW.md §4.9; schema §9.5). Pulled forward into Phase 8 at the owner's request
@@ -10,6 +11,10 @@ import type { Tx } from "../db.ts";
  * to `review_pending`, and the people who can approve it are told. Runs in the caller's transaction.
  */
 export async function submitForApproval(tx: Tx, recordId: string): Promise<void> {
+  // Calculate first, so an approver never sees a record without its trace (Phase 9). A missing factor
+  // blocks the number, not the queue: the record still waits here and Approve stays disabled.
+  await runCalculation(tx, recordId);
+
   const [record] = await tx<
     { org_unit_id: string; file_name: string | null; org_unit_name: string }[]
   >`

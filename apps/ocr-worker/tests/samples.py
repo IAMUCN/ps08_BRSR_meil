@@ -67,13 +67,21 @@ def _diesel_table(draw: ImageDraw.ImageDraw, invoice_number: str = DEFAULT_INVOI
     draw.text((60, 700), "Due Date: 20-Sep-2026", fill="black", font=body)
 
 
-def _electricity(draw: ImageDraw.ImageDraw) -> None:
+DEFAULT_BILL = "EB-839271"
+DEFAULT_BILL_PERIOD = "01-Aug-2026 to 31-Aug-2026"
+
+
+def _electricity(
+    draw: ImageDraw.ImageDraw,
+    bill_number: str = DEFAULT_BILL,
+    billing_period: str = DEFAULT_BILL_PERIOD,
+) -> None:
     big, body = _font(40), _font(28)
     draw.text((60, 110), "Sample Power Distribution Co. (fictitious)", fill="black", font=big)
     draw.text((60, 170), "ELECTRICITY BILL", fill="black", font=big)
     rows = [
-        ("Bill No:", "EB-839271"),
-        ("Billing Period:", "01-Aug-2026 to 31-Aug-2026"),
+        ("Bill No:", bill_number),
+        ("Billing Period:", billing_period),
         ("Meter No:", "MTR-55-1029"),
         ("Tariff:", "LT-II Commercial"),
         ("Previous Reading:", "10,200"),
@@ -124,6 +132,68 @@ def diesel_invoice_pdf(invoice_number: str = DEFAULT_INVOICE) -> bytes:
     """The table-layout diesel invoice with a chosen invoice number (manual testing: each upload can
     carry its own number, so the duplicate-invoice path is only exercised on purpose)."""
     return _encode(_page(lambda draw: _diesel_table(draw, invoice_number)), "PDF", resolution=150)
+
+
+def electricity_bill_pdf(
+    bill_number: str = DEFAULT_BILL, billing_period: str = DEFAULT_BILL_PERIOD
+) -> bytes:
+    """An electricity bill as a PDF, for manual and end-to-end testing of Scope 2. The sample suite
+    below keeps using the PNG version the OCR harness was built against."""
+    return _encode(
+        _page(lambda draw: _electricity(draw, bill_number, billing_period)),
+        "PDF",
+        resolution=150,
+    )
+
+
+def _waste(draw: ImageDraw.ImageDraw, certificate: str, disposal_date: str) -> None:
+    big, body = _font(40), _font(28)
+    draw.text((60, 110), "Sample Waste Handlers Pvt Ltd (fictitious)", fill="black", font=big)
+    draw.text((60, 170), "WASTE DISPOSAL CERTIFICATE", fill="black", font=big)
+    rows = [
+        ("Certificate No:", certificate),
+        ("Disposal Date:", disposal_date),
+        ("Waste Type:", "Construction debris (non-hazardous)"),
+        ("Treatment Route:", "Landfill"),
+        ("Quantity:", "2,500.00"),
+        ("Unit of Measure:", "kg"),
+        ("Authorisation No:", "SPCB/2026/SAMPLE"),
+    ]
+    for i, (label, value) in enumerate(rows):
+        draw.text((60, 280 + i * 60), label, fill="black", font=body)
+        draw.text((560, 280 + i * 60), value, fill="black", font=body)
+
+
+def _travel(draw: ImageDraw.ImageDraw, invoice: str, invoice_date: str) -> None:
+    big, body = _font(40), _font(28)
+    draw.text((60, 110), "Sample Travel Desk (fictitious)", fill="black", font=big)
+    draw.text((60, 170), "TRAVEL INVOICE", fill="black", font=big)
+    rows = [
+        ("Invoice No:", invoice),
+        ("Invoice Date:", invoice_date),
+        ("Passenger:", "Sample Employee"),
+        ("Mode:", "Air"),
+        ("Sector:", "HYD - DEL - HYD"),
+        ("Quantity:", "45,000.00"),
+        ("Unit of Measure:", "INR"),
+    ]
+    for i, (label, value) in enumerate(rows):
+        draw.text((60, 280 + i * 60), label, fill="black", font=body)
+        draw.text((560, 280 + i * 60), value, fill="black", font=body)
+
+
+def waste_certificate_pdf(
+    certificate: str = "WD-2026-0001", disposal_date: str = "12-Sep-2026"
+) -> bytes:
+    """A waste disposal certificate (Scope 3 waste)."""
+    return _encode(
+        _page(lambda draw: _waste(draw, certificate, disposal_date)), "PDF", resolution=150
+    )
+
+
+def travel_invoice_pdf(invoice: str = "TR-2026-0001", invoice_date: str = "12-Sep-2026") -> bytes:
+    """A travel invoice billed to the company (Scope 3 business travel, spend-based)."""
+    return _encode(_page(lambda draw: _travel(draw, invoice, invoice_date)), "PDF", resolution=150)
 
 
 def all_samples() -> list[Sample]:

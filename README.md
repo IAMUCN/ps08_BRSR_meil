@@ -10,7 +10,12 @@ original evidence.
 > worker (Phase 2B) and its integration (Phase 6), OCR verification (Phase 7: document viewer beside the
 > extracted fields, confidence guard rail, Confirm/Reject, manual-exception and re-upload paths) and the
 > validation engine (Phase 8: six rule categories from configurable `validation_rules`, returns and
-> re-verification, Admin Validation Queue, and a single approval step pulled forward from Phase 16). Calculation and reporting are not implemented yet; Admin
+> re-verification, Admin Validation Queue, and a single approval step pulled forward from Phase 16) and the
+> calculation engine (Phase 9: unit normalisation, versioned conversion factors, stored calculation
+> traces, Conversion Factor Management), Scope 1 (Phase 10: diesel, petrol, CNG and LPG as configuration,
+> the Scope 1 dashboard with drill-down to the original invoice), Scope 2 (Phase 11: grid and renewable
+> electricity on the same framework) and the Scope 3 foundation (Phase 12: categories as configuration,
+> waste and business travel live). Calculation and reporting are not implemented yet; Admin
 > dashboard KPIs remain labeled development placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
@@ -101,6 +106,15 @@ Notes:
   live in `apps/web/lib/validation/checks.ts`; parameters and severity are data.
 - **Records verified before Phase 8** can be validated once with `pnpm --filter web validate-pending`
   (runs the same engine as Confirm; records already validated are skipped).
+- **Conversion factors are never seeded.** Migration `0016` seeds only the calculation formulas; the factor
+  values are regulatory data an Admin enters at `/admin/conversion-factors` with the source they verified
+  them against, including in a fresh local database (a factor version needs a `created_by` user, so
+  `seed.sql` cannot create one). Until a factor exists, records validate and queue for approval but show
+  "Not calculated yet" with the reason, and Approve stays disabled.
+- **Records verified before Phase 9** can be calculated once with `pnpm --filter web calculate-pending`
+  (same engine; records that already have a current calculation are skipped).
+- **Conversion factor values may be zero** (market-based renewable electricity) but never negative, and
+  every version records who entered it and the source it came from.
 - **Evidence storage:** migration `0012` creates the private `evidence` bucket (50 MB, PDF/JPG/PNG). Set
   `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence` in `apps/web/.env.local`. Files are never publicly readable;
   uploads use short-lived signed URLs issued by the server.
@@ -230,7 +244,8 @@ Notes:
   capped at 1600 px to bound memory and CPU time (about 10 s per A4 page on a laptop CPU).
 - Test documents are generated synthetically at test time (`tests/samples.py`) — no real MEIL documents
   until Phase 18. For a manual upload, `.venv/Scripts/python scripts/make_sample_invoice.py --out x.pdf`
-  writes a diesel invoice with a unique invoice number (`--invoice` to choose one).
+  writes a diesel invoice with a unique invoice number (`--invoice` to choose one, `--kind electricity`,
+  `--kind waste` or `--kind travel` for the other document types).
 - When a job finishes, the worker notifies the uploader in the same transaction (`verification_needed`,
   `low_confidence` when a found field is below `org_settings.ocr_confidence_threshold` — seeded at 80 — or a
   required field is missing, or `ocr_failed` with the reason).

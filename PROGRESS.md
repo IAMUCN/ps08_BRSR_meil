@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-19 — Phase 8 (with approval pulled forward) complete, awaiting commit._
+_Last updated: 2026-09-20 — Phase 12 complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules (`0001`–`0015`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories (`0001`–`0019`) |
 | `supabase/tests/database/` | pgTAP database tests |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D13) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A9) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A14) |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -57,12 +57,12 @@ may run in parallel with Phases 3–5.
 | 5 | Document ingestion | Done | `1df74c8` |
 | 6 | OCR pipeline integration | Done | `6ac8d00` |
 | 7 | OCR verification | Done | `04fc05f` |
-| 8 | Validation engine | **Done, not yet committed** | — |
-| 9 | Calculation engine | **Next** | — |
-| 10 | Scope 1 | Not started | — |
-| 11 | Scope 2 | Not started | — |
-| 12 | Scope 3 foundation | Not started | — |
-| 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | Not started | — |
+| 8 | Validation engine | Done | `ba4e678` |
+| 9 | Calculation engine | Done | `d0f549c` |
+| 10 | Scope 1 | Done | `61544c1` |
+| 11 | Scope 2 | Done | `900c873` |
+| 12 | Scope 3 foundation | **Done, not yet committed** | — |
+| 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | **Next** | — |
 | 14 | BRSR mapping | Not started | — |
 | 15 | Consolidation | Not started | — |
 | 16 | Admin Control Tower | Not started | — |
@@ -215,28 +215,100 @@ layers (D9), `provision-user` script for the first Admin.
 - Checks: unit 34/34, DB 66/66, API end-to-end 58/58 + approvals 36/36, browser (Edge) 16/16 + approval
   scenario 8/8, lint/typecheck/format, production build.
 
+**Phase 9 — Calculation engine.** Decisions: `.grill/phase-9-calculation-engine-decisions.md`.
+- **The engine** (`lib/calculation/`): verified value → unit normalisation (TRD §27 table in code) → the
+  factor version effective for the record's reporting period → `direct_multiply` → result + scope, stored
+  as one append-only `calculations` row (`is_current` flipped, previous traces kept) with the factor value
+  snapshot and `engine_version`. Deterministic: same record and factor version, same number, always.
+- **It runs when a record enters the approval queue** (Confirm's transaction, and an Admin's Accept of a
+  flagged record), so no approver sees a record without its trace.
+- **No factor values are seeded** (migration `0016` seeds only the formulas). Factors are regulatory data
+  an Admin enters at **`/admin/conversion-factors`** with a source reference: table + inline version
+  history, new version supersedes and closes the previous one, a version used by a calculation can never
+  change (DB trigger is the backstop). Past periods keep resolving to the superseded version that covered
+  them.
+- **A missing factor blocks the number, not the queue** (A11): "Not calculated yet" with the reason on the
+  record and in the approval drawer, Approve disabled (Return still available), Admins notified once per
+  reason, and "Run calculation" for an Admin once the factor exists. Approved records are closed to
+  recalculation.
+- The **calculation trace** (UI brief §12.5) is on the verify summary for the submitter, in the approval
+  drawer and for Admins. `pnpm --filter web calculate-pending` calculates records confirmed before Phase 9.
+- Checks: unit 39/39, DB 73/73, API end-to-end 44/44 + Phase 8 regression 58/58 + approvals 36/36,
+  browser (Edge) 10/10, lint/typecheck/format, production build.
+
+**Phase 10 — Scope 1.** Decisions: `.grill/phase-10-scope-1-decisions.md`.
+- **The fuels are configuration** (migration `0017`): Petrol, CNG and LPG join Diesel, each with the same
+  four fields, an active `direct_multiply` formula, an allowed-units rule and a shared "Fuel Invoice"
+  document type. The OCR worker needed no change — its extraction profiles are keyed by field, not metric.
+  CNG and LPG are weighed, so kg/tonne joined the unit-normalisation table.
+- **`/admin/scope-1`** (App Flow §2.2, one template for Scope 2/3 later): totals for the chosen period and
+  org node, approved as the headline with "awaiting approval" and "not calculated" beside it, a table of
+  child org units with an inline-SVG bar view, a trend across recent periods, and drilling that walks
+  whatever hierarchy levels exist. A contributing record opens its calculation trace and the original
+  invoice in a drawer — the whole lineage chain, proven now rather than in Phase 17.
+- **`scope.getTotal`** is parameterised by scope code (Scope 2 and 3 reuse it untouched); `scope.myTotal`
+  gives non-admins their own project's Scope 1 total on their dashboard, scope-checked server-side.
+- Totals are grouped by result unit and never mixed; a kilogram unit shows the tonne figure beside it.
+- **The critical end-to-end scenario passes live**: PM uploads a diesel invoice → OCR → verify → validate →
+  calculate → approve → Admin drills MEIL → Subsidiary A → Project X → the record → the original invoice.
+- Checks: unit 43/43, DB 79/79, API end-to-end 30/30 + Phase 9 regression 44/44 + Phase 8 58/58 +
+  approvals 36/36, browser (Edge) 11/11, lint/typecheck/format, production build.
+
+**Phase 11 — Scope 2.** Decisions: `.grill/phase-11-scope-2-decisions.md`.
+- **Renewable Electricity joins Grid Electricity** as its own Scope 2 activity (migration `0018`): its own
+  fields, formula, units rule and a Renewable Energy Certificate document type, so grid and renewable stay
+  distinguishable (PRD §21) without the engine choosing a factor from a value a person typed. Electricity
+  now also accepts MWh, which the engine normalises.
+- **A conversion factor may be zero** — market-based renewable reporting — with the source reference still
+  required and negatives still refused. A renewable record therefore calculates to an honest 0 kgCO2e
+  instead of sitting uncalculated.
+- **`/admin/scope-2`** is the Phase 10 component with a different scope code; no new procedure, no new
+  engine branch — the reuse the plan asks this phase to prove.
+- The scope dashboards now also break totals down **by activity** (diesel/petrol/CNG/LPG,
+  grid/renewable), and the user dashboard lists **every scope** their project has data for.
+- **The electricity-bill scenario passes live**: upload → OCR → verify (the user picks the document type
+  when the classifier can't) → validate (a second bill in a month is flagged, an Admin accepts it) →
+  calculate → approve → drill the Scope 2 total down to the original bill.
+- Checks: unit 43/43, DB 84/84, API end-to-end 33/33 + Phase 10 regression 30/30 + Phase 9 44/44 +
+  Phase 8 58/58, browser (Edge) 13/13, worker unit 12/12 and Ruff, lint/typecheck/format, production build.
+
+**Phase 12 — Scope 3 foundation.** Decisions: `.grill/phase-12-scope-3-decisions.md`.
+- **Categories are configuration** (migration `0019`): the ten candidate categories from Master Approach
+  §17 are child rows under `SCOPE_3`, seeded inactive, and the two with real evidence — Waste generated in
+  operations and Business travel — are active with a metric, formula, units rule and document type each.
+  `scope.getTotal` rolls a scope up through its children, so Scope 3 needed no new procedure.
+- **Each category belongs to the role that owns its evidence**: waste to EHS, travel to Finance/CSR, so a
+  Project Manager is never offered them. Business travel is spend-based (invoice amount × kgCO2e per
+  rupee); waste is weight-based with the treatment route recorded.
+- **`/admin/scope-3`** leads with the category table — active ones with totals, the rest "Not enabled" —
+  and says "2 of 10 active", as the UI brief requires. The user dashboard now lists every configured scope
+  instead of a fixed pair.
+- The OCR extractor learned the new label spellings (certificate number, disposal date, treatment route,
+  mode) and weight and currency units; `EXTRACTOR_VERSION` is `rules-2` and the worker image was rebuilt.
+- Checks: web unit 43/43, worker unit 12/12, OCR integration harness 9/9, DB 90/90, API end-to-end 33/33 +
+  Phase 11 regression 33/33 + Phase 10 30/30 + Phase 9 44/44 + Phase 8 58/58, browser (Edge) 13/13,
+  lint/typecheck/format/Ruff, production build.
+
 ## 4. What comes next
 
-**Phase 9 — Calculation engine** (`06_IMPLEMENTATION_PLAN.md` §Phase 9):
-- Deterministic calculation for validated records only: unit normalisation to the metric's canonical unit,
-  the version-effective conversion/emission factor, the result and a full calculation trace stored in
-  `calculations` (new row + `is_current` flip in one transaction, schema §20.3).
-- Factor management (`conversion_factors`, `conversion_factor_versions`) — never overwrite, always version.
-- Records become calculable when `validation_status = validated` (including Admin-accepted flags).
-- Replace the approval drawer's "Calculation trace" placeholder, and decide whether approval must wait
-  for a calculation (records are already being approved without one).
+**Phase 13 — Role-specific modules** (`06_IMPLEMENTATION_PLAN.md` §Phase 13): HR, EHS, Procurement and
+Finance/CSR get their own metrics, evidence types and dashboards on the same pipeline.
+- HR's workforce counts are derived by the engine, never typed as percentages (PRD §23).
+- EHS already owns the waste category from Phase 12; water arrives here and needs the `subtract` formula
+  type (withdrawal − discharge), the first non-`direct_multiply` path.
+- Procurement and Finance/CSR feed the Scope 3 categories that are still inactive.
 
-Things to remember for Phase 9:
-- Allowed unit spellings (e.g. Ltr, Litres, KL; kWh, Units) are accepted by validation but still need
-  normalising — that mapping belongs to Phase 9.
-- `calculation_status` is still `pending` on every diesel/grid record.
-- Locally an Admin granted `approval.decide` to the Project Manager role (Roles & Permissions); PMs can
-  approve others' records in their scope but never their own.
+Things to remember for Phase 13:
+- `esg_categories.owning_role_id` is how a module's evidence reaches the right role's Upload page.
+- Enabling another Scope 3 category is `update public.scopes set is_active = true` plus its metric
+  configuration — no code.
+- `metric_field_requirements.is_critical` is still false everywhere.
+- Locally an Admin granted `approval.decide` to the Project Manager role (Roles & Permissions).
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migration `0015` (validation rules) is
-  not pushed yet. Migrations `0001`–`0014` were pushed on
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015` (validation rules)
+  and `0016` (calculation formulas) are not pushed yet. Migrations `0001`–`0014` were pushed on
   2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
   verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
   users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
@@ -247,6 +319,10 @@ Things to remember for Phase 9:
 - **Email:** configure custom SMTP (Resend) before inviting anyone outside the Supabase team.
 - **CI:** database tests (`pnpm db:test`), the OCR integration harness and the Docker image build run
   locally only.
+- **Conversion factors are empty everywhere except locally.** No factor values exist in any migration by
+  design; MEIL must enter the verified diesel and grid-electricity factors (with their sources) before
+  anything calculates. The local database has one factor whose source says "Synthetic development value
+  — not an authoritative factor".
 - **Deferred by design:** org/period context switcher (Phase 16), theme switcher and Theme 2/3 contrast
   sweep (Phase 19), CSRF review of the tRPC endpoint — currently relies on SameSite=Lax cookies (Phase 18),
   Submission History page and record detail views, Settings page to edit the OCR threshold.
