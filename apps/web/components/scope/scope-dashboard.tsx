@@ -18,7 +18,7 @@ import {
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import type { CalculationState } from "@/lib/calculation/trace";
 import { formatCompact, formatTotal } from "@/lib/scope/display";
-import type { ScopeBranch, ScopeRecord, UnitTotal } from "@/lib/scope/totals";
+import type { ActivityTotal, ScopeBranch, ScopeRecord, UnitTotal } from "@/lib/scope/totals";
 import type { ScopeView } from "@/lib/trpc/routers/scope";
 
 // Scope dashboard (03_APP_FLOW.md §2.2, one template for Scope 1/2/3). Table first — the UI brief rejects
@@ -150,6 +150,15 @@ export function ScopeDashboard({
         ) : null}
       </section>
 
+      {view.byActivity.length > 0 ? (
+        <section aria-labelledby="scope-activities" className="space-y-2">
+          <h2 id="scope-activities" className="text-sm leading-5 font-semibold">
+            By activity
+          </h2>
+          <ActivityTable activities={view.byActivity} />
+        </section>
+      ) : null}
+
       {view.children.length > 0 ? (
         <section aria-labelledby="scope-children" className="space-y-2">
           <h2 id="scope-children" className="text-sm leading-5 font-semibold">
@@ -213,6 +222,59 @@ export function ScopeDashboard({
           ) : null}
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+function ActivityTable({ activities }: { activities: ActivityTotal[] }) {
+  return (
+    <div className="overflow-x-auto rounded-md border border-table-border">
+      <table className="w-full border-collapse text-sm">
+        <thead className="bg-table-header text-table-header-foreground">
+          <tr>
+            {["Activity", "Approved", "Awaiting approval", "Records"].map((h, i) => (
+              <th
+                key={i}
+                scope="col"
+                className="px-3 py-3 text-left text-[11px] leading-[14px] font-medium tracking-wide uppercase"
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {activities.map((activity) => (
+            <tr
+              key={activity.metricId}
+              className="border-t border-table-border bg-table-row even:bg-table-row-alt"
+            >
+              <td className="px-3 py-3 font-medium">{activity.metricName}</td>
+              <td className="px-3 py-3 font-mono text-xs">
+                {activity.totals.length === 0
+                  ? "—"
+                  : activity.totals.map((t) => formatTotal(t.approved, t.unit)).join(" · ")}
+              </td>
+              <td className="px-3 py-3 font-mono text-xs">
+                {activity.totals.some((t) => t.awaitingApproval > 0)
+                  ? activity.totals
+                      .filter((t) => t.awaitingApproval > 0)
+                      .map((t) => formatCompact(t.awaitingApproval, t.unit))
+                      .join(" · ")
+                  : "—"}
+              </td>
+              <td className="px-3 py-3 text-xs">
+                {activity.totals.reduce((sum, t) => sum + t.records, 0)}
+                {activity.notCalculated > 0 ? (
+                  <span className="block text-status-warning">
+                    {activity.notCalculated} not calculated
+                  </span>
+                ) : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

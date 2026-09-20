@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-20 — Phase 10 committed (`61544c1`); Phase 11 started._
+_Last updated: 2026-09-20 — Phase 11 complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels (`0001`–`0017`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity (`0001`–`0018`) |
 | `supabase/tests/database/` | pgTAP database tests |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D13) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A12) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A13) |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -60,8 +60,8 @@ may run in parallel with Phases 3–5.
 | 8 | Validation engine | Done | `ba4e678` |
 | 9 | Calculation engine | Done | `d0f549c` |
 | 10 | Scope 1 | Done | `61544c1` |
-| 11 | Scope 2 | **In progress** | — |
-| 12 | Scope 3 foundation | Not started | — |
+| 11 | Scope 2 | **Done, not yet committed** | — |
+| 12 | Scope 3 foundation | **Next** | — |
 | 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | Not started | — |
 | 14 | BRSR mapping | Not started | — |
 | 15 | Consolidation | Not started | — |
@@ -254,18 +254,37 @@ layers (D9), `provision-user` script for the first Admin.
 - Checks: unit 43/43, DB 79/79, API end-to-end 30/30 + Phase 9 regression 44/44 + Phase 8 58/58 +
   approvals 36/36, browser (Edge) 11/11, lint/typecheck/format, production build.
 
+**Phase 11 — Scope 2.** Decisions: `.grill/phase-11-scope-2-decisions.md`.
+- **Renewable Electricity joins Grid Electricity** as its own Scope 2 activity (migration `0018`): its own
+  fields, formula, units rule and a Renewable Energy Certificate document type, so grid and renewable stay
+  distinguishable (PRD §21) without the engine choosing a factor from a value a person typed. Electricity
+  now also accepts MWh, which the engine normalises.
+- **A conversion factor may be zero** — market-based renewable reporting — with the source reference still
+  required and negatives still refused. A renewable record therefore calculates to an honest 0 kgCO2e
+  instead of sitting uncalculated.
+- **`/admin/scope-2`** is the Phase 10 component with a different scope code; no new procedure, no new
+  engine branch — the reuse the plan asks this phase to prove.
+- The scope dashboards now also break totals down **by activity** (diesel/petrol/CNG/LPG,
+  grid/renewable), and the user dashboard lists **every scope** their project has data for.
+- **The electricity-bill scenario passes live**: upload → OCR → verify (the user picks the document type
+  when the classifier can't) → validate (a second bill in a month is flagged, an Admin accepts it) →
+  calculate → approve → drill the Scope 2 total down to the original bill.
+- Checks: unit 43/43, DB 84/84, API end-to-end 33/33 + Phase 10 regression 30/30 + Phase 9 44/44 +
+  Phase 8 58/58, browser (Edge) 13/13, worker unit 12/12 and Ruff, lint/typecheck/format, production build.
+
 ## 4. What comes next
 
-**Phase 11 — Scope 2** (`06_IMPLEMENTATION_PLAN.md` §Phase 11):
-- Grid electricity end to end plus the `/admin/scope-2` dashboard, which should be the same component and
-  the same `scope.getTotal` procedure with a different scope code. If Phase 11 needs substantial new code,
-  that is a defect in Phase 10's reusability, not a reason to duplicate (plan Rule 14).
-- Source classification (grid vs renewable where evidence supports it) per PRD §21.
+**Phase 12 — Scope 3 foundation** (`06_IMPLEMENTATION_PLAN.md` §Phase 12):
+- The modular Scope 3 category architecture (PRD §22's MVP categories), each category enabled or not as
+  configuration, and `/admin/scope-3` showing which are active versus not yet enabled.
+- Same pipeline and the same `scope.getTotal`; category-specific evidence types and fields are data.
 
-Things to remember for Phase 11:
-- Grid electricity has no conversion factor locally, so its records sit at "Not calculated yet" until one
-  is entered at `/admin/conversion-factors`.
-- `metric_field_requirements.is_critical` is still false everywhere, including the Scope 1 fuels.
+Things to remember for Phase 12:
+- `scope.getTotal` already takes a scope code and now also returns a per-activity breakdown — Scope 3's
+  many categories should need no new query code.
+- Scope 3 records will come from Procurement, Finance/CSR and travel evidence (Phase 13's role modules),
+  so keep category configuration independent of who uploads.
+- `metric_field_requirements.is_critical` is still false everywhere.
 - Locally an Admin granted `approval.decide` to the Project Manager role (Roles & Permissions); PMs can
   approve others' records in their scope but never their own.
 

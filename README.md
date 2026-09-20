@@ -12,8 +12,9 @@ original evidence.
 > validation engine (Phase 8: six rule categories from configurable `validation_rules`, returns and
 > re-verification, Admin Validation Queue, and a single approval step pulled forward from Phase 16) and the
 > calculation engine (Phase 9: unit normalisation, versioned conversion factors, stored calculation
-> traces, Conversion Factor Management) and Scope 1 (Phase 10: diesel, petrol, CNG and LPG as
-> configuration, the Scope 1 dashboard with drill-down to the original invoice). Calculation and reporting are not implemented yet; Admin
+> traces, Conversion Factor Management), Scope 1 (Phase 10: diesel, petrol, CNG and LPG as configuration,
+> the Scope 1 dashboard with drill-down to the original invoice) and Scope 2 (Phase 11: grid and renewable
+> electricity on the same framework). Calculation and reporting are not implemented yet; Admin
 > dashboard KPIs remain labeled development placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
@@ -111,6 +112,8 @@ Notes:
   "Not calculated yet" with the reason, and Approve stays disabled.
 - **Records verified before Phase 9** can be calculated once with `pnpm --filter web calculate-pending`
   (same engine; records that already have a current calculation are skipped).
+- **Conversion factor values may be zero** (market-based renewable electricity) but never negative, and
+  every version records who entered it and the source it came from.
 - **Evidence storage:** migration `0012` creates the private `evidence` bucket (50 MB, PDF/JPG/PNG). Set
   `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence` in `apps/web/.env.local`. Files are never publicly readable;
   uploads use short-lived signed URLs issued by the server.

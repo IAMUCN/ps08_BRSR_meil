@@ -39,12 +39,19 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
     );
   }
 
-  const [openPeriod, submissions, scopeOne] = await Promise.all([
+  const [openPeriod, submissions, myTotals] = await Promise.all([
     caller.dashboard.openPeriod(),
     caller.ocr.submissions(),
-    // Phase 10: this user's own project total — never an organisation-wide figure.
-    caller.scope.myTotal({ scopeCode: "SCOPE_1" }),
+    // Phases 10–11: this user's own project totals — never an organisation-wide figure.
+    Promise.all([
+      caller.scope.myTotal({ scopeCode: "SCOPE_1" }),
+      caller.scope.myTotal({ scopeCode: "SCOPE_2" }),
+    ]),
   ]);
+  const scopes = [
+    { name: "Scope 1", view: myTotals[0] },
+    { name: "Scope 2", view: myTotals[1] },
+  ].filter((s) => s.view !== null);
   const toVerify = submissions.filter((s) => submissionTab(s) === "needs_verification").length;
   const returned = submissions.filter((s) => submissionTab(s) === "returned").length;
 
@@ -120,42 +127,52 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
         </Link>
       </section>
 
-      {scopeOne ? (
-        <section aria-labelledby="scope1-heading" className="rounded-md border bg-card p-4">
+      {scopes.length > 0 ? (
+        <section aria-labelledby="scopes-heading" className="rounded-md border bg-card p-4">
           <div className="flex items-center gap-2">
             <Factory className="size-5 text-primary" strokeWidth={1.5} aria-hidden />
-            <h2 id="scope1-heading" className="text-base leading-6 font-semibold">
-              Scope 1 · {scopeOne.node.name}, {scopeOne.periodLabel}
+            <h2 id="scopes-heading" className="text-base leading-6 font-semibold">
+              Your project&apos;s emissions · {scopes[0].view!.node.name},{" "}
+              {scopes[0].view!.periodLabel}
             </h2>
           </div>
-          {scopeOne.node.totals.length > 0 ? (
-            <dl className="mt-2 space-y-1 text-sm leading-5">
-              {scopeOne.node.totals.map((total) => (
-                <div key={total.unit} className="flex flex-wrap items-baseline gap-x-3">
-                  <dd className="font-mono font-semibold">
-                    {formatTotal(total.approved, total.unit)}
+          <dl className="mt-3 space-y-3">
+            {scopes.map(({ name, view }) => (
+              <div key={name}>
+                <dt className="text-sm leading-5 font-medium">{name}</dt>
+                {view!.node.totals.length > 0 ? (
+                  view!.node.totals.map((total) => (
+                    <dd
+                      key={total.unit}
+                      className="flex flex-wrap items-baseline gap-x-3 text-sm leading-5"
+                    >
+                      <span className="font-mono font-semibold">
+                        {formatTotal(total.approved, total.unit)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        approved · {total.records} record(s)
+                      </span>
+                      {total.awaitingApproval > 0 ? (
+                        <span className="text-xs text-status-warning">
+                          {formatTotal(total.awaitingApproval, total.unit)} awaiting approval
+                        </span>
+                      ) : null}
+                    </dd>
+                  ))
+                ) : (
+                  <dd className="text-sm leading-5 text-muted-foreground">
+                    Nothing calculated for this period yet.
                   </dd>
-                  <dt className="text-xs text-muted-foreground">
-                    approved · {total.records} record(s)
-                  </dt>
-                  {total.awaitingApproval > 0 ? (
-                    <dt className="text-xs text-status-warning">
-                      {formatTotal(total.awaitingApproval, total.unit)} awaiting approval
-                    </dt>
-                  ) : null}
-                </div>
-              ))}
-            </dl>
-          ) : (
-            <p className="mt-2 text-sm leading-5 text-muted-foreground">
-              Nothing calculated for this period yet.
-            </p>
-          )}
-          {scopeOne.node.notCalculated > 0 ? (
-            <p className="mt-2 text-xs leading-4 text-status-warning">
-              {scopeOne.node.notCalculated} verified record(s) are waiting on a conversion factor.
-            </p>
-          ) : null}
+                )}
+                {view!.node.notCalculated > 0 ? (
+                  <dd className="text-xs leading-4 text-status-warning">
+                    {view!.node.notCalculated} verified record(s) are waiting on a conversion
+                    factor.
+                  </dd>
+                ) : null}
+              </div>
+            ))}
+          </dl>
         </section>
       ) : null}
 

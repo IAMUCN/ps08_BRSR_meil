@@ -222,3 +222,19 @@ Decisions: `.grill/phase-10-scope-1-decisions.md`.
   here proves the whole lineage chain now.
 - **Non-admins see their own project's Scope 1 total** on their dashboard (`scope.myTotal`, limited to
   their assignments). `/admin/scope-1` itself stays Admin-only as specified.
+
+## A13 — Phase 11 Scope 2
+
+Decisions: `.grill/phase-11-scope-2-decisions.md`.
+
+- **Renewable electricity is its own activity**, not a factor chosen from the verified grid/renewable
+  classification. PRD §21 asks the system to distinguish them; doing it by metric keeps factor selection
+  out of user-typed values and needs no engine change. Grid's `source_classification` field stays
+  optional and informational.
+- **A conversion factor may be exactly zero** (market-based renewable treatment). The source reference is
+  still required and negative values are still refused.
+- **The scope dashboards also break totals down by activity**, which the App Flow doesn't specify — it is
+  the next question any reviewer asks, and Scope 3's categories will need it.
+- **The user dashboard lists every scope their project has data for**, in one card, instead of the
+  Scope 1-only card Phase 10 added.
+- `/admin/scope-2` is the Phase 10 component with a different scope code; no new procedure was added.

@@ -40,7 +40,9 @@ export type FactorRow = {
 };
 
 const versionInput = {
-  value: z.number().positive(),
+  // Zero is a real factor value (market-based renewable electricity); negative is not
+  // (.grill/phase-11-scope-2-decisions.md).
+  value: z.number().min(0),
   inputUnit: z.string().trim().min(1).max(40),
   outputUnit: z.string().trim().min(1).max(40),
   sourceReference: z.string().trim().min(3).max(500),

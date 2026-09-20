@@ -41,8 +41,18 @@ export type ScopeRecord = {
   calculatedAt: string | null;
 };
 
+/** One activity's share of the scope, e.g. Diesel Consumption inside Scope 1. */
+export type ActivityTotal = {
+  metricId: string;
+  metricName: string;
+  totals: UnitTotal[];
+  notCalculated: number;
+};
+
 export type ScopeBreakdown = {
   node: ScopeBranch;
+  /** The same total split by activity — what a reviewer asks next (Phase 11 decision). */
+  byActivity: ActivityTotal[];
   /** Organisation → … → project → site: whatever levels exist under this node, one step at a time. */
   children: ScopeBranch[];
   /** Records attached to this node itself (the end of the drill-down). */
@@ -124,6 +134,37 @@ export async function scopeBreakdown(
                        where c.esg_record_id = r.id and c.is_current)
     group by t.bucket`;
   const gapOf = (bucket: string) => gaps.find((g) => g.bucket === bucket)?.n ?? 0;
+
+  const activityRows = await sql<
+    {
+      metric_id: string;
+      metric_name: string;
+      unit: string | null;
+      approved: number;
+      awaiting: number;
+      records: number;
+      not_calculated: number;
+    }[]
+  >`
+    with recursive tree as (
+      select id, parent_id from public.org_units where id = ${orgUnitId}
+      union all
+      select o.id, o.parent_id from public.org_units o join tree t on o.parent_id = t.id
+    )
+    select m.id as metric_id, m.name as metric_name, c.result_unit as unit,
+           coalesce(sum(case when r.approval_status = 'approved' then c.result_value end), 0)::float as approved,
+           coalesce(sum(case when r.approval_status <> 'approved' then c.result_value end), 0)::float as awaiting,
+           count(c.id)::int as records,
+           count(*) filter (where c.id is null)::int as not_calculated
+    from public.esg_records r
+    join tree t on t.id = r.org_unit_id
+    join public.esg_metrics m on m.id = r.metric_id
+    join public.scopes s on s.id = m.scope_id
+    left join public.calculations c on c.esg_record_id = r.id and c.is_current
+    where s.code = ${scopeCode} and r.reporting_period_id = ${periodId}
+      and r.verification_status = 'user_verified' and r.data_quality_state <> 'rejected'
+    group by m.id, m.name, c.result_unit
+    order by m.name`;
 
   const childRows = await sql<{ id: string; name: string; unit_type: string }[]>`
     select id, name, unit_type::text from public.org_units
@@ -233,6 +274,28 @@ export async function scopeBreakdown(
     entry.records += row.records;
   }
 
+  const byActivity: ActivityTotal[] = [];
+  for (const row of activityRows) {
+    let activity = byActivity.find((a) => a.metricId === row.metric_id);
+    if (!activity) {
+      activity = {
+        metricId: row.metric_id,
+        metricName: row.metric_name,
+        totals: [],
+        notCalculated: 0,
+      };
+      byActivity.push(activity);
+    }
+    activity.notCalculated += row.not_calculated;
+    if (!row.unit) continue;
+    activity.totals.push({
+      unit: row.unit,
+      approved: row.approved,
+      awaitingApproval: row.awaiting,
+      records: row.records,
+    });
+  }
+
   return {
     node: {
       id: node.id,
@@ -241,6 +304,7 @@ export async function scopeBreakdown(
       totals: nodeTotals,
       notCalculated: gaps.reduce((sum, g) => sum + g.n, 0),
     },
+    byActivity,
     children: childRows.map((child) => ({
       id: child.id,
       name: child.name,

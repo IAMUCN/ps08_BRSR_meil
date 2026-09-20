@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { ScopeDashboard } from "@/components/scope/scope-dashboard";
 import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
-import { recordTraceAction } from "./actions";
+import { recordTraceAction } from "@/lib/scope/actions";
 
 export const metadata: Metadata = { title: "Scope 1 · TraceESG" };
 
