@@ -7,6 +7,18 @@ import type { db, Tx } from "@/lib/db";
 
 type Sql = Tx | ReturnType<typeof db>;
 
+/**
+ * The scope and every category under it. Scope 3's categories are child rows (schema §7.1), so a total
+ * for SCOPE_3 is the sum of its categories — no Scope 3 branch anywhere in the query.
+ */
+const scopeTree = (sql: Sql, scopeCode: string) => sql`
+  (with recursive sc as (
+     select id from public.scopes where code = ${scopeCode}
+     union all
+     select s.id from public.scopes s join sc on s.parent_scope_id = sc.id
+   )
+   select id from sc)`;
+
 /** One result unit's totals. Units are never mixed: a factor in kgCO2e is not added to one in tCO2e. */
 export type UnitTotal = {
   unit: string;
@@ -49,8 +61,21 @@ export type ActivityTotal = {
   notCalculated: number;
 };
 
+/** A category under the scope (Scope 3's rows), whether it is enabled and what it has so far. */
+export type ScopeCategory = {
+  code: string;
+  name: string;
+  active: boolean;
+  /** The category has at least one configured metric, so evidence can actually be uploaded for it. */
+  configured: boolean;
+  totals: UnitTotal[];
+  notCalculated: number;
+};
+
 export type ScopeBreakdown = {
   node: ScopeBranch;
+  /** Empty for Scope 1 and 2, which have no child scopes. */
+  categories: ScopeCategory[];
   /** The same total split by activity — what a reviewer asks next (Phase 11 decision). */
   byActivity: ActivityTotal[];
   /** Organisation → … → project → site: whatever levels exist under this node, one step at a time. */
@@ -107,8 +132,7 @@ export async function scopeBreakdown(
     from public.calculations c
     join public.esg_records r on r.id = c.esg_record_id
     join tree t on t.id = r.org_unit_id
-    join public.scopes s on s.id = c.scope_id
-    where c.is_current and s.code = ${scopeCode}
+    where c.is_current and c.scope_id in ${scopeTree(sql, scopeCode)}
       and r.reporting_period_id = ${periodId}
       and r.data_quality_state <> 'rejected'
     group by t.bucket, c.result_unit`;
@@ -126,14 +150,56 @@ export async function scopeBreakdown(
     from public.esg_records r
     join tree t on t.id = r.org_unit_id
     join public.esg_metrics m on m.id = r.metric_id
-    join public.scopes s on s.id = m.scope_id
-    where s.code = ${scopeCode} and r.reporting_period_id = ${periodId}
+    where m.scope_id in ${scopeTree(sql, scopeCode)} and r.reporting_period_id = ${periodId}
       and r.verification_status = 'user_verified' and r.data_quality_state <> 'rejected'
       and m.requires_calculation
       and not exists (select 1 from public.calculations c
                        where c.esg_record_id = r.id and c.is_current)
     group by t.bucket`;
   const gapOf = (bucket: string) => gaps.find((g) => g.bucket === bucket)?.n ?? 0;
+
+  const categoryRows = await sql<
+    {
+      code: string;
+      name: string;
+      active: boolean;
+      configured: boolean;
+      unit: string | null;
+      approved: number;
+      awaiting: number;
+      records: number;
+      not_calculated: number;
+    }[]
+  >`
+    with recursive tree as (
+      select id, parent_id from public.org_units where id = ${orgUnitId}
+      union all
+      select o.id, o.parent_id from public.org_units o join tree t on o.parent_id = t.id
+    ),
+    categories as (
+      select child.id, child.code, child.name, child.is_active as active, child.sort_order
+      from public.scopes child
+      join public.scopes parent on parent.id = child.parent_scope_id
+      where parent.code = ${scopeCode}
+    )
+    select categories.code, categories.name, categories.active,
+           exists (select 1 from public.esg_metrics em
+                    where em.scope_id = categories.id and em.deleted_at is null) as configured,
+           c.result_unit as unit,
+           coalesce(sum(case when r.approval_status = 'approved' then c.result_value end), 0)::float as approved,
+           coalesce(sum(case when r.approval_status <> 'approved' then c.result_value end), 0)::float as awaiting,
+           count(c.id)::int as records,
+           count(r.id) filter (where c.id is null)::int as not_calculated
+    from categories
+    left join public.esg_metrics m on m.scope_id = categories.id and m.deleted_at is null
+    left join public.esg_records r
+      on r.metric_id = m.id and r.reporting_period_id = ${periodId}
+     and r.verification_status = 'user_verified' and r.data_quality_state <> 'rejected'
+     and r.org_unit_id in (select id from tree)
+    left join public.calculations c on c.esg_record_id = r.id and c.is_current
+    group by categories.id, categories.code, categories.name, categories.active,
+             categories.sort_order, c.result_unit
+    order by categories.sort_order`;
 
   const activityRows = await sql<
     {
@@ -159,9 +225,8 @@ export async function scopeBreakdown(
     from public.esg_records r
     join tree t on t.id = r.org_unit_id
     join public.esg_metrics m on m.id = r.metric_id
-    join public.scopes s on s.id = m.scope_id
     left join public.calculations c on c.esg_record_id = r.id and c.is_current
-    where s.code = ${scopeCode} and r.reporting_period_id = ${periodId}
+    where m.scope_id in ${scopeTree(sql, scopeCode)} and r.reporting_period_id = ${periodId}
       and r.verification_status = 'user_verified' and r.data_quality_state <> 'rejected'
     group by m.id, m.name, c.result_unit
     order by m.name`;
@@ -194,12 +259,11 @@ export async function scopeBreakdown(
            r.approval_status::text, c.calculated_at
     from public.esg_records r
     join public.esg_metrics m on m.id = r.metric_id
-    join public.scopes s on s.id = m.scope_id
     join public.org_units o on o.id = r.org_unit_id
     left join public.calculations c on c.esg_record_id = r.id and c.is_current
     left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
     left join public.documents d on d.id = erd.document_id and d.deleted_at is null
-    where s.code = ${scopeCode} and r.org_unit_id = ${orgUnitId}
+    where m.scope_id in ${scopeTree(sql, scopeCode)} and r.org_unit_id = ${orgUnitId}
       and r.reporting_period_id = ${periodId}
       and r.verification_status = 'user_verified' and r.data_quality_state <> 'rejected'
     order by c.result_value desc nulls last
@@ -232,8 +296,7 @@ export async function scopeBreakdown(
     join public.esg_records r on r.reporting_period_id = recent.id
     join tree t on t.id = r.org_unit_id
     join public.calculations c on c.esg_record_id = r.id and c.is_current
-    join public.scopes s on s.id = c.scope_id
-    where s.code = ${scopeCode} and r.data_quality_state <> 'rejected'
+    where c.scope_id in ${scopeTree(sql, scopeCode)} and r.data_quality_state <> 'rejected'
     group by recent.id, recent.label, recent.start_date, c.result_unit
     order by recent.start_date`;
 
@@ -274,6 +337,30 @@ export async function scopeBreakdown(
     entry.records += row.records;
   }
 
+  const categories: ScopeCategory[] = [];
+  for (const row of categoryRows) {
+    let category = categories.find((c) => c.code === row.code);
+    if (!category) {
+      category = {
+        code: row.code,
+        name: row.name,
+        active: row.active,
+        configured: row.configured,
+        totals: [],
+        notCalculated: 0,
+      };
+      categories.push(category);
+    }
+    category.notCalculated += row.not_calculated;
+    if (!row.unit) continue;
+    category.totals.push({
+      unit: row.unit,
+      approved: row.approved,
+      awaitingApproval: row.awaiting,
+      records: row.records,
+    });
+  }
+
   const byActivity: ActivityTotal[] = [];
   for (const row of activityRows) {
     let activity = byActivity.find((a) => a.metricId === row.metric_id);
@@ -304,6 +391,7 @@ export async function scopeBreakdown(
       totals: nodeTotals,
       notCalculated: gaps.reduce((sum, g) => sum + g.n, 0),
     },
+    categories,
     byActivity,
     children: childRows.map((child) => ({
       id: child.id,

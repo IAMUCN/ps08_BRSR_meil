@@ -71,8 +71,10 @@ select is(
    where r.code = 'project_manager' and p.code in ('document.upload', 'record.verify')),
   2,
   'project_manager keeps its seeded permissions');
-select set_eq($$select code from public.scopes$$, array['SCOPE_1', 'SCOPE_2', 'SCOPE_3'],
-  'scopes seeded as Scope 1, 2 and the Scope 3 parent only');
+-- Phase 2 seeds the three top-level scopes; Phase 12 adds Scope 3's categories as child rows.
+select set_eq($$select code from public.scopes where parent_scope_id is null$$,
+  array['SCOPE_1', 'SCOPE_2', 'SCOPE_3'],
+  'scopes seeded as Scope 1, 2 and the Scope 3 parent');
 select is((select count(*)::int from public.org_units where parent_id is null and unit_type = 'group'),
   1, 'single root group');
 -- Diesel and grid electricity are the Phase 2 seeds; later phases add more fuels.

@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-20 — Phase 11 committed (`900c873`); Phase 12 started._
+_Last updated: 2026-09-20 — Phase 12 complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity (`0001`–`0018`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories (`0001`–`0019`) |
 | `supabase/tests/database/` | pgTAP database tests |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D13) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A13) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A14) |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -61,8 +61,8 @@ may run in parallel with Phases 3–5.
 | 9 | Calculation engine | Done | `d0f549c` |
 | 10 | Scope 1 | Done | `61544c1` |
 | 11 | Scope 2 | Done | `900c873` |
-| 12 | Scope 3 foundation | **In progress** | — |
-| 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | Not started | — |
+| 12 | Scope 3 foundation | **Done, not yet committed** | — |
+| 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | **Next** | — |
 | 14 | BRSR mapping | Not started | — |
 | 15 | Consolidation | Not started | — |
 | 16 | Admin Control Tower | Not started | — |
@@ -272,21 +272,38 @@ layers (D9), `provision-user` script for the first Admin.
 - Checks: unit 43/43, DB 84/84, API end-to-end 33/33 + Phase 10 regression 30/30 + Phase 9 44/44 +
   Phase 8 58/58, browser (Edge) 13/13, worker unit 12/12 and Ruff, lint/typecheck/format, production build.
 
+**Phase 12 — Scope 3 foundation.** Decisions: `.grill/phase-12-scope-3-decisions.md`.
+- **Categories are configuration** (migration `0019`): the ten candidate categories from Master Approach
+  §17 are child rows under `SCOPE_3`, seeded inactive, and the two with real evidence — Waste generated in
+  operations and Business travel — are active with a metric, formula, units rule and document type each.
+  `scope.getTotal` rolls a scope up through its children, so Scope 3 needed no new procedure.
+- **Each category belongs to the role that owns its evidence**: waste to EHS, travel to Finance/CSR, so a
+  Project Manager is never offered them. Business travel is spend-based (invoice amount × kgCO2e per
+  rupee); waste is weight-based with the treatment route recorded.
+- **`/admin/scope-3`** leads with the category table — active ones with totals, the rest "Not enabled" —
+  and says "2 of 10 active", as the UI brief requires. The user dashboard now lists every configured scope
+  instead of a fixed pair.
+- The OCR extractor learned the new label spellings (certificate number, disposal date, treatment route,
+  mode) and weight and currency units; `EXTRACTOR_VERSION` is `rules-2` and the worker image was rebuilt.
+- Checks: web unit 43/43, worker unit 12/12, OCR integration harness 9/9, DB 90/90, API end-to-end 33/33 +
+  Phase 11 regression 33/33 + Phase 10 30/30 + Phase 9 44/44 + Phase 8 58/58, browser (Edge) 13/13,
+  lint/typecheck/format/Ruff, production build.
+
 ## 4. What comes next
 
-**Phase 12 — Scope 3 foundation** (`06_IMPLEMENTATION_PLAN.md` §Phase 12):
-- The modular Scope 3 category architecture (PRD §22's MVP categories), each category enabled or not as
-  configuration, and `/admin/scope-3` showing which are active versus not yet enabled.
-- Same pipeline and the same `scope.getTotal`; category-specific evidence types and fields are data.
+**Phase 13 — Role-specific modules** (`06_IMPLEMENTATION_PLAN.md` §Phase 13): HR, EHS, Procurement and
+Finance/CSR get their own metrics, evidence types and dashboards on the same pipeline.
+- HR's workforce counts are derived by the engine, never typed as percentages (PRD §23).
+- EHS already owns the waste category from Phase 12; water arrives here and needs the `subtract` formula
+  type (withdrawal − discharge), the first non-`direct_multiply` path.
+- Procurement and Finance/CSR feed the Scope 3 categories that are still inactive.
 
-Things to remember for Phase 12:
-- `scope.getTotal` already takes a scope code and now also returns a per-activity breakdown — Scope 3's
-  many categories should need no new query code.
-- Scope 3 records will come from Procurement, Finance/CSR and travel evidence (Phase 13's role modules),
-  so keep category configuration independent of who uploads.
+Things to remember for Phase 13:
+- `esg_categories.owning_role_id` is how a module's evidence reaches the right role's Upload page.
+- Enabling another Scope 3 category is `update public.scopes set is_active = true` plus its metric
+  configuration — no code.
 - `metric_field_requirements.is_critical` is still false everywhere.
-- Locally an Admin granted `approval.decide` to the Project Manager role (Roles & Permissions); PMs can
-  approve others' records in their scope but never their own.
+- Locally an Admin granted `approval.decide` to the Project Manager role (Roles & Permissions).
 
 ## 5. Open items and blockers
 

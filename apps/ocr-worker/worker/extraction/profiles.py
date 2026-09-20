@@ -9,7 +9,7 @@ stored extractions stay reproducible (it is recorded in `ocr_jobs.model_version`
 
 from dataclasses import dataclass
 
-EXTRACTOR_VERSION = "rules-1"
+EXTRACTOR_VERSION = "rules-2"
 
 
 @dataclass(frozen=True)
@@ -40,7 +40,18 @@ FIELD_PROFILES: dict[str, Profile] = {
         exclude=("previous", "current reading", "rate", "amount"),
     ),
     "invoice_number": Profile(
-        labels=("invoice number", "invoice no", "invoice #", "inv no", "bill number", "bill no"),
+        labels=(
+            "invoice number",
+            "invoice no",
+            "invoice #",
+            "inv no",
+            "bill number",
+            "bill no",
+            # Scope 3 evidence carries the same idea under other names.
+            "certificate number",
+            "certificate no",
+            "manifest no",
+        ),
         kind="identifier",
     ),
     "billing_period": Profile(
@@ -52,6 +63,8 @@ FIELD_PROFILES: dict[str, Profile] = {
             "period",
             "invoice date",
             "bill date",
+            "disposal date",
+            "date of disposal",
         ),
         kind="period",
         exclude=("due",),
@@ -60,7 +73,15 @@ FIELD_PROFILES: dict[str, Profile] = {
         labels=("unit of measure", "uom", "unit"), kind="unit", near=("quantity", "consumption")
     ),
     "source_classification": Profile(
-        labels=("energy source", "source of supply", "supply source", "source"),
+        labels=(
+            "energy source",
+            "source of supply",
+            "supply source",
+            "treatment route",
+            "disposal route",
+            "mode",
+            "source",
+        ),
         kind="text",
     ),
 }
@@ -79,4 +100,21 @@ DOCUMENT_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
         "discom",
         "energy charges",
     ),
+    "RENEWABLE_CERTIFICATE": (
+        "renewable",
+        "certificate",
+        "solar",
+        "wind",
+        "generation",
+        "rec",
+    ),
+    "WASTE_DISPOSAL_CERTIFICATE": (
+        "waste",
+        "disposal",
+        "certificate",
+        "landfill",
+        "manifest",
+        "treatment",
+    ),
+    "TRAVEL_INVOICE": ("travel", "airline", "air", "rail", "passenger", "sector", "ticket"),
 }

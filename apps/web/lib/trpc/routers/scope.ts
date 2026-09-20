@@ -47,6 +47,14 @@ async function view(scopeCode: string, orgUnitId: string, periodId: string): Pro
 }
 
 export const scopeRouter = router({
+  /** The scopes a dashboard can show, in display order — configuration, not a list in code. */
+  topLevel: protectedProcedure.query(async () => {
+    return db()<{ code: string; name: string }[]>`
+      select code, name from public.scopes
+      where parent_scope_id is null and is_active
+      order by sort_order, code`;
+  }),
+
   /** One record's stored calculation, for the drill-down drawer. Scope-checked like every read. */
   recordTrace: protectedProcedure
     .input(z.object({ recordId: z.uuid() }))

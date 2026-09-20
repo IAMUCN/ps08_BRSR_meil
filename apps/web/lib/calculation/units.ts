@@ -25,6 +25,11 @@ const UNITS: Record<string, { canonical: string; multiplier: number }> = {
   mt: { canonical: "kg", multiplier: 1000 },
   tonne: { canonical: "kg", multiplier: 1000 },
   tonnes: { canonical: "kg", multiplier: 1000 },
+  // Currency, for spend-based activities (Scope 3 business travel). Not a physical constant: an
+  // identity mapping of the spellings an invoice prints, so a spend factor (kgCO2e per rupee) applies.
+  inr: { canonical: "INR", multiplier: 1 },
+  rs: { canonical: "INR", multiplier: 1 },
+  rupees: { canonical: "INR", multiplier: 1 },
   // Energy → kilowatt-hours
   kwh: { canonical: "kWh", multiplier: 1 },
   units: { canonical: "kWh", multiplier: 1 },

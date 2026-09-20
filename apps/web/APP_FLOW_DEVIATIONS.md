@@ -238,3 +238,22 @@ Decisions: `.grill/phase-11-scope-2-decisions.md`.
 - **The user dashboard lists every scope their project has data for**, in one card, instead of the
   Scope 1-only card Phase 10 added.
 - `/admin/scope-2` is the Phase 10 component with a different scope code; no new procedure was added.
+
+## A14 — Phase 12 Scope 3
+
+Decisions: `.grill/phase-12-scope-3-decisions.md`.
+
+- **Scope 3's categories are rows under the `SCOPE_3` scope**, ten candidates seeded inactive and two
+  (waste, business travel) activated, so the dashboard's "X of Y categories active" is a true statement
+  and enabling another is configuration. `scope.getTotal` now rolls a scope up through its children, which
+  is why Scope 3 needed no new procedure.
+- **The Scope 3 page leads with the category table** — active categories with their totals, the rest
+  labelled "Not enabled" — above the activity, org-unit and record sections the other scopes show.
+- **Each Scope 3 category belongs to the role that owns its evidence** (waste → EHS, business travel →
+  Finance/CSR) through `esg_categories.owning_role_id`, so a Project Manager is not offered them.
+- **The user dashboard lists every configured scope** rather than a fixed pair, so a new scope or category
+  appears without a code change.
+- **Business travel is spend-based** (invoice amount × kgCO2e per rupee), because ticket invoices print an
+  amount and almost never a distance. The OCR extractor learned the extra label spellings (certificate
+  number, disposal date, treatment route, mode) and the weight and currency units; `EXTRACTOR_VERSION` is
+  now `rules-2`.

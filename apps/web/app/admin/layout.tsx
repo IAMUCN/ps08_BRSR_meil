@@ -18,6 +18,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/conversion-factors", label: "Conversion Factors", icon: "factors" },
   { href: "/admin/scope-1", label: "Scope 1", icon: "scope" },
   { href: "/admin/scope-2", label: "Scope 2", icon: "scope" },
+  { href: "/admin/scope-3", label: "Scope 3", icon: "scope" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {

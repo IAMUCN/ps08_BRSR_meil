@@ -13,8 +13,9 @@ original evidence.
 > re-verification, Admin Validation Queue, and a single approval step pulled forward from Phase 16) and the
 > calculation engine (Phase 9: unit normalisation, versioned conversion factors, stored calculation
 > traces, Conversion Factor Management), Scope 1 (Phase 10: diesel, petrol, CNG and LPG as configuration,
-> the Scope 1 dashboard with drill-down to the original invoice) and Scope 2 (Phase 11: grid and renewable
-> electricity on the same framework). Calculation and reporting are not implemented yet; Admin
+> the Scope 1 dashboard with drill-down to the original invoice), Scope 2 (Phase 11: grid and renewable
+> electricity on the same framework) and the Scope 3 foundation (Phase 12: categories as configuration,
+> waste and business travel live). Calculation and reporting are not implemented yet; Admin
 > dashboard KPIs remain labeled development placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
@@ -243,7 +244,8 @@ Notes:
   capped at 1600 px to bound memory and CPU time (about 10 s per A4 page on a laptop CPU).
 - Test documents are generated synthetically at test time (`tests/samples.py`) — no real MEIL documents
   until Phase 18. For a manual upload, `.venv/Scripts/python scripts/make_sample_invoice.py --out x.pdf`
-  writes a diesel invoice with a unique invoice number (`--invoice` to choose one).
+  writes a diesel invoice with a unique invoice number (`--invoice` to choose one, `--kind electricity`,
+  `--kind waste` or `--kind travel` for the other document types).
 - When a job finishes, the worker notifies the uploader in the same transaction (`verification_needed`,
   `low_confidence` when a found field is below `org_settings.ocr_confidence_threshold` — seeded at 80 — or a
   required field is missing, or `ocr_failed` with the reason).

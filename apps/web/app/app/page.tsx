@@ -42,16 +42,18 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
   const [openPeriod, submissions, myTotals] = await Promise.all([
     caller.dashboard.openPeriod(),
     caller.ocr.submissions(),
-    // Phases 10–11: this user's own project totals — never an organisation-wide figure.
-    Promise.all([
-      caller.scope.myTotal({ scopeCode: "SCOPE_1" }),
-      caller.scope.myTotal({ scopeCode: "SCOPE_2" }),
-    ]),
+    // Phases 10–12: this user's own project totals for every configured scope — never an
+    // organisation-wide figure, and never a hard-coded list of scopes.
+    caller.scope.topLevel().then((all) =>
+      Promise.all(
+        all.map(async (scope) => ({
+          name: scope.name,
+          view: await caller.scope.myTotal({ scopeCode: scope.code }),
+        })),
+      ),
+    ),
   ]);
-  const scopes = [
-    { name: "Scope 1", view: myTotals[0] },
-    { name: "Scope 2", view: myTotals[1] },
-  ].filter((s) => s.view !== null);
+  const scopes = myTotals.filter((s) => s.view !== null);
   const toVerify = submissions.filter((s) => submissionTab(s) === "needs_verification").length;
   const returned = submissions.filter((s) => submissionTab(s) === "returned").length;
 
