@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-20 — Phase 9 complete, awaiting commit._
+_Last updated: 2026-09-20 — Phase 9 committed (`d0f549c`); Phase 10 next._
 
 ---
 
@@ -58,7 +58,7 @@ may run in parallel with Phases 3–5.
 | 6 | OCR pipeline integration | Done | `6ac8d00` |
 | 7 | OCR verification | Done | `04fc05f` |
 | 8 | Validation engine | Done | `ba4e678` |
-| 9 | Calculation engine | **Done, not yet committed** | — |
+| 9 | Calculation engine | Done | `d0f549c` |
 | 10 | Scope 1 | **Next** | — |
 | 11 | Scope 2 | Not started | — |
 | 12 | Scope 3 foundation | Not started | — |
