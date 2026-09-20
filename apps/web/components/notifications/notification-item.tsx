@@ -3,6 +3,7 @@
 import {
   AlertTriangle,
   Bell,
+  Calculator,
   CheckCircle2,
   ClipboardCheck,
   FileSearch,
@@ -25,6 +26,7 @@ const ICONS: Record<string, { icon: LucideIcon; className: string }> = {
   validation_review: { icon: ShieldAlert, className: "text-status-warning" },
   approval_needed: { icon: ClipboardCheck, className: "text-primary" },
   approved: { icon: CheckCircle2, className: "text-status-success" },
+  calculation_blocked: { icon: Calculator, className: "text-status-warning" },
 };
 
 const relative = new Intl.RelativeTimeFormat("en-IN", { numeric: "auto" });

@@ -10,7 +10,9 @@ original evidence.
 > worker (Phase 2B) and its integration (Phase 6), OCR verification (Phase 7: document viewer beside the
 > extracted fields, confidence guard rail, Confirm/Reject, manual-exception and re-upload paths) and the
 > validation engine (Phase 8: six rule categories from configurable `validation_rules`, returns and
-> re-verification, Admin Validation Queue, and a single approval step pulled forward from Phase 16). Calculation and reporting are not implemented yet; Admin
+> re-verification, Admin Validation Queue, and a single approval step pulled forward from Phase 16) and the
+> calculation engine (Phase 9: unit normalisation, versioned conversion factors, stored calculation
+> traces, Conversion Factor Management). Calculation and reporting are not implemented yet; Admin
 > dashboard KPIs remain labeled development placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
@@ -101,6 +103,13 @@ Notes:
   live in `apps/web/lib/validation/checks.ts`; parameters and severity are data.
 - **Records verified before Phase 8** can be validated once with `pnpm --filter web validate-pending`
   (runs the same engine as Confirm; records already validated are skipped).
+- **Conversion factors are never seeded.** Migration `0016` seeds only the calculation formulas; the factor
+  values are regulatory data an Admin enters at `/admin/conversion-factors` with the source they verified
+  them against, including in a fresh local database (a factor version needs a `created_by` user, so
+  `seed.sql` cannot create one). Until a factor exists, records validate and queue for approval but show
+  "Not calculated yet" with the reason, and Approve stays disabled.
+- **Records verified before Phase 9** can be calculated once with `pnpm --filter web calculate-pending`
+  (same engine; records that already have a current calculation are skipped).
 - **Evidence storage:** migration `0012` creates the private `evidence` bucket (50 MB, PDF/JPG/PNG). Set
   `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence` in `apps/web/.env.local`. Files are never publicly readable;
   uploads use short-lived signed URLs issued by the server.

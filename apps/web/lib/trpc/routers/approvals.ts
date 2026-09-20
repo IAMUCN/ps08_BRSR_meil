@@ -2,6 +2,8 @@ import "server-only";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import { loadCalculations } from "@/lib/calculation/lookup";
+import type { CalculationState } from "@/lib/calculation/trace";
 import type { ActiveSession } from "@/lib/auth/session";
 import { db, type Tx } from "@/lib/db";
 import type { Outcome, RuleType } from "@/lib/validation/checks";
@@ -34,6 +36,9 @@ export type ApprovalRow = {
   ownRecord: boolean;
   values: { label: string; value: string | null }[];
   results: { ruleType: RuleType; outcome: Outcome; message: string }[];
+  /** The stored calculation, or why there isn't one yet — Approve is blocked until it exists (Phase 9). */
+  calculation: CalculationState;
+  requiresCalculation: boolean;
 };
 
 /** Org units an approver may act on: everything for Admin, else their approval.decide subtrees. */
@@ -73,6 +78,7 @@ export const approvalsRouter = router({
         activity_value: number | null;
         activity_unit: string | null;
         manual_exception: boolean;
+        requires_calculation: boolean;
         values: { label: string; value: string | null }[] | null;
         results: ApprovalRow["results"] | null;
       }[]
@@ -83,6 +89,7 @@ export const approvalsRouter = router({
              v.verified_by as verified_by_id, vu.display_name as verified_by, v.verified_at,
              r.activity_value_verified::float as activity_value, r.activity_unit,
              coalesce(v.is_manual_exception, false) as manual_exception,
+             m.requires_calculation,
              (select json_agg(json_build_object('label', f.field_label, 'value', f.verified_value)
                               order by f.field_label)
                 from public.ocr_extractions e join public.ocr_fields f on f.ocr_extraction_id = e.id
@@ -110,6 +117,10 @@ export const approvalsRouter = router({
         and ${scopeFilter(sql, ctx.session)}
       order by v.verified_at nulls last
       limit 500`;
+    const calculations = await loadCalculations(
+      sql,
+      rows.map((r) => r.record_id),
+    );
     return rows.map((r) => ({
       recordId: r.record_id,
       documentId: r.document_id,
@@ -128,6 +139,8 @@ export const approvalsRouter = router({
         r.submitted_by_id === ctx.session.userId || r.verified_by_id === ctx.session.userId,
       values: r.values ?? [],
       results: r.results ?? [],
+      calculation: calculations.get(r.record_id) ?? { trace: null, blockedReason: null },
+      requiresCalculation: r.requires_calculation,
     }));
   }),
 
@@ -155,13 +168,18 @@ export const approvalsRouter = router({
             verified_by: string | null;
             document_id: string | null;
             file_name: string | null;
+            needs_calculation: boolean;
           }[]
         >`
           select r.id, r.approval_status::text, r.data_quality_state::text, r.submitted_by,
+                 (m.requires_calculation and not exists (
+                    select 1 from public.calculations c
+                    where c.esg_record_id = r.id and c.is_current)) as needs_calculation,
                  (select verified_by from public.verifications
                    where esg_record_id = r.id order by verified_at desc limit 1) as verified_by,
                  d.id as document_id, d.file_name
           from public.esg_records r
+          join public.esg_metrics m on m.id = r.metric_id
           left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
           left join public.documents d on d.id = erd.document_id
           where r.id = ${input.recordId} and ${scopeFilter(tx, ctx.session)}
@@ -183,6 +201,16 @@ export const approvalsRouter = router({
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "You submitted or verified this record, so someone else must decide on it.",
+          });
+        }
+
+        // Approving means approving a number: a record whose calculation is still blocked can only be
+        // returned (.grill/phase-9-calculation-engine-decisions.md).
+        if (input.decision === "approve" && record.needs_calculation) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "This record has no calculation yet — an Admin must add the conversion factor first.",
           });
         }
 

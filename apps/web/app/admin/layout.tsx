@@ -15,6 +15,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/ocr-monitoring", label: "OCR Monitoring", icon: "ocr" },
   { href: "/admin/validation-queue", label: "Validation Queue", icon: "validation" },
   { href: "/admin/approval-queue", label: "Approval Queue", icon: "approvals" },
+  { href: "/admin/conversion-factors", label: "Conversion Factors", icon: "factors" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {

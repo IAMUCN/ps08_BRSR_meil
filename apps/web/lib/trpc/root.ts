@@ -2,6 +2,7 @@ import "server-only";
 import { protectedProcedure, router } from "@/lib/trpc/init";
 import { dashboardRouter } from "@/lib/trpc/routers/dashboard";
 import { documentsRouter } from "@/lib/trpc/routers/documents";
+import { factorsRouter } from "@/lib/trpc/routers/factors";
 import { notificationsRouter } from "@/lib/trpc/routers/notifications";
 import { ocrRouter } from "@/lib/trpc/routers/ocr";
 import { organizationRouter } from "@/lib/trpc/routers/organization";
@@ -30,6 +31,7 @@ export const appRouter = router({
   verification: verificationRouter,
   validation: validationRouter,
   approvals: approvalsRouter,
+  factors: factorsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -3,6 +3,7 @@
 import {
   Building2,
   CalendarRange,
+  Calculator,
   ClipboardCheck,
   FileStack,
   LayoutDashboard,
@@ -33,6 +34,7 @@ const ICONS = {
   ocr: ScanText,
   validation: ShieldAlert,
   approvals: ClipboardCheck,
+  factors: Calculator,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;

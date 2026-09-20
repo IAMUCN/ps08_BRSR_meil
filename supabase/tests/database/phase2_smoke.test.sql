@@ -62,11 +62,15 @@ select set_eq(
     join public.permissions p on p.id = rp.permission_id where r.code = 'corporate_esg'$$,
   array['approval.decide', 'monitoring.view', 'document.upload', 'record.verify'],
   'corporate_esg permissions match the approved catalogue');
-select set_eq(
-  $$select p.code from public.role_permissions rp join public.roles r on r.id = rp.role_id
-    join public.permissions p on p.id = rp.permission_id where r.code = 'project_manager'$$,
-  array['document.upload', 'record.verify'],
-  'project_manager permissions match the approved catalogue');
+-- Seeded grants must still be there; an Admin may add more at runtime (Roles & Permissions, Phase 4),
+-- so this is a subset check rather than an exact match.
+select is(
+  (select count(*)::int from public.role_permissions rp
+     join public.roles r on r.id = rp.role_id
+     join public.permissions p on p.id = rp.permission_id
+   where r.code = 'project_manager' and p.code in ('document.upload', 'record.verify')),
+  2,
+  'project_manager keeps its seeded permissions');
 select set_eq($$select code from public.scopes$$, array['SCOPE_1', 'SCOPE_2', 'SCOPE_3'],
   'scopes seeded as Scope 1, 2 and the Scope 3 parent only');
 select is((select count(*)::int from public.org_units where parent_id is null and unit_type = 'group'),

@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-19 — Phase 8 (with approval pulled forward) complete, awaiting commit._
+_Last updated: 2026-09-20 — Phase 9 complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules (`0001`–`0015`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas (`0001`–`0016`) |
 | `supabase/tests/database/` | pgTAP database tests |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D13) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A9) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A11) |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -57,9 +57,9 @@ may run in parallel with Phases 3–5.
 | 5 | Document ingestion | Done | `1df74c8` |
 | 6 | OCR pipeline integration | Done | `6ac8d00` |
 | 7 | OCR verification | Done | `04fc05f` |
-| 8 | Validation engine | **Done, not yet committed** | — |
-| 9 | Calculation engine | **Next** | — |
-| 10 | Scope 1 | Not started | — |
+| 8 | Validation engine | Done | `ba4e678` |
+| 9 | Calculation engine | **Done, not yet committed** | — |
+| 10 | Scope 1 | **Next** | — |
 | 11 | Scope 2 | Not started | — |
 | 12 | Scope 3 foundation | Not started | — |
 | 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | Not started | — |
@@ -215,28 +215,47 @@ layers (D9), `provision-user` script for the first Admin.
 - Checks: unit 34/34, DB 66/66, API end-to-end 58/58 + approvals 36/36, browser (Edge) 16/16 + approval
   scenario 8/8, lint/typecheck/format, production build.
 
+**Phase 9 — Calculation engine.** Decisions: `.grill/phase-9-calculation-engine-decisions.md`.
+- **The engine** (`lib/calculation/`): verified value → unit normalisation (TRD §27 table in code) → the
+  factor version effective for the record's reporting period → `direct_multiply` → result + scope, stored
+  as one append-only `calculations` row (`is_current` flipped, previous traces kept) with the factor value
+  snapshot and `engine_version`. Deterministic: same record and factor version, same number, always.
+- **It runs when a record enters the approval queue** (Confirm's transaction, and an Admin's Accept of a
+  flagged record), so no approver sees a record without its trace.
+- **No factor values are seeded** (migration `0016` seeds only the formulas). Factors are regulatory data
+  an Admin enters at **`/admin/conversion-factors`** with a source reference: table + inline version
+  history, new version supersedes and closes the previous one, a version used by a calculation can never
+  change (DB trigger is the backstop). Past periods keep resolving to the superseded version that covered
+  them.
+- **A missing factor blocks the number, not the queue** (A11): "Not calculated yet" with the reason on the
+  record and in the approval drawer, Approve disabled (Return still available), Admins notified once per
+  reason, and "Run calculation" for an Admin once the factor exists. Approved records are closed to
+  recalculation.
+- The **calculation trace** (UI brief §12.5) is on the verify summary for the submitter, in the approval
+  drawer and for Admins. `pnpm --filter web calculate-pending` calculates records confirmed before Phase 9.
+- Checks: unit 39/39, DB 73/73, API end-to-end 44/44 + Phase 8 regression 58/58 + approvals 36/36,
+  browser (Edge) 10/10, lint/typecheck/format, production build.
+
 ## 4. What comes next
 
-**Phase 9 — Calculation engine** (`06_IMPLEMENTATION_PLAN.md` §Phase 9):
-- Deterministic calculation for validated records only: unit normalisation to the metric's canonical unit,
-  the version-effective conversion/emission factor, the result and a full calculation trace stored in
-  `calculations` (new row + `is_current` flip in one transaction, schema §20.3).
-- Factor management (`conversion_factors`, `conversion_factor_versions`) — never overwrite, always version.
-- Records become calculable when `validation_status = validated` (including Admin-accepted flags).
-- Replace the approval drawer's "Calculation trace" placeholder, and decide whether approval must wait
-  for a calculation (records are already being approved without one).
+**Phase 10 — Scope 1** (`06_IMPLEMENTATION_PLAN.md` §Phase 10):
+- The Scope 1 module proper: the fuel/diesel workflow end to end, project- and organization-level Scope 1
+  totals from `calculations`, and the Scope 1 screens in the App Flow.
+- Decide `metric_field_requirements.is_critical` for the Scope 1 fields (still false everywhere).
 
-Things to remember for Phase 9:
-- Allowed unit spellings (e.g. Ltr, Litres, KL; kWh, Units) are accepted by validation but still need
-  normalising — that mapping belongs to Phase 9.
-- `calculation_status` is still `pending` on every diesel/grid record.
+Things to remember for Phase 10:
+- Totals must come from `calculations` rows with `is_current`, not by recomputing anything in a page.
+- Results carry the factor's own unit (kgCO2e for the local development factor); Phase 15's consolidation
+  is where unit agreement across factors has to be decided.
+- A record with no active factor for its period is calculable the moment an Admin adds one, through
+  "Run calculation" in the approval drawer or `pnpm --filter web calculate-pending`.
 - Locally an Admin granted `approval.decide` to the Project Manager role (Roles & Permissions); PMs can
   approve others' records in their scope but never their own.
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migration `0015` (validation rules) is
-  not pushed yet. Migrations `0001`–`0014` were pushed on
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015` (validation rules)
+  and `0016` (calculation formulas) are not pushed yet. Migrations `0001`–`0014` were pushed on
   2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
   verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
   users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
@@ -247,6 +266,10 @@ Things to remember for Phase 9:
 - **Email:** configure custom SMTP (Resend) before inviting anyone outside the Supabase team.
 - **CI:** database tests (`pnpm db:test`), the OCR integration harness and the Docker image build run
   locally only.
+- **Conversion factors are empty everywhere except locally.** No factor values exist in any migration by
+  design; MEIL must enter the verified diesel and grid-electricity factors (with their sources) before
+  anything calculates. The local database has one factor whose source says "Synthetic development value
+  — not an authoritative factor".
 - **Deferred by design:** org/period context switcher (Phase 16), theme switcher and Theme 2/3 contrast
   sweep (Phase 19), CSRF review of the tRPC endpoint — currently relies on SameSite=Lax cookies (Phase 18),
   Submission History page and record detail views, Settings page to edit the OCR threshold.

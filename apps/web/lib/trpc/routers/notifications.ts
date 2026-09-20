@@ -11,7 +11,10 @@ export const NOTIFICATION_TYPES = {
   low_confidence: "Low confidence",
   ocr_failed: "Extraction failed",
   returned: "Returned",
+  validation_review: "Validation review",
+  approval_needed: "Approval needed",
   approved: "Approved",
+  calculation_blocked: "Calculation blocked",
 } as const;
 
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;

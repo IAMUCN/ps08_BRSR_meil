@@ -183,3 +183,22 @@ Decisions: `.grill/phase-8-validation-engine-decisions.md` (2026-09-19).
 - **Calculation trace in the approval drawer is a labeled development placeholder** until Phase 9;
   Phase 9 decides whether approval must wait for a calculation.
 - Multi-level approval chains and the Control Tower's approval cards stay in Phase 16.
+
+## A11 — Phase 9 calculation
+
+Decisions: `.grill/phase-9-calculation-engine-decisions.md`.
+
+- **Calculation runs when a record enters the approval queue** (inside Confirm's transaction, and on an
+  Admin's Accept of a flagged record), so the approval drawer shows the real trace instead of the Phase 8
+  placeholder.
+- **A missing factor blocks the number, not the queue.** The record still appears under Pending Approval
+  with "Not calculated yet" and the reason; Approve is disabled and says why, Return stays available, and
+  Admins are notified once per reason (`calculation_blocked`, deep-linking to Conversion Factors). An
+  Admin with `factor.manage` gets a "Run calculation" button in the drawer.
+- **The calculation trace is shown to the submitter** on their own record (App Flow only promises it to
+  reviewers and the drill-down), because the number is derived from their evidence.
+- **Recalculation is explicit and pre-approval only.** Approved records are closed; nothing recalculates
+  automatically when a factor changes.
+- **Conversion Factors is an Admin-area page only** (`/admin/conversion-factors`), gated on
+  `factor.manage`. If that permission is ever granted to another role, an `/app` mirror follows, as
+  Approvals did.
