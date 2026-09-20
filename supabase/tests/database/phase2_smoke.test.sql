@@ -75,7 +75,10 @@ select set_eq($$select code from public.scopes$$, array['SCOPE_1', 'SCOPE_2', 'S
   'scopes seeded as Scope 1, 2 and the Scope 3 parent only');
 select is((select count(*)::int from public.org_units where parent_id is null and unit_type = 'group'),
   1, 'single root group');
-select is((select count(*)::int from public.document_type_metric_mappings), 2,
+-- Diesel and grid electricity are the Phase 2 seeds; later phases add more fuels.
+select is((select count(*)::int from public.document_type_metric_mappings map
+             join public.esg_metrics m on m.id = map.metric_id
+            where m.code in ('DIESEL_CONSUMPTION', 'GRID_ELECTRICITY')), 2,
   'diesel and grid electricity document-to-metric mappings');
 select is((select count(*)::int from public.reporting_periods where status = 'open'), 1,
   'one open reporting period (seed.sql)');

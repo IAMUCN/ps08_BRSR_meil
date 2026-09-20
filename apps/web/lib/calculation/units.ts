@@ -16,6 +16,15 @@ const UNITS: Record<string, { canonical: string; multiplier: number }> = {
   kl: { canonical: "L", multiplier: 1000 },
   kilolitre: { canonical: "L", multiplier: 1000 },
   kilolitres: { canonical: "L", multiplier: 1000 },
+  // Mass → kilograms (CNG and LPG are billed by weight)
+  kg: { canonical: "kg", multiplier: 1 },
+  kgs: { canonical: "kg", multiplier: 1 },
+  kilogram: { canonical: "kg", multiplier: 1 },
+  kilograms: { canonical: "kg", multiplier: 1 },
+  t: { canonical: "kg", multiplier: 1000 },
+  mt: { canonical: "kg", multiplier: 1000 },
+  tonne: { canonical: "kg", multiplier: 1000 },
+  tonnes: { canonical: "kg", multiplier: 1000 },
   // Energy → kilowatt-hours
   kwh: { canonical: "kWh", multiplier: 1 },
   units: { canonical: "kWh", multiplier: 1 },

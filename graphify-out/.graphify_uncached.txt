@@ -1,0 +1,47 @@
+D:\Non Newtonian Things\BRSR_MEIL\.agents\rules\graphify.md
+D:\Non Newtonian Things\BRSR_MEIL\.agents\workflows\graphify.md
+D:\Non Newtonian Things\BRSR_MEIL\.github\workflows\ci.yml
+D:\Non Newtonian Things\BRSR_MEIL\.grill\phase-1-project-setup.md
+D:\Non Newtonian Things\BRSR_MEIL\.grill\phase-10-scope-1-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\.grill\phase-2-database-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\.grill\phase-2b-ocr-worker-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\.grill\phase-3-auth-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\.grill\phase-4-admin-foundation-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\.grill\phase-5-document-ingestion-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\.grill\phase-6-ocr-integration-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\.grill\phase-7-ocr-verification-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\.grill\phase-8-validation-engine-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\.grill\phase-9-calculation-engine-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\CLAUDE.md
+D:\Non Newtonian Things\BRSR_MEIL\PROGRESS.md
+D:\Non Newtonian Things\BRSR_MEIL\README.md
+D:\Non Newtonian Things\BRSR_MEIL\apps\ocr-worker\requirements-dev.txt
+D:\Non Newtonian Things\BRSR_MEIL\apps\ocr-worker\requirements.txt
+D:\Non Newtonian Things\BRSR_MEIL\apps\web\AGENTS.md
+D:\Non Newtonian Things\BRSR_MEIL\apps\web\APP_FLOW_DEVIATIONS.md
+D:\Non Newtonian Things\BRSR_MEIL\apps\web\CLAUDE.md
+D:\Non Newtonian Things\BRSR_MEIL\pnpm-workspace.yaml
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\.grill\app-flow-ux-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\.grill\backend-schema-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\.grill\implementation-plan-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\.grill\trd-tech-stack.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\.grill\ui-design-system-decisions.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\01_PRD.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\02_TRD.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\03_APP_FLOW.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\04_UI_UX_DESIGN_BRIEF.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\05_BACKEND_SCHEMA.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\06_IMPLEMENTATION_PLAN.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\implementation_docs\Master_Approach.md
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\provided_docs\yt_podcast_transcript.md
+D:\Non Newtonian Things\BRSR_MEIL\render.yaml
+D:\Non Newtonian Things\BRSR_MEIL\supabase\SCHEMA_DEVIATIONS.md
+D:\Non Newtonian Things\BRSR_MEIL\supabase\templates\invite.html
+D:\Non Newtonian Things\BRSR_MEIL\supabase\templates\recovery.html
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\provided_docs\BRSR-FAQs-25012025.pdf
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\provided_docs\Background-Material-on-Sustainability-Business-Responsibility-Sustainability-Reporting-BRSR-Revised-Edition-2024.pdf
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\provided_docs\Business responsibility and sustainability reporting by listed entitiesAnnexure1_p.pdf
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\provided_docs\Business responsibility and sustainability reporting by listed entitiesAnnexure2_p.pdf
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\provided_docs\L&T BRSR Report FY2025-26.pdf
+D:\Non Newtonian Things\BRSR_MEIL\ps_documents\provided_docs\business-responsibility-and-sustainability-report.pdf
+D:\Non Newtonian Things\BRSR_MEIL\apps\web\app\icon.svg

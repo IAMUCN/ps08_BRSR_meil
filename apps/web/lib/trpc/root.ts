@@ -12,6 +12,7 @@ import { approvalsRouter } from "@/lib/trpc/routers/approvals";
 import { validationRouter } from "@/lib/trpc/routers/validation";
 import { verificationRouter } from "@/lib/trpc/routers/verification";
 import { rolesRouter } from "@/lib/trpc/routers/roles";
+import { scopeRouter } from "@/lib/trpc/routers/scope";
 import { usersRouter } from "@/lib/trpc/routers/users";
 
 export const appRouter = router({
@@ -32,6 +33,7 @@ export const appRouter = router({
   validation: validationRouter,
   approvals: approvalsRouter,
   factors: factorsRouter,
+  scope: scopeRouter,
 });
 
 export type AppRouter = typeof appRouter;

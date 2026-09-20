@@ -6,9 +6,12 @@ create extension if not exists pgtap with schema extensions;
 select plan(7);
 
 select is(
-  (select count(*)::int from public.calculation_formulas where status = 'active'),
-  2,
-  'an active formula is seeded for each calculable metric');
+  (select count(*)::int from public.esg_metrics m
+    where m.deleted_at is null and m.requires_calculation
+      and not exists (select 1 from public.calculation_formulas f
+                       where f.metric_id = m.id and f.status = 'active')),
+  0,
+  'every calculable metric has an active formula');
 
 select results_eq(
   $$select distinct formula_type::text from public.calculation_formulas$$,

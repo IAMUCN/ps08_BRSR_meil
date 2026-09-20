@@ -202,3 +202,23 @@ Decisions: `.grill/phase-9-calculation-engine-decisions.md`.
 - **Conversion Factors is an Admin-area page only** (`/admin/conversion-factors`), gated on
   `factor.manage`. If that permission is ever granted to another role, an `/app` mirror follows, as
   Approvals did.
+
+## A12 — Phase 10 Scope 1
+
+Decisions: `.grill/phase-10-scope-1-decisions.md`.
+
+- **No placeholder conversion factors**, although the Phase 10 plan permits clearly-marked ones. Phase 9's
+  rule stands: an Admin enters each factor with the source they verified it against, and the dashboard
+  shows an honest empty state until then.
+- **The headline total counts approved records only**, with "awaiting approval" and "N verified records
+  have no calculation yet" beside it, so an unreviewed number never reads as reportable and the gaps stay
+  visible. The App Flow says "totals by org level" without saying which records count.
+- **Totals are grouped by result unit and never mixed**; a kilogram unit also shows the tonne figure
+  (arithmetic, not a factor).
+- **The chart view is inline SVG** built from the brief's chart tokens — no charting dependency — and the
+  table is the default, per the brief's warning against chart-first dashboards.
+- **Drilling ends at the evidence**: org level → … → contributing records → a drawer with the calculation
+  trace and the original document. The App Flow leaves the record level to Phase 17's drill-down; doing it
+  here proves the whole lineage chain now.
+- **Non-admins see their own project's Scope 1 total** on their dashboard (`scope.myTotal`, limited to
+  their assignments). `/admin/scope-1` itself stays Admin-only as specified.

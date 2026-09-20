@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-20 — Phase 9 committed (`d0f549c`); Phase 10 next._
+_Last updated: 2026-09-20 — Phase 10 complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas (`0001`–`0016`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels (`0001`–`0017`) |
 | `supabase/tests/database/` | pgTAP database tests |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D13) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A11) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A12) |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -59,8 +59,8 @@ may run in parallel with Phases 3–5.
 | 7 | OCR verification | Done | `04fc05f` |
 | 8 | Validation engine | Done | `ba4e678` |
 | 9 | Calculation engine | Done | `d0f549c` |
-| 10 | Scope 1 | **Next** | — |
-| 11 | Scope 2 | Not started | — |
+| 10 | Scope 1 | **Done, not yet committed** | — |
+| 11 | Scope 2 | **Next** | — |
 | 12 | Scope 3 foundation | Not started | — |
 | 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | Not started | — |
 | 14 | BRSR mapping | Not started | — |
@@ -236,19 +236,36 @@ layers (D9), `provision-user` script for the first Admin.
 - Checks: unit 39/39, DB 73/73, API end-to-end 44/44 + Phase 8 regression 58/58 + approvals 36/36,
   browser (Edge) 10/10, lint/typecheck/format, production build.
 
+**Phase 10 — Scope 1.** Decisions: `.grill/phase-10-scope-1-decisions.md`.
+- **The fuels are configuration** (migration `0017`): Petrol, CNG and LPG join Diesel, each with the same
+  four fields, an active `direct_multiply` formula, an allowed-units rule and a shared "Fuel Invoice"
+  document type. The OCR worker needed no change — its extraction profiles are keyed by field, not metric.
+  CNG and LPG are weighed, so kg/tonne joined the unit-normalisation table.
+- **`/admin/scope-1`** (App Flow §2.2, one template for Scope 2/3 later): totals for the chosen period and
+  org node, approved as the headline with "awaiting approval" and "not calculated" beside it, a table of
+  child org units with an inline-SVG bar view, a trend across recent periods, and drilling that walks
+  whatever hierarchy levels exist. A contributing record opens its calculation trace and the original
+  invoice in a drawer — the whole lineage chain, proven now rather than in Phase 17.
+- **`scope.getTotal`** is parameterised by scope code (Scope 2 and 3 reuse it untouched); `scope.myTotal`
+  gives non-admins their own project's Scope 1 total on their dashboard, scope-checked server-side.
+- Totals are grouped by result unit and never mixed; a kilogram unit shows the tonne figure beside it.
+- **The critical end-to-end scenario passes live**: PM uploads a diesel invoice → OCR → verify → validate →
+  calculate → approve → Admin drills MEIL → Subsidiary A → Project X → the record → the original invoice.
+- Checks: unit 43/43, DB 79/79, API end-to-end 30/30 + Phase 9 regression 44/44 + Phase 8 58/58 +
+  approvals 36/36, browser (Edge) 11/11, lint/typecheck/format, production build.
+
 ## 4. What comes next
 
-**Phase 10 — Scope 1** (`06_IMPLEMENTATION_PLAN.md` §Phase 10):
-- The Scope 1 module proper: the fuel/diesel workflow end to end, project- and organization-level Scope 1
-  totals from `calculations`, and the Scope 1 screens in the App Flow.
-- Decide `metric_field_requirements.is_critical` for the Scope 1 fields (still false everywhere).
+**Phase 11 — Scope 2** (`06_IMPLEMENTATION_PLAN.md` §Phase 11):
+- Grid electricity end to end plus the `/admin/scope-2` dashboard, which should be the same component and
+  the same `scope.getTotal` procedure with a different scope code. If Phase 11 needs substantial new code,
+  that is a defect in Phase 10's reusability, not a reason to duplicate (plan Rule 14).
+- Source classification (grid vs renewable where evidence supports it) per PRD §21.
 
-Things to remember for Phase 10:
-- Totals must come from `calculations` rows with `is_current`, not by recomputing anything in a page.
-- Results carry the factor's own unit (kgCO2e for the local development factor); Phase 15's consolidation
-  is where unit agreement across factors has to be decided.
-- A record with no active factor for its period is calculable the moment an Admin adds one, through
-  "Run calculation" in the approval drawer or `pnpm --filter web calculate-pending`.
+Things to remember for Phase 11:
+- Grid electricity has no conversion factor locally, so its records sit at "Not calculated yet" until one
+  is entered at `/admin/conversion-factors`.
+- `metric_field_requirements.is_critical` is still false everywhere, including the Scope 1 fuels.
 - Locally an Admin granted `approval.decide` to the Project Manager role (Roles & Permissions); PMs can
   approve others' records in their scope but never their own.
 

@@ -1,4 +1,4 @@
-import { CalendarRange, FileSearch, FolderX, RotateCcw, Upload } from "lucide-react";
+import { CalendarRange, Factory, FileSearch, FolderX, RotateCcw, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "@/components/shell/empty-state";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { NoticeToast } from "@/components/shell/notice-toast";
 import { requireAppSession } from "@/lib/auth/session";
 import { submissionTab } from "@/lib/ocr/rules";
+import { formatTotal } from "@/lib/scope/display";
 import { api } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Dashboard · TraceESG" };
@@ -38,9 +39,11 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
     );
   }
 
-  const [openPeriod, submissions] = await Promise.all([
+  const [openPeriod, submissions, scopeOne] = await Promise.all([
     caller.dashboard.openPeriod(),
     caller.ocr.submissions(),
+    // Phase 10: this user's own project total — never an organisation-wide figure.
+    caller.scope.myTotal({ scopeCode: "SCOPE_1" }),
   ]);
   const toVerify = submissions.filter((s) => submissionTab(s) === "needs_verification").length;
   const returned = submissions.filter((s) => submissionTab(s) === "returned").length;
@@ -116,6 +119,45 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
           </p>
         </Link>
       </section>
+
+      {scopeOne ? (
+        <section aria-labelledby="scope1-heading" className="rounded-md border bg-card p-4">
+          <div className="flex items-center gap-2">
+            <Factory className="size-5 text-primary" strokeWidth={1.5} aria-hidden />
+            <h2 id="scope1-heading" className="text-base leading-6 font-semibold">
+              Scope 1 · {scopeOne.node.name}, {scopeOne.periodLabel}
+            </h2>
+          </div>
+          {scopeOne.node.totals.length > 0 ? (
+            <dl className="mt-2 space-y-1 text-sm leading-5">
+              {scopeOne.node.totals.map((total) => (
+                <div key={total.unit} className="flex flex-wrap items-baseline gap-x-3">
+                  <dd className="font-mono font-semibold">
+                    {formatTotal(total.approved, total.unit)}
+                  </dd>
+                  <dt className="text-xs text-muted-foreground">
+                    approved · {total.records} record(s)
+                  </dt>
+                  {total.awaitingApproval > 0 ? (
+                    <dt className="text-xs text-status-warning">
+                      {formatTotal(total.awaitingApproval, total.unit)} awaiting approval
+                    </dt>
+                  ) : null}
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p className="mt-2 text-sm leading-5 text-muted-foreground">
+              Nothing calculated for this period yet.
+            </p>
+          )}
+          {scopeOne.node.notCalculated > 0 ? (
+            <p className="mt-2 text-xs leading-4 text-status-warning">
+              {scopeOne.node.notCalculated} verified record(s) are waiting on a conversion factor.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section aria-labelledby="assignments-heading" className="rounded-md border bg-card p-4">
         <h2 id="assignments-heading" className="text-base leading-6 font-semibold">

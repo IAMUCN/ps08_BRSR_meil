@@ -39,10 +39,25 @@ test("normalisation is reversible and exact for the factor's own unit", () => {
   assert.equal(backToKilolitres.normalized.value, 3);
 });
 
+test("normalisation: CNG and LPG weights (Phase 10)", () => {
+  for (const unit of ["kg", "Kgs", "Kilograms"]) {
+    const result = normalize(40, unit, "kg");
+    assert.ok(result.ok);
+    assert.equal(result.normalized.value, 40);
+  }
+  const tonnes = normalize(1.5, "MT", "kg");
+  assert.ok(tonnes.ok);
+  assert.equal(tonnes.normalized.value, 1500);
+  const wrongKind = normalize(40, "kg", "L");
+  assert.equal(wrongKind.ok, false);
+});
+
 test("sameQuantity only matches units of the same kind", () => {
   assert.equal(sameQuantity("L", "KL"), true);
   assert.equal(sameQuantity("kWh", "MWh"), true);
   assert.equal(sameQuantity("L", "kWh"), false);
+  assert.equal(sameQuantity("kg", "MT"), true);
+  assert.equal(sameQuantity("kg", "L"), false);
   assert.equal(sameQuantity("L", "barrels"), false);
 });
 

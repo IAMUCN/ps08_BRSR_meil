@@ -4,10 +4,11 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(5);
 
+-- Four rules apply to every metric; the per-metric ones grow as fuels are added (Phase 10 onward).
 select is(
-  (select count(*)::int from public.validation_rules where is_active),
-  7,
-  'seven active validation rules are seeded');
+  (select count(*)::int from public.validation_rules where is_active and metric_id is null),
+  4,
+  'the four global validation rules are seeded');
 
 select results_eq(
   $$select distinct rule_definition->>'check' from public.validation_rules order by 1$$,
