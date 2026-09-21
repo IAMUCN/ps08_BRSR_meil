@@ -18,8 +18,8 @@ select tables_are('public', array[
   'ocr_fields', 'esg_records', 'esg_record_documents', 'verifications', 'validation_results',
   'approvals', 'calculations', 'calculation_inputs', 'brsr_sections', 'brsr_indicators',
   'brsr_metric_mappings', 'audit_logs', 'report_runs', 'notifications', 'org_settings',
-  -- Added by a documented deviation (supabase/SCHEMA_DEVIATIONS.md D16), not by drift.
-  'submission_expectations'
+  -- Added by documented deviations (supabase/SCHEMA_DEVIATIONS.md D16, D19), not by drift.
+  'rate_limit_events', 'submission_expectations'
 ], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(

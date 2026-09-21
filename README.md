@@ -4,7 +4,7 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–17 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> **Status:** Phases 1–18 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
 > database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
 > users and assignments, roles and permissions, reporting periods, profile), document upload, the OCR
 > worker (Phase 2B) and its integration (Phase 6), OCR verification (Phase 7: document viewer beside the
@@ -22,7 +22,9 @@ original evidence.
 > consolidation (Phase 15: roll-up views over the org tree, `consolidation.query` by period or financial
 > year) and the Admin Control Tower (Phase 16: real KPIs and issue panel, Submission Monitoring, ESG Data
 > Explorer, configurable expected submissions) and reporting (Phase 17: BRSR reports by period or financial
-> year rendered to PDF, with every value drilling down to its original document). See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
+> year rendered to PDF, with every value drilling down to its original document) and audit and security
+> hardening (Phase 18: the Audit Trail page, an append-only audit log, sign-in and upload rate limits, CSRF
+> protection on tRPC — see [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)). See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
 
@@ -123,7 +125,9 @@ Notes:
   every version records who entered it and the source it came from.
 - **Evidence storage:** migration `0012` creates the private `evidence` bucket (50 MB, PDF/JPG/PNG). Set
   `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence` in `apps/web/.env.local`. Files are never publicly readable;
-  uploads use short-lived signed URLs issued by the server.
+  uploads use single-use signed upload URLs issued by the server (Supabase's fixed two-hour lifetime).
+- **The audit log is append-only** (migration `0027`): triggers refuse UPDATE, DELETE and TRUNCATE for
+  every role, including the server's. Admins read it at `/admin/audit-trail`.
 - **Report PDFs** (Phase 17): migration `0025` creates the private `reports` bucket. Set
   `SUPABASE_STORAGE_BUCKET_REPORTS=reports`, and locally `CHROMIUM_EXECUTABLE_PATH` to an installed
   Chromium-family browser (e.g. `C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe`); in
@@ -133,6 +137,10 @@ Notes:
 ## Accounts and sign-in
 
 - **No self sign-up.** Accounts are provisioned by an Admin only. Passwords need at least 12 characters.
+- **Rate limits** (Phase 18, `org_settings.rate_limits`): 5 failed sign-ins per account and 50 per client
+  address per 15 minutes; 60 uploads per user per 10 minutes. Locally, clear the counters with
+  `delete from public.rate_limit_events;` if a test run locks an account. On the hosted project, raise
+  Supabase Auth's per-IP sign-in limit (it only sees the app server's address — `SECURITY_REVIEW.md` F8).
 - **First Admin / local development users** are created with the provisioning script, which sends an
   invite email (the user sets their own password — no password is ever passed on the command line):
 

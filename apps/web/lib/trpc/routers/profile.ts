@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { publicEnv } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { protectedProcedure, router } from "@/lib/trpc/init";
+import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -50,6 +51,15 @@ export const profileRouter = router({
         badRequest("Choose a password different from your current one.");
       }
 
+      // The same per-account limit as sign-in: a signed-in session must not become a password oracle.
+      const limits = await rateLimits();
+      const account = bucket("login-account", ctx.session.email);
+      if (await exceeded(account, limits.login_failures_per_account, limits.login_window_minutes)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Too many incorrect attempts — wait 15 minutes and try again.",
+        });
+      }
       // Verify the current password on a throwaway client so the user's own session is untouched.
       const verifier = createClient(
         publicEnv.NEXT_PUBLIC_SUPABASE_URL,
@@ -61,6 +71,7 @@ export const profileRouter = router({
         password: input.currentPassword,
       });
       if (verifyError) {
+        if (verifyError.code === "invalid_credentials") await count(account);
         badRequest(
           verifyError.code === "invalid_credentials"
             ? "Current password is incorrect."

@@ -19,6 +19,7 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { permissionProcedure, router } from "@/lib/trpc/init";
 import { documentAccess } from "@/lib/verification/access";
+import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 
 // Phase 5 document ingestion (.grill/phase-5-document-ingestion-decisions.md; SCHEMA_DEVIATIONS.md D3).
 // Bytes first, then rows: prepareUpload issues a signed upload URL, completeUpload re-reads the stored
@@ -272,6 +273,16 @@ export const documentsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const sql = db();
+      // Abuse protection (SECURITY_REVIEW.md): every signed upload URL issued counts, completed or not.
+      const limits = await rateLimits();
+      const uploads = bucket("upload-user", ctx.session.userId);
+      if (await exceeded(uploads, limits.uploads_per_user, limits.upload_window_minutes)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Upload limit reached — at most ${limits.uploads_per_user} uploads every ${limits.upload_window_minutes} minutes. Try again shortly.`,
+        });
+      }
+      await count(uploads);
       const options = await loadUploadOptions(sql, ctx.session.userId);
       if (!options.openPeriod) badRequest(NO_PERIOD);
       const { target, metric } = resolveTarget(options, input.orgUnitId, input.metricId);

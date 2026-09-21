@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-22 — Phase 17 committed; Phase 18 next._
+_Last updated: 2026-09-22 — Phase 18 complete, awaiting commit; Phase 19 next._
 
 ---
 
@@ -34,10 +34,11 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports (`0001`–`0026`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits (`0001`–`0027`) |
 | `supabase/tests/database/` | pgTAP database tests |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D18) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D19) |
 | `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A18) |
+| `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -67,8 +68,8 @@ may run in parallel with Phases 3–5.
 | 15 | Consolidation | Done | `721b18f` |
 | 16 | Admin Control Tower | Done | `dd5af22` |
 | 17 | Reporting | Done | `9d893b2` |
-| 18 | Audit and security hardening | **Next** | — |
-| 19 | UI polish and responsive behavior | Not started | — |
+| 18 | Audit and security hardening | Done | — |
+| 19 | UI polish and responsive behavior | **Next** | — |
 | 20 | Testing and edge cases | Not started | — |
 | 21 | Deployment | Not started | — |
 
@@ -413,26 +414,56 @@ layers (D9), `provision-user` script for the first Admin.
   generate, open, click the Scope 1 diesel figure, reach the original diesel invoice — regressions Phase 14
   33/33 + 8/8, Phase 15 35/35, Phase 16 63/63 + 14/14, lint/typecheck/format, production build.
 
+**Phase 18 — Audit and security hardening.** Decisions: `.grill/phase-18-audit-security-decisions.md`;
+review: `SECURITY_REVIEW.md`.
+- **`/admin/audit-trail`** (sidebar "Audit Trail"): filter by user, action, record type, record id and date
+  range; each event expands in place to its before/after values; CSV export; keyset paging ("Older events").
+  **A record's complete history** (`?record=`, linked from the shared record drawer as "View audit history"):
+  its own events, its document's (upload, OCR), its fields' extraction and edits, and every report whose
+  snapshot included it. tRPC `audit.options`, `audit.query`, `audit.record` (`audit.view`).
+- **The audit log is append-only for every role**, the server's included (migration `0027`: triggers refuse
+  UPDATE, DELETE and TRUNCATE), and entries from one transaction keep their real order
+  (`clock_timestamp()`). Audit coverage checked against schema §12.1; the one gap — a record entering the
+  approval queue — now writes `approval.submitted`.
+- **Security review** with every finding fixed or recorded: sign-in throttling was effectively global
+  (Supabase sees the app server's one address) → 5 failed attempts per account and 50 per client address per
+  15 minutes; 60 uploads per user per 10 minutes; limits in `org_settings.rate_limits`, counters in
+  `rate_limit_events` under hashed bucket names (deviation D19). **CSRF**: tRPC mutations are refused unless
+  the `Origin` is the app's own host. Signed upload URLs keep Supabase's fixed two hours (accepted: single use,
+  path-bound, bytes re-verified); there are no download signed URLs. RLS audit (37 tables, all RLS, no browser
+  write grants), no server secret in the client bundle, `pnpm audit` and `pip-audit` clean.
+- **Found while testing:** the audit paging cursor lost microseconds twice — through a JavaScript `Date` and
+  through postgres.js, which serialises a `timestamptz` parameter the same way — and skipped events that
+  share a timestamp. The cursor is now built and compared as text.
+- Checks: web unit 65/65, DB 145/145, API end-to-end 54/54 (paging continuity, filters, a reported record's
+  history, Admin-only access, append-only as the server's role, cross-site Origin refused, lockout and reset,
+  upload quota, signed URL single use and expiry, no public evidence URL), browser (Edge) 12/12,
+  regressions Phase 16 63/63 + 14/14, Phase 17 39/39 + 9/9, approvals 36/36, lint/typecheck/format,
+  production build.
+
 ## 4. What comes next
 
-**Phase 18 — Audit and security hardening** (`06_IMPLEMENTATION_PLAN.md` §Phase 18): the Audit Trail page,
-a security review (CSRF on the tRPC endpoint — SameSite=Lax cookies today — RLS and route-level checks),
-and the switch from synthetic to real documents that the plan allows only from this phase.
+**Phase 19 — UI polish and responsive behavior** (`06_IMPLEMENTATION_PLAN.md` §Phase 19): the per-user
+theme switcher on Profile with all three token sets, a consistency sweep against UI brief §18, every
+empty/loading/error/confirmation state from the App Flow, responsive breakpoints (tablet sidebar collapse,
+Verify Extraction stacking below ~1000px, sticky first table column) and an accessibility sweep. No new
+pages, database or API changes.
 
-Things to remember for Phase 18:
-- Every server write already audits in the same transaction; the audit trail page reads `audit_logs`.
-- Report runs, expectations and mapping changes are audited (`report.*`, `expectation.*`, `brsr_mapping.*`).
-- `metric_field_requirements.is_critical` is still false everywhere.
+Things to remember for Phase 19:
+- Themes are CSS tokens since Phase 1; Theme 2/3 contrast has never been swept.
+- The global org/period context switcher is still deferred (the Control Tower carries context in the URL).
+- The move to real MEIL documents is allowed from Phase 18 on; it needs the owner's documents, not code.
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0026` (validation
-  rules through the report runs and mapping value) are not pushed yet. Migrations `0001`–`0014` were pushed on
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0027` (validation
+  rules through the append-only audit log and rate limits) are not pushed yet. Migrations `0001`–`0014` were pushed on
   2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
   verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
   users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
   `supabase config push` after `supabase login`, or set in the dashboard), rotate the database password
-  (it was shared in chat), provision the first hosted Admin.
+  (it was shared in chat), provision the first hosted Admin, raise Supabase Auth's per-IP sign-in limit
+  (`SECURITY_REVIEW.md` F8).
 - **Report PDFs in production:** set `SUPABASE_STORAGE_BUCKET_REPORTS=reports` on Vercel; `@sparticuz/chromium`
   is untested there yet (cold start and bundle size are the known risks, TRD §17).
 - **Worker deployment:** apply `render.yaml` in Render and enter the secrets there (DATABASE_URL = session
@@ -444,9 +475,10 @@ Things to remember for Phase 18:
   design; MEIL must enter the verified factors (with their sources) before any emission calculates. The
   Phase 13 metrics need no factor. Every factor in the local database is labelled as a synthetic
   development value, not an authoritative factor.
-- **Deferred by design:** a global (every-page) org/period context switcher, theme switcher and Theme 2/3 contrast
-  sweep (Phase 19), CSRF review of the tRPC endpoint — currently relies on SameSite=Lax cookies (Phase 18),
-  Submission History page and record detail views, Settings page to edit the OCR threshold.
+- **Deferred by design:** a global (every-page) org/period context switcher, theme switcher and Theme 2/3
+  contrast sweep (Phase 19), Submission History page and record detail views, Settings page to edit the OCR
+  threshold.
+- **Security out of scope:** third-party penetration testing, CAPTCHA on sign-in (`SECURITY_REVIEW.md`).
 - **Abandoned uploads:** a file uploaded but never completed (browser closed mid-flow) stays in Storage with
   no database row. Nothing references it; add a cleanup job if it becomes noticeable.
 - **Local memory:** the dev server, Docker/Supabase and the OCR worker together exhaust ~12 GB machines; the

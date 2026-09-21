@@ -266,6 +266,19 @@ the quantity; its emissions go to P6-L4.
 but reporting every metric's calculated result printed the waste's emissions there. Decision:
 `.grill/phase-17-reporting-decisions.md`.
 
+## D19 — `rate_limit_events` and an append-only trigger on `audit_logs` (migration `0027`)
+
+**Schema says:** nothing about rate limiting; `audit_logs` is "append-only" (§12.1) without saying how.
+
+**Implemented:** `rate_limit_events (id, bucket, created_at)` — one row per counted attempt in a hashed
+bucket (failed sign-ins per account and per client address, upload preparations per user); server-only.
+Triggers on `audit_logs` refuse UPDATE, DELETE and TRUNCATE for every role. `audit_logs.created_at` defaults
+to `clock_timestamp()` instead of `now()`, so the entries one transaction writes keep the order they happened.
+
+**Why:** the security review found sign-in throttling effectively global (Supabase sees the app server's one
+address) and the audit log protected only by grants. Decision: `.grill/phase-18-audit-security-decisions.md`;
+review: `SECURITY_REVIEW.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

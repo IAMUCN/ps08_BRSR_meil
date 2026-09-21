@@ -20,6 +20,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/brsr-mapping", label: "BRSR Mapping", icon: "brsr" },
   { href: "/admin/data-explorer", label: "Data Explorer", icon: "explorer" },
   { href: "/admin/reports", label: "Reports", icon: "reports" },
+  { href: "/admin/audit-trail", label: "Audit Trail", icon: "audit" },
   { href: "/admin/scope-1", label: "Scope 1", icon: "scope" },
   { href: "/admin/scope-2", label: "Scope 2", icon: "scope" },
   { href: "/admin/scope-3", label: "Scope 3", icon: "scope" },

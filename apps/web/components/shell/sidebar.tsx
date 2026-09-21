@@ -8,6 +8,7 @@ import {
   Factory,
   FileStack,
   FileText,
+  History,
   LayoutDashboard,
   ListTree,
   ScanText,
@@ -43,6 +44,7 @@ const ICONS = {
   brsr: ListTree,
   explorer: Search,
   reports: FileText,
+  audit: History,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;

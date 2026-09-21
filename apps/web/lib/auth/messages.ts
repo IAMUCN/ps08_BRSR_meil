@@ -12,6 +12,7 @@ export const AUTH_MESSAGES = {
   forbidden: "You don't have access to that page",
   resetSent: "If that email exists, a reset link has been sent.",
   passwordRule: "At least 12 characters.",
+  tooManyAttempts: "Too many sign-in attempts — wait 15 minutes and try again",
 } as const;
 
 export type LoginReason =

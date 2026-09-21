@@ -159,7 +159,15 @@ export function RecordDrawer({
             )}
 
             <section className="space-y-2">
-              <h3 className="text-sm font-semibold">Audit trail</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Audit trail</h3>
+                <Link
+                  href={`/admin/audit-trail?record=${detail.recordId}`}
+                  className="text-sm font-medium underline underline-offset-2"
+                >
+                  View audit history
+                </Link>
+              </div>
               <ol className="space-y-1 text-sm">
                 {detail.audit.map((a, i) => (
                   <li key={i} className="flex gap-3">
