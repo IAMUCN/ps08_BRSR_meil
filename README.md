@@ -4,7 +4,7 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–14 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> **Status:** Phases 1–15 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
 > database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
 > users and assignments, roles and permissions, reporting periods, profile), document upload, the OCR
 > worker (Phase 2B) and its integration (Phase 6), OCR verification (Phase 7: document viewer beside the
@@ -18,8 +18,9 @@ original evidence.
 > waste and business travel live) and the role-specific modules (Phase 13: HR headcount by gender and
 > training coverage, EHS water consumption, Procurement MSME share, Finance/CSR expenditure and fines — with
 > `percentage` and `subtract` formulas derived from verified counts) and BRSR mapping (Phase 14: indicators
-> from SEBI's BRSR format, `/admin/brsr-mapping` with a readiness tree down to the original document).
-> Consolidation and reporting are not implemented yet; Admin
+> from SEBI's BRSR format, `/admin/brsr-mapping` with a readiness tree down to the original document) and
+> consolidation (Phase 15: roll-up views over the org tree, `consolidation.query` by period or financial
+> year). Reporting is not implemented yet; Admin
 > dashboard KPIs remain labeled development placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout

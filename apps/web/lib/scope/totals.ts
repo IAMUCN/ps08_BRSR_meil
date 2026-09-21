@@ -1,9 +1,9 @@
 import "server-only";
 import type { db, Tx } from "@/lib/db";
 
-// Scope totals (06_IMPLEMENTATION_PLAN.md Phase 10; App Flow §2.2 scope dashboards). Queries over the
-// current `calculations` rows — never a stored aggregate (schema §13). Parameterised by scope code so
-// Scope 2 and Scope 3 reuse this untouched.
+// Scope totals (06_IMPLEMENTATION_PLAN.md Phase 10; App Flow §2.2 scope dashboards). Read from the
+// consolidation views (migration 0023, Phase 15) — never a stored aggregate (schema §13) and never a second
+// definition of what a roll-up counts. Parameterised by scope code so Scope 2 and Scope 3 reuse it untouched.
 
 type Sql = Tx | ReturnType<typeof db>;
 
@@ -89,21 +89,25 @@ export type ScopeBreakdown = {
 
 type TotalRow = {
   bucket: string;
-  unit: string;
+  unit: string | null;
   approved: number;
   awaiting: number;
   records: number;
+  not_calculated: number;
 };
 
 const totalsOf = (rows: TotalRow[], bucket: string): UnitTotal[] =>
   rows
-    .filter((r) => r.bucket === bucket)
+    .filter((r) => r.bucket === bucket && r.unit !== null)
     .map((r) => ({
-      unit: r.unit,
+      unit: r.unit!,
       approved: r.approved,
       awaitingApproval: r.awaiting,
       records: r.records,
     }));
+
+const gapOf = (rows: TotalRow[], bucket: string) =>
+  rows.filter((r) => r.bucket === bucket).reduce((n, r) => n + r.not_calculated, 0);
 
 /**
  * Everything the scope dashboard shows for one node and period: the node's own total, the same for each
@@ -116,47 +120,19 @@ export async function scopeBreakdown(
   const [node] = await sql<{ id: string; name: string; unit_type: string }[]>`
     select id, name, unit_type::text from public.org_units where id = ${orgUnitId}`;
 
-  // Every unit in the subtree, tagged with the direct child it hangs from ('self' for the node itself).
+  // The node's own roll-up and each direct child's, in one pass over the consolidation view.
   const totals = await sql<TotalRow[]>`
-    with recursive tree as (
-      select id, parent_id, 'self'::text as bucket from public.org_units where id = ${orgUnitId}
-      union all
-      select o.id, o.parent_id,
-             case when o.parent_id = ${orgUnitId} then o.id::text else t.bucket end
-      from public.org_units o join tree t on o.parent_id = t.id
-    )
-    select t.bucket, c.result_unit as unit,
-           sum(case when r.approval_status = 'approved' then c.result_value else 0 end)::float as approved,
-           sum(case when r.approval_status <> 'approved' then c.result_value else 0 end)::float as awaiting,
-           count(*)::int as records
-    from public.calculations c
-    join public.esg_records r on r.id = c.esg_record_id
-    join tree t on t.id = r.org_unit_id
-    where c.is_current and c.scope_id in ${scopeTree(sql, scopeCode)}
-      and r.reporting_period_id = ${periodId}
-      and r.data_quality_state <> 'rejected'
-    group by t.bucket, c.result_unit`;
-
-  // Verified records in the same scope and period that produced no number yet.
-  const gaps = await sql<{ bucket: string; n: number }[]>`
-    with recursive tree as (
-      select id, parent_id, 'self'::text as bucket from public.org_units where id = ${orgUnitId}
-      union all
-      select o.id, o.parent_id,
-             case when o.parent_id = ${orgUnitId} then o.id::text else t.bucket end
-      from public.org_units o join tree t on o.parent_id = t.id
-    )
-    select t.bucket, count(*)::int as n
-    from public.esg_records r
-    join tree t on t.id = r.org_unit_id
-    join public.esg_metrics m on m.id = r.metric_id
-    where m.scope_id in ${scopeTree(sql, scopeCode)} and r.reporting_period_id = ${periodId}
-      and r.verification_status = 'user_verified' and r.data_quality_state <> 'rejected'
-      and m.requires_calculation
-      and not exists (select 1 from public.calculations c
-                       where c.esg_record_id = r.id and c.is_current)
-    group by t.bucket`;
-  const gapOf = (bucket: string) => gaps.find((g) => g.bucket === bucket)?.n ?? 0;
+    select cr.org_unit_id::text as bucket, cr.value_unit as unit,
+           coalesce(sum(cr.value) filter (where cr.approval_status = 'approved'), 0)::float as approved,
+           coalesce(sum(cr.value) filter (where cr.approval_status <> 'approved'), 0)::float as awaiting,
+           count(cr.value)::int as records,
+           count(*) filter (where cr.not_calculated)::int as not_calculated
+    from public.consolidation_records cr
+    join public.org_units o on o.id = cr.org_unit_id
+    where (cr.org_unit_id = ${orgUnitId} or o.parent_id = ${orgUnitId})
+      and cr.scope_id in ${scopeTree(sql, scopeCode)}
+      and cr.reporting_period_id = ${periodId}
+    group by cr.org_unit_id, cr.value_unit`;
 
   const categoryRows = await sql<
     {
@@ -171,12 +147,7 @@ export async function scopeBreakdown(
       not_calculated: number;
     }[]
   >`
-    with recursive tree as (
-      select id, parent_id from public.org_units where id = ${orgUnitId}
-      union all
-      select o.id, o.parent_id from public.org_units o join tree t on o.parent_id = t.id
-    ),
-    categories as (
+    with categories as (
       select child.id, child.code, child.name, child.is_active as active, child.sort_order
       from public.scopes child
       join public.scopes parent on parent.id = child.parent_scope_id
@@ -185,20 +156,18 @@ export async function scopeBreakdown(
     select categories.code, categories.name, categories.active,
            exists (select 1 from public.esg_metrics em
                     where em.scope_id = categories.id and em.deleted_at is null) as configured,
-           c.result_unit as unit,
-           coalesce(sum(case when r.approval_status = 'approved' then c.result_value end), 0)::float as approved,
-           coalesce(sum(case when r.approval_status <> 'approved' then c.result_value end), 0)::float as awaiting,
-           count(c.id)::int as records,
-           count(r.id) filter (where c.id is null)::int as not_calculated
+           cr.value_unit as unit,
+           coalesce(sum(cr.value) filter (where cr.approval_status = 'approved'), 0)::float as approved,
+           coalesce(sum(cr.value) filter (where cr.approval_status <> 'approved'), 0)::float as awaiting,
+           count(cr.value)::int as records,
+           count(*) filter (where cr.not_calculated)::int as not_calculated
     from categories
     left join public.esg_metrics m on m.scope_id = categories.id and m.deleted_at is null
-    left join public.esg_records r
-      on r.metric_id = m.id and r.reporting_period_id = ${periodId}
-     and r.verification_status = 'user_verified' and r.data_quality_state <> 'rejected'
-     and r.org_unit_id in (select id from tree)
-    left join public.calculations c on c.esg_record_id = r.id and c.is_current
+    left join public.consolidation_records cr
+      on cr.metric_id = m.id and cr.org_unit_id = ${orgUnitId}
+     and cr.reporting_period_id = ${periodId}
     group by categories.id, categories.code, categories.name, categories.active,
-             categories.sort_order, c.result_unit
+             categories.sort_order, cr.value_unit
     order by categories.sort_order`;
 
   const activityRows = await sql<
@@ -212,23 +181,16 @@ export async function scopeBreakdown(
       not_calculated: number;
     }[]
   >`
-    with recursive tree as (
-      select id, parent_id from public.org_units where id = ${orgUnitId}
-      union all
-      select o.id, o.parent_id from public.org_units o join tree t on o.parent_id = t.id
-    )
-    select m.id as metric_id, m.name as metric_name, c.result_unit as unit,
-           coalesce(sum(case when r.approval_status = 'approved' then c.result_value end), 0)::float as approved,
-           coalesce(sum(case when r.approval_status <> 'approved' then c.result_value end), 0)::float as awaiting,
-           count(c.id)::int as records,
-           count(*) filter (where c.id is null)::int as not_calculated
-    from public.esg_records r
-    join tree t on t.id = r.org_unit_id
-    join public.esg_metrics m on m.id = r.metric_id
-    left join public.calculations c on c.esg_record_id = r.id and c.is_current
-    where m.scope_id in ${scopeTree(sql, scopeCode)} and r.reporting_period_id = ${periodId}
-      and r.verification_status = 'user_verified' and r.data_quality_state <> 'rejected'
-    group by m.id, m.name, c.result_unit
+    select m.id as metric_id, m.name as metric_name, cr.value_unit as unit,
+           coalesce(sum(cr.value) filter (where cr.approval_status = 'approved'), 0)::float as approved,
+           coalesce(sum(cr.value) filter (where cr.approval_status <> 'approved'), 0)::float as awaiting,
+           count(cr.value)::int as records,
+           count(*) filter (where cr.not_calculated)::int as not_calculated
+    from public.consolidation_records cr
+    join public.esg_metrics m on m.id = cr.metric_id
+    where cr.org_unit_id = ${orgUnitId} and cr.scope_id in ${scopeTree(sql, scopeCode)}
+      and cr.reporting_period_id = ${periodId}
+    group by m.id, m.name, cr.value_unit
     order by m.name`;
 
   const childRows = await sql<{ id: string; name: string; unit_type: string }[]>`
@@ -279,25 +241,19 @@ export async function scopeBreakdown(
       records: number;
     }[]
   >`
-    with recursive tree as (
-      select id, parent_id from public.org_units where id = ${orgUnitId}
-      union all
-      select o.id, o.parent_id from public.org_units o join tree t on o.parent_id = t.id
-    ),
-    recent as (
+    with recent as (
       select p.id, p.label, p.start_date from public.reporting_periods p
       order by p.start_date desc limit 12
     )
-    select recent.id as period_id, recent.label, c.result_unit as unit,
-           sum(case when r.approval_status = 'approved' then c.result_value else 0 end)::float as approved,
-           sum(case when r.approval_status <> 'approved' then c.result_value else 0 end)::float as awaiting,
+    select recent.id as period_id, recent.label, cr.value_unit as unit,
+           coalesce(sum(cr.value) filter (where cr.approval_status = 'approved'), 0)::float as approved,
+           coalesce(sum(cr.value) filter (where cr.approval_status <> 'approved'), 0)::float as awaiting,
            count(*)::int as records
     from recent
-    join public.esg_records r on r.reporting_period_id = recent.id
-    join tree t on t.id = r.org_unit_id
-    join public.calculations c on c.esg_record_id = r.id and c.is_current
-    where c.scope_id in ${scopeTree(sql, scopeCode)} and r.data_quality_state <> 'rejected'
-    group by recent.id, recent.label, recent.start_date, c.result_unit
+    join public.consolidation_records cr on cr.reporting_period_id = recent.id
+    where cr.org_unit_id = ${orgUnitId} and cr.scope_id in ${scopeTree(sql, scopeCode)}
+      and cr.value is not null
+    group by recent.id, recent.label, recent.start_date, cr.value_unit
     order by recent.start_date`;
 
   const trend: ScopeBreakdown["trend"] = [];
@@ -316,26 +272,10 @@ export async function scopeBreakdown(
   }
 
   const path = await sql<{ id: string; name: string }[]>`
-    with recursive up as (
-      select id, parent_id, name, 0 as depth from public.org_units where id = ${orgUnitId}
-      union all
-      select o.id, o.parent_id, o.name, up.depth + 1
-      from public.org_units o join up on o.id = up.parent_id
-    )
-    select id, name from up order by depth desc`;
-
-  // A node's own figure is everything beneath it, so the subtree buckets are summed together.
-  const nodeTotals: UnitTotal[] = [];
-  for (const row of totals) {
-    let entry = nodeTotals.find((t) => t.unit === row.unit);
-    if (!entry) {
-      entry = { unit: row.unit, approved: 0, awaitingApproval: 0, records: 0 };
-      nodeTotals.push(entry);
-    }
-    entry.approved += row.approved;
-    entry.awaitingApproval += row.awaiting;
-    entry.records += row.records;
-  }
+    select o.id, o.name from public.org_unit_tree t
+    join public.org_units o on o.id = t.ancestor_id
+    where t.descendant_id = ${orgUnitId}
+    order by t.depth desc`;
 
   const categories: ScopeCategory[] = [];
   for (const row of categoryRows) {
@@ -388,8 +328,8 @@ export async function scopeBreakdown(
       id: node.id,
       name: node.name,
       unitType: node.unit_type,
-      totals: nodeTotals,
-      notCalculated: gaps.reduce((sum, g) => sum + g.n, 0),
+      totals: totalsOf(totals, node.id),
+      notCalculated: gapOf(totals, node.id),
     },
     categories,
     byActivity,
@@ -398,7 +338,7 @@ export async function scopeBreakdown(
       name: child.name,
       unitType: child.unit_type,
       totals: totalsOf(totals, child.id),
-      notCalculated: gapOf(child.id),
+      notCalculated: gapOf(totals, child.id),
     })),
     records: records.map((r) => ({
       recordId: r.record_id,

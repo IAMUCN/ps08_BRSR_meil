@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-21 — Phase 14 committed; Phase 15 next._
+_Last updated: 2026-09-22 — Phase 15 complete, awaiting commit._
 
 ---
 
@@ -34,7 +34,7 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping (`0001`–`0022`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views (`0001`–`0023`) |
 | `supabase/tests/database/` | pgTAP database tests |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D15) |
 | `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A16) |
@@ -64,8 +64,8 @@ may run in parallel with Phases 3–5.
 | 12 | Scope 3 foundation | Done | `6dd8aa6` |
 | 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | Done | `72e63ed` |
 | 14 | BRSR mapping | Done | `360378c` |
-| 15 | Consolidation | **Next** | — |
-| 16 | Admin Control Tower | Not started | — |
+| 15 | Consolidation | **Done, not yet committed** | — |
+| 16 | Admin Control Tower | **Next** | — |
 | 17 | Reporting | Not started | — |
 | 18 | Audit and security hardening | Not started | — |
 | 19 | UI polish and responsive behavior | Not started | — |
@@ -337,24 +337,45 @@ layers (D9), `provision-user` script for the first Admin.
   browser (Edge) 8/8, lint/typecheck/format, production build. OCR integration harness not re-run (no
   worker change this phase).
 
+**Phase 15 — Consolidation.** Decisions: `.grill/phase-15-consolidation-decisions.md`.
+- **Two views, one definition of a roll-up** (migration `0023`): `org_unit_tree` pairs every org unit with
+  itself and every descendant, however many levels exist; `consolidation_records` lists what counts —
+  verified, non-rejected records, once per ancestor, with their current result (or verified amount for
+  metrics that need no calculation) and a "not calculated" flag. Nothing is stored; both are
+  `security_invoker` and closed to the browser.
+- **The scope dashboards now read these views** instead of their own tree walks — the Phase 10–12
+  regressions prove the figures didn't move.
+- **`consolidation.query`** rolls every metric up for an org node and its children, for one period or an
+  **Indian financial year (April–March)**, filterable by scope (Scope 3 includes its categories) and metric.
+  Emissions and water sum per unit; **percentages are re-derived from summed counts** (Σ part ÷ Σ whole),
+  never summed or averaged; recorded amounts sum with Rs/INR normalised; uncalculated records are counted,
+  never read as zero. Approved is the headline, awaiting approval beside it.
+- **Org scope**: an Admin consolidates any node; anyone else defaults to their own assignment and is
+  refused above or beside it.
+- No new screens (Phases 16–17 consume it).
+- Checks: web unit 55/55, DB 120/120 (a fixture tree — two projects, a department under a site, a record on
+  a project — checked at every level for diesel, % women and CSR), API end-to-end 35/35 (every level
+  recomputed with an independent query), regressions Phase 14 33/33, Phase 12 33/33, Phase 11 33/33, Phase 10
+  30/30, browser (Edge) Phase 10 11/11 and Phase 12 13/13, lint/typecheck/format, production build.
+
 ## 4. What comes next
 
-**Phase 15 — Consolidation** (`06_IMPLEMENTATION_PLAN.md` §Phase 15): Site → Project → Business Unit →
-Subsidiary → Organization roll-ups correct for every metric type.
-- Sums for emissions and amounts; **percentages re-derived from summed counts** (`calculation_inputs`),
-  never summed or averaged; water from summed withdrawal and discharge.
-- Readiness is organisation-wide today; consolidation should let it (and the scope dashboards) be read
-  per org node.
+**Phase 16 — Admin Control Tower** (`06_IMPLEMENTATION_PLAN.md` §Phase 16): the Admin dashboard's KPI
+tiles become real (they are labelled development placeholders today), with the issue panel and the
+org/period context switcher.
+- KPIs and the Scope 1/2/3 figures should come from `consolidation.query` / the consolidation views.
+- The BRSR Readiness % card (deferred in Phase 14) links to the readiness tab on `/admin/brsr-mapping`.
+- Master Approach §44 step 19: per-project Scope 1, Scope 2, Water, Waste, HR, evidence, validation and
+  approval status.
 
-Things to remember for Phase 15:
-- `lib/scope/totals.ts` already rolls up the org tree for emissions (`scopeTree` CTE, approved headline);
-  reuse it rather than building a second aggregation path.
+Things to remember for Phase 16:
+- The readiness tree is organisation-wide; the context switcher may want it per node.
 - `metric_field_requirements.is_critical` is still false everywhere.
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0022` (validation
-  rules through BRSR mapping) are not pushed yet. Migrations `0001`–`0014` were pushed on
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0023` (validation
+  rules through the consolidation views) are not pushed yet. Migrations `0001`–`0014` were pushed on
   2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
   verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
   users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
