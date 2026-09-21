@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-22 — Phase 17 complete, awaiting commit._
+_Last updated: 2026-09-22 — Phase 17 committed; Phase 18 next._
 
 ---
 
@@ -66,7 +66,7 @@ may run in parallel with Phases 3–5.
 | 14 | BRSR mapping | Done | `360378c` |
 | 15 | Consolidation | Done | `721b18f` |
 | 16 | Admin Control Tower | Done | `dd5af22` |
-| 17 | Reporting | **Done, not yet committed** | — |
+| 17 | Reporting | Done | `9d893b2` |
 | 18 | Audit and security hardening | **Next** | — |
 | 19 | UI polish and responsive behavior | Not started | — |
 | 20 | Testing and edge cases | Not started | — |
