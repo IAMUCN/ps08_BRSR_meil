@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-20 — Phase 12 complete, awaiting commit._
+_Last updated: 2026-09-21 — Phase 13 complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories (`0001`–`0019`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules (`0001`–`0021`) |
 | `supabase/tests/database/` | pgTAP database tests |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D13) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A14) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D14) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A15) |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -61,9 +61,9 @@ may run in parallel with Phases 3–5.
 | 9 | Calculation engine | Done | `d0f549c` |
 | 10 | Scope 1 | Done | `61544c1` |
 | 11 | Scope 2 | Done | `900c873` |
-| 12 | Scope 3 foundation | **Done, not yet committed** | — |
-| 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | **Next** | — |
-| 14 | BRSR mapping | Not started | — |
+| 12 | Scope 3 foundation | Done | `6dd8aa6` |
+| 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | **Done, not yet committed** | — |
+| 14 | BRSR mapping | **Next** | — |
 | 15 | Consolidation | Not started | — |
 | 16 | Admin Control Tower | Not started | — |
 | 17 | Reporting | Not started | — |
@@ -289,26 +289,54 @@ layers (D9), `provision-user` script for the first Admin.
   Phase 11 regression 33/33 + Phase 10 30/30 + Phase 9 44/44 + Phase 8 58/58, browser (Edge) 13/13,
   lint/typecheck/format/Ruff, production build.
 
+**Phase 13 — Role-specific modules.** Decisions: `.grill/phase-13-role-modules-decisions.md`.
+- **Four modules as configuration** (migration `0021`), each a category owned by its role: Workforce (HR —
+  employees by gender, employees trained), Water (EHS — consumption), Procurement (MSME share of spend) and
+  CSR & Compliance (Finance/CSR — CSR expenditure, fines and penalties). A Project Manager is offered none
+  of them; uploading outside your role's categories is refused server-side.
+- **The engine's first non-multiply formulas**: `subtract` (water = withdrawal − discharge, in the metric's
+  unit, m³ accepted) and a new `percentage` type (part ÷ whole × 100, deviation D14, migration `0020`).
+  All inputs are verified fields of the same document; each is stored in `calculation_inputs`, so Phase 15
+  can re-derive a consolidated percentage from summed counts instead of summing percentages.
+  `ENGINE_VERSION` is `calc-1.1.0`.
+- **Journey 3 passes exactly**: HR uploads a headcount statement whose "Men" count OCR reads at ~69 %;
+  Confirm stays disabled ("Review Men — edit it or mark it correct") until HR marks it correct; validation
+  passes; the engine derives 23.33 % women; the Admin sees both counts and the formula in the approval
+  drawer and approves.
+- Validation gained a configurable `not_greater_than` check (women/men/trained ≤ total and MSME ≤ total
+  spend fail; discharge > withdrawal is a review flag). CSR expenditure and fines are recorded amounts with
+  no calculation and go straight to approval.
+- The trace lists a multi-input formula's inputs and the formula in words; no new screens (module
+  dashboards wait for the Control Tower, A15).
+- OCR: label profiles for the new fields, m³ units, six new document types; `EXTRACTOR_VERSION` `rules-3`,
+  worker image rebuilt. `make_sample_invoice.py` writes all six module documents.
+- Checks: web unit 49/49, worker unit 14/14, real OCR on all six new documents (every field correct), OCR
+  integration harness **not re-run** (stopped by the machine for low memory), DB 97/97, API end-to-end 52/52
+  + Phase 12 regression 33/33 + Phase 11 33/33 + Phase 10 30/30 + Phase 9 44/44 + Phase 8 58/58, browser
+  (Edge) 10/10, lint/typecheck/format/Ruff, production build.
+
 ## 4. What comes next
 
-**Phase 13 — Role-specific modules** (`06_IMPLEMENTATION_PLAN.md` §Phase 13): HR, EHS, Procurement and
-Finance/CSR get their own metrics, evidence types and dashboards on the same pipeline.
-- HR's workforce counts are derived by the engine, never typed as percentages (PRD §23).
-- EHS already owns the waste category from Phase 12; water arrives here and needs the `subtract` formula
-  type (withdrawal − discharge), the first non-`direct_multiply` path.
-- Procurement and Finance/CSR feed the Scope 3 categories that are still inactive.
+**Phase 14 — BRSR mapping** (`06_IMPLEMENTATION_PLAN.md` §Phase 14): every metric from Phases 10–13 is
+mapped to its BRSR indicator through configuration.
+- Seed `brsr_sections` and `brsr_indicators` — the exact indicator codes and text must be verified against
+  an authoritative BRSR source (PRD §27/§40); anything placeholder is labelled as such.
+- Seed the metric-to-indicator mappings (no orphaned metric), build `/admin/brsr-mapping` (Admin CRUD) and
+  the readiness tree (Indicator → Metric → Calculation → Evidence, reusing the document viewer) — the tree
+  is P0; the readiness % score is P1 and the first thing to cut.
+- Definition of done: one full BRSR indicator navigable from the tree down to an original document.
 
-Things to remember for Phase 13:
-- `esg_categories.owning_role_id` is how a module's evidence reaches the right role's Upload page.
-- Enabling another Scope 3 category is `update public.scopes set is_active = true` plus its metric
-  configuration — no code.
+Things to remember for Phase 14:
+- Metrics now: diesel, petrol, CNG, LPG (Scope 1); grid and renewable electricity (Scope 2); waste and
+  business travel (Scope 3); employees by gender, employees trained, water consumption, MSME share, CSR
+  expenditure, fines and penalties.
+- Percentage metrics must map with their counts (`calculation_inputs`), not only the stored percentage.
 - `metric_field_requirements.is_critical` is still false everywhere.
-- Locally an Admin granted `approval.decide` to the Project Manager role (Roles & Permissions).
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015` (validation rules)
-  and `0016` (calculation formulas) are not pushed yet. Migrations `0001`–`0014` were pushed on
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0021` (validation
+  rules through the role modules) are not pushed yet. Migrations `0001`–`0014` were pushed on
   2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
   verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
   users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
@@ -320,9 +348,9 @@ Things to remember for Phase 13:
 - **CI:** database tests (`pnpm db:test`), the OCR integration harness and the Docker image build run
   locally only.
 - **Conversion factors are empty everywhere except locally.** No factor values exist in any migration by
-  design; MEIL must enter the verified diesel and grid-electricity factors (with their sources) before
-  anything calculates. The local database has one factor whose source says "Synthetic development value
-  — not an authoritative factor".
+  design; MEIL must enter the verified factors (with their sources) before any emission calculates. The
+  Phase 13 metrics need no factor. Every factor in the local database is labelled as a synthetic
+  development value, not an authoritative factor.
 - **Deferred by design:** org/period context switcher (Phase 16), theme switcher and Theme 2/3 contrast
   sweep (Phase 19), CSRF review of the tRPC endpoint — currently relies on SameSite=Lax cookies (Phase 18),
   Submission History page and record detail views, Settings page to edit the OCR threshold.

@@ -9,7 +9,7 @@ stored extractions stay reproducible (it is recorded in `ocr_jobs.model_version`
 
 from dataclasses import dataclass
 
-EXTRACTOR_VERSION = "rules-2"
+EXTRACTOR_VERSION = "rules-3"
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,35 @@ FIELD_PROFILES: dict[str, Profile] = {
         kind="number",
         exclude=("previous", "current reading", "rate", "amount"),
     ),
+    # Phase 13 role modules: several numbers per document, each under its own label.
+    "total_employees": Profile(
+        labels=("total employees", "total headcount", "total workforce", "headcount"),
+        kind="number",
+        exclude=("trained",),
+    ),
+    "female_employees": Profile(labels=("women", "female employees", "female"), kind="number"),
+    "male_employees": Profile(labels=("men", "male employees", "male"), kind="number"),
+    "trained_employees": Profile(
+        labels=("employees trained", "trained employees", "number trained"), kind="number"
+    ),
+    "withdrawal": Profile(
+        labels=("water withdrawn", "water withdrawal", "total withdrawal", "withdrawal"),
+        kind="number",
+    ),
+    "discharge": Profile(
+        labels=("water discharged", "wastewater discharged", "effluent discharged", "discharge"),
+        kind="number",
+    ),
+    "total_spend": Profile(
+        labels=("total procurement", "total purchases", "total spend"), kind="number"
+    ),
+    "msme_spend": Profile(
+        labels=("procured from msmes", "msme procurement", "msme purchases", "msme"),
+        kind="number",
+    ),
+    "amount": Profile(
+        labels=("amount spent", "amount paid", "penalty amount", "amount"), kind="number"
+    ),
     "invoice_number": Profile(
         labels=(
             "invoice number",
@@ -51,6 +80,10 @@ FIELD_PROFILES: dict[str, Profile] = {
             "certificate number",
             "certificate no",
             "manifest no",
+            "payment reference",
+            "payment ref",
+            "order number",
+            "order no",
         ),
         kind="identifier",
     ),
@@ -65,12 +98,20 @@ FIELD_PROFILES: dict[str, Profile] = {
             "bill date",
             "disposal date",
             "date of disposal",
+            "statement date",
+            "statement period",
+            "training period",
+            "payment date",
+            "order date",
+            "as on",
         ),
         kind="period",
         exclude=("due",),
     ),
     "unit": Profile(
-        labels=("unit of measure", "uom", "unit"), kind="unit", near=("quantity", "consumption")
+        labels=("unit of measure", "uom", "unit", "currency"),
+        kind="unit",
+        near=("quantity", "consumption", "withdrawal", "total_spend", "amount"),
     ),
     "source_classification": Profile(
         labels=(
@@ -80,6 +121,9 @@ FIELD_PROFILES: dict[str, Profile] = {
             "treatment route",
             "disposal route",
             "mode",
+            "water source",
+            "csr project",
+            "authority",
             "source",
         ),
         kind="text",
@@ -117,4 +161,10 @@ DOCUMENT_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
         "treatment",
     ),
     "TRAVEL_INVOICE": ("travel", "airline", "air", "rail", "passenger", "sector", "ticket"),
+    "WORKFORCE_STATEMENT": ("headcount", "workforce", "employees", "women", "men", "statement"),
+    "TRAINING_RECORD": ("training", "trained", "employees", "programme", "attendance"),
+    "WATER_BILL": ("water", "withdrawal", "discharge", "meter", "supply"),
+    "PROCUREMENT_STATEMENT": ("procurement", "msme", "vendor", "purchases", "spend"),
+    "CSR_PAYMENT_RECORD": ("csr", "payment", "social", "responsibility", "project"),
+    "PENALTY_ORDER": ("penalty", "fine", "order", "authority", "paid"),
 }

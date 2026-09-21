@@ -30,6 +30,36 @@ def values(fields):
 
 
 class ExtractFieldsTest(unittest.TestCase):
+    def test_several_numbers_each_under_its_own_label(self):
+        # "Men" must not match inside "Women"; "Total Employees" must not take the trained count.
+        lines = [
+            line("Total Employees:", 60, 280),
+            line("180", 560, 280),
+            line("Women:", 60, 340),
+            line("42", 560, 340),
+            line("Men:", 60, 400),
+            line("138", 560, 400, score=0.68),
+        ]
+        specs = [
+            FieldSpec("total_employees", "Total employees", "number"),
+            FieldSpec("female_employees", "Women", "number"),
+            FieldSpec("male_employees", "Men", "number"),
+        ]
+        fields = {f.key: f for f in extract_fields(lines, specs)}
+        self.assertEqual(
+            {k: f.value for k, f in fields.items()},
+            {"total_employees": "180", "female_employees": "42", "male_employees": "138"},
+        )
+        self.assertEqual(fields["male_employees"].confidence, 68.0)
+
+    def test_water_units_in_cubic_metres(self):
+        lines = [line("Water Withdrawn: 1,250 m3", 40, 100)]
+        specs = [
+            FieldSpec("withdrawal", "Water withdrawn", "number"),
+            FieldSpec("unit", "Unit", "unit"),
+        ]
+        self.assertEqual(values(extract_fields(lines, specs)), {"withdrawal": "1250", "unit": "m3"})
+
     def test_label_and_value_on_the_same_line(self):
         lines = [
             line("Invoice No: SMP-INV-2026-0042", 40, 100),

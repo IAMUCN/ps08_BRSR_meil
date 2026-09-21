@@ -13,6 +13,7 @@ import {
   checkFormat,
   checkHistoryRatio,
   checkOrganizational,
+  checkNotGreaterThan,
   checkRange,
   outcomeOf,
   parseNumber,
@@ -21,6 +22,7 @@ import {
   type Severity,
   type Verdict,
 } from "./checks.ts";
+import { activityKeyFor } from "../calculation/engine.ts";
 import { activityFieldKeys } from "../verification/rules.ts";
 
 // The validation engine (06_IMPLEMENTATION_PLAN.md Phase 8). Called inside the Confirm transaction
@@ -84,6 +86,7 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
 
   const activity = activityFieldKeys(
     fields.map((f) => ({ key: f.key, dataType: f.data_type as never, required: f.required })),
+    await activityKeyFor(tx, record.metric_id),
   );
   const valueOf = (key: string | undefined): string | null => {
     if (!key) return null;
@@ -156,6 +159,12 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
           parseNumber(valueOf(def.field)),
           labelOf(def.field),
           def as { min?: number; min_exclusive?: number; max?: number },
+        );
+        break;
+      case "not_greater_than":
+        verdict = checkNotGreaterThan(
+          { label: labelOf(def.field), value: parseNumber(valueOf(def.field)) },
+          { label: labelOf(def.than as string), value: parseNumber(valueOf(def.than as string)) },
         );
         break;
       case "allowed_units":

@@ -48,8 +48,23 @@ export function CalculationTraceView({
         ) : null}
       </div>
       <dl className="divide-y font-mono text-xs">
-        <Row label="Verified value" value={formatQuantity(t.inputValue, t.inputUnit)} />
-        <Row label="Normalised" value={formatQuantity(t.normalizedValue, t.normalizedUnit)} />
+        {t.inputs.length > 0 ? (
+          <>
+            {t.inputs.map((input) => (
+              <Row
+                key={input.label}
+                label={input.label}
+                value={formatQuantity(input.value, input.unit)}
+              />
+            ))}
+            {t.formula ? <Row label="Formula" value={t.formula} /> : null}
+          </>
+        ) : (
+          <>
+            <Row label="Verified value" value={formatQuantity(t.inputValue, t.inputUnit)} />
+            <Row label="Normalised" value={formatQuantity(t.normalizedValue, t.normalizedUnit)} />
+          </>
+        )}
         {t.factorValue !== null ? (
           <Row
             label="Factor"

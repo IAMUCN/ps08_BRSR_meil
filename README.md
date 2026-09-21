@@ -4,7 +4,7 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–7 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> **Status:** Phases 1–13 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
 > database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
 > users and assignments, roles and permissions, reporting periods, profile), document upload, the OCR
 > worker (Phase 2B) and its integration (Phase 6), OCR verification (Phase 7: document viewer beside the
@@ -15,7 +15,10 @@ original evidence.
 > traces, Conversion Factor Management), Scope 1 (Phase 10: diesel, petrol, CNG and LPG as configuration,
 > the Scope 1 dashboard with drill-down to the original invoice), Scope 2 (Phase 11: grid and renewable
 > electricity on the same framework) and the Scope 3 foundation (Phase 12: categories as configuration,
-> waste and business travel live). Calculation and reporting are not implemented yet; Admin
+> waste and business travel live) and the role-specific modules (Phase 13: HR headcount by gender and
+> training coverage, EHS water consumption, Procurement MSME share, Finance/CSR expenditure and fines — with
+> `percentage` and `subtract` formulas derived from verified counts). Consolidation, BRSR mapping and
+> reporting are not implemented yet; Admin
 > dashboard KPIs remain labeled development placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
@@ -245,7 +248,9 @@ Notes:
 - Test documents are generated synthetically at test time (`tests/samples.py`) — no real MEIL documents
   until Phase 18. For a manual upload, `.venv/Scripts/python scripts/make_sample_invoice.py --out x.pdf`
   writes a diesel invoice with a unique invoice number (`--invoice` to choose one, `--kind electricity`,
-  `--kind waste` or `--kind travel` for the other document types).
+  `--kind waste` or `--kind travel` for the other document types; `--kind workforce`, `training`, `water`,
+  `procurement`, `csr` or `penalty` for the Phase 13 modules — the workforce statement's "Men" count is
+  deliberately smudged so OCR reads it below the confidence threshold).
 - When a job finishes, the worker notifies the uploader in the same transaction (`verification_needed`,
   `low_confidence` when a found field is below `org_settings.ocr_confidence_threshold` — seeded at 80 — or a
   required field is missing, or `ocr_failed` with the reason).

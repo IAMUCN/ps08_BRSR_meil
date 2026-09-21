@@ -13,10 +13,11 @@ select is(
   0,
   'every calculable metric has an active formula');
 
-select results_eq(
-  $$select distinct formula_type::text from public.calculation_formulas$$,
-  array['direct_multiply'],
-  'seeded formulas use the formula type the engine implements');
+-- Phase 13 added subtract and percentage; `custom` is reserved and never evaluated.
+select is(
+  (select count(*)::int from public.calculation_formulas where formula_type = 'custom'),
+  0,
+  'seeded formulas only use formula types the engine implements');
 
 -- Factor values are never seeded by a migration: every version that exists was entered by a person and
 -- carries the source they verified it against (PRD §20/§40).

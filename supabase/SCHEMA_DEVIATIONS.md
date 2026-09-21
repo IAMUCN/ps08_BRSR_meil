@@ -205,6 +205,19 @@ field keys named in the plan, so the OCR worker reads *which* fields to extract 
 migration runs before any user exists, so a not-null `updated_by` made seeding impossible. Decision:
 `.grill/phase-6-ocr-integration-decisions.md`.
 
+## D14 — `percentage` formula type (migration `0020`)
+
+**Schema says (§6.7):** `formula_type enum(direct_multiply, subtract, custom)`, `custom` reserved.
+
+**Implemented:** a fourth value, `percentage` — part ÷ whole × 100, with
+`formula_definition = {"part": "<field_key>", "whole": "<field_key>"}`. `subtract` is implemented as
+specified (`{"inputs": ["withdrawal", "discharge"]}`); `custom` is still never evaluated.
+
+**Why:** BRSR HR and procurement indicators are shares (% women, % trained, MSME share of spend) that
+HR and Procurement must not calculate themselves (Master Approach §18). A named type keeps each formula
+reviewable instead of turning `custom` into an expression language. Decision:
+`.grill/phase-13-role-modules-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

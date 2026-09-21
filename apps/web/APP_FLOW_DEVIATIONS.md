@@ -257,3 +257,20 @@ Decisions: `.grill/phase-12-scope-3-decisions.md`.
   amount and almost never a distance. The OCR extractor learned the extra label spellings (certificate
   number, disposal date, treatment route, mode) and the weight and currency units; `EXTRACTOR_VERSION` is
   now `rules-2`.
+
+## A15 — Phase 13 role-specific modules
+
+Decisions: `.grill/phase-13-role-modules-decisions.md`.
+
+- **Journey 3's category is "Workforce" and its activity "Employees by gender"** rather than "Employee
+  Headcount": the metric a headcount statement feeds is the gender share BRSR asks for, and the category
+  name covers training records too.
+- **The calculation trace lists every input of a multi-input formula** (e.g. Total employees 180 count,
+  Women 42 count, Women ÷ Total employees × 100 → 23.33 %) instead of "Verified value → Normalised → Factor",
+  which has no meaning for a percentage. Same component, same places (verify summary, approval drawer,
+  scope drill-down).
+- **No module dashboards yet.** HR, EHS, Procurement and Finance/CSR results appear on the verify summary
+  and in the approval queue; Master Approach §44 step 19's per-project module view belongs to the Control
+  Tower (Phase 16).
+- **CSR expenditure and fines are recorded, not calculated**: they reach the approval queue with no trace
+  and Approve is available, because no calculation is required for them.

@@ -13,7 +13,7 @@ select is(
 select results_eq(
   $$select distinct rule_definition->>'check' from public.validation_rules order by 1$$,
   array['allowed_units', 'billing_period_overlap', 'duplicate_invoice', 'duplicate_period',
-        'history_ratio', 'range'],
+        'history_ratio', 'not_greater_than', 'range'],
   'every rule names a check kind the engine implements');
 
 select ok(

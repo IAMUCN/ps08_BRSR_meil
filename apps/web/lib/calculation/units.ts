@@ -16,6 +16,10 @@ const UNITS: Record<string, { canonical: string; multiplier: number }> = {
   kl: { canonical: "L", multiplier: 1000 },
   kilolitre: { canonical: "L", multiplier: 1000 },
   kilolitres: { canonical: "L", multiplier: 1000 },
+  // Water is metered in cubic metres or kilolitres (1 m³ = 1 KL).
+  m3: { canonical: "L", multiplier: 1000 },
+  "m³": { canonical: "L", multiplier: 1000 },
+  "cubic metres": { canonical: "L", multiplier: 1000 },
   // Mass → kilograms (CNG and LPG are billed by weight)
   kg: { canonical: "kg", multiplier: 1 },
   kgs: { canonical: "kg", multiplier: 1 },

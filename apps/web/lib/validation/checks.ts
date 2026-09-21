@@ -243,6 +243,22 @@ export function checkRange(
   return { ok: true, message: `${label} ${formatNumber(value)} is within the allowed range.` };
 }
 
+/** Configured `not_greater_than`: a part can't exceed its whole (women ≤ total, discharge ≤ withdrawal). */
+export function checkNotGreaterThan(
+  part: { label: string; value: number | null },
+  whole: { label: string; value: number | null },
+): Verdict {
+  if (part.value === null || whole.value === null) {
+    return { ok: false, message: `${part.label} and ${whole.label} must both be numbers.` };
+  }
+  return part.value > whole.value
+    ? {
+        ok: false,
+        message: `${part.label} (${formatNumber(part.value)}) is more than ${whole.label} (${formatNumber(whole.value)}).`,
+      }
+    : { ok: true, message: `${part.label} is within ${whole.label}.` };
+}
+
 /** Configured `allowed_units`: the unit must be one of the configured spellings (case-insensitive). */
 export function checkAllowedUnits(
   unit: string | null,
