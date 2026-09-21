@@ -12,6 +12,7 @@ import { approvalsRouter } from "@/lib/trpc/routers/approvals";
 import { brsrRouter } from "@/lib/trpc/routers/brsr";
 import { consolidationRouter } from "@/lib/trpc/routers/consolidation";
 import { recordsRouter } from "@/lib/trpc/routers/records";
+import { reportsRouter } from "@/lib/trpc/routers/reports";
 import { validationRouter } from "@/lib/trpc/routers/validation";
 import { verificationRouter } from "@/lib/trpc/routers/verification";
 import { rolesRouter } from "@/lib/trpc/routers/roles";
@@ -40,6 +41,7 @@ export const appRouter = router({
   brsr: brsrRouter,
   consolidation: consolidationRouter,
   records: recordsRouter,
+  reports: reportsRouter,
 });
 
 export type AppRouter = typeof appRouter;

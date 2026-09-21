@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-22 — Phase 16 committed; Phase 17 next._
+_Last updated: 2026-09-22 — Phase 17 complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations (`0001`–`0024`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports (`0001`–`0026`) |
 | `supabase/tests/database/` | pgTAP database tests |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D16) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A17) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D18) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A18) |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -66,8 +66,8 @@ may run in parallel with Phases 3–5.
 | 14 | BRSR mapping | Done | `360378c` |
 | 15 | Consolidation | Done | `721b18f` |
 | 16 | Admin Control Tower | Done | `dd5af22` |
-| 17 | Reporting | **Next** | — |
-| 18 | Audit and security hardening | Not started | — |
+| 17 | Reporting | **Done, not yet committed** | — |
+| 18 | Audit and security hardening | **Next** | — |
 | 19 | UI polish and responsive behavior | Not started | — |
 | 20 | Testing and edge cases | Not started | — |
 | 21 | Deployment | Not started | — |
@@ -385,30 +385,56 @@ layers (D9), `provision-user` script for the first Admin.
   36/36, Phase 13 52/52, 14 33/33, 15 35/35, browser (Edge) 14/14 + approval 8/8 + Phase 13 10/10,
   lint/typecheck/format, production build.
 
+**Phase 17 — Reporting.** Decisions: `.grill/phase-17-reporting-decisions.md`.
+- **`/admin/reports`**: generate a BRSR report for any org node and one period or an April–March financial
+  year (deviation D17); the request records a run and returns at once, the job runs after the response
+  (Next.js `after()`), the page refreshes while it works, and the requester is notified "Report ready" or
+  with the failure reason. Every run — successful or failed — is kept and listed.
+- **PDF** rendered from self-contained HTML by headless Chromium (`puppeteer-core` + `@sparticuz/chromium`,
+  TRD §17; locally Edge via `CHROMIUM_EXECUTABLE_PATH`), JavaScript and network disabled, stored in a private
+  `reports` bucket (migration `0025`) and served only through an Admin-checked route.
+- **Snapshot** (`report_runs.snapshot_data`): every reported value from the Phase 15 consolidation rules
+  (approved only; percentages from summed counts; kg shown with tonnes), a Scope 1/2/3 summary, the number
+  left out for awaiting approval, and per indicator the contributing records **with the calculation row each
+  used** (schema §13.1).
+- **Report Detail `/admin/reports/[id]`**: the signature drill-down — Report value → BRSR indicator → ESG
+  metric → calculation → verified activity data → original document, in a side panel, three clicks from
+  the value, showing the exact trace the report used (and saying so if the record was recalculated since;
+  "source record unavailable" if it no longer exists).
+- **Failures are specific**: "Report generation failed: 1 required BRSR indicator has no metric mapping
+  (P1-E2)…" (required = Section A/B + Essential), rendering and storage failures named, runs stuck 10 minutes
+  failed with a reason.
+- **Found while checking the first real PDF**: P6-E8 printed the waste's **emissions** where BRSR asks for
+  the waste **quantity**. Mappings now say which value they report (deviation D18, migration `0026`):
+  P6-E8 reports 7,500 kg (7.5 t), P6-L4 the emissions.
+- New dependencies: `puppeteer-core`, `@sparticuz/chromium`.
+- Checks: web unit 62/62, DB 134/134, API end-to-end 39/39 (snapshot equals the live consolidation, PDF
+  downloads and is private, failure reasons, stale runs, access), browser (Edge) 9/9 — the signature demo:
+  generate, open, click the Scope 1 diesel figure, reach the original diesel invoice — regressions Phase 14
+  33/33 + 8/8, Phase 15 35/35, Phase 16 63/63 + 14/14, lint/typecheck/format, production build.
+
 ## 4. What comes next
 
-**Phase 17 — Reporting** (`06_IMPLEMENTATION_PLAN.md` §Phase 17): Admin generates a consolidated BRSR/ESG
-report for a period and org scope (non-blocking, `report_runs`), rendered to PDF, with every value clickable
-down to its original document (Scenario D, Journey 4–5).
-- Values come from `consolidation.query` and the BRSR mapping; the readiness tree is the drill-down
-  component the UI brief says to reuse.
-- `report_runs.snapshot_data` must record the contributing `esg_record_id`s per indicator (schema §13.1).
-- The App Flow's failure message for unmapped required indicators applies.
+**Phase 18 — Audit and security hardening** (`06_IMPLEMENTATION_PLAN.md` §Phase 18): the Audit Trail page,
+a security review (CSRF on the tRPC endpoint — SameSite=Lax cookies today — RLS and route-level checks),
+and the switch from synthetic to real documents that the plan allows only from this phase.
 
-Things to remember for Phase 17:
-- The TRD names headless Chromium (`puppeteer-core` + `@sparticuz/chromium`) for PDF rendering.
-- Percentages must be shown from summed counts (`consolidation.query` already does this).
+Things to remember for Phase 18:
+- Every server write already audits in the same transaction; the audit trail page reads `audit_logs`.
+- Report runs, expectations and mapping changes are audited (`report.*`, `expectation.*`, `brsr_mapping.*`).
 - `metric_field_requirements.is_critical` is still false everywhere.
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0024` (validation
-  rules through submission expectations) are not pushed yet. Migrations `0001`–`0014` were pushed on
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0026` (validation
+  rules through the report runs and mapping value) are not pushed yet. Migrations `0001`–`0014` were pushed on
   2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
   verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
   users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
   `supabase config push` after `supabase login`, or set in the dashboard), rotate the database password
   (it was shared in chat), provision the first hosted Admin.
+- **Report PDFs in production:** set `SUPABASE_STORAGE_BUCKET_REPORTS=reports` on Vercel; `@sparticuz/chromium`
+  is untested there yet (cold start and bundle size are the known risks, TRD §17).
 - **Worker deployment:** apply `render.yaml` in Render and enter the secrets there (DATABASE_URL = session
   pooler string). The Blueprint file is unvalidated until Render reads it.
 - **Email:** configure custom SMTP (Resend) before inviting anyone outside the Supabase team.

@@ -11,6 +11,7 @@ export async function saveMappingAction(input: {
   indicatorId: string;
   notes?: string;
   isApplicable: boolean;
+  reportedValue?: "result" | "activity";
 }) {
   const result = await runAction((api) => api.brsr.save(input));
   if (result.ok) revalidatePath("/admin/brsr-mapping");

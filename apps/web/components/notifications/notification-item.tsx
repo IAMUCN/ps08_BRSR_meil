@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileSearch,
+  FileText,
   FileX,
   RotateCcw,
   ShieldAlert,
@@ -27,6 +28,8 @@ const ICONS: Record<string, { icon: LucideIcon; className: string }> = {
   approval_needed: { icon: ClipboardCheck, className: "text-primary" },
   approved: { icon: CheckCircle2, className: "text-status-success" },
   calculation_blocked: { icon: Calculator, className: "text-status-warning" },
+  report_ready: { icon: FileText, className: "text-status-success" },
+  report_failed: { icon: FileX, className: "text-status-error" },
 };
 
 const relative = new Intl.RelativeTimeFormat("en-IN", { numeric: "auto" });

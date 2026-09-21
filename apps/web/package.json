@@ -17,6 +17,7 @@
     "calculate-pending": "node --conditions=react-server --env-file-if-exists=.env.local scripts/calculate-pending.ts"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^153.0.0",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.116.0",
     "@trpc/server": "11.18.0",
@@ -26,6 +27,7 @@
     "next": "16.3.5",
     "pdfjs-dist": "^6.3.289",
     "postgres": "3.4.9",
+    "puppeteer-core": "^25.11.0",
     "radix-ui": "^1.6.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",

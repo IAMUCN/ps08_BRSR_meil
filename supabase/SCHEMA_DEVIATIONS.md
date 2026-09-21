@@ -241,6 +241,31 @@ Completion % cards and the "projects with missing submissions" issue all need a 
 it from history would never report a project that has not submitted at all. Decision:
 `.grill/phase-16-control-tower-decisions.md`.
 
+## D17 — `report_runs` covers a period or a financial year (migration `0025`)
+
+**Schema says (§13.1):** `reporting_period_id uuid not null`.
+
+**Implemented:** `reporting_period_id` is nullable and `financial_year integer` (the April–March year by its
+starting calendar year) sits beside it; a check constraint requires exactly one. A private `reports`
+storage bucket holds the rendered PDFs.
+
+**Why:** BRSR is an annual disclosure, and the owner chose reports by period or financial year; a year is
+many monthly periods, which one foreign key can't express. Decision:
+`.grill/phase-17-reporting-decisions.md`.
+
+## D18 — `brsr_metric_mappings.reported_value` (migration `0026`)
+
+**Schema says (§11.3):** a mapping links a metric to an indicator, nothing about which of the metric's values
+the indicator reports.
+
+**Implemented:** `reported_value text not null default 'result'`, `'result'` or `'activity'`: the calculated
+result (emissions, water consumed, a percentage) or the verified quantity. The waste → P6-E8 mapping reports
+the quantity; its emissions go to P6-L4.
+
+**Why:** found while checking the first generated report (Phase 17): P6-E8 asks for waste in metric tonnes,
+but reporting every metric's calculated result printed the waste's emissions there. Decision:
+`.grill/phase-17-reporting-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

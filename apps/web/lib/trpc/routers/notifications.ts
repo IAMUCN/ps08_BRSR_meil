@@ -15,6 +15,8 @@ export const NOTIFICATION_TYPES = {
   approval_needed: "Approval needed",
   approved: "Approved",
   calculation_blocked: "Calculation blocked",
+  report_ready: "Report ready",
+  report_failed: "Report failed",
 } as const;
 
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;

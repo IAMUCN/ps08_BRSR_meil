@@ -314,3 +314,19 @@ Decisions: `.grill/phase-16-control-tower-decisions.md`.
   calculation, the document and the record's audit trail; acting on the record stays in its queue.
 - The BRSR Readiness card's "i" opens a popover listing each component, its value and weight, and says it
   is an internal indicator, not an official score.
+
+## A18 — Phase 17 Reporting
+
+Decisions: `.grill/phase-17-reporting-decisions.md`.
+
+- **One report type, BRSR**, covering an org node and either one period or an April–March financial year
+  (the App Flow's "format" parameter is not offered); approved records only, with the number left out for
+  awaiting approval stated on the report.
+- **"Report ready" navigates only on request**: generation is non-blocking, the Reports page refreshes while a
+  run is in progress and the Admin is notified with a link to Report Detail, rather than being moved there.
+- **The drill-down opens in a side panel** with the path as a breadcrumb (value → indicator → metric →
+  calculation → verified activity data → original document) and shows the exact calculation the report used,
+  saying so when the record has been recalculated since.
+- **A mapping says which value it reports** (Mappings tab, schema deviation D18): the calculated result or the
+  verified quantity — P6-E8 reports the waste quantity, P6-L4 its emissions.
+- Comparing against a prior period's report (App Flow secondary action) is not built.

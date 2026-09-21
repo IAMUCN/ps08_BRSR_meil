@@ -20,6 +20,8 @@ export type BrsrMapping = {
   metricName: string;
   notes: string | null;
   isApplicable: boolean;
+  /** What the indicator reports from this metric: the calculated result or the verified quantity (D18). */
+  reportedValue: "result" | "activity";
 };
 
 export type BrsrIndicator = {
@@ -117,6 +119,8 @@ const mappingInput = z.object({
   indicatorId: z.uuid(),
   notes: z.string().trim().max(500).optional(),
   isApplicable: z.boolean(),
+  /** Omitted on an update keeps what is stored; a new mapping defaults to the calculated result. */
+  reportedValue: z.enum(["result", "activity"]).optional(),
 });
 
 export const brsrRouter = router({
@@ -134,10 +138,11 @@ export const brsrRouter = router({
           metric_name: string;
           notes: string | null;
           is_applicable: boolean;
+          reported_value: "result" | "activity";
         }[]
       >`
         select x.id, x.brsr_indicator_id as indicator_id, m.id as metric_id, m.code as metric_code,
-               m.name as metric_name, x.mapping_notes as notes, x.is_applicable
+               m.name as metric_name, x.mapping_notes as notes, x.is_applicable, x.reported_value
         from public.brsr_metric_mappings x
         join public.esg_metrics m on m.id = x.esg_metric_id
         order by m.name`,
@@ -158,6 +163,7 @@ export const brsrRouter = router({
             metricName: x.metric_name,
             notes: x.notes,
             isApplicable: x.is_applicable,
+            reportedValue: x.reported_value,
           })),
       })),
       metrics: metrics.map((m) => ({
@@ -188,15 +194,18 @@ export const brsrRouter = router({
       const notes = input.notes || null;
 
       if (input.mappingId) {
-        const [before] = await tx<{ notes: string | null; is_applicable: boolean }[]>`
-          select mapping_notes as notes, is_applicable from public.brsr_metric_mappings
+        const [before] = await tx<
+          { notes: string | null; is_applicable: boolean; reported_value: string }[]
+        >`
+          select mapping_notes as notes, is_applicable, reported_value from public.brsr_metric_mappings
           where id = ${input.mappingId}
             and esg_metric_id = ${input.metricId} and brsr_indicator_id = ${input.indicatorId}
           for update`;
         if (!before) throw new TRPCError({ code: "NOT_FOUND", message: "Mapping not found." });
         await tx`
           update public.brsr_metric_mappings
-          set mapping_notes = ${notes}, is_applicable = ${input.isApplicable}
+          set mapping_notes = ${notes}, is_applicable = ${input.isApplicable},
+              reported_value = coalesce(${input.reportedValue ?? null}, reported_value)
           where id = ${input.mappingId}`;
         await writeAudit(tx, {
           eventType: "brsr_mapping.updated",
@@ -204,15 +213,20 @@ export const brsrRouter = router({
           entityId: input.mappingId,
           userId: ctx.session.userId,
           oldValue: before,
-          newValue: { notes, is_applicable: input.isApplicable },
+          newValue: {
+            notes,
+            is_applicable: input.isApplicable,
+            reported_value: input.reportedValue,
+          },
         });
         return { mappingId: input.mappingId };
       }
 
       const [row] = await tx<{ id: string }[]>`
         insert into public.brsr_metric_mappings
-          (esg_metric_id, brsr_indicator_id, mapping_notes, is_applicable)
-        values (${input.metricId}, ${input.indicatorId}, ${notes}, ${input.isApplicable})
+          (esg_metric_id, brsr_indicator_id, mapping_notes, is_applicable, reported_value)
+        values (${input.metricId}, ${input.indicatorId}, ${notes}, ${input.isApplicable},
+                ${input.reportedValue ?? "result"})
         on conflict (esg_metric_id, brsr_indicator_id) do nothing
         returning id`;
       if (!row) {
@@ -231,6 +245,7 @@ export const brsrRouter = router({
           brsr_indicator_id: input.indicatorId,
           notes,
           is_applicable: input.isApplicable,
+          reported_value: input.reportedValue ?? "result",
         },
       });
       return { mappingId: row.id };

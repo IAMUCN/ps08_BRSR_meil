@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronDown, ChevronRight, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { CalculationTraceView } from "@/components/calculation/calculation-trace";
 import { DocumentViewer } from "@/components/document-viewer/document-viewer";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -14,6 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { Toggle } from "./tree-toggle";
 import { STATUS_LABEL, type IndicatorStatus } from "@/lib/brsr/readiness";
 import { formatQuantity, type CalculationState } from "@/lib/calculation/trace";
 import type { ReadinessRecord, ReadinessView } from "@/lib/trpc/routers/brsr";
@@ -259,37 +260,4 @@ function valueOf(record: ReadinessRecord) {
     return formatQuantity(record.activityValue, record.activityUnit ?? "");
   }
   return "—";
-}
-
-function Toggle({
-  open,
-  onClick,
-  depth,
-  trailing,
-  children,
-}: {
-  open: boolean;
-  onClick: () => void;
-  depth: number;
-  trailing?: ReactNode;
-  children: ReactNode;
-}) {
-  const Icon = open ? ChevronDown : ChevronRight;
-  return (
-    <div
-      className="flex items-center gap-3 py-2 pr-3"
-      style={{ paddingLeft: `${12 + depth * 24}px` }}
-    >
-      <button
-        type="button"
-        onClick={onClick}
-        aria-expanded={open}
-        className="flex min-w-0 flex-1 items-center gap-2"
-      >
-        <Icon className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />
-        {children}
-      </button>
-      {trailing}
-    </div>
-  );
 }

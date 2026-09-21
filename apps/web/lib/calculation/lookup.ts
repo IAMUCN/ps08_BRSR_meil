@@ -9,15 +9,12 @@ import type { CalculationState } from "./trace";
 
 type Sql = Tx | ReturnType<typeof db>;
 
-export async function loadCalculations(
-  sql: Sql,
-  recordIds: string[],
-): Promise<Map<string, CalculationState>> {
+/** Traces for the calculations matching `where`, keyed by record id or by calculation id. */
+async function traces(sql: Sql, where: ReturnType<Sql>, byCalculation: boolean) {
   const state = new Map<string, CalculationState>();
-  if (recordIds.length === 0) return state;
-
   const rows = await sql<
     {
+      id: string;
       esg_record_id: string;
       input_value: number;
       input_unit: string;
@@ -39,7 +36,7 @@ export async function loadCalculations(
       inputs: { key: string; label: string; value: number; unit: string }[];
     }[]
   >`
-    select c.esg_record_id, c.input_value::float as input_value, c.input_unit,
+    select c.id, c.esg_record_id, c.input_value::float as input_value, c.input_unit,
            c.normalized_value::float as normalized_value, c.normalized_unit,
            c.factor_value_snapshot::float as factor_value, v.input_unit as factor_input_unit,
            v.output_unit as factor_output_unit, f.name as factor_name,
@@ -62,14 +59,14 @@ export async function loadCalculations(
     left join public.conversion_factor_versions v on v.id = c.conversion_factor_version_id
     left join public.conversion_factors f on f.id = v.conversion_factor_id
     left join public.scopes s on s.id = c.scope_id
-    where c.is_current and c.esg_record_id in ${sql(recordIds)}`;
+    where ${where}`;
 
   for (const r of rows) {
     const formula = r.formula_type ? parseFormula(r.formula_type, r.formula_definition) : null;
     const order = formula ? formulaInputs(formula) : [];
     const inputs = [...r.inputs].sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
     const label = (key: string) => inputs.find((i) => i.key === key)?.label ?? key;
-    state.set(r.esg_record_id, {
+    state.set(byCalculation ? r.id : r.esg_record_id, {
       blockedReason: null,
       trace: {
         inputValue: r.input_value,
@@ -98,6 +95,20 @@ export async function loadCalculations(
     });
   }
 
+  return state;
+}
+
+export async function loadCalculations(
+  sql: Sql,
+  recordIds: string[],
+): Promise<Map<string, CalculationState>> {
+  if (recordIds.length === 0) return new Map();
+  const state = await traces(
+    sql,
+    sql`c.is_current and c.esg_record_id in ${sql(recordIds)}`,
+    false,
+  );
+
   const missing = recordIds.filter((id) => !state.has(id));
   if (missing.length > 0) {
     const reasons = await sql<{ entity_id: string; reason: string | null }[]>`
@@ -109,4 +120,16 @@ export async function loadCalculations(
     for (const id of missing) state.set(id, { trace: null, blockedReason: byId.get(id) ?? null });
   }
   return state;
+}
+
+/**
+ * Specific calculation rows by id — current or not. A report shows the exact trace it used even after the
+ * record was recalculated (calculations are append-only).
+ */
+export async function loadCalculationsById(
+  sql: Sql,
+  calculationIds: string[],
+): Promise<Map<string, CalculationState>> {
+  if (calculationIds.length === 0) return new Map();
+  return traces(sql, sql`c.id in ${sql(calculationIds)}`, true);
 }

@@ -4,7 +4,7 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–16 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> **Status:** Phases 1–17 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
 > database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
 > users and assignments, roles and permissions, reporting periods, profile), document upload, the OCR
 > worker (Phase 2B) and its integration (Phase 6), OCR verification (Phase 7: document viewer beside the
@@ -21,7 +21,8 @@ original evidence.
 > from SEBI's BRSR format, `/admin/brsr-mapping` with a readiness tree down to the original document) and
 > consolidation (Phase 15: roll-up views over the org tree, `consolidation.query` by period or financial
 > year) and the Admin Control Tower (Phase 16: real KPIs and issue panel, Submission Monitoring, ESG Data
-> Explorer, configurable expected submissions). Reporting is not implemented yet. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
+> Explorer, configurable expected submissions) and reporting (Phase 17: BRSR reports by period or financial
+> year rendered to PDF, with every value drilling down to its original document). See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
 
@@ -123,6 +124,11 @@ Notes:
 - **Evidence storage:** migration `0012` creates the private `evidence` bucket (50 MB, PDF/JPG/PNG). Set
   `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence` in `apps/web/.env.local`. Files are never publicly readable;
   uploads use short-lived signed URLs issued by the server.
+- **Report PDFs** (Phase 17): migration `0025` creates the private `reports` bucket. Set
+  `SUPABASE_STORAGE_BUCKET_REPORTS=reports`, and locally `CHROMIUM_EXECUTABLE_PATH` to an installed
+  Chromium-family browser (e.g. `C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe`); in
+  production leave it unset and `@sparticuz/chromium` supplies the browser. Generation runs after the
+  request (Next.js `after()`); a run stuck for 10 minutes is marked failed.
 
 ## Accounts and sign-in
 

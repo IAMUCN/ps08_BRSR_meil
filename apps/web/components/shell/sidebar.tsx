@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Factory,
   FileStack,
+  FileText,
   LayoutDashboard,
   ListTree,
   ScanText,
@@ -41,6 +42,7 @@ const ICONS = {
   scope: Factory,
   brsr: ListTree,
   explorer: Search,
+  reports: FileText,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;

@@ -108,6 +108,12 @@ export function MappingTable({ view }: { view: MappingsView }) {
                           <td className="px-3 py-3 font-medium">{mapping.metricName}</td>
                           <td className="max-w-xs px-3 py-3 text-xs text-muted-foreground">
                             {mapping.notes ?? "—"}
+                            <span className="mt-1 block font-medium text-foreground">
+                              Reports the{" "}
+                              {mapping.reportedValue === "activity"
+                                ? "verified quantity"
+                                : "calculated result"}
+                            </span>
                           </td>
                           <td className="px-3 py-3">
                             <StatusBadge tone={mapping.isApplicable ? "success" : "neutral"}>
@@ -190,6 +196,7 @@ function MappingSheet({
     metricId: existing?.metricId ?? view.metrics[0]?.id ?? "",
     notes: existing?.notes ?? "",
     isApplicable: existing?.isApplicable ?? true,
+    reportedValue: existing?.reportedValue ?? ("result" as "result" | "activity"),
   });
 
   function submit(event: FormEvent) {
@@ -201,6 +208,7 @@ function MappingSheet({
         metricId: form.metricId,
         notes: form.notes || undefined,
         isApplicable: form.isApplicable,
+        reportedValue: form.reportedValue,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -268,6 +276,21 @@ function MappingSheet({
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="map-reported">The indicator reports</Label>
+            <NativeSelect
+              id="map-reported"
+              value={form.reportedValue}
+              onChange={(e) =>
+                setForm({ ...form, reportedValue: e.target.value as "result" | "activity" })
+              }
+            >
+              <option value="result">
+                The calculated result (emissions, consumption, a percentage)
+              </option>
+              <option value="activity">The verified quantity (e.g. waste in kg)</option>
+            </NativeSelect>
           </div>
           <label className="flex items-start gap-2 text-sm">
             <input
