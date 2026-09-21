@@ -228,6 +228,19 @@ reviewable instead of turning `custom` into an expression language. Decision:
 the schema has nowhere to store it. Switching a mapping off keeps its history and notes; the readiness tree
 ignores it. Decision: `.grill/phase-14-brsr-mapping-decisions.md`.
 
+## D16 — `submission_expectations` (migration `0024`)
+
+**Schema says:** nothing — no table records which submissions are expected.
+
+**Implemented:** `submission_expectations (id, org_unit_id, metric_id, created_by, created_at)`, unique per
+org unit and metric; RLS read like the org unit, server-only writes. `org_settings.brsr_readiness_weights`
+holds the BRSR Readiness % weights.
+
+**Why:** UI brief §13.1's Submission Completion % ("of expected submissions this period"), the Scope 1/2/3
+Completion % cards and the "projects with missing submissions" issue all need a denominator, and deriving
+it from history would never report a project that has not submitted at all. Decision:
+`.grill/phase-16-control-tower-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

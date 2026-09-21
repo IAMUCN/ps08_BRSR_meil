@@ -1,93 +1,226 @@
 import {
   AlertTriangle,
-  CircleDashed,
+  ClipboardCheck,
+  FileWarning,
   Flame,
   Link2,
+  ListTree,
+  ScanText,
+  ShieldAlert,
   ShieldCheck,
+  TrendingUp,
   Zap,
   type LucideIcon,
 } from "lucide-react";
 import type { Metadata } from "next";
-import { PageHeader } from "@/components/shell/page-header";
+import Link from "next/link";
+import { cn } from "cn";
+import { ContextPicker, ReadinessInfo } from "@/components/dashboard/control-tower-parts";
+import { EmptyState } from "@/components/shell/empty-state";
 import { NoticeToast } from "@/components/shell/notice-toast";
+import { PageHeader } from "@/components/shell/page-header";
 import { requireAdminSession } from "@/lib/auth/session";
+import type { Fraction } from "@/lib/dashboard/kpis";
+import { readParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Admin Dashboard · TraceESG" };
 
-type KpiCard = { title: string; icon?: LucideIcon; accent?: string; important?: boolean };
+// The Admin Control Tower (UI brief §13.1, Master Approach §33, .grill/phase-16-control-tower-decisions.md):
+// header strip, the completion pipeline, scope and readiness, and the issue panel — for the org node and
+// period in the URL. Every card and issue row links to the exact slice it counted.
 
-// UI brief §13.1 — row 1 follows the pipeline order; row 2 is scope and readiness.
-const PIPELINE_KPIS: KpiCard[] = [
-  { title: "Submission Completion" },
-  { title: "Evidence Coverage" },
-  { title: "Validation Completion" },
-  { title: "Approval Completion" },
-];
-const SCOPE_KPIS: KpiCard[] = [
-  { title: "Scope 1 Completion", icon: Flame, accent: "text-scope-1" },
-  { title: "Scope 2 Completion", icon: Zap, accent: "text-scope-2" },
-  { title: "Scope 3 Completion", icon: Link2, accent: "text-scope-3" },
-  { title: "BRSR Readiness", icon: ShieldCheck, accent: "text-kpi-important", important: true },
-];
-const ISSUES = [
-  "Projects with missing submissions",
-  "Records missing evidence",
-  "Low-confidence OCR records",
-  "Validation failures",
-  "Anomalous values",
-  "Pending approvals",
-  "Incomplete BRSR indicators",
-];
+type Card = {
+  title: string;
+  fraction: Fraction;
+  href: string;
+  empty: string;
+  support?: string;
+  icon?: LucideIcon;
+  accent?: string;
+  important?: boolean;
+  extra?: React.ReactNode;
+};
 
-function PlaceholderLabel() {
+function KpiCard({ card }: { card: Card }) {
+  const value = card.fraction.value;
   return (
-    <p className="text-xs leading-4 text-muted-foreground">
-      Development placeholder — data arrives in Phase 16
-    </p>
-  );
-}
-
-function KpiRow({ cards, label }: { cards: KpiCard[]; label: string }) {
-  return (
-    <section aria-label={label} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {cards.map((card) => (
+    <div
+      className={cn(
+        "relative rounded-md border bg-card p-4 transition-colors hover:border-foreground/30",
+        card.important && "border-kpi-important/60",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        {card.icon ? (
+          <card.icon className={cn("size-5", card.accent)} strokeWidth={1.5} aria-hidden />
+        ) : null}
+        <h2 className="text-sm leading-5 font-semibold text-kpi-title">
+          <Link href={card.href} className="after:absolute after:inset-0">
+            {card.title}
+          </Link>
+        </h2>
+        {card.extra ? <span className="relative z-10 ml-auto">{card.extra}</span> : null}
+      </div>
+      <p className="mt-3 text-[32px] leading-10 font-semibold text-kpi-number">
+        {value === null ? "—" : `${Math.round(value)} %`}
+      </p>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-sm bg-muted" aria-hidden>
         <div
-          key={card.title}
-          className={`rounded-md border bg-card p-4 ${card.important ? "border-kpi-important/60" : ""}`}
-        >
-          <div className="flex items-center gap-2">
-            {card.icon ? (
-              <card.icon className={`size-5 ${card.accent}`} strokeWidth={1.5} aria-hidden />
-            ) : null}
-            <h2 className="text-sm leading-5 font-semibold text-kpi-title">{card.title}</h2>
-          </div>
-          <p
-            className="mt-3 text-[32px] leading-10 font-semibold text-kpi-number"
-            aria-label="No data yet"
-          >
-            —
-          </p>
-          <div className="mt-2 h-1.5 rounded-sm bg-muted" aria-hidden />
-          <div className="mt-2">
-            <PlaceholderLabel />
-          </div>
-        </div>
-      ))}
-    </section>
+          className={cn("h-full", card.important ? "bg-kpi-important" : "bg-kpi-number")}
+          style={{ width: `${Math.min(100, Math.max(0, value ?? 0))}%` }}
+        />
+      </div>
+      <p className="mt-2 text-xs leading-4 text-muted-foreground">
+        {value === null
+          ? card.empty
+          : (card.support ?? `${card.fraction.numerator} / ${card.fraction.denominator}`)}
+      </p>
+    </div>
   );
 }
 
 export default async function AdminDashboardPage({ searchParams }: PageProps<"/admin">) {
-  const [, params, caller] = await Promise.all([requireAdminSession(), searchParams, api()]);
-  const counts = await caller.dashboard.headerCounts();
+  const [, raw, caller] = await Promise.all([requireAdminSession(), searchParams, api()]);
+  const q = readParams(raw);
+  const { context, summary } = await caller.records.summary({
+    orgUnitId: q.orgUnitId,
+    periodId: q.periodId,
+  });
+  const ctx = `org=${context.orgUnitId}&period=${context.periodId}`;
+  const notice = typeof raw.notice === "string" ? raw.notice : undefined;
+
+  if (!summary) {
+    return (
+      <div className="max-w-7xl space-y-6">
+        <NoticeToast notice={notice} />
+        <PageHeader
+          title="Admin Dashboard"
+          description="Reporting readiness across the organization."
+        />
+        <EmptyState
+          icon={TrendingUp}
+          title="No activity yet"
+          message="Create a reporting period and the organization hierarchy to start collecting submissions."
+        />
+      </div>
+    );
+  }
+
+  const noExpectations = "No expected submissions configured — set them on the Organization page.";
+  const noRecords = `No records in ${context.periodLabel} yet.`;
+  const pipeline: Card[] = [
+    {
+      title: "Submission Completion",
+      fraction: summary.pipeline.submission,
+      href: `/admin/submissions?${ctx}&issue=missing_submissions`,
+      empty: noExpectations,
+    },
+    {
+      title: "Evidence Coverage",
+      fraction: summary.pipeline.evidence,
+      href: `/admin/submissions?${ctx}&issue=missing_evidence`,
+      empty: noRecords,
+    },
+    {
+      title: "Validation Completion",
+      fraction: summary.pipeline.validation,
+      href: `/admin/submissions?${ctx}&status=not_validated`,
+      empty: "No verified records yet.",
+    },
+    {
+      title: "Approval Completion",
+      fraction: summary.pipeline.approval,
+      href: `/admin/submissions?${ctx}&issue=pending_approval`,
+      empty: "No records have passed validation yet.",
+    },
+  ];
+  const scopeLook = {
+    SCOPE_1: { icon: Flame, accent: "text-scope-1", href: "/admin/scope-1" },
+    SCOPE_2: { icon: Zap, accent: "text-scope-2", href: "/admin/scope-2" },
+    SCOPE_3: { icon: Link2, accent: "text-scope-3", href: "/admin/scope-3" },
+  };
+  const scopes: Card[] = summary.scopes.map((s) => ({
+    title: `${s.name} Completion`,
+    fraction: s.completion,
+    href: `${scopeLook[s.code].href}?${ctx}`,
+    icon: scopeLook[s.code].icon,
+    accent: scopeLook[s.code].accent,
+    empty: s.categories
+      ? `${s.categories.active} of ${s.categories.total} categories active · no expected submissions`
+      : `No expected ${s.name} submissions configured.`,
+    support: s.categories
+      ? `${s.completion.numerator} / ${s.completion.denominator} approved · ${s.categories.active} of ${s.categories.total} categories active`
+      : `${s.completion.numerator} / ${s.completion.denominator} expected submissions approved`,
+  }));
+  scopes.push({
+    title: "BRSR Readiness",
+    fraction: {
+      numerator: 0,
+      denominator: 0,
+      value: summary.readiness.value,
+    },
+    href: `/admin/brsr-mapping?tab=readiness&period=${context.periodId}`,
+    icon: ShieldCheck,
+    accent: "text-kpi-important",
+    important: true,
+    empty: "Nothing to measure yet this period.",
+    support: "Internal indicator, not an official score",
+    extra: <ReadinessInfo readiness={summary.readiness} />,
+  });
+
+  const issues: { key: string; icon: LucideIcon; label: string; href: string }[] = [
+    {
+      key: "missing_submissions",
+      icon: AlertTriangle,
+      label: "Projects with missing submissions",
+      href: `/admin/submissions?${ctx}&issue=missing_submissions`,
+    },
+    {
+      key: "missing_evidence",
+      icon: FileWarning,
+      label: "Records missing evidence",
+      href: `/admin/submissions?${ctx}&issue=missing_evidence`,
+    },
+    {
+      key: "low_confidence",
+      icon: ScanText,
+      label: "Low-confidence OCR records awaiting verification",
+      href: `/admin/submissions?${ctx}&issue=low_confidence`,
+    },
+    {
+      key: "validation_failed",
+      icon: ShieldAlert,
+      label: "Validation failures",
+      href: `/admin/submissions?${ctx}&issue=validation_failed`,
+    },
+    {
+      key: "anomaly",
+      icon: TrendingUp,
+      label: "Anomalous values awaiting review",
+      href: `/admin/submissions?${ctx}&issue=anomaly`,
+    },
+    {
+      key: "pending_approval",
+      icon: ClipboardCheck,
+      label: "Pending approvals",
+      href: `/admin/submissions?${ctx}&issue=pending_approval`,
+    },
+    {
+      key: "incomplete_indicators",
+      icon: ListTree,
+      label: "Incomplete BRSR indicators",
+      href: `/admin/brsr-mapping?tab=readiness&period=${context.periodId}`,
+    },
+  ];
 
   return (
     <div className="max-w-7xl space-y-6">
-      <NoticeToast notice={typeof params.notice === "string" ? params.notice : undefined} />
+      <NoticeToast notice={notice} />
       <PageHeader
         title="Admin Dashboard"
-        description="Reporting readiness across the organization."
+        description={`Reporting readiness for ${context.orgUnits.find((o) => o.id === context.orgUnitId)?.name} and everything beneath it, ${context.periodLabel}.`}
+        action={<ContextPicker context={context} />}
       />
 
       <dl
@@ -95,9 +228,9 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
         aria-label="Organization overview"
       >
         {[
-          ["Organizations", counts.organizations],
-          ["Projects", counts.projects],
-          ["Active users", counts.activeUsers],
+          ["Organizations", summary.header.organizations],
+          ["Projects", summary.header.projects],
+          ["Active users", summary.header.activeUsers],
         ].map(([label, value]) => (
           <div key={label} className="flex items-baseline gap-2">
             <dt className="text-muted-foreground">{label}</dt>
@@ -106,37 +239,59 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
         ))}
       </dl>
 
-      <KpiRow cards={PIPELINE_KPIS} label="Completion pipeline" />
-      <KpiRow cards={SCOPE_KPIS} label="Scope and readiness" />
-
-      <section aria-labelledby="issues-heading" className="rounded-md border bg-card">
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 id="issues-heading" className="text-base leading-6 font-semibold">
-            Issues
-          </h2>
-          <PlaceholderLabel />
-        </div>
-        <ul className="divide-y">
-          {ISSUES.map((issue) => (
-            <li key={issue} className="flex items-center gap-3 px-4 py-3 text-sm leading-5">
-              <AlertTriangle
-                className="size-4 text-muted-foreground"
-                strokeWidth={1.5}
-                aria-hidden
-              />
-              <span className="w-8 font-mono text-muted-foreground" aria-label="No data yet">
-                —
-              </span>
-              <span>{issue}</span>
-            </li>
-          ))}
-        </ul>
+      <section
+        aria-label="Completion pipeline"
+        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        {pipeline.map((card) => (
+          <KpiCard key={card.title} card={card} />
+        ))}
+      </section>
+      <section
+        aria-label="Scope and readiness"
+        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        {scopes.map((card) => (
+          <KpiCard key={card.title} card={card} />
+        ))}
       </section>
 
-      <p className="flex items-center gap-2 text-xs leading-4 text-muted-foreground">
-        <CircleDashed className="size-4" strokeWidth={1.5} aria-hidden />
-        Organizations = subsidiary/entity nodes under the group.
-      </p>
+      <section aria-labelledby="issues-heading" className="rounded-md border bg-card">
+        <h2 id="issues-heading" className="border-b px-4 py-3 text-base leading-6 font-semibold">
+          Issues
+        </h2>
+        <ul className="divide-y">
+          {issues.map((issue) => {
+            const n = summary.issues[issue.key as keyof typeof summary.issues];
+            return (
+              <li key={issue.key}>
+                <Link
+                  href={issue.href}
+                  className="flex items-center gap-3 px-4 py-3 text-sm leading-5 hover:bg-muted"
+                >
+                  <issue.icon
+                    className={cn(
+                      "size-4",
+                      n > 0 ? "text-status-warning" : "text-muted-foreground",
+                    )}
+                    strokeWidth={1.5}
+                    aria-hidden
+                  />
+                  <span
+                    className={cn(
+                      "w-8 font-mono",
+                      n > 0 ? "font-semibold" : "text-muted-foreground",
+                    )}
+                  >
+                    {n}
+                  </span>
+                  <span>{issue.label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </div>
   );
 }

@@ -17,8 +17,10 @@ select tables_are('public', array[
   'conversion_factors', 'conversion_factor_versions', 'documents', 'ocr_jobs', 'ocr_extractions',
   'ocr_fields', 'esg_records', 'esg_record_documents', 'verifications', 'validation_results',
   'approvals', 'calculations', 'calculation_inputs', 'brsr_sections', 'brsr_indicators',
-  'brsr_metric_mappings', 'audit_logs', 'report_runs', 'notifications', 'org_settings'
-], 'public schema has exactly the 35 tables from 05_BACKEND_SCHEMA.md');
+  'brsr_metric_mappings', 'audit_logs', 'report_runs', 'notifications', 'org_settings',
+  -- Added by a documented deviation (supabase/SCHEMA_DEVIATIONS.md D16), not by drift.
+  'submission_expectations'
+], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(
   (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace

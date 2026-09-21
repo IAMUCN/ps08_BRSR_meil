@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-22 — Phase 15 committed; Phase 16 next._
+_Last updated: 2026-09-22 — Phase 16 complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views (`0001`–`0023`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations (`0001`–`0024`) |
 | `supabase/tests/database/` | pgTAP database tests |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D15) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A16) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D16) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A17) |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -65,8 +65,8 @@ may run in parallel with Phases 3–5.
 | 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | Done | `72e63ed` |
 | 14 | BRSR mapping | Done | `360378c` |
 | 15 | Consolidation | Done | `721b18f` |
-| 16 | Admin Control Tower | **Next** | — |
-| 17 | Reporting | Not started | — |
+| 16 | Admin Control Tower | **Done, not yet committed** | — |
+| 17 | Reporting | **Next** | — |
 | 18 | Audit and security hardening | Not started | — |
 | 19 | UI polish and responsive behavior | Not started | — |
 | 20 | Testing and edge cases | Not started | — |
@@ -358,24 +358,52 @@ layers (D9), `provision-user` script for the first Admin.
   recomputed with an independent query), regressions Phase 14 33/33, Phase 12 33/33, Phase 11 33/33, Phase 10
   30/30, browser (Edge) Phase 10 11/11 and Phase 12 13/13, lint/typecheck/format, production build.
 
+**Phase 16 — Admin Control Tower.** Decisions: `.grill/phase-16-control-tower-decisions.md`.
+- **The dashboard is real**: header strip, the completion pipeline (Submission, Evidence, Validation,
+  Approval), Scope 1/2/3 Completion (Scope 3 with "X of Y categories active"), and **BRSR Readiness %** — a
+  weighted composite of those four and the share of BRSR indicators complete, weights in
+  `org_settings.brsr_readiness_weights`, with an "i" popover listing every part and saying it is an internal
+  indicator, not an official score. A card with nothing to measure shows "—" and why, never 0 % or 100 %.
+- **Expected submissions are configuration** (migration `0024`, deviation D16): which metrics each node must
+  submit per period of the metric's frequency, edited on the Organization page's node panel, audited. The
+  seed adds expectations for Project X and a Project W that has submitted nothing.
+- **Issue panel** — missing submissions, missing evidence, low-confidence OCR awaiting verification,
+  validation failures, anomalies awaiting review, pending approvals, incomplete BRSR indicators. Counts and
+  landing lists share one SQL predicate (`lib/records/search.ts`), so each row lands on exactly what it
+  counted (A17).
+- **Org/period context** picker in the Control Tower header, carried in the URL into Submission Monitoring
+  and the Data Explorer.
+- **Submission Monitoring** (`/admin/submissions`): org node, period, scope, role, status and issue
+  filters; a "missing submissions" view of unmet expectations; CSV export; the shared record drawer
+  (values, validation, calculation, document, audit trail) with a link to the queue that acts on it.
+- **ESG Data Explorer** (`/admin/data-explorer`): the same table with values, by period or financial year,
+  scope, metric and status.
+- **Self-approval** refused at both layers: the browser role can't write approvals or approval status
+  (DB test), and a PM holding `approval.decide` is refused on their own record with nothing written (API).
+- Checks: web unit 58/58, DB 126/126, API end-to-end 63/63 (every KPI recomputed from raw tables, every
+  issue count equal to its landing list, weights and expectations moving the numbers), regressions approvals
+  36/36, Phase 13 52/52, 14 33/33, 15 35/35, browser (Edge) 14/14 + approval 8/8 + Phase 13 10/10,
+  lint/typecheck/format, production build.
+
 ## 4. What comes next
 
-**Phase 16 — Admin Control Tower** (`06_IMPLEMENTATION_PLAN.md` §Phase 16): the Admin dashboard's KPI
-tiles become real (they are labelled development placeholders today), with the issue panel and the
-org/period context switcher.
-- KPIs and the Scope 1/2/3 figures should come from `consolidation.query` / the consolidation views.
-- The BRSR Readiness % card (deferred in Phase 14) links to the readiness tab on `/admin/brsr-mapping`.
-- Master Approach §44 step 19: per-project Scope 1, Scope 2, Water, Waste, HR, evidence, validation and
-  approval status.
+**Phase 17 — Reporting** (`06_IMPLEMENTATION_PLAN.md` §Phase 17): Admin generates a consolidated BRSR/ESG
+report for a period and org scope (non-blocking, `report_runs`), rendered to PDF, with every value clickable
+down to its original document (Scenario D, Journey 4–5).
+- Values come from `consolidation.query` and the BRSR mapping; the readiness tree is the drill-down
+  component the UI brief says to reuse.
+- `report_runs.snapshot_data` must record the contributing `esg_record_id`s per indicator (schema §13.1).
+- The App Flow's failure message for unmapped required indicators applies.
 
-Things to remember for Phase 16:
-- The readiness tree is organisation-wide; the context switcher may want it per node.
+Things to remember for Phase 17:
+- The TRD names headless Chromium (`puppeteer-core` + `@sparticuz/chromium`) for PDF rendering.
+- Percentages must be shown from summed counts (`consolidation.query` already does this).
 - `metric_field_requirements.is_critical` is still false everywhere.
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0023` (validation
-  rules through the consolidation views) are not pushed yet. Migrations `0001`–`0014` were pushed on
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0024` (validation
+  rules through submission expectations) are not pushed yet. Migrations `0001`–`0014` were pushed on
   2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
   verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
   users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
@@ -390,7 +418,7 @@ Things to remember for Phase 16:
   design; MEIL must enter the verified factors (with their sources) before any emission calculates. The
   Phase 13 metrics need no factor. Every factor in the local database is labelled as a synthetic
   development value, not an authoritative factor.
-- **Deferred by design:** org/period context switcher (Phase 16), theme switcher and Theme 2/3 contrast
+- **Deferred by design:** a global (every-page) org/period context switcher, theme switcher and Theme 2/3 contrast
   sweep (Phase 19), CSRF review of the tRPC endpoint — currently relies on SameSite=Lax cookies (Phase 18),
   Submission History page and record detail views, Settings page to edit the OCR threshold.
 - **Abandoned uploads:** a file uploaded but never completed (browser closed mid-flow) stays in Storage with

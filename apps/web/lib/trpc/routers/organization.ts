@@ -15,6 +15,14 @@ import { permissionProcedure, router } from "@/lib/trpc/init";
 
 const orgManage = permissionProcedure("org.manage");
 
+export type OrgExpectation = {
+  metricId: string;
+  metricName: string;
+  categoryName: string;
+  frequency: string;
+  expected: boolean;
+};
+
 export type OrgUnitRow = OrgNode & { name: string; code: string | null; activeAssignments: number };
 
 const nameSchema = z.string().trim().min(1, "Name is required.").max(200);
@@ -222,6 +230,55 @@ export const organizationRouter = router({
           userId: ctx.session.userId,
           oldValue: { status: node.status },
           newValue: { status: input.status, impact },
+        });
+      });
+      return null;
+    }),
+
+  /** Which metrics this node must submit each period (Control Tower denominators, D16). */
+  expectations: orgManage
+    .input(z.object({ orgUnitId: z.uuid() }))
+    .query(async ({ input }): Promise<OrgExpectation[]> => {
+      const rows = await db()<
+        { id: string; name: string; category_name: string; frequency: string; expected: boolean }[]
+      >`
+        select m.id, m.name, c.name as category_name, m.frequency::text,
+               exists (select 1 from public.submission_expectations e
+                        where e.org_unit_id = ${input.orgUnitId} and e.metric_id = m.id) as expected
+        from public.esg_metrics m join public.esg_categories c on c.id = m.category_id
+        where m.deleted_at is null
+        order by c.name, m.name`;
+      return rows.map((r) => ({
+        metricId: r.id,
+        metricName: r.name,
+        categoryName: r.category_name,
+        frequency: r.frequency,
+        expected: r.expected,
+      }));
+    }),
+
+  setExpectation: orgManage
+    .input(z.object({ orgUnitId: z.uuid(), metricId: z.uuid(), expected: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const [unit] = await tx<{ id: string }[]>`
+          select id from public.org_units where id = ${input.orgUnitId} and deleted_at is null`;
+        if (!unit) badRequest("Node not found.");
+        const changed = input.expected
+          ? await tx`
+              insert into public.submission_expectations (org_unit_id, metric_id, created_by)
+              values (${input.orgUnitId}, ${input.metricId}, ${ctx.session.userId})
+              on conflict (org_unit_id, metric_id) do nothing returning id`
+          : await tx`
+              delete from public.submission_expectations
+              where org_unit_id = ${input.orgUnitId} and metric_id = ${input.metricId} returning id`;
+        if (changed.length === 0) return;
+        await writeAudit(tx, {
+          eventType: input.expected ? "expectation.added" : "expectation.removed",
+          entityType: "org_unit",
+          entityId: input.orgUnitId,
+          userId: ctx.session.userId,
+          newValue: { metric_id: input.metricId, expected: input.expected },
         });
       });
       return null;

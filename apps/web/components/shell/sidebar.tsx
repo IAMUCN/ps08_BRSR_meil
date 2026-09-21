@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   ListTree,
   ScanText,
+  Search,
   ShieldAlert,
   ShieldCheck,
   Upload,
@@ -39,6 +40,7 @@ const ICONS = {
   factors: Calculator,
   scope: Factory,
   brsr: ListTree,
+  explorer: Search,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;

@@ -290,3 +290,27 @@ Decisions: `.grill/phase-14-brsr-mapping-decisions.md`.
   metric-to-indicator mappings, which is what the App Flow's primary actions describe.
 - The tree's record level opens a drawer with the calculation trace and the original document, the same
   drawer the scope dashboards use.
+
+## A17 — Phase 16 Admin Control Tower
+
+Decisions: `.grill/phase-16-control-tower-decisions.md`.
+
+- **Every issue row and most KPI cards land on Submission Monitoring**, filtered to exactly the records the
+  number counted (same SQL predicate for the count and the list), with a link on to the owning queue (OCR
+  Monitoring, Validation Queue, Approval Queue) for action. The queues themselves have no org/period
+  filters, so linking straight to them would show a different set than the number said. Scope cards open
+  the scope dashboards and BRSR Readiness the readiness tab, both carrying the context.
+- **The org/period context switcher sits in the Control Tower header**, not the global top bar, and is
+  carried in the URL into Submission Monitoring and the Data Explorer. Other admin pages keep their own
+  pickers.
+- **Expected submissions are edited on the Organization page's node panel** ("Expected submissions"),
+  which the App Flow doesn't list — the denominator of the completion KPIs had to live somewhere, and it is
+  a property of the node.
+- **Submission Monitoring's "role" filter is the role that owns the metric's category**, not the
+  submitter's role assignment, and "export filtered list" is a CSV built from the rows on screen (newest
+  500).
+- **A new status filter, "Not yet passed validation"**, is the exact gap behind Validation Completion %.
+- The shared record detail (Submission Monitoring, Data Explorer) shows extracted values, validation,
+  calculation, the document and the record's audit trail; acting on the record stays in its queue.
+- The BRSR Readiness card's "i" opens a popover listing each component, its value and weight, and says it
+  is an internal indicator, not an official score.
