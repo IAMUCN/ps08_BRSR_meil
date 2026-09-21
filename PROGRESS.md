@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-22 — Phase 15 complete, awaiting commit._
+_Last updated: 2026-09-22 — Phase 15 committed; Phase 16 next._
 
 ---
 
@@ -64,7 +64,7 @@ may run in parallel with Phases 3–5.
 | 12 | Scope 3 foundation | Done | `6dd8aa6` |
 | 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | Done | `72e63ed` |
 | 14 | BRSR mapping | Done | `360378c` |
-| 15 | Consolidation | **Done, not yet committed** | — |
+| 15 | Consolidation | Done | `721b18f` |
 | 16 | Admin Control Tower | **Next** | — |
 | 17 | Reporting | Not started | — |
 | 18 | Audit and security hardening | Not started | — |
