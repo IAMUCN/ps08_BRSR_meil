@@ -274,3 +274,19 @@ Decisions: `.grill/phase-13-role-modules-decisions.md`.
   Tower (Phase 16).
 - **CSR expenditure and fines are recorded, not calculated**: they reach the approval queue with no trace
   and Approve is available, because no calculation is required for them.
+
+## A16 — Phase 14 BRSR mapping
+
+Decisions: `.grill/phase-14-brsr-mapping-decisions.md`.
+
+- **The readiness tree is a "Readiness" tab on `/admin/brsr-mapping`**, beside the "Mappings" tab, for a
+  chosen period and the whole organisation. The App Flow has no separate readiness route; the Control
+  Tower's Readiness % card (Phase 16) will link here.
+- **Status rule:** Complete when every applicable mapped metric has an approved record in the period,
+  Partial when some do, Missing evidence when none do. Records awaiting approval are listed but don't count.
+- **Applicability is a flag on the mapping** (schema deviation D15), switched in the edit sheet; a mapping
+  marked not applicable stays listed and is ignored by readiness.
+- **The indicator catalogue is seeded configuration**, not edited on this page — the page maintains
+  metric-to-indicator mappings, which is what the App Flow's primary actions describe.
+- The tree's record level opens a drawer with the calculation trace and the original document, the same
+  drawer the scope dashboards use.

@@ -218,6 +218,16 @@ HR and Procurement must not calculate themselves (Master Approach §18). A named
 reviewable instead of turning `custom` into an expression language. Decision:
 `.grill/phase-13-role-modules-decisions.md`.
 
+## D15 — `brsr_metric_mappings.is_applicable` (migration `0022`)
+
+**Schema says (§11.3):** `id`, `esg_metric_id`, `brsr_indicator_id`, `mapping_notes`.
+
+**Implemented:** plus `is_applicable boolean not null default true`.
+
+**Why:** `03_APP_FLOW.md` §2.2 BRSR Mapping lists "mark a mapping's applicability" as a primary action, and
+the schema has nowhere to store it. Switching a mapping off keeps its history and notes; the readiness tree
+ignores it. Decision: `.grill/phase-14-brsr-mapping-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

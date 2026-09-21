@@ -9,6 +9,7 @@ import { organizationRouter } from "@/lib/trpc/routers/organization";
 import { profileRouter } from "@/lib/trpc/routers/profile";
 import { reportingPeriodsRouter } from "@/lib/trpc/routers/reporting-periods";
 import { approvalsRouter } from "@/lib/trpc/routers/approvals";
+import { brsrRouter } from "@/lib/trpc/routers/brsr";
 import { validationRouter } from "@/lib/trpc/routers/validation";
 import { verificationRouter } from "@/lib/trpc/routers/verification";
 import { rolesRouter } from "@/lib/trpc/routers/roles";
@@ -34,6 +35,7 @@ export const appRouter = router({
   approvals: approvalsRouter,
   factors: factorsRouter,
   scope: scopeRouter,
+  brsr: brsrRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -8,6 +8,7 @@ import {
   Factory,
   FileStack,
   LayoutDashboard,
+  ListTree,
   ScanText,
   ShieldAlert,
   ShieldCheck,
@@ -37,6 +38,7 @@ const ICONS = {
   approvals: ClipboardCheck,
   factors: Calculator,
   scope: Factory,
+  brsr: ListTree,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;

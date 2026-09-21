@@ -65,6 +65,8 @@
   --color-kpi-title: var(--kpi-title);
   --color-kpi-number: var(--kpi-number);
   --color-kpi-important: var(--kpi-important-accent);
+  --color-brsr-heading: var(--brsr-heading);
+  --color-brsr-badge: var(--brsr-badge);
   --color-status-success: var(--status-success);
   --color-status-warning: var(--status-warning);
   --color-status-error: var(--status-error);
@@ -118,6 +120,9 @@
   --kpi-title: #ca2851;
   --kpi-number: #ca2851;
   --kpi-important-accent: #ff6766;
+  /* §6.4 */
+  --brsr-heading: #ca2851;
+  --brsr-badge: #ff6766;
   /* §6.6 */
   --table-header-bg: #ca2851;
   --table-header-fg: #ffffff;
@@ -174,6 +179,9 @@
   --kpi-title: #37358f;
   --kpi-number: #37358f;
   --kpi-important-accent: #ef102d;
+  /* §6.4 */
+  --brsr-heading: #37358f;
+  --brsr-badge: #ef102d;
   --table-header-bg: #37358f;
   --table-header-fg: #ffffff;
   --table-row-bg: #ffffff;
@@ -228,6 +236,9 @@
   --kpi-title: #76757a;
   --kpi-number: #ffffff;
   --kpi-important-accent: #550916;
+  /* §6.4 */
+  --brsr-heading: #ffffff;
+  --brsr-badge: #550916;
   --table-header-bg: #493e3c;
   --table-header-fg: #ffffff;
   --table-row-bg: #312725;

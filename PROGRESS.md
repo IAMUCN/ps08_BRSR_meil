@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-21 — Phase 13 committed; Phase 14 next._
+_Last updated: 2026-09-21 — Phase 14 complete, awaiting commit._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules (`0001`–`0021`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping (`0001`–`0022`) |
 | `supabase/tests/database/` | pgTAP database tests |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D14) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A15) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D15) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A16) |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
 
@@ -63,8 +63,8 @@ may run in parallel with Phases 3–5.
 | 11 | Scope 2 | Done | `900c873` |
 | 12 | Scope 3 foundation | Done | `6dd8aa6` |
 | 13 | Role-specific modules (HR, EHS, Procurement, Finance/CSR) | Done | `72e63ed` |
-| 14 | BRSR mapping | **Next** | — |
-| 15 | Consolidation | Not started | — |
+| 14 | BRSR mapping | **Done, not yet committed** | — |
+| 15 | Consolidation | **Next** | — |
 | 16 | Admin Control Tower | Not started | — |
 | 17 | Reporting | Not started | — |
 | 18 | Audit and security hardening | Not started | — |
@@ -315,28 +315,46 @@ layers (D9), `provision-user` script for the first Admin.
   + Phase 12 regression 33/33 + Phase 11 33/33 + Phase 10 30/30 + Phase 9 44/44 + Phase 8 58/58, browser
   (Edge) 10/10, lint/typecheck/format/Ruff, production build.
 
+**Phase 14 — BRSR mapping.** Decisions: `.grill/phase-14-brsr-mapping-decisions.md`.
+- **Indicators from the authoritative source**: SEBI's BRSR format (Annexure I, in `provided_docs`).
+  Migration `0022` seeds Sections A/B/C and the nine indicators today's metrics feed (A-18 workforce, A-22
+  CSR, P1-E2 fines, P3-E8 training, P6-E3 water, P6-E6 Scope 1/2, P6-E8 waste, P6-L4 Scope 3, P8-E4 MSME),
+  codes from its numbering and question text quoted from it. All 14 metrics map (15 mappings, no orphans).
+  CSR expenditure maps to A-22 with a note that BRSR asks for applicability, not the spend.
+- **`/admin/brsr-mapping`** (sidebar "BRSR Mapping"): a Mappings tab grouped by section with the BRSR
+  tokens — add, edit notes, mark applicable/not applicable (deviation D15), remove with confirmation; every
+  change audited, `brsr_mapping.manage` enforced server-side; blocking notices for "no mappings" and
+  unmapped metrics.
+- **Readiness tab** — the tree from UI brief §21: Section → Indicator (Complete / Partial / Missing
+  evidence) → metric (approved and awaiting counts) → the period's records → a drawer with the calculation
+  trace and the original document. Complete means every applicable mapped metric has an approved record.
+  The Readiness % score is deferred to the Control Tower (A16).
+- **Definition of done met live**: A-18 → Employees by gender → an approved headcount statement → its
+  calculation (180 and 42 → 23.33 %) → the original PDF.
+- Found and fixed: the Phase 13 edit to `APP_FLOW_DEVIATIONS.md` was committed unformatted; and a killed
+  OCR harness run had left the local OCR threshold at 50 (restored to 80 — local data only).
+- Checks: web unit 51/51, DB 103/103, API end-to-end 33/33 + Phase 13 regression 52/52 + Phase 12 33/33,
+  browser (Edge) 8/8, lint/typecheck/format, production build. OCR integration harness not re-run (no
+  worker change this phase).
+
 ## 4. What comes next
 
-**Phase 14 — BRSR mapping** (`06_IMPLEMENTATION_PLAN.md` §Phase 14): every metric from Phases 10–13 is
-mapped to its BRSR indicator through configuration.
-- Seed `brsr_sections` and `brsr_indicators` — the exact indicator codes and text must be verified against
-  an authoritative BRSR source (PRD §27/§40); anything placeholder is labelled as such.
-- Seed the metric-to-indicator mappings (no orphaned metric), build `/admin/brsr-mapping` (Admin CRUD) and
-  the readiness tree (Indicator → Metric → Calculation → Evidence, reusing the document viewer) — the tree
-  is P0; the readiness % score is P1 and the first thing to cut.
-- Definition of done: one full BRSR indicator navigable from the tree down to an original document.
+**Phase 15 — Consolidation** (`06_IMPLEMENTATION_PLAN.md` §Phase 15): Site → Project → Business Unit →
+Subsidiary → Organization roll-ups correct for every metric type.
+- Sums for emissions and amounts; **percentages re-derived from summed counts** (`calculation_inputs`),
+  never summed or averaged; water from summed withdrawal and discharge.
+- Readiness is organisation-wide today; consolidation should let it (and the scope dashboards) be read
+  per org node.
 
-Things to remember for Phase 14:
-- Metrics now: diesel, petrol, CNG, LPG (Scope 1); grid and renewable electricity (Scope 2); waste and
-  business travel (Scope 3); employees by gender, employees trained, water consumption, MSME share, CSR
-  expenditure, fines and penalties.
-- Percentage metrics must map with their counts (`calculation_inputs`), not only the stored percentage.
+Things to remember for Phase 15:
+- `lib/scope/totals.ts` already rolls up the org tree for emissions (`scopeTree` CTE, approved headline);
+  reuse it rather than building a second aggregation path.
 - `metric_field_requirements.is_critical` is still false everywhere.
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0021` (validation
-  rules through the role modules) are not pushed yet. Migrations `0001`–`0014` were pushed on
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0022` (validation
+  rules through BRSR mapping) are not pushed yet. Migrations `0001`–`0014` were pushed on
   2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
   verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
   users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
