@@ -4,7 +4,7 @@
 services:
   - type: worker
     name: traceesg-ocr-worker
-    runtime: docker
+    env: docker
     dockerfilePath: ./apps/ocr-worker/Dockerfile
     dockerContext: ./apps/ocr-worker
     # Closest Render region to the Supabase Mumbai project (TRD §12 known constraint).

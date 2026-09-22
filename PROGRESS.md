@@ -511,14 +511,18 @@ Things to remember for Phase 21:
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0028` (validation
-  rules through the user theme) are not pushed yet. Migrations `0001`–`0014` were pushed on
-  2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
-  verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
-  users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
-  `supabase config push` after `supabase login`, or set in the dashboard), rotate the database password
-  (it was shared in chat), provision the first hosted Admin, raise Supabase Auth's per-IP sign-in limit
-  (`SECURITY_REVIEW.md` F8).
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** all migrations `0001`–`0028` are now
+  pushed (`0015`–`0028` pushed 2026-09-22 with `supabase db push --db-url`, direct connection). Verified:
+  37 tables (35 + `rate_limit_events` + `submission_expectations`, D16/D19) all with RLS, `authenticated`
+  has zero table-level write privilege anywhere, `anon` zero read privilege anywhere, both `evidence` and
+  `reports` buckets private, the append-only audit triggers exist, `org_settings` holds exactly
+  `brsr_readiness_weights`/`ocr_confidence_threshold`/`rate_limits`, no seed/test data beyond the MEIL root
+  and reference config, all 28 versions recorded in `supabase_migrations.schema_migrations`. Still to do:
+  auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords) — needs
+  `supabase login` (a Management API access token; the DB password alone doesn't grant this) or setting
+  them by hand in the dashboard; rotate the database password (shared in chat twice now); provision the
+  first hosted Admin (needs the project's anon and service-role keys, not yet shared); raise Supabase
+  Auth's per-IP sign-in limit (`SECURITY_REVIEW.md` F8).
 - **Report PDFs in production:** set `SUPABASE_STORAGE_BUCKET_REPORTS=reports` on Vercel; `@sparticuz/chromium`
   is untested there yet (cold start and bundle size are the known risks, TRD §17).
 - **Worker deployment:** apply `render.yaml` in Render and enter the secrets there (DATABASE_URL = session
