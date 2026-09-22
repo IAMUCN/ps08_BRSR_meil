@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-22 — Phase 20 complete, awaiting commit; Phase 21 next._
+_Last updated: 2026-09-22 — Phase 20 committed; Phase 21 next._
 
 ---
 
@@ -72,7 +72,7 @@ may run in parallel with Phases 3–5.
 | 17 | Reporting | Done | `9d893b2` |
 | 18 | Audit and security hardening | Done | `2f6118b` |
 | 19 | UI polish and responsive behavior | Done | `44ad2e1` |
-| 20 | Testing and edge cases | Done | — |
+| 20 | Testing and edge cases | Done | `8736707` |
 | 21 | Deployment | **Next** | — |
 
 ### What each finished phase delivered
