@@ -220,7 +220,7 @@ export function UsersManager({
                 >
                   {users.length === 0
                     ? "No users yet — invite your first team member."
-                    : "No users match these filters."}
+                    : "No users match these filters — clear the search or filters to see everyone."}
                 </td>
               </tr>
             ) : (

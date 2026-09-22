@@ -77,7 +77,7 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
 
       <section aria-labelledby="period-heading" className="rounded-md border bg-card p-4">
         <div className="flex items-center gap-2">
-          <CalendarRange className="size-5 text-primary" strokeWidth={1.5} aria-hidden />
+          <CalendarRange className="size-5 text-primary-text" strokeWidth={1.5} aria-hidden />
           <h2 id="period-heading" className="text-base leading-6 font-semibold">
             Current reporting period
           </h2>
@@ -106,7 +106,7 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
           className="rounded-md border bg-card p-4 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <div className="flex items-center gap-2">
-            <FileSearch className="size-5 text-primary" strokeWidth={1.5} aria-hidden />
+            <FileSearch className="size-5 text-primary-text" strokeWidth={1.5} aria-hidden />
             <h2 className="text-sm leading-5 font-semibold">Documents to verify</h2>
           </div>
           <p className="mt-2 text-2xl leading-8 font-semibold tabular-nums">{toVerify}</p>
@@ -132,7 +132,7 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
       {scopes.length > 0 ? (
         <section aria-labelledby="scopes-heading" className="rounded-md border bg-card p-4">
           <div className="flex items-center gap-2">
-            <Factory className="size-5 text-primary" strokeWidth={1.5} aria-hidden />
+            <Factory className="size-5 text-primary-text" strokeWidth={1.5} aria-hidden />
             <h2 id="scopes-heading" className="text-base leading-6 font-semibold">
               Your project&apos;s emissions · {scopes[0].view!.node.name},{" "}
               {scopes[0].view!.periodLabel}

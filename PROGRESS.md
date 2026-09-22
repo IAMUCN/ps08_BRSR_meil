@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-22 — Phase 18 committed; Phase 19 next._
+_Last updated: 2026-09-22 — Phase 19 complete, awaiting commit; Phase 20 next._
 
 ---
 
@@ -34,10 +34,10 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits (`0001`–`0027`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme (`0001`–`0028`) |
 | `supabase/tests/database/` | pgTAP database tests |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D19) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A18) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D20) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A19) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
 | `README.md` | Setup and day-to-day commands |
@@ -69,8 +69,8 @@ may run in parallel with Phases 3–5.
 | 16 | Admin Control Tower | Done | `dd5af22` |
 | 17 | Reporting | Done | `9d893b2` |
 | 18 | Audit and security hardening | Done | `2f6118b` |
-| 19 | UI polish and responsive behavior | **Next** | — |
-| 20 | Testing and edge cases | Not started | — |
+| 19 | UI polish and responsive behavior | Done | — |
+| 20 | Testing and edge cases | **Next** | — |
 | 21 | Deployment | Not started | — |
 
 ### What each finished phase delivered
@@ -441,23 +441,52 @@ review: `SECURITY_REVIEW.md`.
   regressions Phase 16 63/63 + 14/14, Phase 17 39/39 + 9/9, approvals 36/36, lint/typecheck/format,
   production build.
 
+**Phase 19 — UI polish and responsive behavior.** Decisions: `.grill/phase-19-ui-polish-decisions.md`.
+- **Theme switcher** on Profile (Warm / Corporate / Dark, a radio group, arrow keys work): applies at once,
+  saved on the account (`users.theme`, migration `0028`, deviation D20, audited) and kept in localStorage,
+  which a tiny script applies before first paint — no flash of the default; the signed-in shell re-applies
+  the account's value, so it follows the user to another device.
+- **WCAG AA in all three themes**: a token sweep measured every pair the UI renders, and 19 tokens that
+  failed for their role moved to the nearest passing shade of the same hue (table with before/after ratios in
+  A19): status colours as text, Theme 3's muted text, focus ring, links and scope colours, input borders
+  everywhere. A new `--primary-text` token carries primary-coloured text (Theme 3's burgundy is invisible as
+  text). axe-core then passed on every page in every theme.
+- **Responsive (UI brief §16)**: below 1280px the sidebar is an icon rail with a toggle that opens it over the
+  page; tables scroll sideways with the first column pinned; Verify Extraction already stacked; phones get
+  the core flows with no sideways scrolling.
+- **States (§15)**: route-level loading skeletons and error boundaries in both shells (the error names what
+  happened, gives a reference and Try again), a Not found page (unknown or malformed ids in URLs land there
+  instead of the server-error message), next-action links on empty states, and an action on an expired
+  session now goes to sign-in and back to the same page — the proxy used to redirect the action itself, so
+  it silently did nothing.
+- **Consistency (§18)**: the top bar uses the §6.2 header tokens, Scope 1/2/3 use the §6.11 icons (flame, zap,
+  link-2), and every page has at most one primary button (Profile's Save became an outline button).
+- Checks: web unit 69/69, DB 150/150, token contrast sweep 0 failures, axe-core (WCAG 2.1 AA) 84/84 pages ×
+  themes and one-primary-button 28/28, browser (Edge) 30/30 — theme switching, another device, skeleton, a
+  real server failure recovered with Try again, not found, unauthorized, expired session, tablet rail and
+  pinned column, Verify stacking, phone widths — regressions Phase 18 54/54 + 12/12, Phase 17 39/39 + 9/9,
+  Phase 16 63/63 + 14/14, approvals 36/36 + 8/8, Phase 13 browser 10/10, lint/typecheck/format, production
+  build. Older browser scripts now wait for streamed content (pages render a skeleton first).
+
 ## 4. What comes next
 
-**Phase 19 — UI polish and responsive behavior** (`06_IMPLEMENTATION_PLAN.md` §Phase 19): the per-user
-theme switcher on Profile with all three token sets, a consistency sweep against UI brief §18, every
-empty/loading/error/confirmation state from the App Flow, responsive breakpoints (tablet sidebar collapse,
-Verify Extraction stacking below ~1000px, sticky first table column) and an accessibility sweep. No new
-pages, database or API changes.
+**Phase 20 — Testing and edge cases** (`06_IMPLEMENTATION_PLAN.md` §Phase 20): targeted automated checks
+where a regression would be expensive (calculation determinism across every formula type, RLS/authorization
+boundaries per table category, the OCR guard rail, the OCR worker re-run against the integrated system), and
+a manual `QA_CHECKLIST.md` working through the plan's full edge-case (§7) and testing-category (§6) lists with
+pass/fail recorded. Test code only — no new features.
 
-Things to remember for Phase 19:
-- Themes are CSS tokens since Phase 1; Theme 2/3 contrast has never been swept.
-- The global org/period context switcher is still deferred (the Control Tower carries context in the URL).
-- The move to real MEIL documents is allowed from Phase 18 on; it needs the owner's documents, not code.
+Things to remember for Phase 20:
+- The end-to-end and browser scripts so far live outside the repository (a scratch harness); decide which to
+  bring in as the committed suite.
+- The OCR integration harness hasn't been re-run since Phase 12.
+- Tests that run in sequence share local data: the upload quota and sign-in counters (`rate_limit_events`)
+  and the OCR queue order affect each other.
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0027` (validation
-  rules through the append-only audit log and rate limits) are not pushed yet. Migrations `0001`–`0014` were pushed on
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0015`–`0028` (validation
+  rules through the user theme) are not pushed yet. Migrations `0001`–`0014` were pushed on
   2026-09-17 with `supabase db push --db-url` (session pooler, `aws-0-ap-south-1.pooler.supabase.com`) and
   verified: 35 tables all with RLS, reference data, private `evidence` bucket, threshold 80, no seeds, no
   users. Still to do: auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords —
@@ -475,9 +504,8 @@ Things to remember for Phase 19:
   design; MEIL must enter the verified factors (with their sources) before any emission calculates. The
   Phase 13 metrics need no factor. Every factor in the local database is labelled as a synthetic
   development value, not an authoritative factor.
-- **Deferred by design:** a global (every-page) org/period context switcher, theme switcher and Theme 2/3
-  contrast sweep (Phase 19), Submission History page and record detail views, Settings page to edit the OCR
-  threshold.
+- **Deferred by design:** a global (every-page) org/period context switcher, Submission History page and
+  record detail views, Settings page to edit the OCR threshold.
 - **Security out of scope:** third-party penetration testing, CAPTCHA on sign-in (`SECURITY_REVIEW.md`).
 - **Abandoned uploads:** a file uploaded but never completed (browser closed mid-flow) stays in Storage with
   no database row. Nothing references it; add a cleanup job if it becomes noticeable.

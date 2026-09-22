@@ -102,6 +102,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
           icon={TrendingUp}
           title="No activity yet"
           message="Create a reporting period and the organization hierarchy to start collecting submissions."
+          link={{ href: "/admin/reporting-periods", label: "Create a reporting period" }}
         />
       </div>
     );

@@ -330,3 +330,52 @@ Decisions: `.grill/phase-17-reporting-decisions.md`.
 - **A mapping says which value it reports** (Mappings tab, schema deviation D18): the calculated result or the
   verified quantity — P6-E8 reports the waste quantity, P6-L4 its emissions.
 - Comparing against a prior period's report (App Flow secondary action) is not built.
+
+## A19 — Phase 19 UI polish and responsive behavior
+
+Decisions: `.grill/phase-19-ui-polish-decisions.md`.
+
+- **Colour tokens that failed WCAG AA for their role were adjusted** (UI brief §17 over §6's supplied values,
+  owner's decision). Each moved to the nearest passing shade of the same hue; the supplied colours keep their
+  brand uses (sidebar, header, primary buttons, badges). Ratios are the worst case across the backgrounds the
+  token is used on:
+
+  | Theme | Token (role)                                  | Supplied         | Now                              | Needs |
+  | ----- | --------------------------------------------- | ---------------- | -------------------------------- | ----- |
+  | 1     | status-success (text)                         | `#1E8E5A` 3.33:1 | `#19764B` 4.52:1                 | 4.5:1 |
+  | 1     | status-warning (text)                         | `#B8860B` 2.62:1 | `#846008` 4.62:1                 | 4.5:1 |
+  | 1     | status-error (text)                           | `#D92D20` 3.89:1 | `#C5291D` 4.55:1                 | 4.5:1 |
+  | 1     | link text, BRSR heading, KPI title            | `#CA2851` 4.29:1 | `#C4274F` 4.50:1                 | 4.5:1 |
+  | 1     | input border                                  | `#FFE3B3` 1.18:1 | `#9E8D6F` 3.07:1                 | 3:1   |
+  | 1     | scope-2                                       | `#FF6766` 2.84:1 | `#F76463` 3.02:1                 | 3:1   |
+  | 1     | scope-3                                       | `#FFB173` 1.78:1 | `#C28757` 3.04:1                 | 3:1   |
+  | 2     | status colours                                | as Theme 1       | as Theme 1 (e.g. warning 5.26:1) | 4.5:1 |
+  | 2     | sidebar active, important button (white text) | `#EF102D` 4.39:1 | `#EA102C` 4.56:1                 | 4.5:1 |
+  | 2     | input border                                  | `#DDDDDD` 1.25:1 | `#8D8D8D` 3.04:1                 | 3:1   |
+  | 3     | muted text, KPI title                         | `#76757A` 2.26:1 | `#ADACAF` 4.56:1                 | 4.5:1 |
+  | 3     | link text (new `--primary-text`)              | `#550916` 1.01:1 | `#C2A6AB` 4.58:1                 | 4.5:1 |
+  | 3     | status-success                                | `#1E8E5A` 2.49:1 | `#76BA9A` 4.54:1                 | 4.5:1 |
+  | 3     | status-warning                                | `#B8860B` 3.17:1 | `#CCA84F` 4.56:1                 | 4.5:1 |
+  | 3     | status-error                                  | `#D92D20` 2.13:1 | `#EC948D` 4.51:1                 | 4.5:1 |
+  | 3     | focus ring                                    | `#550916` 1.01:1 | `#A88288` 3.05:1                 | 3:1   |
+  | 3     | input border                                  | `#5E5453` 1.98:1 | `#797170` 3.05:1                 | 3:1   |
+  | 3     | scope-2                                       | `#550916` 1.01:1 | `#96666F` 3.06:1                 | 3:1   |
+  | 3     | scope-3                                       | `#5E5453` 1.98:1 | `#797170` 3.05:1                 | 3:1   |
+
+  Consequences: §6.9's status colours are no longer one shared set (the two light themes share one, Theme 3
+  has its own), and a new `--primary-text` token carries primary-coloured text and icons, because Theme 3's
+  burgundy works as a button fill but not as text.
+
+- **The theme is saved on the account** (`users.theme`, schema deviation D20) with a localStorage copy that a
+  tiny script applies before first paint; the signed-in shell then re-applies the account's value. The
+  switcher is labelled Warm / Corporate / Dark rather than Theme 1 / 2 / 3.
+- **The top bar now uses the §6.2 header tokens** (raspberry in Theme 1) instead of the card surface.
+- **Below 1280px the sidebar is an icon rail** with a toggle that opens it over the page (Escape or a click
+  outside closes it). The brief's "expandable on hover/click" is click only; phones get the same rail.
+- **Profile's "Save" (display name) is an outline button**, so "Change password" is the one primary action
+  (§18 rule 1).
+- **Scope 1/2/3 use the §6.11 icons** (flame, zap, link-2) in the sidebar and on their dashboards.
+- **An unknown or malformed id in a URL** (a report, a record's audit history) shows "Page not found", not
+  the server-error message.
+- **An action on an expired session** (App Flow §3, §4.3) goes to sign-in with "Your session expired" and
+  back to the same page afterwards; the proxy no longer redirects Server Action requests itself.

@@ -20,12 +20,12 @@ import type { NotificationItem } from "@/lib/trpc/routers/notifications";
 
 // UI brief §14: an icon per type; icons never carry meaning alone (the title says it too).
 const ICONS: Record<string, { icon: LucideIcon; className: string }> = {
-  verification_needed: { icon: FileSearch, className: "text-primary" },
+  verification_needed: { icon: FileSearch, className: "text-primary-text" },
   low_confidence: { icon: AlertTriangle, className: "text-status-warning" },
   ocr_failed: { icon: FileX, className: "text-status-error" },
   returned: { icon: RotateCcw, className: "text-status-error" },
   validation_review: { icon: ShieldAlert, className: "text-status-warning" },
-  approval_needed: { icon: ClipboardCheck, className: "text-primary" },
+  approval_needed: { icon: ClipboardCheck, className: "text-primary-text" },
   approved: { icon: CheckCircle2, className: "text-status-success" },
   calculation_blocked: { icon: Calculator, className: "text-status-warning" },
   report_ready: { icon: FileText, className: "text-status-success" },

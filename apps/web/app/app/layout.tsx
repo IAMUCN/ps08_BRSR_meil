@@ -1,4 +1,5 @@
 import { Sidebar, type NavItem } from "@/components/shell/sidebar";
+import { ThemeSync } from "@/components/shell/theme-sync";
 import { TopBar } from "@/components/shell/top-bar";
 import { requireAppSession } from "@/lib/auth/session";
 
@@ -16,6 +17,7 @@ export default async function WorkspaceLayout({ children }: LayoutProps<"/app">)
 
   return (
     <div className="flex min-h-screen flex-1">
+      <ThemeSync theme={session.theme} />
       <Sidebar
         items={
           // A1: the Approvals item appears only for approvers (Corporate ESG/Sustainability).
@@ -31,7 +33,7 @@ export default async function WorkspaceLayout({ children }: LayoutProps<"/app">)
           profileHref="/app/profile"
           notificationsHref="/app/notifications"
         />
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

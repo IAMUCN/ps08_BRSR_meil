@@ -26,7 +26,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <p className="mt-4 text-sm leading-5">
         <Link
           href="/forgot-password"
-          className="font-medium text-primary underline-offset-4 hover:underline"
+          className="font-medium text-primary-text underline-offset-4 hover:underline"
         >
           Forgot password?
         </Link>

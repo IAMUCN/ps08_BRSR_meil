@@ -279,6 +279,18 @@ to `clock_timestamp()` instead of `now()`, so the entries one transaction writes
 address) and the audit log protected only by grants. Decision: `.grill/phase-18-audit-security-decisions.md`;
 review: `SECURITY_REVIEW.md`.
 
+## D20 — `users.theme` (migration `0028`)
+
+**Schema says:** nothing; the UI brief (§4) and App Flow (Profile) say the chosen theme is "persisted
+per-user … synced to the profile record".
+
+**Implemented:** `users.theme text not null default 'theme-1'`, checked to `theme-1`/`theme-2`/`theme-3`.
+Readable by the user's own session like the rest of their row; changed only by the server
+(`profile.setTheme`, audited `user.theme_changed`).
+
+**Why:** so the choice follows the user to another device. Decision:
+`.grill/phase-19-ui-polish-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

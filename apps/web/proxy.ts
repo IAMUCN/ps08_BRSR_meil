@@ -44,7 +44,11 @@ export async function proxy(request: NextRequest) {
   const signedIn = Boolean(data?.claims);
   const { pathname, search } = request.nextUrl;
 
-  if (!signedIn && isProtected(pathname)) {
+  // A Server Action is not redirected here: the browser would re-send it to /login, where it silently does
+  // nothing. It reaches its procedure, which refuses it, and runAction sends the user to sign in (§4.3).
+  const isServerAction = request.method === "POST" && request.headers.has("next-action");
+
+  if (!signedIn && isProtected(pathname) && !isServerAction) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.search = "";

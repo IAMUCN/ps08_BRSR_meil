@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { PageHeader } from "@/components/shell/page-header";
 import { requireAdminSession } from "@/lib/auth/session";
-import { api } from "@/lib/trpc/server";
+import { api, orNotFound } from "@/lib/trpc/server";
 import { ReportView } from "./report-view";
 
 export const metadata: Metadata = { title: "Report · TraceESG" };
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Report · TraceESG" };
 // 03_APP_FLOW.md §2.2 Report Detail / Drill-down: the stored report with live links into its data trail.
 export default async function ReportDetailPage({ params }: PageProps<"/admin/reports/[reportId]">) {
   const [, caller, { reportId }] = await Promise.all([requireAdminSession(), api(), params]);
-  const run = await caller.reports.get({ id: reportId });
+  const run = await orNotFound(caller.reports.get({ id: reportId }));
   const s = run.snapshot;
 
   return (

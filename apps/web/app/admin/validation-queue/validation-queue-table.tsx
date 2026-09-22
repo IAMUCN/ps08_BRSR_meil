@@ -158,7 +158,7 @@ export function ValidationQueueTable({ rows }: { rows: QueueRow[] }) {
                     <button
                       type="button"
                       onClick={() => setSelectedId(row.recordId)}
-                      className="text-left font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="text-left font-medium text-primary-text underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       {row.fileName ?? "No document"}
                     </button>

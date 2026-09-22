@@ -8,6 +8,7 @@ import { publicEnv } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { protectedProcedure, router } from "@/lib/trpc/init";
 import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
+import { THEMES } from "@/lib/theme";
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -28,6 +29,25 @@ export const profileRouter = router({
           userId: ctx.session.userId,
           oldValue: { display_name: ctx.session.displayName },
           newValue: { display_name: input.displayName },
+        });
+      });
+      return null;
+    }),
+
+  /** UI brief §4: the theme is saved on the account so it follows the user to another device. */
+  setTheme: protectedProcedure
+    .input(z.object({ theme: z.enum(THEMES.map((t) => t.id)) }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.theme === ctx.session.theme) return null;
+      await db().begin(async (tx) => {
+        await tx`update public.users set theme = ${input.theme} where id = ${ctx.session.userId}`;
+        await writeAudit(tx, {
+          eventType: "user.theme_changed",
+          entityType: "user",
+          entityId: ctx.session.userId,
+          userId: ctx.session.userId,
+          oldValue: { theme: ctx.session.theme },
+          newValue: { theme: input.theme },
         });
       });
       return null;

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
 import { requireAdminSession } from "@/lib/auth/session";
-import { api } from "@/lib/trpc/server";
+import { api, orNotFound } from "@/lib/trpc/server";
 import { AuditFilters, AuditTable } from "./audit-view";
 
 export const metadata: Metadata = { title: "Audit Trail · TraceESG" };
@@ -20,7 +20,7 @@ export default async function AuditTrailPage({ searchParams }: PageProps<"/admin
   const recordId = uuid(one(params, "record"));
 
   if (recordId) {
-    const history = await caller.audit.record({ recordId });
+    const history = await orNotFound(caller.audit.record({ recordId }));
     return (
       <div className="max-w-7xl space-y-4">
         <PageHeader

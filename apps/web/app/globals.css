@@ -16,6 +16,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-text: var(--primary-text);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -101,8 +102,11 @@
   --secondary-foreground: #222222;
   --muted: var(--surface-elevated);
   --accent-foreground: #222222;
-  --destructive: #d92d20;
-  --input: #ffe3b3;
+  /* AA adjustments (APP_FLOW_DEVIATIONS.md A19): link text needs 4.5:1 on the peach page too, control
+     boundaries 3:1. */
+  --primary-text: #c4274f;
+  --destructive: var(--status-error);
+  --input: #9e8d6f;
   --ring: #ca2851;
 
   /* §6.2 regions. Hover/active foregrounds use dark text on coral/peach per the §6.10 contrast rule
@@ -117,11 +121,11 @@
   --sidebar-hover-fg: #222222;
   --sidebar-divider: rgb(255 227 179 / 0.35);
   /* §6.3 */
-  --kpi-title: #ca2851;
+  --kpi-title: #c4274f; /* #ca2851 → 4.5:1 on the peach page (A19) */
   --kpi-number: #ca2851;
   --kpi-important-accent: #ff6766;
   /* §6.4 */
-  --brsr-heading: #ca2851;
+  --brsr-heading: #c4274f; /* #ca2851 → 4.5:1 on the peach page (A19) */
   --brsr-badge: #ff6766;
   /* §6.6 */
   --table-header-bg: #ca2851;
@@ -140,8 +144,14 @@
   --overlay: rgba(0, 0, 0, 0.35);
   /* §6.11 */
   --scope-1: #ca2851;
-  --scope-2: #ff6766;
-  --scope-3: #ffb173;
+  --scope-2: #f76463; /* #ff6766, 3% darker for 3:1 (A19) */
+  --scope-3: #c28757; /* #ffb173, 24% darker for 3:1 (A19) */
+
+  /* §6.9 status colors, never substituted with brand colors. The supplied #1e8e5a / #b8860b / #d92d20 are
+     darkened for 4.5:1 text on the light themes and lightened in Theme 3 (A19). */
+  --status-success: #19764b;
+  --status-warning: #846008;
+  --status-error: #c5291d;
 }
 
 [data-theme="theme-2"] {
@@ -163,15 +173,16 @@
   --secondary-foreground: #222222;
   --muted: var(--surface-elevated);
   --accent-foreground: #222222;
-  --destructive: #d92d20;
-  --input: #dddddd;
+  --primary-text: var(--primary);
+  --destructive: var(--status-error);
+  --input: #8d8d8d; /* #dddddd → 3:1 (A19) */
   --ring: #37358f;
 
   --header-bg: #ffffff;
   --header-fg: #222222;
   --sidebar-bg: #37358f;
   --sidebar-fg: #ffffff;
-  --sidebar-active-bg: #ef102d;
+  --sidebar-active-bg: #ea102c; /* #ef102d, 2% darker for white text at 4.5:1 (A19) */
   --sidebar-active-fg: #ffffff;
   --sidebar-hover: #4a48a0;
   --sidebar-hover-fg: #ffffff;
@@ -190,7 +201,7 @@
   --table-border: #dddddd;
   --btn-secondary-bg: #ffffff;
   --btn-secondary-fg: #37358f;
-  --btn-important-bg: #ef102d;
+  --btn-important-bg: #ea102c; /* as above (A19) */
   --btn-important-fg: #ffffff;
   --modal-header-bg: #37358f;
   --modal-header-fg: #ffffff;
@@ -198,6 +209,12 @@
   --scope-1: #37358f;
   --scope-2: #ef102d;
   --scope-3: #6b6b6b;
+
+  /* §6.9 status colors, never substituted with brand colors. The supplied #1e8e5a / #b8860b / #d92d20 are
+     darkened for 4.5:1 text on the light themes and lightened in Theme 3 (A19). */
+  --status-success: #19764b;
+  --status-warning: #846008;
+  --status-error: #c5291d;
 }
 
 [data-theme="theme-3"] {
@@ -206,7 +223,7 @@
   --surface: #312725;
   --surface-elevated: #493e3c;
   --foreground: #ffffff;
-  --muted-foreground: #76757a;
+  --muted-foreground: #adacaf; /* #76757a → 4.5:1 on every dark surface (A19) */
   --border: #5e5453;
   --primary: #550916;
   --secondary: #5e5453;
@@ -220,9 +237,10 @@
   --secondary-foreground: #ffffff;
   --muted: var(--surface-elevated);
   --accent-foreground: #ffffff;
-  --destructive: #d92d20;
-  --input: #5e5453;
-  --ring: #550916;
+  --primary-text: #c2a6ab; /* #550916 is invisible as text on the dark surfaces (A19) */
+  --destructive: var(--status-error);
+  --input: #797170; /* #5e5453 → 3:1 (A19) */
+  --ring: #a88288; /* #550916 → 3:1 (A19) */
 
   --header-bg: #1b1718;
   --header-fg: #ffffff;
@@ -233,7 +251,7 @@
   --sidebar-hover: #493e3c;
   --sidebar-hover-fg: #ffffff;
   --sidebar-divider: #5e5453;
-  --kpi-title: #76757a;
+  --kpi-title: #adacaf; /* as --muted-foreground (A19) */
   --kpi-number: #ffffff;
   --kpi-important-accent: #550916;
   /* §6.4 */
@@ -253,15 +271,12 @@
   --modal-header-fg: #ffffff;
   --overlay: rgba(0, 0, 0, 0.7);
   --scope-1: #76757a;
-  --scope-2: #550916;
-  --scope-3: #5e5453;
-}
+  --scope-2: #96666f; /* #550916 → 3:1 (A19) */
+  --scope-3: #797170; /* #5e5453 → 3:1 (A19) */
 
-/* §6.9 status colors are shared across all themes; never substituted with brand colors. */
-:root {
-  --status-success: #1e8e5a;
-  --status-warning: #b8860b;
-  --status-error: #d92d20;
+  --status-success: #76ba9a;
+  --status-warning: #cca84f;
+  --status-error: #ec948d;
 }
 
 @layer base {
@@ -273,6 +288,21 @@
   }
   html {
     @apply font-sans;
+  }
+
+  /* UI brief §16: a data table scrolls horizontally with its first column pinned. Rows get the row token
+     as their base (utilities still override it) so the pinned cell is never see-through. */
+  tbody > tr {
+    background-color: var(--table-row-bg);
+  }
+  .overflow-x-auto > table > :is(thead, tbody) > tr > :first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: inherit;
+  }
+  .overflow-x-auto > table > thead > tr > :first-child {
+    background-color: var(--table-header-bg);
   }
 }
 

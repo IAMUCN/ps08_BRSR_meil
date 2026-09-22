@@ -21,24 +21,22 @@ export function TopBar({
   const roles = [...new Set(session.assignments.map((a) => a.roleName))].join(", ");
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-end gap-4 border-b bg-surface px-6">
+    <header className="flex h-14 shrink-0 items-center justify-end gap-2 border-b bg-header px-4 text-header-foreground md:gap-4 md:px-6">
       <NotificationBell viewAllHref={notificationsHref} />
-      <p className="text-right text-sm leading-5">
+      <p className="hidden text-right text-sm leading-5 md:block">
         <span className="font-semibold">{session.displayName}</span>
-        {roles ? (
-          <span className="block text-xs leading-4 text-muted-foreground">{roles}</span>
-        ) : null}
+        {roles ? <span className="block text-xs leading-4">{roles}</span> : null}
       </p>
       <Button asChild variant="ghost" size="sm">
         <Link href={profileHref}>
           <UserRound aria-hidden />
-          Profile
+          <span className="sr-only sm:not-sr-only">Profile</span>
         </Link>
       </Button>
       <form action={signOutAction}>
         <Button type="submit" variant="outline" size="sm">
           <LogOut aria-hidden />
-          Log out
+          <span className="sr-only sm:not-sr-only">Log out</span>
         </Button>
       </form>
     </header>

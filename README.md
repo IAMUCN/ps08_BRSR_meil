@@ -4,7 +4,7 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–18 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> **Status:** Phases 1–19 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
 > database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
 > users and assignments, roles and permissions, reporting periods, profile), document upload, the OCR
 > worker (Phase 2B) and its integration (Phase 6), OCR verification (Phase 7: document viewer beside the
@@ -24,7 +24,9 @@ original evidence.
 > Explorer, configurable expected submissions) and reporting (Phase 17: BRSR reports by period or financial
 > year rendered to PDF, with every value drilling down to its original document) and audit and security
 > hardening (Phase 18: the Audit Trail page, an append-only audit log, sign-in and upload rate limits, CSRF
-> protection on tRPC — see [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)). See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
+> protection on tRPC — see [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) and UI polish (Phase 19: the per-user
+> theme switcher on Profile, WCAG AA contrast in all three themes, the tablet icon-rail sidebar, loading
+> skeletons and error/not-found states). See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
 

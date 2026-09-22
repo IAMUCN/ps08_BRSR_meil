@@ -105,7 +105,7 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
                   <span
                     className={cn(
                       "rounded-sm px-1.5 text-xs leading-5 tabular-nums",
-                      active ? "bg-primary-foreground/20" : "bg-muted",
+                      active ? "bg-primary-foreground text-primary" : "bg-muted",
                     )}
                   >
                     {counts.get(t.key) ?? 0}
@@ -168,7 +168,7 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
                       {row.documentId ? (
                         <Link
                           href={`/app/verify/${row.documentId}`}
-                          className="text-primary underline-offset-4 hover:underline"
+                          className="text-primary-text underline-offset-4 hover:underline"
                         >
                           {row.fileName}
                         </Link>

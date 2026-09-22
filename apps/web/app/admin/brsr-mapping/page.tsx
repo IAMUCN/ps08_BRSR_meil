@@ -74,6 +74,7 @@ export default async function BrsrMappingPage({ searchParams }: PageProps<"/admi
           icon={ListTree}
           title="No reporting period yet"
           message="Readiness is shown per reporting period. Create one under Reporting Periods."
+          link={{ href: "/admin/reporting-periods", label: "Go to Reporting Periods" }}
         />
       )}
     </div>

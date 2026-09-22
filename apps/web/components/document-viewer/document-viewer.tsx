@@ -115,7 +115,13 @@ export function DocumentViewer({
         className,
       )}
     >
-      <div className="flex-1 overflow-auto p-4">
+      {/* Focusable so a zoomed document can be scrolled from the keyboard (UI brief §17). */}
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label={`Document: ${fileName}`}
+        className="flex-1 overflow-auto p-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+      >
         {status === "loading" ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <Loader2 className="size-6 animate-spin" aria-hidden />

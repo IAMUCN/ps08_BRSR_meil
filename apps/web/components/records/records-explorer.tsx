@@ -1,6 +1,7 @@
 "use client";
 
 import { Download } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -221,6 +222,7 @@ export function RecordsTable({
   emptyMessage: string;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const pathname = usePathname();
   const headings =
     variant === "monitoring"
       ? ["Document", "ESG activity", "Org unit", "Period", "Submitted by", "Status"]
@@ -244,7 +246,13 @@ export function RecordsTable({
       </div>
       {rows.length === 0 ? (
         <p className="rounded-md border bg-card px-4 py-6 text-sm text-muted-foreground">
-          {emptyMessage}
+          {emptyMessage}{" "}
+          <Link
+            href={pathname}
+            className="font-medium text-primary-text underline underline-offset-2"
+          >
+            Clear filters
+          </Link>
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-table-border">

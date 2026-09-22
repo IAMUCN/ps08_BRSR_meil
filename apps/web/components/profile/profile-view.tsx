@@ -10,10 +10,10 @@ import { Label } from "@/components/ui/label";
 import type { ActiveSession } from "@/lib/auth/session";
 import { AUTH_MESSAGES } from "@/lib/auth/messages";
 import { changePasswordAction, updateDisplayNameAction } from "@/lib/profile/actions";
+import { ThemePicker } from "./theme-picker";
 
 /**
  * 03_APP_FLOW.md §2.3 Profile, mounted at /app/profile and /admin/profile. Role and scope are read-only.
- * The theme switcher is added in Phase 19.
  */
 export function ProfileView({ session }: { session: ActiveSession }) {
   const router = useRouter();
@@ -76,6 +76,7 @@ export function ProfileView({ session }: { session: ActiveSession }) {
           </div>
           <Button
             type="submit"
+            variant="outline"
             disabled={namePending || displayName.trim() === session.displayName}
           >
             {namePending ? <Loader2 className="animate-spin" aria-hidden /> : null}
@@ -83,10 +84,18 @@ export function ProfileView({ session }: { session: ActiveSession }) {
           </Button>
         </form>
 
+        <h3 className="mt-8 text-base leading-6 font-semibold">Appearance</h3>
+        <p className="mt-1 text-sm leading-5 text-muted-foreground">
+          Saved to your account, so it follows you to other devices.
+        </p>
+        <div className="mt-3">
+          <ThemePicker current={session.theme} />
+        </div>
+
         <h3 className="mt-8 text-base leading-6 font-semibold">Roles and scope</h3>
         <p className="mt-1 text-sm leading-5 text-muted-foreground">Managed by your Admin.</p>
         {session.assignments.length === 0 ? (
-          <p className="mt-2 text-sm">No assignments.</p>
+          <p className="mt-2 text-sm">No assignments yet — ask your Admin to assign you a role.</p>
         ) : (
           <ul className="mt-2 divide-y rounded-md border text-sm">
             {session.assignments.map((a) => (

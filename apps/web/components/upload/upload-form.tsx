@@ -187,7 +187,7 @@ export function UploadForm({
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-6">
       <p className="flex items-center gap-2 text-sm leading-5">
-        <CalendarRange className="size-4 text-primary" strokeWidth={1.5} aria-hidden />
+        <CalendarRange className="size-4 text-primary-text" strokeWidth={1.5} aria-hidden />
         Reporting period: <span className="font-medium">{periodLabel}</span>
       </p>
 

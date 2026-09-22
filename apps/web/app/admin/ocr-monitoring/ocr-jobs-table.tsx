@@ -154,7 +154,7 @@ export function OcrJobsTable({ jobs, threshold }: { jobs: OcrJobRow[]; threshold
                     <button
                       type="button"
                       onClick={() => setSelectedId(job.id)}
-                      className="text-left font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="text-left font-medium text-primary-text underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       {job.fileName}
                     </button>
