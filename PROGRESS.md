@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-22 — Phase 19 committed; Phase 20 next._
+_Last updated: 2026-09-22 — Phase 20 complete, awaiting commit; Phase 21 next._
 
 ---
 
@@ -35,7 +35,9 @@ Big rules that shape everything:
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
 | `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme (`0001`–`0028`) |
-| `supabase/tests/database/` | pgTAP database tests |
+| `supabase/tests/database/` | pgTAP database tests (also run in CI) |
+| `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–D, authorization, edge cases (`pnpm --filter web test:e2e`) |
+| `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D20) |
 | `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A19) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
@@ -70,8 +72,8 @@ may run in parallel with Phases 3–5.
 | 17 | Reporting | Done | `9d893b2` |
 | 18 | Audit and security hardening | Done | `2f6118b` |
 | 19 | UI polish and responsive behavior | Done | `44ad2e1` |
-| 20 | Testing and edge cases | **Next** | — |
-| 21 | Deployment | Not started | — |
+| 20 | Testing and edge cases | Done | — |
+| 21 | Deployment | **Next** | — |
 
 ### What each finished phase delivered
 
@@ -468,20 +470,44 @@ review: `SECURITY_REVIEW.md`.
   Phase 16 63/63 + 14/14, approvals 36/36 + 8/8, Phase 13 browser 10/10, lint/typecheck/format, production
   build. Older browser scripts now wait for streamed content (pages render a skeleton first).
 
+**Phase 20 — Testing and edge cases.** Decisions: `.grill/phase-20-testing-decisions.md`; results:
+`QA_CHECKLIST.md`.
+- **A committed end-to-end suite** (`apps/web/tests/e2e/`, `pnpm --filter web test:e2e`): the plan's critical
+  Scenarios A–D (diesel, electricity, HR with a genuinely low-confidence field, the consolidated report down to
+  each original document), authorization boundaries through the app and straight at the database API with a
+  real user token, and every automatable edge case from plan §6 — 149 checks. It provisions its own accounts
+  (fresh random passwords each run) and labelled synthetic factors, refuses a non-local database, and passed on
+  a freshly reset database and again on the same data (the local dev database was copied first and restored
+  exactly afterwards).
+- **Determinism**: every current calculation — direct multiply, percentage, subtract — is recomputed from what
+  it stored and must match exactly.
+- **Database**: a scoped-read test for every table hanging off a record or document (OCR, verification,
+  validation, approvals, calculations, report runs): the owner's PM sees each row, a sibling project's PM none.
+  **CI now runs the database tests** on a fresh local Supabase.
+- **Found and fixed**: OCR could read the next line's **date as an invoice number** at 96 % confidence when the
+  reference had no digits — the guard rail wouldn't have caught it; now an identifier is never a date and the
+  field is left for the person (`EXTRACTOR_VERSION` `rules-4`, worker image rebuilt, now tagged
+  `traceesg-ocr-worker` as the README says). The OCR harness's clean-up tried to delete audit entries, which the
+  Phase 18 append-only log now refuses; it leaves them.
+- **Manual QA** (Edge): an upload that loses the network shows its message and Try again completes it;
+  navigating while offline shows the browser's own offline page (accepted, QA finding 2).
+- Checks: web unit 69/69, worker unit 15/15 and Ruff, OCR harness 9/9 (twice), DB 154/154, end-to-end 149/149
+  (fresh database and re-run), Phase 19 browser 30/30, Phase 18 end-to-end 54/54, offline upload 5/5,
+  lint/typecheck/format, production build.
+
 ## 4. What comes next
 
-**Phase 20 — Testing and edge cases** (`06_IMPLEMENTATION_PLAN.md` §Phase 20): targeted automated checks
-where a regression would be expensive (calculation determinism across every formula type, RLS/authorization
-boundaries per table category, the OCR guard rail, the OCR worker re-run against the integrated system), and
-a manual `QA_CHECKLIST.md` working through the plan's full edge-case (§7) and testing-category (§6) lists with
-pass/fail recorded. Test code only — no new features.
+**Phase 21 — Deployment** (`06_IMPLEMENTATION_PLAN.md` §Phase 21): the production Supabase project (or the dev
+project promoted — decide explicitly), `apps/web` on Vercel and the OCR worker on Render (not a sleeping
+tier), production migrations as a reviewed step, Sentry and log streams, backups confirmed, a rollback
+procedure tested once, `DEPLOYMENT.md`, and the critical end-to-end test re-run against the live URLs.
 
-Things to remember for Phase 20:
-- The end-to-end and browser scripts so far live outside the repository (a scratch harness); decide which to
-  bring in as the committed suite.
-- The OCR integration harness hasn't been re-run since Phase 12.
-- Tests that run in sequence share local data: the upload quota and sign-in counters (`rate_limit_events`)
-  and the OCR queue order affect each other.
+Things to remember for Phase 21:
+- The end-to-end suite refuses any non-local database by design; running Scenarios A–D against production
+  needs a deliberate, reviewed switch (and test accounts and synthetic data that must not stay there).
+- Everything in "Open items" below: migrations `0015`–`0028` not pushed, the database password to rotate,
+  Supabase Auth limits (SECURITY_REVIEW.md F8), SMTP, Chromium on Vercel, the Render Blueprint untested.
+- No conversion factors exist outside local data; MEIL must enter verified ones before emissions calculate.
 
 ## 5. Open items and blockers
 
@@ -498,8 +524,9 @@ Things to remember for Phase 20:
 - **Worker deployment:** apply `render.yaml` in Render and enter the secrets there (DATABASE_URL = session
   pooler string). The Blueprint file is unvalidated until Render reads it.
 - **Email:** configure custom SMTP (Resend) before inviting anyone outside the Supabase team.
-- **CI:** database tests (`pnpm db:test`), the OCR integration harness and the Docker image build run
-  locally only.
+- **CI:** the new database job runs on GitHub only once pushed (untested there). The end-to-end suite, the OCR
+  integration harness and the Docker image build run locally.
+- **Real documents:** OCR accuracy on real MEIL documents is untested — only synthetic samples so far.
 - **Conversion factors are empty everywhere except locally.** No factor values exist in any migration by
   design; MEIL must enter the verified factors (with their sources) before any emission calculates. The
   Phase 13 metrics need no factor. Every factor in the local database is labelled as a synthetic

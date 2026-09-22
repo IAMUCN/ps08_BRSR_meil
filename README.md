@@ -4,7 +4,7 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–19 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> **Status:** Phases 1–20 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
 > database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
 > users and assignments, roles and permissions, reporting periods, profile), document upload, the OCR
 > worker (Phase 2B) and its integration (Phase 6), OCR verification (Phase 7: document viewer beside the
@@ -26,7 +26,8 @@ original evidence.
 > hardening (Phase 18: the Audit Trail page, an append-only audit log, sign-in and upload rate limits, CSRF
 > protection on tRPC — see [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) and UI polish (Phase 19: the per-user
 > theme switcher on Profile, WCAG AA contrast in all three themes, the tablet icon-rail sidebar, loading
-> skeletons and error/not-found states). See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
+> skeletons and error/not-found states) and testing (Phase 20: a committed end-to-end suite, database tests in
+> CI and [`QA_CHECKLIST.md`](QA_CHECKLIST.md)). See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
 
@@ -300,12 +301,34 @@ enter them there, never in the repository:
 
 Push the database migrations to the same Supabase project first (`supabase link` → `supabase db push`).
 
+## Testing
+
+| Suite | Command | Needs |
+|---|---|---|
+| Web unit tests | `pnpm test` | nothing |
+| Database (pgTAP: schema, RLS, grants, triggers) | `pnpm db:test` | local Supabase |
+| OCR extraction rules | `python -m unittest discover -s tests/unit -t .` (in `apps/ocr-worker`) | nothing |
+| OCR integration harness | `python -m unittest discover -s tests/integration -t .` (in `apps/ocr-worker`) | local Supabase, models |
+| End to end | `pnpm --filter web test:e2e` (or name scripts: `… test:e2e authorization`) | see below |
+
+**End-to-end suite** (`apps/web/tests/e2e/`): the plan's critical Scenarios A–D (diesel, electricity, HR with a
+low-confidence field, the consolidated report down to each original document), authorization boundaries
+through the app and straight at the database API, and the edge cases — real sessions, real procedures, real
+uploads and the real OCR worker, synthetic documents only. It needs local Supabase, the app running
+(`pnpm --filter web build && pnpm --filter web start`), the worker image
+(`docker build -t traceesg-ocr-worker apps/ocr-worker`, or `E2E_WORKER=local` to use the venv) and the worker's
+venv for generating documents. It provisions its own `e2e.*@traceesg.test` accounts with fresh random
+passwords each run and enters clearly labelled synthetic conversion factors only where none exist; it refuses
+to run unless `DATABASE_URL` is local. It runs on a freshly reset database or an existing one.
+
+Manual checks and their results are recorded in [`QA_CHECKLIST.md`](QA_CHECKLIST.md).
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and push to `main`:
-lint, typecheck, unit tests and format check for the web app, and Ruff plus the extraction unit tests for
-the OCR worker. Database tests
-(`pnpm db:test`) run locally only for now. There is no deploy step yet.
+lint, typecheck, unit tests and format check for the web app; the database tests against a fresh local
+Supabase (every migration and the seed applied, then `pnpm db:test`); and Ruff plus the extraction unit tests
+for the OCR worker. The end-to-end suite and the OCR harness run locally. There is no deploy step yet.
 
 ## Secrets
 

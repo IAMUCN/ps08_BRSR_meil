@@ -114,6 +114,23 @@ class ExtractFieldsTest(unittest.TestCase):
         self.assertIsNone(fields["invoice_number"].confidence)
         self.assertEqual(fields["invoice_number"].source["method"], "not_found")
 
+    def test_an_invoice_number_is_never_taken_from_a_date(self):
+        # Phase 20: a reference with no digits was skipped and the next line's date read instead, at
+        # high confidence. A date is never an identifier: the field is left for the person to fill.
+        lines = [
+            line("Invoice No: A-MUCDEATL", 40, 100),
+            line("Invoice Date: 05-Sep-2026", 40, 130),
+        ]
+        fields = {f.key: f for f in extract_fields(lines, DIESEL_FIELDS)}
+        self.assertIsNone(fields["invoice_number"].value)
+        self.assertEqual(fields["billing_period"].value, "05-Sep-2026")
+        # An identifier that merely contains date-like digits is still read; an ISO date is not.
+        lines = [line("Invoice No: SMP-INV-2026-0042", 40, 100)]
+        found = values(extract_fields(lines, DIESEL_FIELDS))
+        self.assertEqual(found["invoice_number"], "SMP-INV-2026-0042")
+        lines = [line("Invoice No:", 40, 100), line("2026-09-05", 40, 130, 140)]
+        self.assertIsNone(values(extract_fields(lines, DIESEL_FIELDS))["invoice_number"])
+
     def test_field_without_a_rule_is_reported_missing(self):
         fields = extract_fields(
             [line("Anything 12", 0, 0)], [FieldSpec("mystery", "Mystery", "text")]

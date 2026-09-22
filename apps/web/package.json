@@ -14,7 +14,8 @@
     "test": "node --test \"tests/**/*.test.ts\"",
     "provision-user": "node --env-file-if-exists=.env.local scripts/provision-user.ts",
     "validate-pending": "node --conditions=react-server --env-file-if-exists=.env.local scripts/validate-pending.ts",
-    "calculate-pending": "node --conditions=react-server --env-file-if-exists=.env.local scripts/calculate-pending.ts"
+    "calculate-pending": "node --conditions=react-server --env-file-if-exists=.env.local scripts/calculate-pending.ts",
+    "test:e2e": "node tests/e2e/run.mjs"
   },
   "dependencies": {
     "@sparticuz/chromium": "^153.0.0",

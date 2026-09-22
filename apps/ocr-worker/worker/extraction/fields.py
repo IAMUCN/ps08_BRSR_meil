@@ -59,6 +59,7 @@ _TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9/\-]*[A-Za-z0-9]")
 _DATE = r"\d{1,2}[-/. ](?:\d{1,2}|[A-Za-z]{3,9})[-/. ]\d{2,4}"
 _PERIOD_RANGE = re.compile(rf"({_DATE})\s*(?:to|till|until|-|–|—)\s*({_DATE})", re.IGNORECASE)
 _SINGLE_DATE = re.compile(rf"({_DATE})")
+_WHOLE_DATE = re.compile(rf"{_DATE}|\d{{4}}-\d{{2}}-\d{{2}}")
 # Volume (incl. water in m³), energy, weight (Scope 3 waste) and currency (spend-based metrics).
 _UNIT = re.compile(
     r"(?<![A-Za-z])"
@@ -85,8 +86,14 @@ def _read_value(kind: str, text: str) -> str | None:
         match = _NUMBER.search(text)
         return match.group(1).replace(",", "") if match else None
     if kind == "identifier":
-        # First token of 3+ characters that contains a digit, e.g. SMP-INV-2026-0042.
-        tokens = (t for t in _TOKEN.findall(text) if len(t) >= 3 and re.search(r"\d", t))
+        # First token of 3+ characters that contains a digit, e.g. SMP-INV-2026-0042 — never a
+        # date: a neighbouring line's date is not an invoice number, so the field stays empty for
+        # the person to fill.
+        tokens = (
+            t
+            for t in _TOKEN.findall(text)
+            if len(t) >= 3 and re.search(r"\d", t) and not _WHOLE_DATE.fullmatch(t)
+        )
         return next(tokens, "").upper() or None
     if kind == "period":
         match = _PERIOD_RANGE.search(text)
