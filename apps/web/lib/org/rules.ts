@@ -89,6 +89,25 @@ export function checkMove(
   return { ok: true };
 }
 
+/**
+ * Non-frozen nodes reachable for a bulk action: each of the given nodes plus its descendants.
+ * Used to scope a permission holder's bulk-import target to their own assignments (or, for an Admin,
+ * called with every active node id).
+ */
+export function reachableNodeIds(
+  nodes: readonly OrgNode[],
+  fromNodeIds: readonly string[],
+): string[] {
+  const ids = new Set<string>();
+  for (const nodeId of fromNodeIds) {
+    if (!nodes.some((n) => n.id === nodeId)) continue;
+    for (const id of [nodeId, ...descendantIds(nodeId, nodes)]) {
+      if (!isFrozen(id, nodes)) ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
 /** Frozen-but-readable: a node is frozen if it or any ancestor is inactive. */
 export function isFrozen(nodeId: string, nodes: readonly OrgNode[]): boolean {
   const byId = new Map(nodes.map((n) => [n.id, n]));

@@ -3,12 +3,15 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
-import { isFrozen, type OrgNode } from "@/lib/org/rules";
+import { accountCreatedEmailHtml, sendEmail } from "@/lib/email/brevo";
+import { isFrozen, reachableNodeIds, type OrgNode } from "@/lib/org/rules";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { permissionProcedure, router } from "@/lib/trpc/init";
-import { checkAdminRemoval, checkRoleAtNode } from "@/lib/users/rules";
+import type { ActiveSession } from "@/lib/auth/session";
+import { checkAdminRemoval, checkRoleAtNode, generateDefaultPassword } from "@/lib/users/rules";
 
 const userManage = permissionProcedure("user.manage");
+const userBulkImport = permissionProcedure("user.bulk_import");
 
 // Supabase Auth ban used for deactivation (~100 years); "none" lifts it.
 const BAN_DURATION = "876000h";
@@ -19,6 +22,7 @@ export type UserRow = {
   id: string;
   displayName: string;
   email: string;
+  employeeId: string | null;
   status: UserStatus;
   assignments: {
     id: string;
@@ -95,9 +99,15 @@ export const usersRouter = router({
   list: userManage.query(async (): Promise<UserRow[]> => {
     const sql = db();
     const users = await sql<
-      { id: string; display_name: string; email: string; is_active: boolean }[]
+      {
+        id: string;
+        display_name: string;
+        email: string;
+        employee_id: string | null;
+        is_active: boolean;
+      }[]
     >`
-      select id, display_name, email, is_active from public.users
+      select id, display_name, email, employee_id, is_active from public.users
       where deleted_at is null order by display_name`;
     const assignments = await sql<
       {
@@ -130,6 +140,7 @@ export const usersRouter = router({
       id: u.id,
       displayName: u.display_name,
       email: u.email,
+      employeeId: u.employee_id,
       status: !u.is_active ? "deactivated" : confirmed.has(u.id) ? "active" : "invited",
       assignments: assignments
         .filter((a) => a.user_id === u.id)
@@ -320,6 +331,43 @@ export const usersRouter = router({
     return null;
   }),
 
+  delete: userManage.input(z.object({ userId: z.uuid() })).mutation(async ({ ctx, input }) => {
+    if (input.userId === ctx.session.userId) badRequest("You can't delete your own account.");
+    const sql = db();
+    const [user] = await sql<{ display_name: string; email: string }[]>`
+      select display_name, email from public.users where id = ${input.userId} and deleted_at is null`;
+    if (!user) badRequest("User not found.");
+
+    try {
+      await sql.begin(async (tx) => {
+        await assertAdminRemovalAllowed(tx, ctx.session.userId, input.userId);
+        await tx`delete from public.user_org_assignments where user_id = ${input.userId}`;
+        await tx`delete from public.users where id = ${input.userId}`;
+        await writeAudit(tx, {
+          eventType: "user.deleted",
+          entityType: "user",
+          entityId: input.userId,
+          userId: ctx.session.userId,
+          oldValue: { email: user.email, display_name: user.display_name },
+        });
+      });
+    } catch (error) {
+      // Foreign keys are the source of truth for "has this user left any data behind"
+      // (submissions, approvals, granted assignments, audit history, …) — no need to enumerate
+      // every referencing table by hand.
+      if (pgErrorCode(error) === "23503")
+        badRequest(
+          "This user has data on record (submissions, approvals or similar) — deactivate them instead.",
+        );
+      throw error;
+    }
+
+    // The DB rows are gone either way; a failure here just leaves an orphaned, invisible Auth
+    // account for this email — re-inviting it will surface if that ever needs manual cleanup.
+    await createSupabaseAdminClient().auth.admin.deleteUser(input.userId);
+    return null;
+  }),
+
   reactivate: userManage.input(z.object({ userId: z.uuid() })).mutation(async ({ ctx, input }) => {
     const sql = db();
     const [user] = await sql<{ is_active: boolean }[]>`
@@ -349,4 +397,216 @@ export const usersRouter = router({
     }
     return null;
   }),
+
+  bulkImportOptions: userBulkImport.query(async ({ ctx }) => {
+    const nodeRows = await db()<
+      {
+        id: string;
+        parent_id: string | null;
+        unit_type: string;
+        status: string;
+        name: string;
+        code: string | null;
+      }[]
+    >`
+      select id, parent_id, unit_type, status, name, code from public.org_units
+      where deleted_at is null`;
+    const nodes: OrgNode[] = nodeRows.map((r) => ({
+      id: r.id,
+      parentId: r.parent_id,
+      unitType: r.unit_type as OrgNode["unitType"],
+      status: r.status as OrgNode["status"],
+    }));
+    const reachable = new Set(
+      ctx.session.isAdmin
+        ? nodes.filter((n) => !isFrozen(n.id, nodes)).map((n) => n.id)
+        : reachableNodeIds(
+            nodes,
+            ctx.session.assignments.map((a) => a.orgUnitId),
+          ),
+    );
+    const roles = await db()<{ code: string; name: string }[]>`
+      select code, name from public.roles where code <> 'admin' order by name`;
+    return {
+      roles,
+      orgUnits: nodeRows
+        .filter((n) => reachable.has(n.id) && n.code !== null)
+        .map((n) => ({ code: n.code as string, name: n.name, unitType: n.unit_type }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  }),
+
+  bulkImport: userBulkImport
+    .input(
+      z.object({
+        rows: z
+          .array(
+            z.object({
+              employeeId: z.string().trim().min(1, "Employee ID is required.").max(50),
+              displayName: z.string().trim().min(1, "Name is required.").max(200),
+              email: z
+                .email("Enter a valid email address.")
+                .transform((e) => e.trim().toLowerCase()),
+              roleCode: z.string().trim().min(1, "Role is required."),
+              orgUnitCode: z.string().trim().min(1, "Organization Scope is required."),
+            }),
+          )
+          .min(1, "The sheet has no rows.")
+          .max(500, "Import at most 500 rows at a time."),
+      }),
+    )
+    .mutation(async ({ ctx, input }): Promise<{ results: BulkImportRowResult[] }> => {
+      const results: BulkImportRowResult[] = [];
+      for (const [index, row] of input.rows.entries()) {
+        // Sheet row 1 is the header, so the first data row is row 2.
+        results.push(await importOneEmployee(ctx.session, row, index + 2));
+      }
+      return { results };
+    }),
 });
+
+type BulkImportRow = {
+  employeeId: string;
+  displayName: string;
+  email: string;
+  roleCode: string;
+  orgUnitCode: string;
+};
+
+export type BulkImportRowResult =
+  | {
+      row: number;
+      ok: true;
+      employeeId: string;
+      email: string;
+      password: string;
+      emailSent: boolean;
+      emailError?: string;
+    }
+  | { row: number; ok: false; employeeId: string; email: string; error: string };
+
+function rowFailed(row: number, r: BulkImportRow, error: string): BulkImportRowResult {
+  return { row, ok: false, employeeId: r.employeeId, email: r.email, error };
+}
+
+/**
+ * One row of a bulk-import sheet, isolated so one bad row can't take down the rest of the batch. The
+ * account is created directly with a generated default password (no invite link), then a credentials
+ * email is attempted — if Brevo isn't configured yet, or the send fails, the row still counts as created
+ * and the password comes back in the result so it can be shared by hand instead (bulk-import-decisions.md).
+ */
+async function importOneEmployee(
+  session: ActiveSession,
+  row: BulkImportRow,
+  rowNum: number,
+): Promise<BulkImportRowResult> {
+  const sql = db();
+
+  const [existingEmail] = await sql`select 1 from public.users where lower(email) = ${row.email}`;
+  if (existingEmail) return rowFailed(rowNum, row, "A user with that email already exists.");
+
+  const [existingEmployeeId] = await sql`
+    select 1 from public.users where employee_id = ${row.employeeId}`;
+  if (existingEmployeeId)
+    return rowFailed(rowNum, row, `Employee ID "${row.employeeId}" is already used.`);
+
+  const [role] = await sql<{ id: string; code: string }[]>`
+    select id, code from public.roles where lower(code) = ${row.roleCode.toLowerCase()}`;
+  if (!role) return rowFailed(rowNum, row, `Unknown role "${row.roleCode}".`);
+  if (role.code === "admin")
+    return rowFailed(rowNum, row, "The Admin role can't be assigned by bulk import.");
+
+  const nodeRows = await sql<
+    {
+      id: string;
+      parent_id: string | null;
+      unit_type: string;
+      status: string;
+      code: string | null;
+    }[]
+  >`select id, parent_id, unit_type, status, code from public.org_units where deleted_at is null`;
+  const nodes: OrgNode[] = nodeRows.map((r) => ({
+    id: r.id,
+    parentId: r.parent_id,
+    unitType: r.unit_type as OrgNode["unitType"],
+    status: r.status as OrgNode["status"],
+  }));
+  const orgUnit = nodeRows.find((r) => r.code?.toLowerCase() === row.orgUnitCode.toLowerCase());
+  if (!orgUnit)
+    return rowFailed(rowNum, row, `Unknown organization scope code "${row.orgUnitCode}".`);
+  const reachable = new Set(
+    session.isAdmin
+      ? nodes.filter((n) => !isFrozen(n.id, nodes)).map((n) => n.id)
+      : reachableNodeIds(
+          nodes,
+          session.assignments.map((a) => a.orgUnitId),
+        ),
+  );
+  if (!reachable.has(orgUnit.id))
+    return rowFailed(rowNum, row, `"${row.orgUnitCode}" is outside your scope.`);
+
+  const password = generateDefaultPassword(row.displayName, row.employeeId);
+  const auth = createSupabaseAdminClient().auth.admin;
+  const { data, error } = await auth.createUser({
+    email: row.email,
+    password,
+    email_confirm: true,
+    user_metadata: { display_name: row.displayName },
+  });
+  if (error || !data.user) {
+    return rowFailed(
+      rowNum,
+      row,
+      error?.code === "email_exists"
+        ? "That email already has a sign-in account."
+        : "The account could not be created.",
+    );
+  }
+  const userId = data.user.id;
+
+  try {
+    await sql.begin(async (tx) => {
+      await tx`
+        insert into public.users (id, display_name, email, employee_id)
+        values (${userId}, ${row.displayName}, ${row.email}, ${row.employeeId})`;
+      await tx`
+        insert into public.user_org_assignments (user_id, org_unit_id, role_id, assigned_by)
+        values (${userId}, ${orgUnit.id}, ${role.id}, ${session.userId})`;
+      await writeAudit(tx, {
+        eventType: "user.bulk_imported",
+        entityType: "user",
+        entityId: userId,
+        userId: session.userId,
+        newValue: {
+          email: row.email,
+          display_name: row.displayName,
+          employee_id: row.employeeId,
+          role: role.code,
+          org_unit_id: orgUnit.id,
+        },
+      });
+    });
+  } catch (err) {
+    // Never leave an Auth account without its profile, assignment and audit rows.
+    await auth.deleteUser(userId);
+    if (pgErrorCode(err) === "23505")
+      return rowFailed(rowNum, row, "That email or employee ID was just taken by another row.");
+    throw err;
+  }
+
+  const emailResult = await sendEmail({
+    to: { email: row.email, name: row.displayName },
+    subject: "Your TraceESG account",
+    html: accountCreatedEmailHtml({ displayName: row.displayName, email: row.email, password }),
+  });
+
+  return {
+    row: rowNum,
+    ok: true,
+    employeeId: row.employeeId,
+    email: row.email,
+    password,
+    emailSent: emailResult.sent,
+    emailError: emailResult.sent ? undefined : emailResult.reason,
+  };
+}

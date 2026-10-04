@@ -139,7 +139,8 @@ Notes:
 
 ## Accounts and sign-in
 
-- **No self sign-up.** Accounts are provisioned by an Admin only. Passwords need at least 12 characters.
+- **No self sign-up.** Accounts are provisioned by an Admin only. Passwords need at least 12 characters,
+  an uppercase and a lowercase letter, a number and a special character (`lib/auth/password-policy.ts`).
 - **Rate limits** (Phase 18, `org_settings.rate_limits`): 5 failed sign-ins per account and 50 per client
   address per 15 minutes; 60 uploads per user per 10 minutes. Locally, clear the counters with
   `delete from public.rate_limit_events;` if a test run locks an account. On the hosted project, raise
@@ -264,6 +265,12 @@ Notes:
 - Logs are JSON lines on stdout; errors go to Sentry when `SENTRY_DSN` is set.
 - PaddlePaddle 3.3.1's oneDNN (MKLDNN) path fails on these models, so it is disabled; the detector input is
   capped at 1600 px to bound memory and CPU time (about 10 s per A4 page on a laptop CPU).
+- **A PDF with several bills** (`documents.is_bundle`, migration `0032`): the worker reads every page (up to 20)
+  and stores a *proposed* split — which pages are one bill, what each is, the activity when it can tell — and
+  notifies the uploader; it creates no record. The uploader confirms or edits it on `/app/upload/split/…`, and each
+  kept bill is then cut out as its own PDF and recorded like a single upload. A worker newer than the database
+  fails every job, so push the migration before replacing a hosted worker container.
+  `scripts/make_sample_bundle.py --kinds electricity,diesel,water --out bundle.pdf` writes a test bundle.
 - Test documents are generated synthetically at test time (`tests/samples.py`) — no real MEIL documents
   until Phase 18. For a manual upload, `.venv/Scripts/python scripts/make_sample_invoice.py --out x.pdf`
   writes a diesel invoice with a unique invoice number (`--invoice` to choose one, `--kind electricity`,
@@ -312,12 +319,14 @@ Push the database migrations to the same Supabase project first (`supabase link`
 | End to end | `pnpm --filter web test:e2e` (or name scripts: `… test:e2e authorization`) | see below |
 
 **End-to-end suite** (`apps/web/tests/e2e/`): the plan's critical Scenarios A–D (diesel, electricity, HR with a
-low-confidence field, the consolidated report down to each original document), authorization boundaries
+low-confidence field, the consolidated report down to each original document), Scenario E (one PDF of several
+bills, split and recorded separately), authorization boundaries
 through the app and straight at the database API, and the edge cases — real sessions, real procedures, real
 uploads and the real OCR worker, synthetic documents only. It needs local Supabase, the app running
 (`pnpm --filter web build && pnpm --filter web start`), the worker image
 (`docker build -t traceesg-ocr-worker apps/ocr-worker`, or `E2E_WORKER=local` to use the venv) and the worker's
-venv for generating documents. It provisions its own `e2e.*@traceesg.test` accounts with fresh random
+venv for generating documents. `E2E_ENV_FILE=<file>` points it (and the worker it starts) at a local-only env file when
+`.env.local` names a hosted project. It provisions its own `e2e.*@traceesg.test` accounts with fresh random
 passwords each run and enters clearly labelled synthetic conversion factors only where none exist; it refuses
 to run unless `DATABASE_URL` is local. It runs on a freshly reset database or an existing one.
 

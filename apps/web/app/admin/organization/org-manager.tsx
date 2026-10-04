@@ -7,10 +7,12 @@ import { toast } from "sonner";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { OrgUnitBulkImport } from "@/components/bulk-import/org-unit-bulk-import";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { bulkImportOrgUnitsAction } from "@/lib/bulk-import/actions";
 import {
   allowedChildTypes,
   checkMove,
@@ -339,6 +341,19 @@ function NodeDetail({
             </Button>
           </form>
         )}
+      </div>
+
+      <div className="rounded-md border bg-card p-6">
+        <h3 className="text-base leading-6 font-semibold">Bulk-add child nodes</h3>
+        <p className="mt-1 mb-4 text-sm leading-5 text-muted-foreground">
+          Create several child nodes at once from a spreadsheet, instead of one at a time above.
+        </p>
+        <OrgUnitBulkImport
+          nodes={nodes.filter((n) => !isFrozen(n.id, nodes))}
+          defaultParentId={node.id}
+          importAction={bulkImportOrgUnitsAction}
+          onImported={onChanged}
+        />
       </div>
 
       {node.parentId ? (

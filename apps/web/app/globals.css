@@ -82,7 +82,11 @@
  * Phase 4 adds the region, KPI, table, overlay and scope tokens (§6.2–§6.11); BRSR and chart tokens
  * arrive with the screens that use them.
  */
-:root,
+/* Two selectors, on purpose: `:root[data-theme=…]` (higher specificity than the bare :root default below,
+   so the active theme wins on <html> no matter the source order) plus a bare `[data-theme=…]` so the same
+   rule also applies to a themed element that ISN'T the document root — e.g. the theme-toggle's preview
+   swatches, each with their own `data-theme` — since `:root[data-theme=…]` alone can never match those. */
+:root[data-theme="theme-1"],
 [data-theme="theme-1"] {
   --background: #ffe3b3;
   --surface: #ffffff;
@@ -154,6 +158,7 @@
   --status-error: #c5291d;
 }
 
+:root,
 [data-theme="theme-2"] {
   --background: #f4f5f7;
   --surface: #ffffff;
@@ -217,6 +222,7 @@
   --status-error: #c5291d;
 }
 
+:root[data-theme="theme-3"],
 [data-theme="theme-3"] {
   color-scheme: dark;
   --background: #1b1718;

@@ -27,7 +27,7 @@ import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 
 const upload = permissionProcedure("document.upload");
 
-type Sql = Tx | ReturnType<typeof db>;
+export type Sql = Tx | ReturnType<typeof db>;
 
 export type UploadMetric = {
   id: string;
@@ -56,14 +56,14 @@ export type DuplicateWarnings = {
   periodLabel: string;
 };
 
-const NO_PERIOD = "No active reporting period — contact your Admin.";
+export const NO_PERIOD = "No active reporting period — contact your Admin.";
 const NOT_ALLOWED = "You can't upload that category for that project.";
 
-function badRequest(message: string): never {
+export function badRequest(message: string): never {
   throw new TRPCError({ code: "BAD_REQUEST", message });
 }
 
-async function loadUploadOptions(sql: Sql, userId: string): Promise<UploadOptions> {
+export async function loadUploadOptions(sql: Sql, userId: string): Promise<UploadOptions> {
   const [period] = await sql<{ id: string; label: string }[]>`
     select id, label from public.reporting_periods where status = 'open'`;
 
@@ -148,7 +148,7 @@ async function loadUploadOptions(sql: Sql, userId: string): Promise<UploadOption
 }
 
 /** Resolves the target node + metric for this user, or throws a non-revealing error. */
-function resolveTarget(options: UploadOptions, orgUnitId: string, metricId: string) {
+export function resolveTarget(options: UploadOptions, orgUnitId: string, metricId: string) {
   const target = options.targets.find((t) => t.orgUnitId === orgUnitId);
   const metric = target?.categories.flatMap((c) => c.metrics).find((m) => m.id === metricId);
   if (!target || !metric) throw new TRPCError({ code: "FORBIDDEN", message: NOT_ALLOWED });
@@ -166,7 +166,7 @@ function checkDeclaredFile(metric: UploadMetric, size: number, mimeType: string)
   }
 }
 
-async function duplicateWarnings(
+export async function duplicateWarnings(
   sql: Sql,
   hash: string,
   orgUnitId: string,
@@ -255,6 +255,19 @@ async function replacementTarget(
   };
 }
 
+/** Abuse protection (SECURITY_REVIEW.md): every signed upload URL issued counts, completed or not. */
+export async function enforceUploadLimit(userId: string): Promise<void> {
+  const limits = await rateLimits();
+  const uploads = bucket("upload-user", userId);
+  if (await exceeded(uploads, limits.uploads_per_user, limits.upload_window_minutes)) {
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: `Upload limit reached — at most ${limits.uploads_per_user} uploads every ${limits.upload_window_minutes} minutes. Try again shortly.`,
+    });
+  }
+  await count(uploads);
+}
+
 export const documentsRouter = router({
   uploadOptions: upload.query(({ ctx }) => loadUploadOptions(db(), ctx.session.userId)),
 
@@ -273,16 +286,7 @@ export const documentsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const sql = db();
-      // Abuse protection (SECURITY_REVIEW.md): every signed upload URL issued counts, completed or not.
-      const limits = await rateLimits();
-      const uploads = bucket("upload-user", ctx.session.userId);
-      if (await exceeded(uploads, limits.uploads_per_user, limits.upload_window_minutes)) {
-        throw new TRPCError({
-          code: "TOO_MANY_REQUESTS",
-          message: `Upload limit reached — at most ${limits.uploads_per_user} uploads every ${limits.upload_window_minutes} minutes. Try again shortly.`,
-        });
-      }
-      await count(uploads);
+      await enforceUploadLimit(ctx.session.userId);
       const options = await loadUploadOptions(sql, ctx.session.userId);
       if (!options.openPeriod) badRequest(NO_PERIOD);
       const { target, metric } = resolveTarget(options, input.orgUnitId, input.metricId);

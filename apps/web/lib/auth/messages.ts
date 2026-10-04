@@ -10,8 +10,9 @@ export const AUTH_MESSAGES = {
   linkInvalid: "This link is invalid or has expired — request a new one",
   passwordSet: "Your password has been set — log in with your new password",
   forbidden: "You don't have access to that page",
-  resetSent: "If that email exists, a reset link has been sent.",
-  passwordRule: "At least 12 characters.",
+  resetSent: "If that email exists, a 6-digit code has been sent to it.",
+  otpInvalid: "That code is incorrect, expired, or already used — request a new one.",
+  otpRateLimited: "Too many attempts — wait a while and try again.",
   tooManyAttempts: "Too many sign-in attempts — wait 15 minutes and try again",
 } as const;
 

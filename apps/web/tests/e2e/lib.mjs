@@ -16,8 +16,10 @@ export const WEB = join(HERE, "..", "..");
 export const REPO = join(WEB, "..", "..");
 const WORKER = join(REPO, "apps", "ocr-worker");
 
+// E2E_ENV_FILE points the suite (and the worker it starts) at another env file, e.g. a local-only copy
+// when .env.local points at a hosted project.
 export const env = Object.fromEntries(
-  readFileSync(join(WEB, ".env.local"), "utf8")
+  readFileSync(process.env.E2E_ENV_FILE ?? join(WEB, ".env.local"), "utf8")
     .split(/\r?\n/)
     .filter((l) => l.includes("=") && !l.trimStart().startsWith("#"))
     .map((l) => [
@@ -187,7 +189,8 @@ const authAdmin = (path, init = {}) =>
       "content-type": "application/json",
     },
   });
-const newPassword = () => `e2e-${randomBytes(12).toString("hex")}`;
+// Meets the password policy (lib/auth/password-policy.ts): 12+ characters, upper, lower, digit, symbol.
+const newPassword = () => `E2e-${randomBytes(12).toString("hex")}-x!`;
 async function setPassword(id, password) {
   const r = await authAdmin(`users/${id}`, {
     method: "PUT",
@@ -375,6 +378,61 @@ export async function upload(
     headers: { "x-upsert": "false" },
   });
   const completed = await who.mutate("documents.completeUpload", {
+    ...base,
+    documentId: prepared.data.documentId,
+    reportingPeriodId: prepared.data.reportingPeriodId,
+    fileName,
+  });
+  return { prepared, completed, documentId: ok(completed) ? prepared.data.documentId : undefined };
+}
+
+/** One synthetic PDF of several different bills, one page each (ocr-worker/scripts/make_sample_bundle.py). */
+export function sampleBundle(kinds, { reference = `E2E-${RUN}-${++counter}`.toUpperCase() } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), "traceesg-e2e-"));
+  const out = join(dir, "bundle.pdf");
+  const args = [
+    "scripts/make_sample_bundle.py",
+    "--kinds",
+    kinds.join(","),
+    "--reference",
+    reference,
+    "--out",
+    out,
+  ];
+  try {
+    // PDFium has crashed the generator now and then on a memory-starved Windows machine: try again.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        execFileSync(PYTHON, args, { cwd: WORKER, stdio: "ignore" });
+        break;
+      } catch (error) {
+        if (attempt === 3) throw error;
+      }
+    }
+    return readFileSync(out);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** The browser's flow for a PDF with several bills: prepare, PUT the bytes, complete. */
+export async function uploadBundle(who, bytes, fileName, { orgCode = "PRJ-X" } = {}) {
+  const base = { orgUnitId: await orgId(orgCode), acknowledgeDuplicates: true };
+  const prepared = await who.mutate("bundles.prepareUpload", {
+    ...base,
+    fileSize: bytes.length,
+    sha256: sha(bytes),
+  });
+  if (!ok(prepared) || prepared.data?.status !== "ready") return { prepared };
+  const form = new FormData();
+  form.append("cacheControl", "3600");
+  form.append("", new Blob([bytes], { type: "application/pdf" }), "upload");
+  await fetch(prepared.data.signedUrl, {
+    method: "PUT",
+    body: form,
+    headers: { "x-upsert": "false" },
+  });
+  const completed = await who.mutate("bundles.completeUpload", {
     ...base,
     documentId: prepared.data.documentId,
     reportingPeriodId: prepared.data.reportingPeriodId,

@@ -4,13 +4,12 @@ import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
+import { PasswordStrengthMeter } from "@/components/auth/password-strength";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ActiveSession } from "@/lib/auth/session";
-import { AUTH_MESSAGES } from "@/lib/auth/messages";
 import { changePasswordAction, updateDisplayNameAction } from "@/lib/profile/actions";
-import { ThemePicker } from "./theme-picker";
 
 /**
  * 03_APP_FLOW.md §2.3 Profile, mounted at /app/profile and /admin/profile. Role and scope are read-only.
@@ -84,14 +83,6 @@ export function ProfileView({ session }: { session: ActiveSession }) {
           </Button>
         </form>
 
-        <h3 className="mt-8 text-base leading-6 font-semibold">Appearance</h3>
-        <p className="mt-1 text-sm leading-5 text-muted-foreground">
-          Saved to your account, so it follows you to other devices.
-        </p>
-        <div className="mt-3">
-          <ThemePicker current={session.theme} />
-        </div>
-
         <h3 className="mt-8 text-base leading-6 font-semibold">Roles and scope</h3>
         <p className="mt-1 text-sm leading-5 text-muted-foreground">Managed by your Admin.</p>
         {session.assignments.length === 0 ? (
@@ -131,12 +122,10 @@ export function ProfileView({ session }: { session: ActiveSession }) {
               autoComplete="new-password"
               value={passwords.newPassword}
               onChange={(e) => setPasswords((p) => ({ ...p, newPassword: e.target.value }))}
-              aria-describedby="new-password-rule"
+              aria-describedby="new-password-strength"
               required
             />
-            <p id="new-password-rule" className="text-xs leading-4 text-muted-foreground">
-              {AUTH_MESSAGES.passwordRule}
-            </p>
+            <PasswordStrengthMeter id="new-password-strength" password={passwords.newPassword} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm-new-password">Confirm new password</Label>

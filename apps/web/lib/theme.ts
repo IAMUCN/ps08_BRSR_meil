@@ -1,14 +1,14 @@
 // The three UI themes (UI brief §4). Shared by the server (users.theme, migration 0028) and the browser.
 
 export const THEMES = [
-  { id: "theme-1", label: "Warm", description: "Default" },
-  { id: "theme-2", label: "Corporate", description: "MEIL official" },
+  { id: "theme-1", label: "Special", description: "Warm" },
+  { id: "theme-2", label: "Corporate", description: "Default" },
   { id: "theme-3", label: "Dark", description: "Dark enterprise" },
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]["id"];
 
-export const DEFAULT_THEME: ThemeId = "theme-1";
+export const DEFAULT_THEME: ThemeId = "theme-2";
 export const THEME_STORAGE_KEY = "traceesg-theme";
 
 export const isTheme = (value: unknown): value is ThemeId => THEMES.some((t) => t.id === value);

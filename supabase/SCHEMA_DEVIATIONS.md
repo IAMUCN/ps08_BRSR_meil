@@ -291,6 +291,60 @@ Readable by the user's own session like the rest of their row; changed only by t
 **Why:** so the choice follows the user to another device. Decision:
 `.grill/phase-19-ui-polish-decisions.md`.
 
+## D21 — `users.employee_id` and two bulk-import permissions (migration `0029`)
+
+**Schema says:** nothing — bulk import isn't in any implementation-plan phase; the owner requested it
+directly mid-session.
+
+**Implemented:** `users.employee_id text`, nullable, unique when present (partial unique index) — only the
+bulk-import path writes it, the single Admin "Invite user" form is untouched. Two new rows in
+`permissions`: `user.bulk_import` and `org.bulk_import`, following the existing permission-code gate
+pattern exactly (`permissionProcedure`), not a hard-coded role check. Admin gets both (migration `0009`'s
+"every permission" pattern, repeated for just these two since that cross join already ran); `hr` gets
+`user.bulk_import` by default; `org.bulk_import` starts unassigned, reassignable by an Admin from the
+existing Roles & Permissions matrix.
+
+**Why:** decision `.grill/bulk-import-decisions.md`.
+
+## D22 — `password_reset_otps` (migration `0030`)
+
+**Schema says:** nothing; Phase 3's auth decisions assumed Supabase Auth's own reset-link email, which only
+reaches the Supabase team on the hosted project — the same reason bulk-import passwords need Brevo instead
+of an invite link.
+
+**Implemented:** `password_reset_otps (id, user_id, code_hash, expires_at, consumed_at, attempts,
+created_at)` — server-only (RLS on, no policies, no browser grants), same shape as `rate_limit_events`
+(D19). A 6-digit code is hashed before storage, expires in 10 minutes, and is capped at 5 wrong guesses.
+
+**Why:** decision `.grill/bulk-import-decisions.md`. Replaces `resetPasswordForEmail`'s reset-link email for
+`/forgot-password` only; `/reset-password` (invite / first-password-set) is unaffected.
+
+## D23 — `users.theme` default changed to `theme-2` (migration `0031`)
+
+**Schema says:** nothing (see D20).
+
+**Implemented:** the column's default moves from `theme-1` to `theme-2`; the constraint and the column
+itself are unchanged. Existing rows are left as they are — this only changes what a newly provisioned
+account gets before anyone chooses for themselves.
+
+**Why:** the owner asked for the "blue, red, white" theme (`theme-2`, labelled Corporate) to be the default,
+not the peach/coral one (`theme-1`). Decision: `.grill/theme-toggle-decisions.md`.
+
+## D24 — Multi-bill PDFs: `documents.is_bundle`, `documents.bundle_document_id`, `document_bundle_parts` (migration `0032`)
+
+**Schema says:** nothing — one document is one record's evidence; a PDF holding several bills isn't covered.
+Requested directly by the owner.
+
+**Implemented:** `documents.is_bundle` (default false) marks an uploaded multi-bill PDF, which is a document of
+its own with no record; `documents.bundle_document_id` points each bill cut from it back at it.
+`document_bundle_parts (id, bundle_document_id, part_number, page_from, page_to, proposed_document_type_id,
+proposed_metric_id, status, created_document_id)` holds the OCR's proposed split and, after the uploader confirms,
+the confirmed one (`proposed` / `created` / `skipped`). Server-only like `rate_limit_events` (RLS on, no policies,
+no browser grants). Each kept bill is an ordinary document, record and OCR job; nothing downstream changed.
+
+**Why:** the owner wants one upload to fill several bills separately; the person still confirms the split.
+Decision: `.grill/multi-bill-pdf-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

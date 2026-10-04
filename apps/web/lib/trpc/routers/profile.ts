@@ -3,14 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import { passwordMeetsPolicy, passwordPolicyMessage } from "@/lib/auth/password-policy";
 import { db } from "@/lib/db";
 import { publicEnv } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { protectedProcedure, router } from "@/lib/trpc/init";
 import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 import { THEMES } from "@/lib/theme";
-
-const MIN_PASSWORD_LENGTH = 12;
 
 function badRequest(message: string): never {
   throw new TRPCError({ code: "BAD_REQUEST", message });
@@ -63,9 +62,8 @@ export const profileRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (input.newPassword.length < MIN_PASSWORD_LENGTH) {
-        badRequest(`New password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-      }
+      if (!passwordMeetsPolicy(input.newPassword))
+        badRequest(passwordPolicyMessage(input.newPassword));
       if (input.newPassword !== input.confirmPassword) badRequest("New passwords do not match.");
       if (input.newPassword === input.currentPassword) {
         badRequest("Choose a password different from your current one.");
@@ -106,7 +104,7 @@ export const profileRouter = router({
       if (updateError) {
         badRequest(
           updateError.code === "weak_password"
-            ? `New password must be at least ${MIN_PASSWORD_LENGTH} characters.`
+            ? passwordPolicyMessage(input.newPassword)
             : "Your password could not be changed. Try again.",
         );
       }

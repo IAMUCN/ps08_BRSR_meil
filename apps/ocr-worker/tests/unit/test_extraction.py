@@ -226,5 +226,102 @@ class ClassifyTest(unittest.TestCase):
         self.assertIsNone(classify(lines, {"DIESEL_INVOICE": "d"})[0])
 
 
+class DiscomThermalBillTest(unittest.TestCase):
+    def test_units_advanced_is_consumption(self):
+        lines = [line("UNITS ADVANCED:", 28, 399, 93, 412), line("141", 151, 401, 165, 411)]
+        fields = extract_fields(lines, [FieldSpec("consumption", "Consumption", "number")])
+        self.assertEqual(values(fields), {"consumption": "141"})
+
+    def test_billing_period_is_previous_to_present_reading_date(self):
+        # The bill prints no "billing period": only the meter readings, and a later line with
+        # "PRES." that has no date must not be mistaken for the present reading.
+        lines = [
+            # Boxes as PaddleOCR drew them on a real bill: the date is its own box and overlaps the
+            # label's box by a few pixels.
+            line("PRES:5830", 51, 528, 114, 548),
+            line("13-08-2026", 106, 532, 181, 549),
+            line("PREV:5689 11-07-2026", 51, 542, 182, 565),
+            line("PRES. BILL AMT:", 44, 697),
+        ]
+        fields = extract_fields(lines, [FieldSpec("billing_period", "Billing period", "text")])
+        self.assertEqual(values(fields), {"billing_period": "11-07-2026 to 13-08-2026"})
+
+    def test_date_is_not_read_from_the_end_of_a_longer_number(self):
+        lines = [line("Bill date: 5830 13-08-2026", 10, 10)]
+        fields = extract_fields(lines, [FieldSpec("billing_period", "Billing period", "text")])
+        self.assertEqual(values(fields), {"billing_period": "13-08-2026"})
+
+    UNIT_SPECS = [
+        FieldSpec("consumption", "Consumption", "number"),
+        FieldSpec("unit", "Unit", "unit"),
+    ]
+
+    def test_unit_is_implied_kwh_at_low_confidence_when_the_bill_prints_none(self):
+        lines = [line("UNITS ADVANCED:", 28, 399, 93, 412), line("141", 151, 401, 165, 411)]
+        unit = extract_fields(lines, self.UNIT_SPECS)[1]
+        self.assertEqual((unit.value, unit.confidence), ("kWh", 60.0))
+        self.assertEqual(unit.source["method"], "implied_by_label")
+        # Below the threshold, so the person has to acknowledge it.
+        self.assertEqual(fields_needing_attention([unit], self.UNIT_SPECS[1:], 80), ["unit"])
+
+    def test_printed_unit_beats_the_implied_one(self):
+        lines = [line("UNITS ADVANCED:", 28, 399, 93, 412), line("141 MWh", 151, 401, 220, 411)]
+        self.assertEqual(extract_fields(lines, self.UNIT_SPECS)[1].value, "MWh")
+
+    def test_unit_is_not_implied_from_a_plain_consumption_label(self):
+        lines = [line("Consumption:", 28, 399, 93, 412), line("141", 151, 401, 165, 411)]
+        self.assertIsNone(extract_fields(lines, self.UNIT_SPECS)[1].value)
+
+    SOURCE_SPEC = [FieldSpec("source_classification", "Source classification", "text", False)]
+
+    def test_source_is_the_utility_named_on_the_bill(self):
+        lines = [line("ELECTRICITY BILL", 215, 42), line("TPCODL", 242, 24, score=0.99)]
+        source = extract_fields(lines, self.SOURCE_SPEC)[0]
+        self.assertEqual((source.value, source.confidence), ("TPCODL", 99.0))
+
+    def test_source_through_the_o_for_d_misread_is_capped_for_review(self):
+        source = extract_fields([line("TPCOOL", 242, 24, score=0.99)], self.SOURCE_SPEC)[0]
+        self.assertEqual((source.value, source.confidence), ("TPCODL", 70.0))
+        self.assertEqual(
+            fields_needing_attention([source], self.SOURCE_SPEC, 80), ["source_classification"]
+        )
+
+    def test_source_label_beats_the_utility_name_and_unknown_names_are_ignored(self):
+        lines = [line("TPCODL", 242, 24), line("Energy source: Solar", 10, 100)]
+        self.assertEqual(extract_fields(lines, self.SOURCE_SPEC)[0].value, "Solar")
+        self.assertIsNone(extract_fields([line("ACME POWER LTD", 5, 5)], self.SOURCE_SPEC)[0].value)
+
+    def test_utility_name_is_matched_as_a_whole_word(self):
+        self.assertIsNone(extract_fields([line("XCESCX", 5, 5)], self.SOURCE_SPEC)[0].value)
+
+    WATER_SPECS = [
+        FieldSpec("withdrawal", "Water withdrawn", "number"),
+        FieldSpec("discharge", "Water discharged", "number"),
+        FieldSpec("unit", "Unit", "unit"),
+    ]
+
+    def test_water_bill_consumption_is_read_as_withdrawal_and_discharge_stays_empty(self):
+        lines = [
+            line("Previous reading: 1180", 10, 100),
+            line("Consumption (KL):", 10, 130, 140, 150),
+            line("25", 150, 131, 170, 150),
+        ]
+        got = extract_fields(lines, self.WATER_SPECS)
+        self.assertEqual(values(got), {"withdrawal": "25", "discharge": None, "unit": "KL"})
+
+    def test_water_consumption_label_ignores_average_and_rate_lines(self):
+        lines = [
+            line("Average consumption: 40", 10, 100),
+            line("Consumption rate: 12", 10, 120),
+            line("Water consumed 31 kilolitres", 10, 140),
+        ]
+        got = extract_fields(lines, self.WATER_SPECS)
+        self.assertEqual(values(got), {"withdrawal": "31", "discharge": None, "unit": "kilolitres"})
+
+    def test_an_explicit_withdrawal_label_beats_the_consumption_label(self):
+        lines = [line("Consumption: 5", 10, 100), line("Water withdrawn: 90", 10, 120)]
+        self.assertEqual(extract_fields(lines, self.WATER_SPECS)[0].value, "90")
+
+
 if __name__ == "__main__":
     unittest.main()

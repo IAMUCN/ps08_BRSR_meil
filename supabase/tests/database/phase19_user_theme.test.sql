@@ -5,7 +5,8 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(5);
 
-select col_default_is('public', 'users', 'theme', 'theme-1', 'Theme 1 is the default (UI brief §4)');
+-- Theme 2 (Corporate) since migration 0031 / D23; the column's three allowed values are unchanged.
+select col_default_is('public', 'users', 'theme', 'theme-2', 'Theme 2 is the default (D23)');
 select col_not_null('public', 'users', 'theme', 'every user has a theme');
 select throws_ok(
   $$update public.users set theme = 'neon' where id = (select id from public.users limit 1)$$,

@@ -15,6 +15,7 @@ const ALL = [
   "scenario-b-scope2",
   "scenario-c-hr",
   "scenario-d-report",
+  "scenario-e-bundle",
   "authorization",
   "edge-cases",
 ];

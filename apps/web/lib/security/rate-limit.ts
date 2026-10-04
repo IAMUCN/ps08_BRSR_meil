@@ -13,6 +13,10 @@ export type RateLimits = {
   login_window_minutes: number;
   uploads_per_user: number;
   upload_window_minutes: number;
+  otp_requests_per_account: number;
+  otp_requests_per_address: number;
+  otp_window_minutes: number;
+  otp_max_attempts: number;
 };
 
 const DEFAULTS: RateLimits = {
@@ -21,6 +25,10 @@ const DEFAULTS: RateLimits = {
   login_window_minutes: 15,
   uploads_per_user: 60,
   upload_window_minutes: 10,
+  otp_requests_per_account: 5,
+  otp_requests_per_address: 20,
+  otp_window_minutes: 60,
+  otp_max_attempts: 5,
 };
 
 export async function rateLimits(): Promise<RateLimits> {

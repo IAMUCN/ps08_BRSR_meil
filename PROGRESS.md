@@ -4,7 +4,9 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-09-22 — Phase 20 committed; Phase 21 next._
+_Last updated: 2026-10-05 — Phase 20 committed; out-of-sequence work (bulk import, OTP reset, password policy,
+theme toggle, DISCOM and water OCR rules, multi-bill PDFs) done but uncommitted; Phase 21 next, hosting to be
+decided by the owner._
 
 ---
 
@@ -34,14 +36,15 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme (`0001`–`0028`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs (`0001`–`0032`; `0029`–`0032` local only) |
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
-| `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–D, authorization, edge cases (`pnpm --filter web test:e2e`) |
+| `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–E, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D20) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A19) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D24) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A23) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
-| `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker) |
+| `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
+| `CONTEXT.md` | The live state — uncommitted work, questions waiting on the owner, machine facts, owner preferences, traps already hit. Loaded with this file by `CLAUDE.md`; rewritten at the end of every session |
 | `README.md` | Setup and day-to-day commands |
 
 ## 3. Progress
@@ -73,7 +76,8 @@ may run in parallel with Phases 3–5.
 | 18 | Audit and security hardening | Done | `2f6118b` |
 | 19 | UI polish and responsive behavior | Done | `44ad2e1` |
 | 20 | Testing and edge cases | Done | `8736707` |
-| 21 | Deployment | **Next** | — |
+| — | Out-of-sequence work: bulk import, OTP password reset, password policy, theme toggle, DISCOM and water OCR rules, multi-bill PDFs | Done locally, **uncommitted** | — |
+| 21 | Deployment (hosting to be decided by the owner) | **Next** | — |
 
 ### What each finished phase delivered
 
@@ -495,39 +499,115 @@ review: `SECURITY_REVIEW.md`.
   (fresh database and re-run), Phase 19 browser 30/30, Phase 18 end-to-end 54/54, offline upload 5/5,
   lint/typecheck/format, production build.
 
+**Out-of-sequence work (2026-09-25 onward) — requested by the owner directly, not in any plan phase.** Not yet
+committed; this entry records what the decision logs and the working tree show. Test results were not recorded
+for it, so run the usual checks before committing. Decisions: `.grill/bulk-import-decisions.md`,
+`.grill/password-policy-decisions.md`, `.grill/theme-toggle-decisions.md`.
+- **Bulk import** (migration `0029`, D21, A20): two new permissions, `user.bulk_import` (HR by default) and
+  `org.bulk_import` (unassigned; an Admin grants it in Roles & Permissions). `/app/users/bulk-import` and
+  `/app/org-units/bulk-import` (also embedded in `/admin/users` and the Organization node panel): download an
+  `.xlsx` template, parse it in the browser, submit rows; each row is its own transaction and reports its own
+  outcome, downloadable as CSV. Org import creates direct children of one chosen parent only. `users.employee_id`
+  (nullable, unique) is stored. Bulk-created accounts get a generated default password (name + employee ID,
+  padded to policy) and an email through Brevo SMTP; with no Brevo settings, accounts are still created and the
+  results say the email was not sent.
+- **OTP password reset** (migration `0030`, D22): `/forgot-password` now emails a 6-digit code (hashed, 10-minute
+  expiry, 5 wrong guesses, rate-limited per account and address) instead of Supabase's reset link, which only
+  reaches the Supabase team on the hosted project. `/reset-password` (invite / first password) is unchanged. It does
+  not sign out other sessions (recorded simplification).
+- **Password policy** (A22): 12+ characters with upper, lower, number and special character, one module
+  (`lib/auth/password-policy.ts`) shared by the live strength meter and every server setter, including
+  `provision-user`. `supabase/config.toml` now requires the same locally; hosted Auth must be set to match.
+- **Theme toggle** (migration `0031`, D23, A21): a three-swatch toggle in the top bar of both shells replaces
+  Profile's Appearance section; the default is now Corporate (`theme-2`), Warm is relabelled "Special". Existing
+  accounts keep their theme.
+- **OCR:** `EXTRACTOR_VERSION` `rules-5` reads Indian DISCOM thermal bills ("UNITS ADVANCED" as consumption,
+  "Bill Dt" as the date). `rules-6` (2026-10-03, found on a real TPCODL bill) takes the billing period from the
+  meter readings (`PREV` date to `PRES` date) when no label gives one, and a date can no longer start in the
+  middle of a longer number; unit tests for both. `rules-7` (2026-10-04): such bills print no unit ("UNITS ADVANCED:
+  141"), so when consumption was read under a "units …" label the unit is filled as kWh at a fixed confidence of 60 —
+  below the review threshold, so the person must always acknowledge it (owner-approved; source method
+  `implied_by_label`). `rules-8` (2026-10-05): the optional Source classification of a grid electricity bill is the
+  utility named on it (TPCODL), from a list of known distribution companies in `profiles.py`; a match through OCR's
+  D/O confusion is capped at 70 so it is flagged. `rules-9` (2026-10-05): a water bill's "consumption" is read as
+  Water withdrawn (discharge, not on a bill, stays for the person to type; a separate stored consumption field was
+  deferred — not yet tried on a real water bill). Details: `.grill/ocr-real-bills-decisions.md`. Replaying a real
+  upload's stored OCR lines gives 141 / 11-07-2026 to 13-08-2026 / kWh / TPCODL. The rebuilt
+  `traceesg-ocr-worker:latest` contains `rules-9` and the running worker container was recreated from it; a
+  container started from an older image does not pick up rule changes, so recreate it after any extraction change.
+- **A PDF with several bills** (2026-10-05; migration `0032`, D24, A23; `.grill/multi-bill-pdf-decisions.md`): the
+  uploader picks "A PDF with several bills" on Upload; the OCR worker reads every page (up to 20) and *proposes* how
+  they split into bills, what each is and the activity; the uploader checks it on the new
+  `/app/upload/split/[documentId]` (pages, activity, leave out, add or remove a bill; the same rules run in the browser
+  and on the server) and confirms; each kept bill is then cut out as its own PDF (`pdf-lib`) and recorded like a
+  single upload, so verify, validate, calculate and approve are unchanged. Each bill is checked against the
+  uploader's role (a Project Manager is not offered water). The owner chose: app proposes, person confirms; different
+  activities, same project and month; per-bill role check. Limits: consecutive bills of one type look like one (split
+  by hand), one reporting period per PDF, PDFs only. New `scripts/make_sample_bundle.py`, `EXTRACTOR_VERSION`
+  `rules-10` (also gives `FUEL_INVOICE` classification keywords).
+- **Water and source OCR rules** (`rules-8`, `rules-9`): a grid electricity bill's Source is the utility named on it
+  (TPCODL); a water bill's "consumption" is read as Water withdrawn (see `.grill/ocr-real-bills-decisions.md`).
+- **Checks for the multi-bill work:** worker unit 40/40 and Ruff, web unit 78/78, database tests 164/164, lint,
+  typecheck, format; the full end-to-end suite 189/189 on a local stack with the real worker image (Scenario E, the new
+  one, is 37 of them: upload, proposed split, role refusal, confirm, each bill read separately); a real-browser run in
+  Edge 17/17; the OCR integration harness 9/9; production build passes. While checking, the suite's test
+  passwords failed the new password policy and four database tests held stale expectations from `0029`–`0031`; both
+  fixed. `apps/web/tests/e2e/lib.mjs` accepts `E2E_ENV_FILE` so the suite can target a local database when
+  `.env.local` names a hosted project; `next.config.ts` accepts `NEXT_DIST_DIR`.
+- **Dependencies added:** `pdf-lib`, `xlsx`, `nodemailer` (+ types), `exceljs` — `exceljs` is not imported anywhere and can
+  probably be removed. `pnpm dev` now pins port 3000.
+- **Loose ends:** the Brevo SMTP key lives in `BREVO_API_KEY` (the name is historical — it is an SMTP key, not a
+  REST key); `BREVO_SMTP_LOGIN` is optional, and `.env.example` does not list it. `RESEND_API_KEY` was removed from
+  `.env.example`.
+
 ## 4. What comes next
 
 **Phase 21 — Deployment** (`06_IMPLEMENTATION_PLAN.md` §Phase 21): the production Supabase project (or the dev
-project promoted — decide explicitly), `apps/web` on Vercel and the OCR worker on Render (not a sleeping
-tier), production migrations as a reviewed step, Sentry and log streams, backups confirmed, a rollback
-procedure tested once, `DEPLOYMENT.md`, and the critical end-to-end test re-run against the live URLs.
+project promoted — decide explicitly), `apps/web` (Vercel was planned) and the OCR worker (**host to be decided
+by the owner; not Render**, and not a sleeping tier), production migrations as a reviewed step, Sentry and log
+streams, backups confirmed, a rollback procedure tested once, `DEPLOYMENT.md`, and the critical end-to-end test
+re-run against the live URLs. The owner will say where each part is hosted before this starts.
+
+Before Phase 21: check and commit the out-of-sequence work above (it is in the working tree, not in git). The web app
+points at the hosted Supabase project, which does not have migrations `0029`–`0032` yet: push them (owner's go-ahead),
+**then** recreate the hosted worker container from the new image — a worker newer than the database fails every job.
 
 Things to remember for Phase 21:
 - The end-to-end suite refuses any non-local database by design; running Scenarios A–D against production
   needs a deliberate, reviewed switch (and test accounts and synthetic data that must not stay there).
-- Everything in "Open items" below: migrations `0015`–`0028` not pushed, the database password to rotate,
-  Supabase Auth limits (SECURITY_REVIEW.md F8), SMTP, Chromium on Vercel, the Render Blueprint untested.
+- Everything in "Open items" below: migrations `0029`–`0032` not pushed, the database password to rotate,
+  Supabase Auth limits (SECURITY_REVIEW.md F8) and password rules, SMTP, Chromium on Vercel, the worker host.
+- The OCR worker is a background process with no web port: it polls Postgres, needs about 2 GB RAM and must stay
+  running. Its image (`apps/ocr-worker/Dockerfile`, ~2.3 GB) bakes the model weights in; `DATABASE_URL` must be
+  the Supabase session-pooler string (the direct connection is IPv6-only).
 - No conversion factors exist outside local data; MEIL must enter verified ones before emissions calculate.
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** all migrations `0001`–`0028` are now
-  pushed (`0015`–`0028` pushed 2026-09-22 with `supabase db push --db-url`, direct connection). Verified:
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0001`–`0028` are
+  pushed (`0015`–`0028` pushed 2026-09-22 with `supabase db push --db-url`, direct connection); **`0029`–`0032`
+  (bulk import, OTP table, default theme) exist only locally and must be pushed before those features work
+  there**. Verified as of `0028`:
   37 tables (35 + `rate_limit_events` + `submission_expectations`, D16/D19) all with RLS, `authenticated`
   has zero table-level write privilege anywhere, `anon` zero read privilege anywhere, both `evidence` and
   `reports` buckets private, the append-only audit triggers exist, `org_settings` holds exactly
   `brsr_readiness_weights`/`ocr_confidence_threshold`/`rate_limits`, no seed/test data beyond the MEIL root
   and reference config, all 28 versions recorded in `supabase_migrations.schema_migrations`. Still to do:
-  auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords) — needs
+  auth settings from `supabase/config.toml` (no sign-ups, 12-character passwords **with upper, lower, number and
+  symbol**, see A22) — needs
   `supabase login` (a Management API access token; the DB password alone doesn't grant this) or setting
   them by hand in the dashboard; rotate the database password (shared in chat twice now); provision the
   first hosted Admin (needs the project's anon and service-role keys, not yet shared); raise Supabase
   Auth's per-IP sign-in limit (`SECURITY_REVIEW.md` F8).
 - **Report PDFs in production:** set `SUPABASE_STORAGE_BUCKET_REPORTS=reports` on Vercel; `@sparticuz/chromium`
   is untested there yet (cold start and bundle size are the known risks, TRD §17).
-- **Worker deployment:** apply `render.yaml` in Render and enter the secrets there (DATABASE_URL = session
-  pooler string). The Blueprint file is unvalidated until Render reads it.
-- **Email:** configure custom SMTP (Resend) before inviting anyone outside the Supabase team.
+- **Worker deployment:** host not chosen (the owner does not use Render; `render.yaml` is unused). Whatever the
+  host, DATABASE_URL must be the session-pooler string. Local containers `traceesg-ocr-worker`, `elastic_booth`
+  and `traceesg-ocr-worker-hosted` are stopped test leftovers; the image to deploy is `traceesg-ocr-worker:latest`.
+- **Email:** Brevo SMTP is wired for bulk-import passwords and OTP reset (`BREVO_API_KEY` = the SMTP key,
+  `BREVO_SENDER_EMAIL` must be a verified sender, `BREVO_SENDER_NAME`, optional `BREVO_SMTP_LOGIN`); set them on
+  the web host. Invite emails (first password) still use Supabase's own email, which only reaches the Supabase
+  team — configure custom SMTP in Supabase Auth before inviting anyone outside it.
 - **CI:** the new database job runs on GitHub only once pushed (untested there). The end-to-end suite, the OCR
   integration harness and the Docker image build run locally.
 - **Real documents:** OCR accuracy on real MEIL documents is untested — only synthetic samples so far.

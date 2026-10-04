@@ -34,6 +34,15 @@ class JobContext:
     esg_record_id: UUID | None
     fields: list[FieldSpec]
     document_types: dict[str, UUID]  # code → id, types mapped to the record's metric
+    is_bundle: bool = False  # a multi-bill PDF: no record yet, the job proposes how to split it
+
+
+@dataclass(frozen=True)
+class BundleType:
+    """A document type and the metrics it is mapped to, for proposing a bill's activity."""
+
+    id: UUID
+    metrics: list[tuple[str, str]]  # (metric id, metric name)
 
 
 def connect(database_url: str) -> psycopg.Connection:
@@ -85,7 +94,7 @@ def claim_job(
 def load_context(conn: psycopg.Connection, document_id: UUID) -> JobContext:
     doc = conn.execute(
         """
-        select d.storage_path, d.mime_type, erd.esg_record_id, r.metric_id
+        select d.storage_path, d.mime_type, d.is_bundle, erd.esg_record_id, r.metric_id
         from public.documents d
         left join public.esg_record_documents erd on erd.document_id = d.id and erd.is_primary
         left join public.esg_records r on r.id = erd.esg_record_id
@@ -117,7 +126,31 @@ def load_context(conn: psycopg.Connection, document_id: UUID) -> JobContext:
                 (doc["metric_id"],),
             )
         }
-    return JobContext(doc["storage_path"], doc["mime_type"], doc["esg_record_id"], fields, types)
+    return JobContext(
+        doc["storage_path"],
+        doc["mime_type"],
+        doc["esg_record_id"],
+        fields,
+        types,
+        doc["is_bundle"],
+    )
+
+
+def load_bundle_catalog(conn: psycopg.Connection) -> dict[str, BundleType]:
+    """Every document type mapped to at least one live metric, with those metrics."""
+    catalog: dict[str, BundleType] = {}
+    for r in conn.execute(
+        """
+        select dt.code, dt.id as type_id, m.id::text as metric_id, m.name as metric_name
+        from public.document_types dt
+        join public.document_type_metric_mappings map on map.document_type_id = dt.id
+        join public.esg_metrics m on m.id = map.metric_id and m.deleted_at is null
+        order by dt.code, m.name
+        """
+    ):
+        entry = catalog.setdefault(r["code"], BundleType(r["type_id"], []))
+        entry.metrics.append((r["metric_id"], r["metric_name"]))
+    return catalog
 
 
 def _audit(conn, event_type: str, entity_type: str, entity_id, new_value: dict) -> None:
@@ -137,7 +170,8 @@ def _notify(conn, document_id: UUID, kind: str, title: str, message: str) -> Non
         """
         insert into public.notifications
           (user_id, type, title, message, related_entity_type, related_entity_id, deep_link_path)
-        select uploaded_by, %s, %s, file_name || %s, 'document', id, '/app/verify/' || id
+        select uploaded_by, %s, %s, file_name || %s, 'document', id,
+               case when is_bundle then '/app/upload/split/' else '/app/verify/' end || id
         from public.documents where id = %s
         """,
         (kind, title, message, document_id),
@@ -253,6 +287,74 @@ def complete_job(
                 "fields_missing": [f.key for f in fields if f.value is None],
                 "confidence_threshold": threshold,
                 "fields_needing_attention": attention,
+                "attempt": job.retry_count + 1,
+            },
+        )
+    return extraction_id
+
+
+def complete_bundle_job(
+    conn: psycopg.Connection,
+    job: ClaimedJob,
+    model_version: str,
+    parts: list[dict],
+    raw_output: dict,
+) -> UUID:
+    """A multi-bill PDF was read: store the proposed split and tell the uploader to review it. No
+    record, extraction field or verification state exists yet — the uploader decides first."""
+    with conn.transaction():
+        _finish_job(conn, job, "completed", model_version, None)
+        extraction_id = conn.execute(
+            """
+            insert into public.ocr_extractions (ocr_job_id, document_id, raw_output)
+            values (%s, %s, %s) returning id
+            """,
+            (job.id, job.document_id, Jsonb(raw_output)),
+        ).fetchone()["id"]
+        conn.execute(
+            "delete from public.document_bundle_parts where bundle_document_id = %s",
+            (job.document_id,),
+        )
+        for number, part in enumerate(parts, start=1):
+            conn.execute(
+                """
+                insert into public.document_bundle_parts
+                  (bundle_document_id, part_number, page_from, page_to,
+                   proposed_document_type_id, proposed_metric_id)
+                values (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    job.document_id,
+                    number,
+                    part["page_from"],
+                    part["page_to"],
+                    part["document_type_id"],
+                    part["metric_id"],
+                ),
+            )
+        conn.execute(
+            "update public.documents set upload_status = 'ready' where id = %s", (job.document_id,)
+        )
+        _notify(
+            conn,
+            job.document_id,
+            "verification_needed",
+            "PDF ready to split",
+            f" has {len(parts)} bill{'s' if len(parts) != 1 else ''} to review before recording.",
+        )
+        _audit(
+            conn,
+            "ocr.bundle_processed",
+            "document",
+            job.document_id,
+            {
+                "ocr_job_id": str(job.id),
+                "ocr_extraction_id": str(extraction_id),
+                "model_version": model_version,
+                "proposed_parts": [
+                    {k: (str(v) if v is not None else None) for k, v in part.items()}
+                    for part in parts
+                ],
                 "attempt": job.retry_count + 1,
             },
         )

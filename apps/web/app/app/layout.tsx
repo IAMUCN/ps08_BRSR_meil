@@ -15,18 +15,23 @@ const APP_NAV: NavItem[] = [
 export default async function WorkspaceLayout({ children }: LayoutProps<"/app">) {
   const session = await requireAppSession();
 
+  const nav = [...APP_NAV];
+  // A1: the Approvals item appears only for approvers (Corporate ESG/Sustainability).
+  if (session.permissions.includes("approval.decide")) {
+    nav.push({ href: "/app/approvals", label: "Approvals", icon: "approvals" });
+  }
+  // A20: bulk-import items appear only for whichever role(s) an Admin has granted the permission to.
+  if (session.permissions.includes("user.bulk_import")) {
+    nav.push({ href: "/app/users/bulk-import", label: "Add Employees", icon: "users" });
+  }
+  if (session.permissions.includes("org.bulk_import")) {
+    nav.push({ href: "/app/org-units/bulk-import", label: "Add Org Units", icon: "organization" });
+  }
+
   return (
     <div className="flex min-h-screen flex-1">
       <ThemeSync theme={session.theme} />
-      <Sidebar
-        items={
-          // A1: the Approvals item appears only for approvers (Corporate ESG/Sustainability).
-          session.permissions.includes("approval.decide")
-            ? [...APP_NAV, { href: "/app/approvals", label: "Approvals", icon: "approvals" }]
-            : APP_NAV
-        }
-        label="Workspace navigation"
-      />
+      <Sidebar items={nav} label="Workspace navigation" />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           session={session}

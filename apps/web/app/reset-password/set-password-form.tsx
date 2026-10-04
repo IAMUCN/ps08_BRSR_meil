@@ -1,20 +1,18 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { PasswordStrengthMeter } from "@/components/auth/password-strength";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AUTH_MESSAGES } from "@/lib/auth/messages";
 import { setPassword, type SetPasswordState } from "./actions";
 
 const initialState: SetPasswordState = { error: null };
 
 export function SetPasswordForm() {
   const [state, formAction, pending] = useActionState(setPassword, initialState);
-  const describedBy = ["password-rule", state.error ? "set-password-error" : null]
-    .filter(Boolean)
-    .join(" ");
+  const [password, setPasswordValue] = useState("");
 
   return (
     <form action={formAction} className="space-y-4" noValidate>
@@ -28,12 +26,12 @@ export function SetPasswordForm() {
           minLength={12}
           required
           readOnly={pending}
+          value={password}
+          onChange={(e) => setPasswordValue(e.target.value)}
           aria-invalid={Boolean(state.error)}
-          aria-describedby={describedBy}
+          aria-describedby="password-strength"
         />
-        <p id="password-rule" className="text-xs leading-4 text-muted-foreground">
-          {AUTH_MESSAGES.passwordRule}
-        </p>
+        <PasswordStrengthMeter id="password-strength" password={password} />
       </div>
 
       <div className="space-y-2">

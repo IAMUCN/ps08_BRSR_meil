@@ -379,3 +379,59 @@ Decisions: `.grill/phase-19-ui-polish-decisions.md`.
   the server-error message.
 - **An action on an expired session** (App Flow §3, §4.3) goes to sign-in with "Your session expired" and
   back to the same page afterwards; the proxy no longer redirects Server Action requests itself.
+
+## A20 — Bulk import (employees, org units)
+
+Decisions: `.grill/bulk-import-decisions.md`. Not in any implementation-plan phase — requested directly by
+the owner mid-session.
+
+- **Two new pages under `/app`**, permission-gated rather than role-gated: `/app/users/bulk-import`
+  (`user.bulk_import`) and `/app/org-units/bulk-import` (`org.bulk_import`), appearing in the sidebar only
+  for whoever an Admin has granted the permission to (same pattern as A1's Approvals item). Both also embed
+  inline on their Admin equivalents (`/admin/users`, `/admin/organization`'s node panel) — an Admin always
+  has both permissions, no separate Admin-only screen was built.
+- **A downloadable `.xlsx` template** for each: Employee ID / Name / Email / Role / Organization Scope, and
+  Code / Name / Type for org units, each with a second "Valid codes" reference sheet (no dropdown
+  validation — SheetJS's free `xlsx` package can't write that).
+- **Results, not a redirect**: each row's outcome (created/failed, and for employees whether its password
+  email actually sent) shows in a table on the same page, downloadable as CSV.
+
+## A21 — Theme switcher moved to the top bar; default changed
+
+Decisions: `.grill/theme-toggle-decisions.md`.
+
+- **The theme switcher moved from Profile to the top bar** (a compact 3-swatch toggle, `components/shell/
+theme-toggle.tsx`), present in both the `/app` and `/admin` shells. Profile's "Appearance" section is
+  removed.
+- **The default theme changed from Warm (`theme-1`) to Corporate (`theme-2`)** — schema deviation D23.
+  Labels changed accordingly: Corporate is now marked "Default", Warm is relabelled "Special", Dark is
+  unchanged. A19's "labelled Warm / Corporate / Dark" note still holds for the names; only which one is
+  the default, and where the picker lives, changed.
+
+## A22 — Password composition rules + live strength meter
+
+Decisions: `.grill/password-policy-decisions.md`. Supersedes Phase 3's "12 characters, no composition
+rules" (NIST SP 800-63B) — the owner explicitly asked for composition rules and a live meter.
+
+- **Every password-entry screen** (`/reset-password`, `/forgot-password`'s OTP step, Profile's
+  change-password form) now shows a live strength bar plus a checklist of the 5 rules
+  (`lib/auth/password-policy.ts`: 12+ characters, uppercase, lowercase, number, special character), each
+  turning green with a check as it's met. The server re-checks the same rules on every setter — the meter
+  can never be more lenient than what actually saves.
+- **The bulk-import default-password generator was hardened to match**: a one-letter name or an
+  all-letters employee ID could otherwise produce a password missing a required character class.
+
+## A23 — A PDF with several bills
+
+Decisions: `.grill/multi-bill-pdf-decisions.md`. Not in any implementation-plan phase — requested directly by the
+owner.
+
+- **Upload Document** opens with a choice: _One bill_ (unchanged) or _A PDF with several bills_. The second hides the
+  activity picker, accepts PDF only (up to 20 pages) and, after upload, goes to the new split page.
+- **`/app/upload/split/[documentId]`** is a new screen (an addition to App Flow §2.3, which has one document per
+  upload). While the OCR reads the PDF it says so and refreshes itself; then it shows the PDF beside the proposed
+  bills — pages, what each looks like, the activity — which the uploader can edit, leave out, remove or add to, with
+  the rules checked as they type. _Record N bills_ creates one record per kept bill and goes to My Submissions;
+  possible duplicates must be acknowledged. Afterwards the page lists the recorded bills with links to verify them.
+- A bill the uploader's role may not record (water for a Project Manager) is shown, said to be left out, and not
+  offered in the activity list. The notification "PDF ready to split" deep-links to the page.

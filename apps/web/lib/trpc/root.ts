@@ -1,6 +1,7 @@
 import "server-only";
 import { protectedProcedure, router } from "@/lib/trpc/init";
 import { dashboardRouter } from "@/lib/trpc/routers/dashboard";
+import { bundlesRouter } from "@/lib/trpc/routers/bundles";
 import { documentsRouter } from "@/lib/trpc/routers/documents";
 import { factorsRouter } from "@/lib/trpc/routers/factors";
 import { notificationsRouter } from "@/lib/trpc/routers/notifications";
@@ -32,6 +33,7 @@ export const appRouter = router({
   reportingPeriods: reportingPeriodsRouter,
   profile: profileRouter,
   documents: documentsRouter,
+  bundles: bundlesRouter,
   ocr: ocrRouter,
   notifications: notificationsRouter,
   verification: verificationRouter,
