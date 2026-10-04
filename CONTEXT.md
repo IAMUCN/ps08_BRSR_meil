@@ -59,6 +59,10 @@ _Last updated: 2026-10-05._
   deviation entry (D/A numbers continue: next are **D24** and **A23**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
+- **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
+  `main` and pushed): **feature** and **ui**. The rules for staying out of each other's way — lanes, migration
+  numbers, who edits which docs, the shared hosted project — are in `CLAUDE.md`. This work so far is the **feature**
+  role.
 - **Does not use Render.** Do not recommend or configure it.
 - Never print or commit secrets. The owner has pasted database passwords and API keys in chat before; the database
   password is still on the rotate list (PROGRESS.md §5).
