@@ -10,15 +10,16 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-10-05._
+_Last updated: 2026-10-07._
 
 ---
 
 ## 1. Where we are right now
 
-- **Phases 1–20 are done and committed.** HEAD is `654d549` on `main`. **Phase 21 (Deployment) is next, but the
-  owner has not yet said where anything is hosted** — do not start it or assume Render (the owner does not use it).
-- **About 50 files are uncommitted** (see `git status`). They are three groups, all finished but not committed:
+- **Phases 1–20 and the out-of-sequence work below are committed** (`2392b6e`, merged to `main`; branch `feature`
+  is one commit ahead of `main`). **Phase 21 (Deployment) comes after the audit fixes; the owner will choose the
+  hosting then** — do not start it or assume Render (the owner does not use it).
+- **Out-of-sequence work, committed; what is still unconfirmed in each group:**
   1. *Out-of-sequence features the owner asked for directly* (2026-09-25 onward): bulk import of employees and
      org units, OTP password reset by email, password-composition policy with a live meter, the theme toggle in
      the top bar, migrations `0029`–`0031`. Decisions: `.grill/bulk-import-decisions.md`,
@@ -34,9 +35,21 @@ _Last updated: 2026-10-05._
   3. *A PDF with several bills* (2026-10-05, owner's request; `.grill/multi-bill-pdf-decisions.md`, D24, A23, migration
      `0032`, new dependency `pdf-lib`): upload one PDF, the OCR proposes the split, the uploader confirms on
      `/app/upload/split/[documentId]`, each kept bill becomes its own record. Tested end to end locally (full suite
-     189/189, Edge 17/17, OCR harness 9/9, production build, database 164/164, web unit 78/78, worker unit 40/40) but **never run against the hosted
+     189/189, Edge 17/17, OCR harness 9/9, production build, database 164/164, web unit 78/78, worker unit 40/40) but **not yet tried with a real upload on the hosted
      project or on a real multi-bill PDF**. Also in this change: the e2e suite's passwords now meet the password
      policy, four stale database tests were updated, `E2E_ENV_FILE` and `NEXT_DIST_DIR` were added.
+- **Audit fixes ([`AUDIT_FIXES.md`](AUDIT_FIXES.md), audit of 2026-10-06, 52/100).** Done 2026-10-07 and committed on
+  branch `feature` (not yet merged to `main`): P0-3 (indicator codes follow SEBI's July-2023 numbering, migration `0033`, D25) and
+  P0-2 (the report prints SEBI's GHG, waste and Scope 3 tables with a previous-year column, tCO2e, intensity,
+  assurance note and a methodology / factor-source section; turnover, PPP rate and assurance are entered once per
+  financial year on Admin → Reports, D26, A24). Decisions: `.grill/audit-p0-decisions.md`. Checked: web unit 82/82,
+  database 165/165, end-to-end scenarios A–D 82/82 on the local stack with the real worker image, the PDF read page
+  by page, lint, typecheck, format, production build. **Not run:** scenarios E / authorization / edge-cases, the OCR
+  harness (no worker change), and the new inputs form was not clicked through in a browser (its procedures were
+  exercised by the end-to-end run). **Migration `0033` was pushed to hosted on 2026-10-07** and checked there.
+  P0-1: the owner approved the factor values (table in `.grill/audit-p0-decisions.md`); **they are not on hosted yet** —
+  an Admin enters them at `/admin/conversion-factors` and retires the 0.02 grid factor. P0-4 (deployment) comes last.
+  P1–P3 not started. The owner's `ps_documents/provided_docs/KT_Session_Transcript_and_Context.md` is still untracked.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -45,9 +58,9 @@ _Last updated: 2026-10-05._
 |---|---|
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
-| Push migrations `0029`–`0032` to the hosted Supabase project? | The web app points at the hosted project, which lacks them, so bulk import, OTP reset, the default theme **and multi-bill PDFs** cannot work there. Pushing is outward-facing: wait for the owner's go-ahead (`supabase db push --db-url`, direct connection). |
-| Then recreate the hosted worker container from the new image | **Only after the push.** The new worker reads `documents.is_bundle`; before migration `0032` that fails *every* job on the hosted project. The running container (older image, no bundle code) is fine until then. |
 | When to commit the uncommitted work | See §1. |
+| Enter the approved factors on hosted (P0-1) | Five rows in `.grill/audit-p0-decisions.md`, through `/admin/conversion-factors`; retire the 0.02 grid factor first. Or tell the agent to insert them directly (the audit entry would then name no Admin). |
+| Factors for waste to landfill and business travel spend | No Indian source found; the owner must supply values and sources. |
 | Production Supabase: new project, or promote the dev one | PROGRESS.md §4. Must be decided explicitly. |
 
 ## 3. The owner and how they work
@@ -56,7 +69,7 @@ _Last updated: 2026-10-05._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D24** and **A23**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D27** and **A25**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -75,9 +88,11 @@ _Last updated: 2026-10-05._
   out of memory, not a code bug — free memory and retry. Run one heavy thing at a time.
 - **Local Supabase** (stopped at the end of the last session to save memory: `pnpm db:start`) on `553xx` ports (API 55321, Postgres 55322, Studio 55323, Mailpit 55324); web dev server on
   port 3000. Local users must be re-created after `pnpm db:reset`.
-- **Hosted Supabase** `ps08_brsr_meil` (Mumbai, development only): migrations `0001`–`0028` pushed, **`0029`–`0032`
-  not**. Auth settings, first Admin and the password rotation are still to do (PROGRESS.md §5).
-- **Docker:** the only OCR image is `traceesg-ocr-worker:latest` (≈2.3 GB, models baked in, `rules-10`; the **running** container is still on `rules-9`, deliberately — see §2). The one OCR
+- **Hosted Supabase** `ps08_brsr_meil` (Mumbai, development only): all migrations `0001`–`0033` pushed (`0033` on 2026-10-07, `0032`
+  on 2026-10-05; `0029`–`0031` were already there when checked). Checked after the push: the new columns and
+  `document_bundle_parts` exist, RLS is on for it and `password_reset_otps`, the browser roles have no access to
+  either, `employee_id`, the two bulk-import permissions and the `theme-2` default are in place. Auth settings, first Admin and the password rotation are still to do (PROGRESS.md §5).
+- **Docker:** the only OCR image is `traceesg-ocr-worker:latest` (≈2.3 GB, models baked in, `rules-10`; the running container was recreated from it on 2026-10-05, right after migration `0032` reached hosted). The one OCR
   container, `traceesg-ocr-worker-hosted`, was recreated from it on 2026-10-04 and again for `rules-8` (restart `unless-stopped`, runs
   `python -m worker` as user `worker`, env = the four hosted Supabase settings, talks to the **hosted** project
   `qcobpqkmlojyznkefnpt`). Old test containers and the `phase6`/`hello-world` images were deleted. To recreate it again,
@@ -128,6 +143,11 @@ _Last updated: 2026-10-05._
   (with sources) at `/admin/conversion-factors` before emissions calculate.
 - **`exceljs` is installed but unused** (only `xlsx` is imported); remove it when convenient.
 - **Line endings:** git warns "LF will be replaced by CRLF" on this Windows checkout; harmless.
+- **A local env file written by Python on Windows gets CRLF line endings**; exported into a shell, every value ends in a
+  carriage return (the browser path then "is not found"). Strip the trailing carriage returns with `sed`. Load it with a `read` loop,
+  not `source` (the Edge path has spaces and brackets). Delete `apps/web/.next-e2e` afterwards — lint and format scan it.
+- **Running one e2e scenario alone** can fail on stale local data (scenario D picks the newest test record, which may
+  sit in another period); run A–D in order.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

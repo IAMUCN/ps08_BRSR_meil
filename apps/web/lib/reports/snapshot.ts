@@ -3,6 +3,7 @@ import { consolidateNodes, loadMetrics } from "@/lib/consolidation/query";
 import type { Figure, Method } from "@/lib/consolidation/aggregate";
 import { normalize } from "@/lib/calculation/units";
 import type { db, Tx } from "@/lib/db";
+import { EMPTY_INPUTS, REPORT_INPUTS_KEY, type FyInputs } from "./inputs";
 
 // What a BRSR report says, frozen at generation (schema §13.1 snapshot_data; .grill/phase-17-reporting-
 // decisions.md). Approved records only. Every reported metric lists its contributing records with the
@@ -11,7 +12,7 @@ import type { db, Tx } from "@/lib/db";
 
 type Sql = Tx | ReturnType<typeof db>;
 
-export const SNAPSHOT_VERSION = 1;
+export const SNAPSHOT_VERSION = 2;
 
 export type ReportedRecord = {
   recordId: string;
@@ -46,15 +47,46 @@ export type ReportedIndicator = {
   metrics: ReportedMetric[];
 };
 
+export type ScopeTotal = {
+  code: string;
+  name: string;
+  figures: { unit: string; value: number | null }[];
+};
+export type ReportedSection = { code: string; name: string; indicators: ReportedIndicator[] };
+
+/** A conversion factor version the reported calculations used, as each calculation stored it. */
+export type FactorUsed = {
+  name: string;
+  version: number;
+  value: number | null;
+  inputUnit: string;
+  outputUnit: string;
+  source: string;
+  geography: string | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  records: number;
+};
+
 export type Snapshot = {
   version: number;
   generatedAt: string;
   org: { id: string; name: string; path: string[] };
+  /** The node itself and every org unit beneath it — the report's boundary. */
+  orgUnitCount: number;
   coverage: { label: string; periodIds: string[]; financialYear: number | null };
   /** Records in scope still awaiting approval — left out of every figure, stated in the report. */
   excludedAwaitingApproval: number;
-  scopes: { code: string; name: string; figures: { unit: string; value: number | null }[] }[];
-  sections: { code: string; name: string; indicators: ReportedIndicator[] }[];
+  scopes: ScopeTotal[];
+  sections: ReportedSection[];
+  /**
+   * SEBI's tables carry the previous financial year beside the current one: the same figures for the year
+   * before, without their records. Null for a single-period report.
+   */
+  previous: { label: string; scopes: ScopeTotal[]; sections: ReportedSection[] } | null;
+  /** Turnover, PPP rate, output and assurance for both years (D26). Null for a single-period report. */
+  inputs: { current: FyInputs; previous: FyInputs } | null;
+  factors: FactorUsed[];
   /** Schema §13.1: the contributing record ids per indicator, in the documented shape. */
   indicators: { brsr_indicator_id: string; esg_record_ids: string[] }[];
 };
@@ -75,15 +107,16 @@ export async function unmappedRequiredIndicators(sql: Sql): Promise<string[]> {
 const approvedFigures = (figures: Figure[]) =>
   figures.map((f) => ({ unit: f.unit, value: f.approved }));
 
-export async function buildSnapshot(
-  sql: Sql,
-  input: { orgUnitId: string; periodIds: string[]; label: string; financialYear: number | null },
-): Promise<Snapshot> {
-  const { orgUnitId, periodIds } = input;
-  const [path, metrics, indicatorRows, mappings] = await Promise.all([
-    sql<{ id: string; name: string }[]>`
-      select o.id, o.name from public.org_unit_tree t join public.org_units o on o.id = t.ancestor_id
-      where t.descendant_id = ${orgUnitId} order by t.depth desc`,
+/** The Admin-entered inputs for a financial year; anything not entered is null. */
+export async function loadReportInputs(sql: Sql, financialYear: number): Promise<FyInputs> {
+  const [row] = await sql<{ value: Record<string, Partial<FyInputs>> }[]>`
+    select value from public.org_settings where key = ${REPORT_INPUTS_KEY}`;
+  return { ...EMPTY_INPUTS, ...row?.value?.[String(financialYear)] };
+}
+
+/** Scope totals and every indicator's figures for one set of periods under one org node. */
+async function collect(sql: Sql, orgUnitId: string, periodIds: string[]) {
+  const [metrics, indicatorRows, mappings] = await Promise.all([
     loadMetrics(sql),
     sql<
       {
@@ -237,7 +270,7 @@ export async function buildSnapshot(
     };
   };
 
-  const sections: Snapshot["sections"] = [];
+  const sections: ReportedSection[] = [];
   for (const row of indicatorRows) {
     let section = sections.find((s) => s.code === row.section_code);
     if (!section) {
@@ -276,14 +309,87 @@ export async function buildSnapshot(
     return { code, name, figures };
   });
 
+  return { scopes, sections, excluded: excluded.n };
+}
+
+export async function buildSnapshot(
+  sql: Sql,
+  input: {
+    orgUnitId: string;
+    periodIds: string[];
+    label: string;
+    financialYear: number | null;
+    /** The financial year before, for SEBI's second column; its periods may be empty. */
+    previous?: { periodIds: string[]; label: string } | null;
+  },
+): Promise<Snapshot> {
+  const { orgUnitId, periodIds, financialYear } = input;
+  const [path, [units], current, before] = await Promise.all([
+    sql<{ id: string; name: string }[]>`
+      select o.id, o.name from public.org_unit_tree t join public.org_units o on o.id = t.ancestor_id
+      where t.descendant_id = ${orgUnitId} order by t.depth desc`,
+    sql<{ n: number }[]>`
+      select count(*)::int as n from public.org_unit_tree where ancestor_id = ${orgUnitId}`,
+    collect(sql, orgUnitId, periodIds),
+    input.previous ? collect(sql, orgUnitId, input.previous.periodIds) : null,
+  ]);
+  const { scopes, sections } = current;
+
+  const calculationIds = [
+    ...new Set(
+      sections.flatMap((s) =>
+        s.indicators.flatMap((i) =>
+          i.metrics.flatMap((m) => m.records.flatMap((r) => r.calculationId ?? [])),
+        ),
+      ),
+    ),
+  ];
+  const factors = calculationIds.length
+    ? await sql<FactorUsed[]>`
+        select cf.name, v.version_number as version, c.factor_value_snapshot::float as value,
+               v.input_unit as "inputUnit", v.output_unit as "outputUnit", v.source_reference as source,
+               v.geography, v.effective_from::text as "effectiveFrom", v.effective_to::text as "effectiveTo",
+               count(*)::int as records
+        from public.calculations c
+        join public.conversion_factor_versions v on v.id = c.conversion_factor_version_id
+        join public.conversion_factors cf on cf.id = v.conversion_factor_id
+        where c.id in ${sql(calculationIds)}
+        group by cf.name, v.version_number, c.factor_value_snapshot, v.input_unit, v.output_unit,
+                 v.source_reference, v.geography, v.effective_from, v.effective_to
+        order by cf.name, v.version_number`
+    : [];
+
   return {
     version: SNAPSHOT_VERSION,
     generatedAt: new Date().toISOString(),
     org: { id: orgUnitId, name: path.at(-1)?.name ?? "", path: path.map((p) => p.name) },
-    coverage: { label: input.label, periodIds, financialYear: input.financialYear },
-    excludedAwaitingApproval: excluded.n,
+    orgUnitCount: units.n,
+    coverage: { label: input.label, periodIds, financialYear },
+    excludedAwaitingApproval: current.excluded,
     scopes,
     sections,
+    previous:
+      before && input.previous
+        ? {
+            label: input.previous.label,
+            scopes: before.scopes,
+            sections: before.sections.map((s) => ({
+              ...s,
+              indicators: s.indicators.map((i) => ({
+                ...i,
+                metrics: i.metrics.map((m) => ({ ...m, records: [] })),
+              })),
+            })),
+          }
+        : null,
+    inputs:
+      financialYear === null
+        ? null
+        : {
+            current: await loadReportInputs(sql, financialYear),
+            previous: await loadReportInputs(sql, financialYear - 1),
+          },
+    factors: [...factors],
     indicators: sections.flatMap((s) =>
       s.indicators.map((i) => ({
         brsr_indicator_id: i.id,

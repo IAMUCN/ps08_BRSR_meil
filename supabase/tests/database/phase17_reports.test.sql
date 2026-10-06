@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(8);
+select plan(9);
 
 select throws_ok(
   $$insert into public.report_runs (requested_by, org_unit_id, report_type)
@@ -41,9 +41,15 @@ select is(
   (select x.reported_value from public.brsr_metric_mappings x
      join public.esg_metrics m on m.id = x.esg_metric_id
      join public.brsr_indicators i on i.id = x.brsr_indicator_id
-    where m.code = 'WASTE_DISPOSED' and i.code = 'P6-E8'),
+    where m.code = 'WASTE_DISPOSED' and i.code = 'P6-E9'),
   'activity',
-  'P6-E8 reports the waste quantity, not its emissions');
+  'P6-E9 reports the waste quantity, not its emissions');
+
+-- D25: indicator codes follow SEBI's July-2023 numbering.
+select is(
+  (select array_agg(code order by code) from public.brsr_indicators where deleted_at is null),
+  array['A-20', 'A-24', 'P1-E2', 'P3-E8', 'P6-E3', 'P6-E7', 'P6-E9', 'P6-L2', 'P8-E4'],
+  'the seeded indicators carry the July-2023 BRSR question numbers');
 
 select * from finish();
 rollback;

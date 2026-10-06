@@ -345,6 +345,33 @@ no browser grants). Each kept bill is an ordinary document, record and OCR job; 
 **Why:** the owner wants one upload to fill several bills separately; the person still confirms the split.
 Decision: `.grill/multi-bill-pdf-decisions.md`.
 
+## D25 — BRSR indicator codes renumbered to SEBI's July-2023 format (migration `0033`)
+
+**Schema says:** nothing about which edition of the BRSR format the indicator codes follow. Migration `0022`
+seeded them from the May-2021 format.
+
+**Implemented:** five rows of `brsr_indicators` are renumbered in place — `A-18`→`A-20`, `A-22`→`A-24`,
+`P6-E6`→`P6-E7`, `P6-E8`→`P6-E9`, `P6-L4`→`P6-L2` — with their descriptions. Ids, mappings and D18's
+`reported_value` are unchanged, so snapshots of earlier reports keep resolving. `0022` is not edited.
+
+**Why:** the final audit found the codes followed a superseded format (AUDIT_FIXES.md P0-3). Decision:
+`.grill/audit-p0-decisions.md`.
+
+## D26 — `org_settings` key `brsr_report_inputs`; report snapshot version 2 (no migration)
+
+**Schema says:** §13.1 `report_runs.snapshot_data` holds the reported values; nothing holds turnover, the PPP
+rate or an assurance statement.
+
+**Implemented:** an `org_settings` row with key `brsr_report_inputs`, value `{ "<FY start year>": { turnoverCr,
+pppRate, physicalOutput, physicalOutputUnit, assurance, methodologyNote } }`, written by the Admin procedure
+`reports.saveInputs` (audited as `report_inputs.updated`); the row does not exist until an Admin saves. The
+snapshot gains `previous` (the previous financial year's figures, without records), `inputs` (both years),
+`factors` (each conversion factor version the reported calculations used) and `orgUnitCount`; `version` is 2.
+Version-1 snapshots are still readable — the report page uses only fields both versions have.
+
+**Why:** SEBI's GHG, waste and Scope 3 tables need intensity per rupee of turnover, a PPP-adjusted intensity, a
+previous-year column and an assurance note (AUDIT_FIXES.md P0-2). Decision: `.grill/audit-p0-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

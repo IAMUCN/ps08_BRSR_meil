@@ -91,15 +91,24 @@ export async function runReport(runId: string): Promise<void> {
       );
     }
 
-    let periodIds: string[];
-    let label: string;
-    if (run.financial_year !== null) {
-      const { from, to } = financialYearRange(run.financial_year);
-      periodIds = (
+    const periodsOf = async (financialYear: number) => {
+      const { from, to } = financialYearRange(financialYear);
+      return (
         await sql<{ id: string }[]>`
           select id from public.reporting_periods where start_date >= ${from} and end_date <= ${to}`
       ).map((p) => p.id);
+    };
+    let periodIds: string[];
+    let label: string;
+    // SEBI's tables show the previous financial year beside the current one.
+    let previous: { periodIds: string[]; label: string } | null = null;
+    if (run.financial_year !== null) {
+      periodIds = await periodsOf(run.financial_year);
       label = financialYearLabel(run.financial_year);
+      previous = {
+        periodIds: await periodsOf(run.financial_year - 1),
+        label: financialYearLabel(run.financial_year - 1),
+      };
     } else {
       const [period] = await sql<{ label: string }[]>`
         select label from public.reporting_periods where id = ${run.reporting_period_id}`;
@@ -117,6 +126,7 @@ export async function runReport(runId: string): Promise<void> {
       periodIds,
       label,
       financialYear: run.financial_year,
+      previous,
     });
     let pdf: Uint8Array;
     try {

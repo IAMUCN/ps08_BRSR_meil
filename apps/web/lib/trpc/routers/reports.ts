@@ -8,8 +8,9 @@ import type { CalculationState } from "@/lib/calculation/trace";
 import { financialYearLabel, financialYearOf } from "@/lib/consolidation/aggregate";
 import { db } from "@/lib/db";
 import { expireStaleRuns, runReport } from "@/lib/reports/generate";
-import type { Snapshot } from "@/lib/reports/snapshot";
-import { permissionProcedure, router } from "@/lib/trpc/init";
+import { REPORT_INPUTS_KEY, type FyInputs } from "@/lib/reports/inputs";
+import { loadReportInputs, type Snapshot } from "@/lib/reports/snapshot";
+import { adminProcedure, permissionProcedure, router } from "@/lib/trpc/init";
 
 // Reports (03_APP_FLOW.md §2.2 Reports / Report Detail, §4.10; .grill/phase-17-reporting-decisions.md).
 // Generating needs `report.generate`; a requester who is not an Admin may only report inside their own
@@ -37,7 +38,58 @@ export type ReportOptions = {
   defaultFinancialYear: number | null;
 };
 
+const financialYear = z.number().int().min(2000).max(2100);
+const amount = z.number().positive().finite().nullable();
+const text = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullable()
+    .transform((v) => v || null);
+
 export const reportsRouter = router({
+  /** Turnover, PPP rate, output and assurance for one financial year (D26); null where nothing was entered. */
+  inputs: adminProcedure
+    .input(z.object({ financialYear }))
+    .query(({ input }): Promise<FyInputs> => loadReportInputs(db(), input.financialYear)),
+
+  saveInputs: adminProcedure
+    .input(
+      z.object({
+        financialYear,
+        turnoverCr: amount,
+        pppRate: amount,
+        physicalOutput: amount,
+        physicalOutputUnit: text(40),
+        assurance: text(500),
+        methodologyNote: text(1000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { financialYear: year, ...values } = input;
+      await db().begin(async (tx) => {
+        // Lock the one settings row so two Admins saving different years cannot overwrite each other.
+        const [existing] = await tx<{ value: Record<string, FyInputs> }[]>`
+          select value from public.org_settings where key = ${REPORT_INPUTS_KEY} for update`;
+        const [row] = await tx<{ id: string }[]>`
+          insert into public.org_settings (key, value, updated_by)
+          values (${REPORT_INPUTS_KEY}, ${tx.json({ [year]: values })}, ${ctx.session.userId})
+          on conflict (key) do update
+            set value = public.org_settings.value || excluded.value,
+                updated_by = excluded.updated_by, updated_at = now()
+          returning id`;
+        await writeAudit(tx, {
+          eventType: "report_inputs.updated",
+          entityType: "org_setting",
+          entityId: row.id,
+          userId: ctx.session.userId,
+          oldValue: { financial_year: year, ...existing?.value?.[String(year)] },
+          newValue: { financial_year: year, ...values },
+        });
+      });
+    }),
+
   options: generateProcedure.query(async (): Promise<ReportOptions> => {
     const sql = db();
     const [orgUnits, periods] = await Promise.all([

@@ -46,6 +46,37 @@ check(
     .join(", "),
 );
 
+section("Turnover, PPP rate and assurance are entered once per financial year (D26)");
+// Whatever is stored locally for this year is put back at the end.
+const inputsBefore = (await admin.query("reports.inputs", { financialYear: fy })).data;
+const inputs = {
+  financialYear: fy,
+  turnoverCr: 1000,
+  pppRate: 20.343,
+  physicalOutput: null,
+  physicalOutputUnit: null,
+  assurance: "No (e2e synthetic value)",
+  methodologyNote: null,
+};
+check("the Admin saves them", ok(await admin.mutate("reports.saveInputs", inputs)));
+check(
+  "they read back, and another year is untouched",
+  (await admin.query("reports.inputs", { financialYear: fy })).data?.turnoverCr === 1000 &&
+    (await admin.query("reports.inputs", { financialYear: 2001 })).data?.turnoverCr === null,
+);
+check(
+  "a negative turnover is refused, and a Project Manager cannot change them",
+  rejected(await admin.mutate("reports.saveInputs", { ...inputs, turnoverCr: -1 })) &&
+    rejected(await pm.mutate("reports.saveInputs", inputs)),
+);
+check(
+  "the change is audited",
+  !!(await one(
+    sql`select 1 from public.audit_logs where event_type = 'report_inputs.updated'
+        and (new_value->>'financial_year')::int = ${fy} and (new_value->>'turnoverCr')::numeric = 1000`,
+  )),
+);
+
 section("Generation runs after the request");
 const started = Date.now();
 const gen = await admin.mutate("reports.generate", { orgUnitId: root, financialYear: fy });
@@ -67,23 +98,39 @@ check(
 
 section("Consolidated correctly across the hierarchy");
 const s = run.snapshot;
+check(
+  "the snapshot carries the previous year, the year's inputs and every factor used with its source",
+  !!s.previous?.label &&
+    s.inputs?.current.turnoverCr === 1000 &&
+    s.inputs?.previous.turnoverCr === null &&
+    s.factors.length > 0 &&
+    s.factors.every((f) => f.source && f.records > 0) &&
+    s.orgUnitCount > 1,
+  JSON.stringify({ previous: s.previous?.label, inputs: s.inputs, factors: s.factors?.length }),
+);
+check(
+  "indicators carry the July-2023 BRSR numbers (D25)",
+  ["A-20", "A-24", "P6-E7", "P6-E9", "P6-L2"].every((code) =>
+    s.sections.some((x) => x.indicators.some((i) => i.code === code)),
+  ),
+);
 const live = (await admin.query("consolidation.query", { orgUnitId: root, financialYear: fy }))
   .data;
 const metricsOf = (code) =>
   s.sections.flatMap((x) => x.indicators).find((i) => i.code === code)?.metrics ?? [];
 const liveFigure = (code, unit) =>
   live.metrics.find((m) => m.code === code)?.figures.find((f) => f.unit === unit)?.approved;
-const diesel = metricsOf("P6-E6").find((m) => m.name === "Diesel Consumption");
+const diesel = metricsOf("P6-E7").find((m) => m.name === "Diesel Consumption");
 check(
-  "P6-E6 diesel equals the live approved consolidation",
+  "P6-E7 diesel equals the live approved consolidation",
   close(
     diesel?.figures.find((f) => f.unit === "kgCO2e")?.value,
     liveFigure("DIESEL_CONSUMPTION", "kgCO2e"),
   ),
 );
-const women = metricsOf("A-18")[0];
+const women = metricsOf("A-20")[0];
 check(
-  "A-18 % women is re-derived from summed counts, not averaged",
+  "A-20 % women is re-derived from summed counts, not averaged",
   close(women?.figures[0].value, (women?.basis.part / women?.basis.whole) * 100) &&
     close(women?.figures[0].value, liveFigure("WORKFORCE_GENDER", "%")),
   JSON.stringify(women?.basis),
@@ -166,6 +213,8 @@ try {
 } finally {
   await save(true);
 }
+
+await admin.mutate("reports.saveInputs", { financialYear: fy, ...inputsBefore });
 
 section("Access");
 check(

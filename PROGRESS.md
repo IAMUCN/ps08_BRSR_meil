@@ -4,9 +4,8 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-05 — Phase 20 committed; out-of-sequence work (bulk import, OTP reset, password policy,
-theme toggle, DISCOM and water OCR rules, multi-bill PDFs) done but uncommitted; Phase 21 next, hosting to be
-decided by the owner._
+_Last updated: 2026-10-07 — Phase 20 committed; audit fixes P0-2 and P0-3 done (migration `0033` on hosted); P0-1 factor values
+approved, still to be entered on hosted; Phase 21 (deployment) comes after the audit fixes, hosting to be decided by the owner._
 
 ---
 
@@ -36,12 +35,12 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs (`0001`–`0032`; `0029`–`0032` local only) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes (`0001`–`0033`, all pushed to hosted) |
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–E, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D24) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A23) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D26) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A24) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
 | `CONTEXT.md` | The live state — uncommitted work, questions waiting on the owner, machine facts, owner preferences, traps already hit. Loaded with this file by `CLAUDE.md`; rewritten at the end of every session |
@@ -77,7 +76,8 @@ may run in parallel with Phases 3–5.
 | 19 | UI polish and responsive behavior | Done | `44ad2e1` |
 | 20 | Testing and edge cases | Done | `8736707` |
 | — | Out-of-sequence work: bulk import, OTP password reset, password policy, theme toggle, DISCOM and water OCR rules, multi-bill PDFs | Done locally, **uncommitted** | — |
-| 21 | Deployment (hosting to be decided by the owner) | **Next** | — |
+| — | Audit fixes P0-2 (SEBI-format report) and P0-3 (July-2023 indicator codes) | Done, on branch `feature` | — |
+| 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
 
@@ -560,7 +560,27 @@ for it, so run the usual checks before committing. Decisions: `.grill/bulk-impor
   REST key); `BREVO_SMTP_LOGIN` is optional, and `.env.example` does not list it. `RESEND_API_KEY` was removed from
   `.env.example`.
 
+**Audit fixes P0-2 and P0-3 (2026-10-07).** Decisions: `.grill/audit-p0-decisions.md`; list: `AUDIT_FIXES.md`.
+- **Indicator codes follow SEBI's July-2023 BRSR format** (migration `0033`, D25): `A-20`, `A-24`, `P6-E7`, `P6-E9`,
+  `P6-L2` renumbered in place, checked against a report filed in the new format; four codes did not move.
+- **The report prints SEBI's tables** for greenhouse gases, waste and Scope 3: current and previous financial year,
+  metric tonnes of CO2 equivalent, intensity per rupee of turnover, PPP-adjusted and per physical output, the
+  assurance note, then a methodology section with the boundary and every conversion factor used and its source.
+  Every other indicator also gained the previous-year column. Snapshot version 2 (D26).
+- **Turnover, PPP rate, physical output and assurance** are entered once per financial year on Admin → Reports
+  (A24), Admin only, audited; anything empty prints "Not provided", never a default.
+- **Known gaps, stated in the report itself:** waste by category and recovered quantities are not captured; no
+  break-up by gas.
+- Checks: web unit 82/82, database 165/165, end-to-end scenarios A–D 82/82 (local stack, real worker image), the
+  generated PDF read page by page, lint, typecheck, format, production build. Not run: scenarios E, authorization
+  and edge-cases; the OCR harness (no worker change); a browser click-through of the new form.
+
 ## 4. What comes next
+
+**Before Phase 21:** the remaining audit fixes. P0-1 (Indian emission factors): the owner approved the values in
+`.grill/audit-p0-decisions.md` on 2026-10-07; an Admin still has to enter them on hosted. Then P1 (Scope 1 and 3 gaps, travel mode, hierarchy enforced in
+the database). Migration `0033` was pushed to hosted on 2026-10-07.
+
 
 **Phase 21 — Deployment** (`06_IMPLEMENTATION_PLAN.md` §Phase 21): the production Supabase project (or the dev
 project promoted — decide explicitly), `apps/web` (Vercel was planned) and the OCR worker (**host to be decided
@@ -568,14 +588,15 @@ by the owner; not Render**, and not a sleeping tier), production migrations as a
 streams, backups confirmed, a rollback procedure tested once, `DEPLOYMENT.md`, and the critical end-to-end test
 re-run against the live URLs. The owner will say where each part is hosted before this starts.
 
-Before Phase 21: check and commit the out-of-sequence work above (it is in the working tree, not in git). The web app
-points at the hosted Supabase project, which does not have migrations `0029`–`0032` yet: push them (owner's go-ahead),
-**then** recreate the hosted worker container from the new image — a worker newer than the database fails every job.
+Before Phase 21: check and commit the out-of-sequence work above (it is in the working tree, not in git). All migrations
+`0001`–`0032` are on the hosted project (`0032` pushed 2026-10-05) and the hosted worker container runs the matching
+image (`rules-10`); when migrations and the worker change again, push first, then replace the container — a worker
+newer than the database fails every job.
 
 Things to remember for Phase 21:
 - The end-to-end suite refuses any non-local database by design; running Scenarios A–D against production
   needs a deliberate, reviewed switch (and test accounts and synthetic data that must not stay there).
-- Everything in "Open items" below: migrations `0029`–`0032` not pushed, the database password to rotate,
+- Everything in "Open items" below: the database password to rotate,
   Supabase Auth limits (SECURITY_REVIEW.md F8) and password rules, SMTP, Chromium on Vercel, the worker host.
 - The OCR worker is a background process with no web port: it polls Postgres, needs about 2 GB RAM and must stay
   running. Its image (`apps/ocr-worker/Dockerfile`, ~2.3 GB) bakes the model weights in; `DATABASE_URL` must be
@@ -584,10 +605,10 @@ Things to remember for Phase 21:
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0001`–`0028` are
-  pushed (`0015`–`0028` pushed 2026-09-22 with `supabase db push --db-url`, direct connection); **`0029`–`0032`
-  (bulk import, OTP table, default theme) exist only locally and must be pushed before those features work
-  there**. Verified as of `0028`:
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0001`–`0032` are
+  pushed (`0015`–`0028` on 2026-09-22 and `0032` on 2026-10-05 with `supabase db push --db-url`, session pooler;
+  `0029`–`0031`, bulk import / OTP table / default theme, were already there). Verified as of `0028`, and for `0029`–`0032`
+  on 2026-10-05 (new columns and table present, RLS on, no browser grants, permissions and `theme-2` default in place):
   37 tables (35 + `rate_limit_events` + `submission_expectations`, D16/D19) all with RLS, `authenticated`
   has zero table-level write privilege anywhere, `anon` zero read privilege anywhere, both `evidence` and
   `reports` buckets private, the append-only audit triggers exist, `org_settings` holds exactly

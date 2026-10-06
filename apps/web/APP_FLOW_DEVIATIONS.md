@@ -435,3 +435,16 @@ owner.
   possible duplicates must be acknowledged. Afterwards the page lists the recorded bills with links to verify them.
 - A bill the uploader's role may not record (water for a Project Manager) is shown, said to be left out, and not
   offered in the activity list. The notification "PDF ready to split" deep-links to the page.
+
+## A24 — Reports: SEBI-format tables and the yearly inputs form
+
+Decisions: `.grill/audit-p0-decisions.md` (audit fixes P0-2 and P0-3).
+
+- **The BRSR report PDF** prints greenhouse gas emissions, waste and Scope 3 as the July-2023 SEBI tables: current
+  and previous financial year, metric tonnes, intensity rows and the assurance note, followed by a methodology,
+  boundary and factor-source section. Indicator codes follow the July-2023 numbering (`A-20`, `P6-E7`, …).
+- **Admin → Reports** gains a collapsed section, _Turnover, PPP rate and assurance for the report_: one set of
+  values per financial year, saved with an outline button (the page keeps one primary button). An addition to
+  App Flow §2.2, which has only the parameter form. Built plainly by the feature role
+  (`app/admin/reports/report-inputs-form.tsx`); the ui role may restyle it.
+- Anything not entered prints as "Not provided"; a single-period report shows no annual intensity.
