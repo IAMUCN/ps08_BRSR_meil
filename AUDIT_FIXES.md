@@ -51,34 +51,46 @@ editing. Role per `CLAUDE.md`: everything here is **feature** work unless it say
 
 ## P1 — should fix
 
-- [ ] **Scope 1 gaps:** refrigerants / SF6 (fugitive), process emissions, coal, PNG, LNG (PRD §20 lists LNG and
+- [x] **Scope 1 gaps:** _(Done 2026-10-07, migration `0035`: coal by grade, LNG, PNG, refrigerant and SF6 top-ups by
+  gas; stationary/mobile recorded as an optional field. Not done: process emissions, NCV/gas-split method. No
+  factors entered for the new activities.)_ refrigerants / SF6 (fugitive), process emissions, coal, PNG, LNG (PRD §20 lists LNG and
   coal), stationary vs mobile split. Seed as configuration like migration `0017`. Fuel factors currently apply per
   litre/kg with no NCV or gas-split method.
-- [ ] **Scope 3 gaps:** 2 of 12 categories live (waste, business travel). Add employee commuting, logistics,
+- [x] **Scope 3 gaps:** _(Done 2026-10-07, migration `0035`: cement and steel by weight, freight and employee
+  commuting by spend; 5 of 10 categories active.)_ 2 of 12 categories live (waste, business travel). Add employee commuting, logistics,
   purchased goods; KT says all three scopes, PRD §22 says a subset — KT takes precedence. Pattern: migration `0019`.
-- [ ] **Travel mode does not change the factor** (a flight and a train give the same result). Per-mode factors or
+- [x] **Travel mode does not change the factor** _(Done 2026-10-07: Air, Rail and Bus/Road are separate activities
+  measured in passenger-km; the person types the distance.)_ (a flight and a train give the same result). Per-mode factors or
   passenger-km in the engine + seed.
-- [ ] **Hierarchy not enforced in the database.** Direct inserts were accepted for a project under a project, a
+- [x] **Hierarchy not enforced in the database.** _(Done 2026-10-07: migration `0034`, D27, pgTAP tests.
+  `0034` and `0035` pushed to hosted and the hosted worker recreated on `rules-11` the same day.)_ Direct inserts were accepted for a project under a project, a
   subsidiary under a project, and a cycle (only the FK and "root must be a group" exist). Add a trigger mirroring
   `canBeChildOf` in `lib/org/rules.ts` plus a cycle check; add a pgTAP test.
 
 ## P2 — nice to have
 
-- [ ] **Calculations deletable at DB level.** Add the same append-only/delete guard the audit log has (migration
+- [x] **Calculations deletable at DB level.** _(Done 2026-10-07: migration `0036`, D28, on hosted. The five missing
+  rows: early uncommitted test scripts deleted factors and the calculations that used them — no app path; see
+  `.grill/audit-p2-decisions.md`.)_ Add the same append-only/delete guard the audit log has (migration
   `0027`). Also **investigate the 5 locally approved grid bills (20–21 Sept 2026) whose `calculation.completed`
   audit entries exist but whose calculation rows are gone** — cause not established, no app path deletes them.
-- [ ] **Security headers** (frame protection, CSP, HSTS, nosniff) in `apps/web/next.config.ts` — `next.config.ts` is a
+- [x] **Security headers** _(Done 2026-10-07; no script-restricting CSP yet — needs nonces.)_ (frame protection, CSP, HSTS, nosniff) in `apps/web/next.config.ts` — `next.config.ts` is a
   *shared file*: keep the change small and say so in the PR.
-- [ ] **Audit lacks IP, session, user-agent**; `validation.completed` is logged after `approval.submitted` — log in
+- [x] **Audit lacks IP, session, user-agent** _(Done 2026-10-07: three columns, shown and exported; order fixed.)_; `validation.completed` is logged after `approval.submitted` — log in
   true order.
-- [ ] **Levels are a fixed DB enum + TS constant**; PRD §11 says adding a level should be configuration.
-- [ ] **One evidence file per record in the UI** (`esg_record_documents` already supports many); the hash is not
-  re-checked when a file is read back.
-- [ ] **Factor `geography` is stored but never used** when picking a factor — use it (CEA regional option) or drop it.
+- [x] **Levels are a fixed DB enum + TS constant**; PRD §11 says adding a level should be configuration.
+  _(Done 2026-10-07: `org_levels` table, migration `0037`, D29, on hosted; Admin section on Organization.)_
+- [x] **One evidence file per record in the UI** (`esg_record_documents` already supports many); the hash is not
+  re-checked when a file is read back. _(Done 2026-10-07: supporting files can be added until approval; the hash is
+  re-checked on read.)_
+- [x] **Factor `geography` is stored but never used** _(Decided 2026-10-07: kept as a disclosure — printed with each
+  factor in the report; not used to choose a factor.)_ when picking a factor — use it (CEA regional option) or drop it.
 
 ## P3
 
-- [ ] `AUTH_SECRET` is documented but unused — remove or implement. Web app has no Sentry (the worker does).
+- [x] `AUTH_SECRET` is documented but unused — remove or implement. Web app has no Sentry (the worker does).
+  _(Done 2026-10-07: `AUTH_SECRET` removed; server-side Sentry via `instrumentation.ts`, off unless `SENTRY_DSN` is
+  set, personal data collection switched off. Browser errors and source maps not done.)_
 
 ## Not code — still open from earlier (see `PROGRESS.md` §5)
 

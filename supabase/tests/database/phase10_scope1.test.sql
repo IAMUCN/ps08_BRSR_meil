@@ -8,8 +8,12 @@ select plan(6);
 select set_eq(
   $$select m.code from public.esg_metrics m join public.scopes s on s.id = m.scope_id
     where s.code = 'SCOPE_1' and m.deleted_at is null$$,
-  array['DIESEL_CONSUMPTION', 'PETROL_CONSUMPTION', 'CNG_CONSUMPTION', 'LPG_CONSUMPTION'],
-  'the Scope 1 fuels are diesel, petrol, CNG and LPG');
+  array['DIESEL_CONSUMPTION', 'PETROL_CONSUMPTION', 'CNG_CONSUMPTION', 'LPG_CONSUMPTION',
+        -- migration 0035: coal by grade, LNG, PNG, and fugitive top-ups by gas
+        'COAL_ANTHRACITE', 'COAL_BITUMINOUS', 'COAL_SUB_BITUMINOUS', 'COAL_LIGNITE', 'LNG_CONSUMPTION',
+        'PNG_CONSUMPTION', 'REFRIGERANT_R22', 'REFRIGERANT_R32', 'REFRIGERANT_R410A', 'REFRIGERANT_R134A',
+        'SF6_TOPUP'],
+  'the Scope 1 activities are the fuels, coal by grade and refrigerant top-ups by gas');
 
 select is(
   (select count(*)::int from public.esg_metrics m

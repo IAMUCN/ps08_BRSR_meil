@@ -18,7 +18,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
-import { isFrozen, ORG_UNIT_TYPE_LABELS } from "@/lib/org/rules";
+import { isFrozen, levelLabel, type OrgLevel } from "@/lib/org/rules";
 import { bulkImportUsersAction } from "@/lib/bulk-import/actions";
 import type { OrgUnitRow } from "@/lib/trpc/routers/organization";
 import type { UserRow, UserStatus } from "@/lib/trpc/routers/users";
@@ -63,6 +63,7 @@ function RoleScopeFields({
   idPrefix,
   roles,
   nodes,
+  levels,
   roleId,
   orgUnitId,
   onRole,
@@ -71,6 +72,7 @@ function RoleScopeFields({
   idPrefix: string;
   roles: RoleOption[];
   nodes: OrgUnitRow[];
+  levels: OrgLevel[];
   roleId: string;
   orgUnitId: string;
   onRole: (id: string) => void;
@@ -115,7 +117,7 @@ function RoleScopeFields({
           <option value="">Select a node…</option>
           {assignable.map((node) => (
             <option key={node.id} value={node.id}>
-              {node.name} ({ORG_UNIT_TYPE_LABELS[node.unitType]})
+              {node.name} ({levelLabel(levels, node.unitType)})
             </option>
           ))}
         </NativeSelect>
@@ -134,12 +136,14 @@ export function UsersManager({
   users,
   roles,
   nodes,
+  levels,
   bulkImportOptions,
 }: {
   currentUserId: string;
   users: UserRow[];
   roles: RoleOption[];
   nodes: OrgUnitRow[];
+  levels: OrgLevel[];
   bulkImportOptions: {
     roles: { code: string; name: string }[];
     orgUnits: { code: string; name: string; unitType: string }[];
@@ -294,6 +298,7 @@ export function UsersManager({
         onOpenChange={setInviteOpen}
         roles={roles}
         nodes={nodes}
+        levels={levels}
         onDone={() => router.refresh()}
       />
       {managed ? (
@@ -303,6 +308,7 @@ export function UsersManager({
           currentUserId={currentUserId}
           roles={roles}
           nodes={nodes}
+          levels={levels}
           onClose={() => setManagedId(null)}
           onDone={() => router.refresh()}
         />
@@ -316,12 +322,14 @@ function InviteSheet({
   onOpenChange,
   roles,
   nodes,
+  levels,
   onDone,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   roles: RoleOption[];
   nodes: OrgUnitRow[];
+  levels: OrgLevel[];
   onDone: () => void;
 }) {
   const [email, setEmail] = useState("");
@@ -376,6 +384,7 @@ function InviteSheet({
             />
           </div>
           <RoleScopeFields
+            levels={levels}
             idPrefix="invite"
             roles={roles}
             nodes={nodes}
@@ -399,6 +408,7 @@ function ManageSheet({
   currentUserId,
   roles,
   nodes,
+  levels,
   onClose,
   onDone,
 }: {
@@ -406,6 +416,7 @@ function ManageSheet({
   currentUserId: string;
   roles: RoleOption[];
   nodes: OrgUnitRow[];
+  levels: OrgLevel[];
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -490,6 +501,7 @@ function ManageSheet({
             >
               <p className="text-sm font-medium">Add assignment</p>
               <RoleScopeFields
+                levels={levels}
                 idPrefix="assign"
                 roles={roles}
                 nodes={nodes}

@@ -34,6 +34,16 @@ const UNITS: Record<string, { canonical: string; multiplier: number }> = {
   inr: { canonical: "INR", multiplier: 1 },
   rs: { canonical: "INR", multiplier: 1 },
   rupees: { canonical: "INR", multiplier: 1 },
+  // Distance, for travel reported in passenger-kilometres
+  km: { canonical: "km", multiplier: 1 },
+  kms: { canonical: "km", multiplier: 1 },
+  kilometre: { canonical: "km", multiplier: 1 },
+  kilometres: { canonical: "km", multiplier: 1 },
+  kilometer: { canonical: "km", multiplier: 1 },
+  kilometers: { canonical: "km", multiplier: 1 },
+  pkm: { canonical: "km", multiplier: 1 },
+  // Piped natural gas is billed in standard cubic metres — a gas volume, not the litres water uses.
+  scm: { canonical: "SCM", multiplier: 1 },
   // Energy → kilowatt-hours
   kwh: { canonical: "kWh", multiplier: 1 },
   units: { canonical: "kWh", multiplier: 1 },

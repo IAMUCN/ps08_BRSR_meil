@@ -7,7 +7,7 @@ select plan(3);
 select results_eq(
   $$select r.field_key from public.metric_field_requirements r
     join public.esg_metrics m on m.id = r.metric_id
-    where m.code = 'DIESEL_CONSUMPTION' order by r.field_key$$,
+    where m.code = 'DIESEL_CONSUMPTION' and r.is_required order by r.field_key$$,
   array['billing_period', 'invoice_number', 'quantity', 'unit'],
   'Diesel Consumption requires quantity, unit, invoice number and billing period');
 

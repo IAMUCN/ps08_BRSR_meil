@@ -65,3 +65,12 @@ test("trace numbers keep their precision and carry the unit", () => {
   assert.equal(formatQuantity(1250.5, "L"), "1,250.5 L");
   assert.equal(formatQuantity(3351.34, "kgCO2e"), "3,351.34 kgCO2e");
 });
+
+test("distance and piped gas: kilometres and SCM normalise only to themselves", () => {
+  const km = normalize(1148, "Kms", "km");
+  assert.ok(km.ok && km.normalized.value === 1148 && km.normalized.unit === "km");
+  assert.ok(normalize(320, "scm", "SCM").ok);
+  assert.ok(!normalize(320, "SCM", "L").ok, "a gas volume is not litres of liquid");
+  assert.ok(!normalize(10, "km", "kg").ok);
+  assert.ok(sameQuantity("pkm", "km"));
+});

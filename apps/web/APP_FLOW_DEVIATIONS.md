@@ -448,3 +448,18 @@ Decisions: `.grill/audit-p0-decisions.md` (audit fixes P0-2 and P0-3).
   App Flow §2.2, which has only the parameter form. Built plainly by the feature role
   (`app/admin/reports/report-inputs-form.tsx`); the ui role may restyle it.
 - Anything not entered prints as "Not provided"; a single-period report shows no annual intensity.
+
+## A25 — Hierarchy levels section; evidence files list
+
+Decisions: `.grill/audit-p2-decisions.md` (audit fixes P2).
+
+- **Admin → Organization** gains a collapsed section, _Hierarchy levels_: the levels in order, each renameable,
+  removable when no org unit uses it, and a form to add a level after an existing one. An addition to App Flow
+  §2.2 (Organization), which treats the levels as fixed. Every screen that names a level reads the configured name.
+- **Verify Extraction and the record drawer** gain an _Evidence files_ list: the original document and any
+  supporting files, each opening in a new tab, and an _Add a supporting file_ button for whoever could have
+  uploaded the record, until it is approved or rejected. An addition to App Flow §2.3, which has one document per
+  record on screen.
+- Both are plain sections built by the feature role (`app/admin/organization/levels-card.tsx`,
+  `components/records/evidence-files.tsx`); the ui role may restyle them. Outline buttons only — each page keeps
+  one primary button.

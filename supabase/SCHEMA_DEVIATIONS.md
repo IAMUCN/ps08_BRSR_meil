@@ -372,6 +372,46 @@ Version-1 snapshots are still readable — the report page uses only fields both
 **Why:** SEBI's GHG, waste and Scope 3 tables need intensity per rupee of turnover, a PPP-adjusted intensity, a
 previous-year column and an assurance note (AUDIT_FIXES.md P0-2). Decision: `.grill/audit-p0-decisions.md`.
 
+## D27 — Hierarchy rules enforced by a trigger on `org_units` (migration `0034`)
+
+**Schema says:** §4.1 gives `org_units` a self-referencing `parent_id` and the check that only a group may be a
+root; the level ordering is described but not enforced.
+
+**Implemented:** trigger `trg_enforce_org_hierarchy` (before insert, or update of `parent_id` / `unit_type`): a
+child's `unit_type` must come strictly after its parent's in the enum's declared order, a group is never a child,
+and a node's level cannot be changed to one at or after a child's. Violations raise `23514`. This makes cycles
+impossible as well. Existing rows are not re-checked. The app's own checks (`lib/org/rules.ts`) are unchanged and
+still give the friendly messages.
+
+**Why:** the final audit inserted a project under a project, a subsidiary under a project and a cycle directly
+(AUDIT_FIXES.md P1). Decision: `.grill/audit-p1-decisions.md`.
+
+## D28 — Calculations append-only; `audit_logs` gains `ip_address`, `user_agent`, `session_id` (migration `0036`)
+
+**Schema says:** §10.3 calculations are append-only by convention ("never updated, a new row is written"); §12.1
+`audit_logs` has no column for where an action came from.
+
+**Implemented:** triggers on `calculations` and `calculation_inputs` refuse DELETE, TRUNCATE and every UPDATE
+except retiring a calculation (`is_current`), for every role. `audit_logs` gains three nullable text columns,
+written by `writeAudit` from the request when a person acted.
+
+**Why:** the final audit could delete a calculation directly and found approved records whose calculation rows
+were gone; and it asked for the address, session and browser on audit entries (AUDIT_FIXES.md P2). Decision:
+`.grill/audit-p2-decisions.md`.
+
+## D29 — `org_levels` table; `org_units.unit_type` is a level code, not an enum (migration `0037`)
+
+**Schema says:** §4.1 `org_units.unit_type` is the enum `org_unit_type` with seven fixed values.
+
+**Implemented:** table `org_levels (id, code, label, sort_order)`, seeded with the seven levels under the same
+codes; `org_units.unit_type` is `text` with a foreign key to `org_levels.code`; the enum type is dropped. A
+trigger on `org_levels` keeps a level's code and position fixed, keeps `group` as the root level and refuses a
+level before it. The hierarchy trigger of D27 compares positions from the table. Server-only: RLS on, no
+policies, no grants to browser roles.
+
+**Why:** PRD §11 says adding a hierarchy level is configuration; the final audit found it needed a migration
+and a code change (AUDIT_FIXES.md P2). Decision: `.grill/audit-p2-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

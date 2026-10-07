@@ -7,6 +7,7 @@ import {
 } from "@/lib/bulk-import/actions";
 import { PageHeader } from "@/components/shell/page-header";
 import { requireAppSession } from "@/lib/auth/session";
+import { api } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Add Org Units · TraceESG" };
 
@@ -23,7 +24,11 @@ export default async function OrgUnitsBulkImportPage() {
         title="Add Org Units"
         description="Create several child nodes (projects, sites, …) at once from a filled-in spreadsheet, under a parent within your own scope."
       />
-      <OrgUnitBulkImport nodes={options.data} importAction={bulkImportOrgUnitsAction} />
+      <OrgUnitBulkImport
+        nodes={options.data}
+        levels={await (await api()).organization.levels()}
+        importAction={bulkImportOrgUnitsAction}
+      />
     </div>
   );
 }

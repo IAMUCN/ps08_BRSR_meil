@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionContext } from "@/lib/auth/session";
@@ -26,8 +27,10 @@ export async function GET(
   const access = await documentAccess(session.session, documentId);
   if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [row] = await db()<{ storage_path: string; mime_type: string; file_name: string }[]>`
-    select storage_path, mime_type, file_name from public.documents
+  const [row] = await db()<
+    { storage_path: string; mime_type: string; file_name: string; file_hash: string }[]
+  >`
+    select storage_path, mime_type, file_name, file_hash from public.documents
     where id = ${documentId} and deleted_at is null`;
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -42,6 +45,15 @@ export async function GET(
   // leave the keep-alive connection unusable, which breaks the next client-side navigation. Evidence
   // files are capped at 50 MB by the upload rules.
   const bytes = await data.arrayBuffer();
+  // The fingerprint recorded at upload must still describe the stored file: evidence that changed in
+  // storage is never shown as if it were the original (audit fix P2).
+  if (createHash("sha256").update(Buffer.from(bytes)).digest("hex") !== row.file_hash) {
+    console.error("evidence fingerprint mismatch", documentId);
+    return NextResponse.json(
+      { error: "The stored file no longer matches the fingerprint recorded when it was uploaded" },
+      { status: 409 },
+    );
+  }
   return new NextResponse(bytes, {
     headers: {
       "Content-Type": row.mime_type,

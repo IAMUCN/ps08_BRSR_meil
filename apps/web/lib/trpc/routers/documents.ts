@@ -6,7 +6,8 @@ import { writeAudit } from "@/lib/audit";
 import type { ActiveSession } from "@/lib/auth/session";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
 import { uploadTargets } from "@/lib/documents/rules";
-import type { OrgNode } from "@/lib/org/rules";
+import { loadLevels } from "@/lib/org/levels";
+import { levelLabel, type OrgNode } from "@/lib/org/rules";
 import {
   DEFAULT_ACCEPTED_MIME_TYPES,
   MAX_UPLOAD_BYTES,
@@ -17,7 +18,8 @@ import {
   formatMegabytes,
 } from "@/lib/storage/evidence";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { permissionProcedure, router } from "@/lib/trpc/init";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 import { documentAccess } from "@/lib/verification/access";
 import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 
@@ -40,6 +42,8 @@ export type UploadTarget = {
   orgUnitId: string;
   name: string;
   unitType: string;
+  /** The level's configured name (migration 0037). */
+  unitTypeLabel: string;
   categories: UploadCategory[];
 };
 export type UploadOptions = {
@@ -66,6 +70,7 @@ export function badRequest(message: string): never {
 export async function loadUploadOptions(sql: Sql, userId: string): Promise<UploadOptions> {
   const [period] = await sql<{ id: string; label: string }[]>`
     select id, label from public.reporting_periods where status = 'open'`;
+  const levels = await loadLevels(sql);
 
   const nodeRows = await sql<
     { id: string; parent_id: string | null; unit_type: string; status: string; name: string }[]
@@ -137,6 +142,7 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
       orgUnitId: n.id,
       name: n.name,
       unitType: n.unit_type,
+      unitTypeLabel: levelLabel(levels, n.unit_type),
       categories: targetMap.get(n.id)!.map((id) => {
         const { name, metrics } = categoriesById.get(id)!;
         return { id, name, metrics };
@@ -253,6 +259,53 @@ async function replacementTarget(
     orgUnitId: row.org_unit_id,
     metricId: row.metric_id,
   };
+}
+
+export type RecordEvidence = {
+  /** May the caller add a supporting file, and if not, why — shown as is. */
+  canAdd: boolean;
+  closedReason: string | null;
+  acceptedMimeTypes: string[];
+  files: {
+    documentId: string;
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    isPrimary: boolean;
+    addedAt: string;
+  }[];
+};
+
+/**
+ * The record a supporting file is added to (.grill/audit-p2-decisions.md). The same people who could have
+ * uploaded the record's document may add to it — their scope and their role's category — and only while the
+ * record is still open: evidence is not added to a record after it was approved or rejected.
+ */
+async function supportingTarget(sql: Sql, session: ActiveSession, recordId: string) {
+  const [record] = await sql<
+    {
+      org_unit_id: string;
+      reporting_period_id: string;
+      metric_id: string;
+      approval_status: string;
+      data_quality_state: string;
+    }[]
+  >`
+    select org_unit_id, reporting_period_id, metric_id, approval_status::text, data_quality_state::text
+    from public.esg_records where id = ${recordId}`;
+  if (!record) badRequest("Record not found.");
+  const { metric } = resolveTarget(
+    await loadUploadOptions(sql, session.userId),
+    record.org_unit_id,
+    record.metric_id,
+  );
+  if (record.approval_status === "approved") {
+    badRequest("This record is approved — its evidence is closed.");
+  }
+  if (record.data_quality_state === "rejected") {
+    badRequest("This record was rejected — upload a new document instead.");
+  }
+  return { record, metric };
 }
 
 /** Abuse protection (SECURITY_REVIEW.md): every signed upload URL issued counts, completed or not. */
@@ -501,6 +554,196 @@ export const documentsRouter = router({
             documentId: input.documentId,
             esgRecordId: record.id,
           };
+        });
+      } catch (error) {
+        if (pgErrorCode(error) === "23505") badRequest("This upload was already recorded.");
+        if (error instanceof TRPCError && error.code !== "INTERNAL_SERVER_ERROR") {
+          return reject(error.message);
+        }
+        throw error;
+      }
+    }),
+  /** Every evidence file of a record the caller can see (RLS: org scope or Admin), the primary one first. */
+  recordEvidence: protectedProcedure
+    .input(z.object({ recordId: z.uuid() }))
+    .query(async ({ ctx, input }): Promise<RecordEvidence> => {
+      const supabase = await createSupabaseServerClient();
+      const { data, error } = await supabase
+        .from("esg_record_documents")
+        .select(
+          "is_primary, added_at, documents(id, file_name, mime_type, file_size_bytes, deleted_at)",
+        )
+        .eq("esg_record_id", input.recordId)
+        .order("is_primary", { ascending: false })
+        .order("added_at")
+        .overrideTypes<
+          {
+            is_primary: boolean;
+            added_at: string;
+            documents: {
+              id: string;
+              file_name: string;
+              mime_type: string;
+              file_size_bytes: number;
+              deleted_at: string | null;
+            } | null;
+          }[],
+          { merge: false }
+        >();
+      if (error) throw error;
+      let canAdd = false;
+      let closedReason: string | null = null;
+      let acceptedMimeTypes: string[] = [];
+      if (ctx.session.permissions.includes("document.upload")) {
+        try {
+          acceptedMimeTypes = (await supportingTarget(db(), ctx.session, input.recordId)).metric
+            .acceptedMimeTypes;
+          canAdd = true;
+        } catch (reason) {
+          if (!(reason instanceof TRPCError)) throw reason;
+          closedReason = reason.message;
+        }
+      }
+      return {
+        canAdd,
+        closedReason,
+        acceptedMimeTypes,
+        files: (data ?? [])
+          .filter((row) => row.documents && !row.documents.deleted_at)
+          .map((row) => ({
+            documentId: row.documents!.id,
+            fileName: row.documents!.file_name,
+            mimeType: row.documents!.mime_type,
+            sizeBytes: row.documents!.file_size_bytes,
+            isPrimary: row.is_primary,
+            addedAt: row.added_at,
+          })),
+      };
+    }),
+
+  /**
+   * A supporting file for an existing record (schema §9.2 allows several documents per record; the screens
+   * offered one). Bytes first, then rows, as for the record's own document. The file is evidence only: it is
+   * not read by OCR and no value is taken from it.
+   */
+  prepareSupporting: upload
+    .input(
+      z.object({
+        recordId: z.uuid(),
+        mimeType: z.string().max(100),
+        fileSize: z.number().int().positive(),
+        sha256: z.string().regex(/^[0-9a-f]{64}$/),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const sql = db();
+      await enforceUploadLimit(ctx.session.userId);
+      const { record, metric } = await supportingTarget(sql, ctx.session, input.recordId);
+      checkDeclaredFile(metric, input.fileSize, input.mimeType);
+      const [same] = await sql`
+        select 1 from public.esg_record_documents erd
+        join public.documents d on d.id = erd.document_id
+        where erd.esg_record_id = ${input.recordId} and d.file_hash = ${input.sha256}
+          and d.deleted_at is null`;
+      if (same) badRequest("That file is already attached to this record.");
+      const documentId = randomUUID();
+      const path = evidencePath(
+        record.org_unit_id,
+        record.reporting_period_id,
+        documentId,
+        input.mimeType,
+      )!;
+      const { data, error } = await createSupabaseAdminClient()
+        .storage.from(evidenceBucket())
+        .createSignedUploadUrl(path);
+      if (error) throw error;
+      return { documentId, signedUrl: data.signedUrl };
+    }),
+
+  completeSupporting: upload
+    .input(
+      z.object({
+        recordId: z.uuid(),
+        documentId: z.uuid(),
+        mimeType: z.string().max(100),
+        fileName: z.string().trim().min(1).max(255),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const sql = db();
+      const storage = createSupabaseAdminClient().storage.from(evidenceBucket());
+      // Scope and the record's state first: nothing in storage is touched for a record out of reach.
+      const { record, metric } = await supportingTarget(sql, ctx.session, input.recordId);
+      const path = evidencePath(
+        record.org_unit_id,
+        record.reporting_period_id,
+        input.documentId,
+        input.mimeType,
+      );
+      if (!path) badRequest("Invalid file type — upload a PDF, JPG or PNG.");
+      const reject = async (message: string): Promise<never> => {
+        const [recorded] = await sql`select 1 from public.documents where id = ${input.documentId}`;
+        if (!recorded) await storage.remove([path]);
+        badRequest(message);
+      };
+
+      const { data: blob, error: downloadError } = await storage.download(path);
+      if (downloadError || !blob) badRequest("The file didn't finish uploading — try again.");
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      if (bytes.length > MAX_UPLOAD_BYTES) {
+        return reject(
+          `This file is ${formatMegabytes(bytes.length)}; the limit is ${formatMegabytes(MAX_UPLOAD_BYTES)}.`,
+        );
+      }
+      const content = checkFileContent(bytes);
+      if (!content.ok) return reject(content.reason);
+      if (
+        content.mimeType !== input.mimeType ||
+        !metric.acceptedMimeTypes.includes(content.mimeType)
+      ) {
+        return reject(
+          `Invalid file type — upload a ${acceptedTypesLabel(metric.acceptedMimeTypes)}.`,
+        );
+      }
+      const fileHash = createHash("sha256").update(bytes).digest("hex");
+
+      try {
+        return await sql.begin(async (tx) => {
+          // Re-checked under the transaction: the record may have been approved while the file uploaded.
+          await supportingTarget(tx, ctx.session, input.recordId);
+          const [same] = await tx`
+            select 1 from public.esg_record_documents erd
+            join public.documents d on d.id = erd.document_id
+            where erd.esg_record_id = ${input.recordId} and d.file_hash = ${fileHash}
+              and d.deleted_at is null`;
+          if (same) badRequest("That file is already attached to this record.");
+          const userId = ctx.session.userId;
+          await tx`
+            insert into public.documents (
+              id, org_unit_id, reporting_period_id, storage_path, file_name, mime_type,
+              file_size_bytes, file_hash, uploaded_by
+            ) values (
+              ${input.documentId}, ${record.org_unit_id}, ${record.reporting_period_id}, ${path},
+              ${input.fileName}, ${content.mimeType}, ${bytes.length}, ${fileHash}, ${userId}
+            )`;
+          await tx`
+            insert into public.esg_record_documents (esg_record_id, document_id, is_primary, added_by)
+            values (${input.recordId}, ${input.documentId}, false, ${userId})`;
+          await writeAudit(tx, {
+            eventType: "document.attached",
+            entityType: "esg_record",
+            entityId: input.recordId,
+            userId,
+            newValue: {
+              document_id: input.documentId,
+              file_name: input.fileName,
+              mime_type: content.mimeType,
+              file_size_bytes: bytes.length,
+              file_hash: fileHash,
+              is_primary: false,
+            },
+          });
+          return { documentId: input.documentId };
         });
       } catch (error) {
         if (pgErrorCode(error) === "23505") badRequest("This upload was already recorded.");

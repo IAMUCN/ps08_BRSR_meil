@@ -17,6 +17,7 @@ import { recordDetailAction } from "@/lib/records/actions";
 import type { RecordDetail } from "@/lib/trpc/routers/records";
 import type { Outcome, RuleType } from "@/lib/validation/checks";
 import { StageBadge } from "./stage-badge";
+import { EvidenceFiles } from "./evidence-files";
 
 // The shared record detail (03_APP_FLOW.md §2.2 Submission Monitoring → "record detail view, shared
 // component also used by … ESG Data Explorer"): evidence, extracted values, validation, calculation and the
@@ -157,6 +158,8 @@ export function RecordDrawer({
             ) : (
               <p className="text-sm text-muted-foreground">No evidence document is attached.</p>
             )}
+
+            <EvidenceFiles recordId={detail.recordId} />
 
             <section className="space-y-2">
               <div className="flex items-center justify-between">

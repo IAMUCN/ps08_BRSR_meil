@@ -49,7 +49,26 @@ _Last updated: 2026-10-07._
   exercised by the end-to-end run). **Migration `0033` was pushed to hosted on 2026-10-07** and checked there.
   P0-1: the owner approved the factor values (table in `.grill/audit-p0-decisions.md`); **they are not on hosted yet** —
   an Admin enters them at `/admin/conversion-factors` and retires the 0.02 grid factor. P0-4 (deployment) comes last.
-  P1–P3 not started. The owner's `ps_documents/provided_docs/KT_Session_Transcript_and_Context.md` is still untracked.
+  **P1 done 2026-10-07, uncommitted** (`.grill/audit-p1-decisions.md`): migration `0034` (hierarchy rules as a database
+  trigger, D27) and `0035` (18 new activities: coal by grade, LNG, PNG, refrigerants and SF6 by gas, travel by air /
+  rail / road in passenger-km, cement and steel by weight, freight and commuting by spend; 5 of 10 Scope 3 categories
+  active), `EXTRACTOR_VERSION` `rules-11`. Checked: web unit 83/83, worker unit 41/41 and Ruff, database 177/177, the
+  full end-to-end suite 206/206 on the local stack with the rebuilt worker image (new Scenario F), lint, typecheck,
+  format, production build. **Not run:** the OCR harness, a browser click-through. **`0034` and `0035` were pushed to hosted on 2026-10-07** (checked there) and the hosted
+  worker container was recreated from the `rules-11` image and is running. No factor exists for any new activity;
+  values for nine of them are proposed in `.grill/audit-p1-decisions.md` and await the owner's approval. **P2 done 2026-10-07, uncommitted** (`.grill/audit-p2-decisions.md`): migration `0036` (calculations append-only;
+  audit entries carry address, browser and session, D28) — **on hosted**; audit entries in true order; security
+  headers; evidence fingerprint re-checked on read. Checked: database 183/183, web unit 83/83, the full end-to-end
+  suite on the local stack (all eight scripts pass; Scenario A has 7 new P2 checks, 25/25), lint, typecheck, format,
+  production build. Not run: a browser click-through. **The two remaining P2 items were done the same day** on the owner's instruction: hierarchy levels are
+  configuration (`org_levels`, migration `0037`, D29 — **on hosted**; Admin → Organization has a Hierarchy levels
+  section) and a record can hold several evidence files (supporting files added on the verify screen or record
+  drawer until approval; not read by OCR). Checked: database 194/194, web unit 83/83, full end-to-end suite 226/226,
+  lint, typecheck, format, production build. Not run: a browser click-through of the two new sections.
+  **P3 done 2026-10-07, uncommitted** (`.grill/audit-p3-decisions.md`):
+  `AUTH_SECRET` removed from `.env.example`; server-side Sentry in `apps/web/instrumentation.ts` (new dependency
+  `@sentry/nextjs`), off unless `SENTRY_DSN` is set, checked against a local stand-in endpoint; lint, typecheck,
+  format, unit 83/83 and build pass; the end-to-end suite was not re-run for P3. The owner's `ps_documents/provided_docs/KT_Session_Transcript_and_Context.md` is still untracked.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -59,7 +78,13 @@ _Last updated: 2026-10-07._
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
 | When to commit the uncommitted work | See §1. |
-| Enter the approved factors on hosted (P0-1) | Five rows in `.grill/audit-p0-decisions.md`, through `/admin/conversion-factors`; retire the 0.02 grid factor first. Or tell the agent to insert them directly (the audit entry would then name no Admin). |
+| Enter the approved factors on hosted (P0-1) | The owner will enter them (said 2026-10-07): five rows in `.grill/audit-p0-decisions.md`, through `/admin/conversion-factors`; retire the 0.02 grid factor first. |
+| Commit the P1 and P2 work | The owner said they will commit it themselves (2026-10-07). |
+| Enter the approved factors on hosted (P0-1) | The owner will enter them (said 2026-10-07): five rows in `.grill/audit-p0-decisions.md`, through `/admin/conversion-factors`; retire the 0.02 grid factor first. |
+| Commit the P1 and P2 work | The owner said they will commit it themselves (2026-10-07). |
+| Hierarchy levels as configuration (P2)? | Replaces the level enum with a table; touches org screens, bulk import, the `0034` trigger. Recommendation: wait until a new level is needed. |
+| Several evidence files per record (P2)? | Screen work in the ui role's lane plus one server procedure. |
+| Approve the proposed P1 factors, and find the missing ones | `.grill/audit-p1-decisions.md`: coal grades, LNG, R-32, R-134a, R-410A, SF6 proposed with sources. No value proposed for PNG (needs the supplier's gas density), R-22 (an HCFC — keep the activity?), travel per passenger-km, cement, steel, freight, commuting. AR5 or AR6 GWPs is the owner's choice. |
 | Factors for waste to landfill and business travel spend | No Indian source found; the owner must supply values and sources. |
 | Production Supabase: new project, or promote the dev one | PROGRESS.md §4. Must be decided explicitly. |
 
@@ -69,7 +94,7 @@ _Last updated: 2026-10-07._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D27** and **A25**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D30** and **A26**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -88,11 +113,11 @@ _Last updated: 2026-10-07._
   out of memory, not a code bug — free memory and retry. Run one heavy thing at a time.
 - **Local Supabase** (stopped at the end of the last session to save memory: `pnpm db:start`) on `553xx` ports (API 55321, Postgres 55322, Studio 55323, Mailpit 55324); web dev server on
   port 3000. Local users must be re-created after `pnpm db:reset`.
-- **Hosted Supabase** `ps08_brsr_meil` (Mumbai, development only): all migrations `0001`–`0033` pushed (`0033` on 2026-10-07, `0032`
+- **Hosted Supabase** `ps08_brsr_meil` (Mumbai, development only): all migrations `0001`–`0037` pushed (`0033`–`0037` on 2026-10-07, `0032`
   on 2026-10-05; `0029`–`0031` were already there when checked). Checked after the push: the new columns and
   `document_bundle_parts` exist, RLS is on for it and `password_reset_otps`, the browser roles have no access to
   either, `employee_id`, the two bulk-import permissions and the `theme-2` default are in place. Auth settings, first Admin and the password rotation are still to do (PROGRESS.md §5).
-- **Docker:** the only OCR image is `traceesg-ocr-worker:latest` (≈2.3 GB, models baked in, `rules-10`; the running container was recreated from it on 2026-10-05, right after migration `0032` reached hosted). The one OCR
+- **Docker:** the only OCR image is `traceesg-ocr-worker:latest` (≈2.3 GB, models baked in, rebuilt 2026-10-07 as `rules-11`, and the hosted container was recreated from it the same day, after `0035` reached hosted; the running container was recreated from it on 2026-10-05, right after migration `0032` reached hosted). The one OCR
   container, `traceesg-ocr-worker-hosted`, was recreated from it on 2026-10-04 and again for `rules-8` (restart `unless-stopped`, runs
   `python -m worker` as user `worker`, env = the four hosted Supabase settings, talks to the **hosted** project
   `qcobpqkmlojyznkefnpt`). Old test containers and the `phase6`/`hello-world` images were deleted. To recreate it again,
@@ -141,11 +166,24 @@ _Last updated: 2026-10-07._
   reviewed switch.
 - **Conversion factors:** none are seeded; every local factor is a labelled synthetic value. MEIL must enter real ones
   (with sources) at `/admin/conversion-factors` before emissions calculate.
+- **`@sentry/nextjs` 11 collects cookies, headers, bodies, user details and local variables by default**
+  (`dataCollection`; the old `sendDefaultPii` option is gone). `instrumentation.ts` switches each off — keep it that
+  way when touching the Sentry setup.
 - **`exceljs` is installed but unused** (only `xlsx` is imported); remove it when convenient.
 - **Line endings:** git warns "LF will be replaced by CRLF" on this Windows checkout; harmless.
 - **A local env file written by Python on Windows gets CRLF line endings**; exported into a shell, every value ends in a
   carriage return (the browser path then "is not found"). Strip the trailing carriage returns with `sed`. Load it with a `read` loop,
   not `source` (the Edge path has spaces and brackets). Delete `apps/web/.next-e2e` afterwards — lint and format scan it.
+- **The owner's dev server (port 3000) uses the hosted database.** Code in the working tree that needs a new column
+  breaks that running app until the migration is on hosted — ask for the push as soon as such code is written.
+- **Hierarchy levels are data now** (`org_levels`): never hard-code a level list; rules in `lib/org/rules.ts` take the
+  levels the server loaded. `group` is the only level known by name.
+- **A long script passed to the shell as a heredoc can fail with "unexpected EOF"**; write it to the scratchpad with
+  the file tool and run it from there.
+- **A header set in `next.config.ts` replaces a route's own header of the same name** (it replaced the evidence
+  route's sandbox policy). The site-wide Content-Security-Policy is therefore not applied under `/api`.
+- **Stopping the test app and starting a new one straight away:** the dying process can still answer for a few seconds
+  (its `/login` returned 404). Request the page again before concluding anything.
 - **Running one e2e scenario alone** can fail on stale local data (scenario D picks the newest test record, which may
   sit in another period); run A–D in order.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.

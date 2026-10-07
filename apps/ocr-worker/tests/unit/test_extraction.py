@@ -60,6 +60,16 @@ class ExtractFieldsTest(unittest.TestCase):
         ]
         self.assertEqual(values(extract_fields(lines, specs)), {"withdrawal": "1250", "unit": "m3"})
 
+    def test_distance_gas_and_weight_units(self):
+        # rules-11: travel in km, piped gas in SCM, materials by net weight.
+        specs = [FieldSpec("quantity", "Quantity", "number"), FieldSpec("unit", "Unit", "unit")]
+        for text, expected in [
+            ("Distance: 1,148 km", {"quantity": "1148", "unit": "km"}),
+            ("Quantity: 320 SCM", {"quantity": "320", "unit": "SCM"}),
+            ("Net Weight: 25 MT", {"quantity": "25", "unit": "MT"}),
+        ]:
+            self.assertEqual(values(extract_fields([line(text, 40, 100)], specs)), expected)
+
     def test_label_and_value_on_the_same_line(self):
         lines = [
             line("Invoice No: SMP-INV-2026-0042", 40, 100),

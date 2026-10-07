@@ -1,6 +1,7 @@
 // Scenario A (06_IMPLEMENTATION_PLAN.md §4): a Project Manager uploads a diesel invoice → OCR → verify →
 // validate → calculate with the applicable factor → approve → the Admin drills the Scope 1 total down to
 // the original invoice.
+import { createHash } from "node:crypto";
 import {
   RUN,
   check,
@@ -75,6 +76,72 @@ check(
   JSON.stringify(edited),
 );
 
+section("Several evidence files for one record (audit fix P2)");
+/** Adds a supporting file the way the screen does: prepare, PUT the bytes, complete. */
+async function attach(who, bytes, fileName) {
+  const prepared = await who.mutate("documents.prepareSupporting", {
+    recordId: record.id,
+    mimeType: "application/pdf",
+    fileSize: bytes.length,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+  });
+  if (!ok(prepared)) return prepared;
+  const form = new FormData();
+  form.append("cacheControl", "3600");
+  form.append("", new Blob([bytes], { type: "application/pdf" }), "upload");
+  await fetch(prepared.data.signedUrl, {
+    method: "PUT",
+    body: form,
+    headers: { "x-upsert": "false" },
+  });
+  return who.mutate("documents.completeSupporting", {
+    recordId: record.id,
+    documentId: prepared.data.documentId,
+    mimeType: "application/pdf",
+    fileName,
+  });
+}
+const supporting = sample("diesel", { reference: `A-${RUN}-2`.toUpperCase() });
+const attached = await attach(pm, supporting, `scenario-a-supporting-${RUN}.pdf`);
+check("the PM adds a supporting file to the record", ok(attached), attached.error);
+const listed = (await pm.query("documents.recordEvidence", { recordId: record.id })).data;
+check(
+  "the record lists both files, the original first, and is still open for more",
+  listed?.files.length === 2 &&
+    listed.files[0].isPrimary &&
+    listed.files[0].documentId === documentId &&
+    !listed.files[1].isPrimary &&
+    listed.canAdd,
+  JSON.stringify(listed),
+);
+check(
+  "the supporting file opens for someone in scope and is not read by OCR",
+  (await approver.file(`/api/documents/${attached.data?.documentId}/file`)).status === 200 &&
+    !(await one(
+      sql`select 1 from public.ocr_jobs where document_id = ${attached.data?.documentId ?? null}`,
+    )),
+);
+check(
+  "the same file cannot be attached twice",
+  rejected(await attach(pm, supporting, "again.pdf"), "already attached"),
+);
+check(
+  "someone whose role does not own the activity cannot add evidence to it",
+  rejected(
+    await attach(
+      sessions.hr,
+      sample("diesel", { reference: `A-${RUN}-3`.toUpperCase() }),
+      "hr.pdf",
+    ),
+  ),
+);
+check(
+  "adding it is audited on the record, and the record's value did not change",
+  !!(await one(
+    sql`select 1 from public.audit_logs where entity_id = ${record.id} and event_type = 'document.attached'`,
+  )) && Number((await recordOf(documentId)).activity_value_verified) === 500,
+);
+
 section("7–8. The engine applies the factor effective for the period");
 const calc = await currentCalculation(record.id);
 const factor = await one(sql`
@@ -145,5 +212,79 @@ check(
   "the original invoice downloads byte for byte",
   original.status === 200 && Buffer.from(await original.arrayBuffer()).equals(bytes),
 );
+
+section("Audit fixes P2: the trail, the stored calculation and the evidence hold up");
+const trail = await sql`
+  select event_type, user_id, user_agent, session_id from public.audit_logs
+  where entity_id = ${record.id} order by created_at`;
+const at = (event) => trail.findIndex((e) => e.event_type === event);
+check(
+  "the trail reads in the order things happened: validated, calculated, then queued for approval",
+  at("validation.completed") >= 0 &&
+    at("validation.completed") < at("calculation.completed") &&
+    at("calculation.completed") < at("approval.submitted"),
+  trail.map((e) => e.event_type).join(" → "),
+);
+const personal = trail.filter((e) => e.user_id);
+check(
+  "an action by a person records their browser and sign-in session; system steps record neither",
+  personal.length > 0 &&
+    personal.every((e) => e.user_agent && e.session_id) &&
+    trail.filter((e) => !e.user_id).every((e) => !e.user_agent && !e.session_id),
+  JSON.stringify(trail),
+);
+let deleted = "nothing stopped it";
+try {
+  await sql`delete from public.calculations where id = ${calc.id}`;
+} catch (error) {
+  deleted = error.message;
+}
+check(
+  "the stored calculation cannot be deleted, even by the server",
+  /append-only/.test(deleted),
+  deleted,
+);
+check(
+  "once approved, the record's evidence is closed",
+  rejected(
+    await pm.mutate("documents.prepareSupporting", {
+      recordId: record.id,
+      mimeType: "application/pdf",
+      fileSize: 10,
+      sha256: "a".repeat(64),
+    }),
+    "approved",
+  ) && (await pm.query("documents.recordEvidence", { recordId: record.id })).data?.canAdd === false,
+);
+const evidence = `/api/documents/${documentId}/file`;
+const headers = (await admin.file(evidence)).headers;
+const pageHeaders = (await admin.file("/login")).headers;
+check(
+  "every response carries the security headers; a page cannot be framed",
+  [headers, pageHeaders].every(
+    (h) =>
+      h.get("x-frame-options") === "DENY" &&
+      h.get("x-content-type-options") === "nosniff" &&
+      /max-age=\d+/.test(h.get("strict-transport-security") ?? ""),
+  ) && /frame-ancestors 'none'/.test(pageHeaders.get("content-security-policy") ?? ""),
+  pageHeaders.get("content-security-policy") ?? "no policy",
+);
+check(
+  "and the evidence route keeps its own stricter sandbox policy",
+  /^sandbox/.test(headers.get("content-security-policy") ?? ""),
+  headers.get("content-security-policy") ?? "no policy",
+);
+const [{ file_hash: fingerprint }] = await sql`
+  select file_hash from public.documents where id = ${documentId}`;
+await sql`update public.documents set file_hash = ${"0".repeat(64)} where id = ${documentId}`;
+try {
+  check(
+    "evidence whose bytes no longer match the recorded fingerprint is refused",
+    (await admin.file(evidence)).status === 409,
+  );
+} finally {
+  await sql`update public.documents set file_hash = ${fingerprint} where id = ${documentId}`;
+}
+check("and served again once it matches", (await admin.file(evidence)).status === 200);
 
 await finish();

@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { ORG_UNIT_TYPE_LABELS, isOrgUnitType } from "@/lib/org/rules";
 import { acceptedTypesLabel, formatMegabytes } from "@/lib/storage/evidence";
 import type {
   DuplicateWarnings,
@@ -297,7 +296,7 @@ export function UploadForm({
             {targets.map((t) => (
               <option key={t.orgUnitId} value={t.orgUnitId}>
                 {t.name}
-                {isOrgUnitType(t.unitType) ? ` (${ORG_UNIT_TYPE_LABELS[t.unitType]})` : ""}
+                {` (${t.unitTypeLabel})`}
               </option>
             ))}
           </NativeSelect>
