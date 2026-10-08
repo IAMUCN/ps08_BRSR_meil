@@ -26,7 +26,9 @@ const nextConfig: NextConfig = {
       headers: [
         {
           key: "Content-Security-Policy",
-          value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
+          value: `frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' 'unsafe-inline'${
+            process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""
+          }`,
         },
       ],
     },

@@ -124,6 +124,31 @@ class ExtractFieldsTest(unittest.TestCase):
         self.assertIsNone(fields["invoice_number"].confidence)
         self.assertEqual(fields["invoice_number"].source["method"], "not_found")
 
+    def test_waste_category_and_route_are_read_from_their_own_labels(self):
+        specs = [
+            FieldSpec("quantity", "Quantity", "number"),
+            FieldSpec("source_classification", "Treatment route", "text"),
+            FieldSpec("waste_category", "Waste category", "text"),
+        ]
+        lines = [
+            line("Waste Type: Construction debris (non-hazardous)", 40, 100),
+            line("Treatment Route: Landfill", 40, 130),
+            line("Quantity: 2,500.00", 40, 160),
+        ]
+        found = values(extract_fields(lines, specs))
+        self.assertEqual(found["waste_category"], "Construction debris (non-hazardous)")
+        self.assertEqual(found["source_classification"], "Landfill")
+        # A certificate that names no category leaves the field empty for the person.
+        self.assertIsNone(values(extract_fields(lines[1:], specs))["waste_category"])
+
+    def test_a_stack_monitoring_report_is_told_from_a_steam_invoice(self):
+        candidates = {"STACK_MONITORING_REPORT": "s", "STEAM_HEAT_INVOICE": "h"}
+        stack = [
+            line("Stack Emission Monitoring Report", 0, 0),
+            line("NOx  SOx  Particulate", 0, 30),
+        ]
+        self.assertEqual(classify(stack, candidates)[0], "STACK_MONITORING_REPORT")
+
     def test_an_invoice_number_is_never_taken_from_a_date(self):
         # Phase 20: a reference with no digits was skipped and the next line's date read instead, at
         # high confidence. A date is never an identifier: the field is left for the person to fill.

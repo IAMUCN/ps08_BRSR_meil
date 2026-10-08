@@ -44,6 +44,10 @@ const UNITS: Record<string, { canonical: string; multiplier: number }> = {
   pkm: { canonical: "km", multiplier: 1 },
   // Piped natural gas is billed in standard cubic metres — a gas volume, not the litres water uses.
   scm: { canonical: "SCM", multiplier: 1 },
+  // A normal cubic metre is measured at 0 °C, a standard one at 15 °C; at the same pressure the same gas
+  // fills 288.15 / 273.15 times the volume when warmer (ideal gas law).
+  nm3: { canonical: "SCM", multiplier: 288.15 / 273.15 },
+  "nm³": { canonical: "SCM", multiplier: 288.15 / 273.15 },
   // Energy → kilowatt-hours
   kwh: { canonical: "kWh", multiplier: 1 },
   units: { canonical: "kWh", multiplier: 1 },

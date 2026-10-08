@@ -108,6 +108,66 @@ check(
     s.orgUnitCount > 1,
   JSON.stringify({ previous: s.previous?.label, inputs: s.inputs, factors: s.factors?.length }),
 );
+// Snapshot version 3 (.grill/audit-2-decisions.md): the break-ups and the per-child roll-up add up.
+const tonnesOf = (scopes, code) =>
+  (scopes.find((x) => x.code === code)?.figures ?? []).reduce(
+    (sum, f) => sum + (f.unit === "kgCO2e" ? (f.value ?? 0) / 1000 : 0),
+    0,
+  );
+const gasSum = (code) =>
+  s.breakups.gases.filter((g) => g.scopeCode === code).reduce((sum, g) => sum + g.tCo2e, 0);
+check(
+  "the break-up by gas adds up to each scope's total",
+  s.version === 3 &&
+    ["SCOPE_1", "SCOPE_2", "SCOPE_3"].every((c) => close(gasSum(c), tonnesOf(s.scopes, c), 1e-6)),
+  JSON.stringify(s.breakups?.gases),
+);
+check(
+  "Scope 1 by emission source adds up to Scope 1",
+  close(
+    s.breakups.scope1Sources.reduce((sum, x) => sum + x.tCo2e, 0),
+    tonnesOf(s.scopes, "SCOPE_1"),
+    1e-6,
+  ),
+  JSON.stringify(s.breakups?.scope1Sources),
+);
+const wasteTotal = s.sections
+  .flatMap((x) => x.indicators)
+  .find((i) => i.code === "P6-E9")
+  .metrics.flatMap((m) => m.figures)
+  .reduce((sum, f) => sum + (f.unit === "kg" ? (f.value ?? 0) / 1000 : 0), 0);
+check(
+  "waste by category and by treatment route each add up to the waste reported",
+  close(
+    s.breakups.wasteByCategory.reduce((sum, x) => sum + x.tonnes, 0),
+    wasteTotal,
+    1e-6,
+  ) &&
+    close(
+      s.breakups.wasteByRoute.reduce((sum, x) => sum + x.tonnes, 0),
+      wasteTotal,
+      1e-6,
+    ),
+  JSON.stringify({ wasteTotal, c: s.breakups.wasteByCategory, r: s.breakups.wasteByRoute }),
+);
+check(
+  "no child org unit reports more than the node, and the children are its direct children",
+  s.children.length > 0 &&
+    ["SCOPE_1", "SCOPE_2", "SCOPE_3"].every(
+      (c) =>
+        s.children.reduce((sum, child) => sum + tonnesOf(child.scopes, c), 0) <=
+        tonnesOf(s.scopes, c) + 1e-6,
+    ),
+  JSON.stringify(s.children?.map((c) => c.name)),
+);
+check(
+  "the report says which days of the financial year it covers",
+  typeof s.coverage.days === "number" &&
+    s.coverage.days > 0 &&
+    !!s.coverage.from &&
+    !!s.coverage.to,
+  JSON.stringify(s.coverage),
+);
 check(
   "indicators carry the July-2023 BRSR numbers (D25)",
   ["A-20", "A-24", "P6-E7", "P6-E9", "P6-L2"].every((code) =>

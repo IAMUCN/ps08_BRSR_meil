@@ -463,3 +463,17 @@ Decisions: `.grill/audit-p2-decisions.md` (audit fixes P2).
 - Both are plain sections built by the feature role (`app/admin/organization/levels-card.tsx`,
   `components/records/evidence-files.tsx`); the ui role may restyle them. Outline buttons only — each page keeps
   one primary button.
+
+## A26 — Factor screen: gases covered and rename; fuller report tables
+
+Decisions: `.grill/audit-2-decisions.md` (second audit).
+
+- **Admin → Conversion Factors:** the add / new-version sheet gains an optional _Gases covered_ field; the version
+  history shows it and lets an Admin set it on an existing version; each factor has a _Rename_ button. The two
+  edits use the browser's own prompt — one line of text each. Built plainly by the feature role; the ui role
+  may replace the prompts with a dialog.
+- **The BRSR report** gains: a break-up by gas under each scope total, a _Scope 1 by emission source_ table,
+  SEBI's full waste table (categories A to H, recovered and disposed by operation), a _Consolidation by org
+  unit_ table, and a line saying which days of the financial year the report covers when it is not the whole
+  year. Additions to App Flow §2.2 (Reports), which describes the report only as "BRSR format".
+- **Notifications:** a _Deadline approaching_ notice within three days of an open period's closing date.

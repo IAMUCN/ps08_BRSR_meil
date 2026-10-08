@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-10-07._
+_Last updated: 2026-10-08._
 
 ---
 
@@ -69,28 +69,38 @@ _Last updated: 2026-10-07._
   `AUTH_SECRET` removed from `.env.example`; server-side Sentry in `apps/web/instrumentation.ts` (new dependency
   `@sentry/nextjs`), off unless `SENTRY_DSN` is set, checked against a local stand-in endpoint; lint, typecheck,
   format, unit 83/83 and build pass; the end-to-end suite was not re-run for P3. The owner's `ps_documents/provided_docs/KT_Session_Transcript_and_Context.md` is still untracked.
-- **All of the work above is committed** (`23e1925`, branch `feature`) — wherever this section still says
-  "uncommitted", read "committed". **Pushed 2026-10-07; pull request #2 (`feature` → `main`) is open** so CI runs
-  (CI triggers on pull requests and on pushes to `main` only). Not merged. **CI on `23e1925`: web and worker jobs
-  pass, the database job fails** — on a fresh database three test files (`phase9_calculation`, `phase17_reports`,
-  `phase19_user_theme`) found no user to work with (8 tests). They now create their own user; **that fix is
-  uncommitted**, so CI stays red until it is committed and pushed.
-- **Second audit, 2026-10-07 (read-only, reported in chat; 71/100, conditionally ready).** What is left from it:
-  real factors on hosted; no factor source at all for travel per km, cement, steel, freight, commuting, waste, PNG,
-  R-22; the industry's promised report list is not in the repo; waste categories and recovered quantities.
-- **After the audit, same day, on the owner's go-ahead — uncommitted:** `audit_p2_levels` database test no longer
-  clashes with the level the end-to-end suite leaves behind, and the three tests above carry their own user
-  (database 194/194 on the used local database; a fresh database is only confirmed once CI runs on the fix);
-  `README.md` no longer describes Render as the worker host; D25 records that the SEBI PDF in the repo uses the
-  2021 numbering; PROGRESS.md rows corrected.
-- **The five approved factors are entered on the local database** (through the Admin procedures; synthetic grid and
-  diesel versions retired; `.grill/audit-p0-decisions.md`). Checked with end-to-end scenarios A 32/32 and B 16/16.
-  Old approved local records keep their synthetic factor; coal, travel, waste and renewable stay synthetic.
-- **Hosted is not set up for a demo yet** (still the 0.02 grid factor, one org unit, one open period `AUG26`, three
-  users all assigned at the group). It needs a signed-in Admin: `provision-user` refuses a second Admin by design,
-  and the owner's Admin password must not be reset. See §2.
+- **All of the work above is committed and pushed** (`23e1925`, branch `feature`); pull request #2
+  (`feature` → `main`) is open, not merged. CI on `23e1925`: web and worker jobs pass, the database job fails on a
+  fresh database (three tests assumed a provisioned user). The fix is in `f2cb730`, **committed locally, not
+  pushed** — the owner asked for local commits only (2026-10-08), so CI stays red until they push.
+- **Second audit (2026-10-07 and again 2026-10-08, read-only, in chat): 72/100, conditionally ready.** The owner
+  then asked for everything except deployment to be closed. Decisions and the factor table:
+  `.grill/audit-2-decisions.md`.
+- **Done 2026-10-08, committed locally (not pushed), migration `0038` NOT on hosted:**
+  - Migration `0038` (D30, A26): process CO2, purchased steam, heat / cooling, road freight by truck class in and
+    out (downstream transport active, 6 of 10 Scope 3 categories), commuting by bus, air emissions (NOx, SOx, PM,
+    indicator `P6-E6`), the optional waste category field, `conversion_factor_versions.gases`,
+    `esg_metrics.emission_source`, and a guard that a record cannot be verified without a document.
+  - Report (snapshot version 3): break-up by gas, Scope 1 by emission source, SEBI's full waste table, a
+    consolidation table per child org unit, a part-of-the-year note; activities with no data are counted, not listed.
+  - Factor screen: gases covered, rename. Nm3 unit. Deadline reminder. `script-src` in the security policy.
+    Notifications page no longer logs a hydration error. OCR `rules-12` (waste category label, three document
+    types); **image rebuilt, hosted container NOT replaced** (it must wait for `0038` on hosted).
+  - **28 sourced factors entered on the local database** through the Admin procedures (table and caveats in
+    `.grill/audit-2-decisions.md`). Local waste and travel-by-spend factors are still synthetic (the suite needs them).
+  - Checked: web unit 91/91, worker unit 43/43 and Ruff, database 206/206, lint, typecheck, format, production
+    build; end-to-end 231 checks, all eight scripts passing (A, B, C, E, authorization in one full run; D, F and
+    edge-cases re-run after two stale expectations were updated; D's first attempt lost its connection at 0.4 GB
+    free memory); a real-browser pass in Edge over 17 Admin and 5 Project Manager screens, 48/48, no console
+    errors; a 300-project, 86,400-record scale check (group roll-up for a year in 0.23 s, rolled back).
+    **Not run:** the OCR integration harness, and no end-to-end run with the `rules-12` image.
+- **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
+  org unit, one open period `AUG26`, three users at the group, migrations to `0037`. Needs, in order: the owner's
+  go-ahead to push `0038`; the hosted worker container replaced with the `rules-12` image; a second Admin invited
+  by the owner for the agent (see §2); then the factor script and an org tree.
 - **Uncommitted, not from the feature sessions:** `apps/web/app/layout.tsx`, `apps/web/package.json` and
-  `pnpm-lock.yaml` changed at 18:17–18:21 on 2026-10-07 (a development-only `agentation` widget). Ask the owner.
+  `pnpm-lock.yaml` changed at 18:17–18:21 on 2026-10-07 (a development-only `agentation` widget). It fails `pnpm format:check` (`app/layout.tsx`). Left out of
+  every commit; ask the owner.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -99,7 +109,9 @@ _Last updated: 2026-10-07._
 |---|---|
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
-| Hosted demo setup (factors, org tree) | Needs an Admin session. Either the owner enters the five rows of `.grill/audit-p0-decisions.md` at `/admin/conversion-factors` (retire the 0.02 grid factor first) and builds the org tree, or the owner invites a second Admin from Admin → Users for the agent to use (the agent sets that account's password itself and runs the same procedures). |
+| Hosted demo setup | The owner chose hosted for the demo (2026-10-08). Waiting on: (1) go-ahead to push migration `0038` and replace the worker container; (2) a second Admin invited from Admin → Users for the agent — the provisioning script refuses a second Admin by design and the owner's password must not be reset; (3) the owner's review of the factor table in `.grill/audit-2-decisions.md`. |
+| Push `feature` | Two local commits wait (`f2cb730` and the second-audit work). CI on the pull request stays red until they are pushed. |
+| Factors with no source | PNG (needs the supplier's gas density), purchased steam / heat (the supplier's own factor), freight / commuting / travel by spend and waste (no Indian source found). Supply values, or leave those activities out of the demo. |
 | Approve the proposed P1 factors, and find the missing ones | `.grill/audit-p1-decisions.md`: coal grades, LNG, R-32, R-134a, R-410A, SF6 proposed with sources. No value proposed for PNG (needs the supplier's gas density), R-22 (an HCFC — keep the activity?), travel per passenger-km, cement, steel, freight, commuting. AR5 or AR6 GWPs is the owner's choice. |
 | Factors for waste to landfill and business travel spend | No Indian source found; the owner must supply values and sources. |
 | Production Supabase: new project, or promote the dev one | PROGRESS.md §4. Must be decided explicitly. |
@@ -110,7 +122,7 @@ _Last updated: 2026-10-07._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D30** and **A26**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D31** and **A27**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -215,6 +227,13 @@ _Last updated: 2026-10-07._
   installed on this machine.
 - **An end-to-end scenario that stalls on "the OCR queue" with ~1 GB free memory** is the worker container hanging
   after "worker ready"; remove the leftover container (`docker ps`) and re-run the scenario.
+- **A script with apostrophes inside a shell heredoc fails with "unexpected EOF"** even when the heredoc is
+  quoted; write it to the scratchpad with the file tool and run it from there.
+- **Two browser pages in one puppeteer browser share cookies**; sign a second person in from
+  `browser.createBrowserContext()`.
+- **Adding an activity or a factor breaks tests that count them**: five database tests and two end-to-end
+  checks held counts or used petrol as "the activity with no factor" (now purchased steam, which has none by
+  design). Search the tests for the old count before trusting a red run.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

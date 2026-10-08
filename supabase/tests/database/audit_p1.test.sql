@@ -63,8 +63,8 @@ select is(
   (select count(*)::int from public.scopes child
      join public.scopes parent on parent.id = child.parent_scope_id
     where parent.code = 'SCOPE_3' and child.is_active),
-  5,
-  'five of the ten Scope 3 categories are active');
+  6,
+  'six of the ten Scope 3 categories are active (downstream transport since migration 0038)');
 select is(
   (select count(distinct m.scope_id)::int from public.esg_metrics m
     where m.code in ('BUSINESS_TRAVEL_AIR', 'BUSINESS_TRAVEL_RAIL', 'BUSINESS_TRAVEL_ROAD')

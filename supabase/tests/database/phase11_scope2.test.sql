@@ -8,8 +8,8 @@ select plan(5);
 select set_eq(
   $$select m.code from public.esg_metrics m join public.scopes s on s.id = m.scope_id
     where s.code = 'SCOPE_2' and m.deleted_at is null$$,
-  array['GRID_ELECTRICITY', 'RENEWABLE_ELECTRICITY'],
-  'Scope 2 covers grid and renewable electricity');
+  array['GRID_ELECTRICITY', 'RENEWABLE_ELECTRICITY', 'PURCHASED_STEAM', 'PURCHASED_HEAT_COOLING'],
+  'Scope 2 covers grid and renewable electricity, and purchased steam, heat and cooling (migration 0038)');
 
 select is(
   (select count(*)::int from public.esg_metrics m

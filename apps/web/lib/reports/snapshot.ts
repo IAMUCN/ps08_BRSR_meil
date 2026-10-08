@@ -3,6 +3,13 @@ import { consolidateNodes, loadMetrics } from "@/lib/consolidation/query";
 import type { Figure, Method } from "@/lib/consolidation/aggregate";
 import { normalize } from "@/lib/calculation/units";
 import type { db, Tx } from "@/lib/db";
+import {
+  combustionUse,
+  wasteCategory,
+  wasteRoute,
+  type WasteCategory,
+  type WasteRoute,
+} from "./classify";
 import { EMPTY_INPUTS, REPORT_INPUTS_KEY, type FyInputs } from "./inputs";
 
 // What a BRSR report says, frozen at generation (schema §13.1 snapshot_data; .grill/phase-17-reporting-
@@ -12,7 +19,7 @@ import { EMPTY_INPUTS, REPORT_INPUTS_KEY, type FyInputs } from "./inputs";
 
 type Sql = Tx | ReturnType<typeof db>;
 
-export const SNAPSHOT_VERSION = 2;
+export const SNAPSHOT_VERSION = 3;
 
 export type ReportedRecord = {
   recordId: string;
@@ -54,6 +61,24 @@ export type ScopeTotal = {
 };
 export type ReportedSection = { code: string; name: string; indicators: ReportedIndicator[] };
 
+export type Scope1Source = "stationary" | "mobile" | "combustion_unstated" | "process" | "fugitive";
+
+/**
+ * The break-ups SEBI's tables ask for, from approved records (snapshot version 3). Emissions in metric
+ * tonnes of CO2 equivalent, waste in metric tonnes. A null key is "not stated" and is printed as such.
+ */
+export type Breakups = {
+  /** Scope totals by the gases each factor says its value covers. */
+  gases: { scopeCode: string; gases: string | null; tCo2e: number }[];
+  /** Scope 1 by how it is emitted: stationary or mobile combustion, process, fugitive. */
+  scope1Sources: { source: Scope1Source; tCo2e: number }[];
+  wasteByCategory: { category: WasteCategory | null; tonnes: number }[];
+  wasteByRoute: { route: WasteRoute | null; tonnes: number }[];
+};
+
+/** A direct child of the reported org unit with its own rolled-up scope totals. */
+export type ChildTotals = { name: string; level: string; scopes: ScopeTotal[] };
+
 /** A conversion factor version the reported calculations used, as each calculation stored it. */
 export type FactorUsed = {
   name: string;
@@ -74,7 +99,15 @@ export type Snapshot = {
   org: { id: string; name: string; path: string[] };
   /** The node itself and every org unit beneath it — the report's boundary. */
   orgUnitCount: number;
-  coverage: { label: string; periodIds: string[]; financialYear: number | null };
+  coverage: {
+    label: string;
+    periodIds: string[];
+    financialYear: number | null;
+    /** First and last day the report's periods cover, and how many days they hold (version 3). */
+    from?: string | null;
+    to?: string | null;
+    days?: number;
+  };
   /** Records in scope still awaiting approval — left out of every figure, stated in the report. */
   excludedAwaitingApproval: number;
   scopes: ScopeTotal[];
@@ -83,7 +116,15 @@ export type Snapshot = {
    * SEBI's tables carry the previous financial year beside the current one: the same figures for the year
    * before, without their records. Null for a single-period report.
    */
-  previous: { label: string; scopes: ScopeTotal[]; sections: ReportedSection[] } | null;
+  previous: {
+    label: string;
+    scopes: ScopeTotal[];
+    sections: ReportedSection[];
+    breakups?: Breakups;
+  } | null;
+  /** Version 3. Absent from earlier snapshots. */
+  breakups?: Breakups;
+  children?: ChildTotals[];
   /** Turnover, PPP rate, output and assurance for both years (D26). Null for a single-period report. */
   inputs: { current: FyInputs; previous: FyInputs } | null;
   factors: FactorUsed[];
@@ -102,6 +143,120 @@ export async function unmappedRequiredIndicators(sql: Sql): Promise<string[]> {
                        where x.brsr_indicator_id = i.id and x.is_applicable)
     order by i.code`;
   return rows.map((r) => r.code);
+}
+
+/** Scope 1/2/3 totals: summed per unit from approved calculated figures, never across units. */
+function scopeTotals(
+  consolidated: { scopeCode: string | null; method: Method; figures: Figure[] }[],
+): ScopeTotal[] {
+  return (
+    [
+      ["SCOPE_1", "Scope 1"],
+      ["SCOPE_2", "Scope 2"],
+      ["SCOPE_3", "Scope 3"],
+    ] as const
+  ).map(([code, name]) => {
+    const figures: { unit: string; value: number | null }[] = [];
+    for (const m of consolidated.filter((x) => x.scopeCode === code && x.method === "sum")) {
+      for (const f of m.figures) {
+        const entry = figures.find((e) => e.unit === f.unit);
+        if (entry) entry.value = (entry.value ?? 0) + (f.approved ?? 0);
+        else figures.push({ unit: f.unit, value: f.approved });
+      }
+    }
+    return { code, name, figures };
+  });
+}
+
+const addTo = <K>(list: { key: K; total: number }[], key: K, amount: number) => {
+  const entry = list.find((e) => e.key === key);
+  if (entry) entry.total += amount;
+  else list.push({ key, total: amount });
+};
+
+/** The gas, emission-source and waste break-ups of the approved records under a node. */
+async function collectBreakups(
+  sql: Sql,
+  orgUnitId: string,
+  periodIds: string[],
+): Promise<Breakups> {
+  const rows = periodIds.length
+    ? await sql<
+        {
+          scope_code: string | null;
+          metric_code: string;
+          emission_source: "combustion" | "process" | "fugitive" | null;
+          value: number | null;
+          unit: string | null;
+          gases: string | null;
+          activity_value: number | null;
+          activity_unit: string | null;
+          used_in: string | null;
+          waste_category: string | null;
+        }[]
+      >`
+        select coalesce(ps.code, s.code) as scope_code, m.code as metric_code, m.emission_source,
+               cr.value::float as value, cr.value_unit as unit, v.gases,
+               r.activity_value_verified::float as activity_value, r.activity_unit,
+               (select f.verified_value from public.ocr_fields f
+                 where f.ocr_extraction_id = e.id and f.field_key = 'source_classification' limit 1) as used_in,
+               (select f.verified_value from public.ocr_fields f
+                 where f.ocr_extraction_id = e.id and f.field_key = 'waste_category' limit 1) as waste_category
+        from public.consolidation_records cr
+        join public.esg_records r on r.id = cr.esg_record_id
+        join public.esg_metrics m on m.id = cr.metric_id
+        left join public.scopes s on s.id = m.scope_id
+        left join public.scopes ps on ps.id = s.parent_scope_id
+        left join public.calculations c on c.id = cr.calculation_id
+        left join public.conversion_factor_versions v on v.id = c.conversion_factor_version_id
+        left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
+        left join public.ocr_extractions e on e.document_id = erd.document_id
+        where cr.org_unit_id = ${orgUnitId} and cr.reporting_period_id in ${sql(periodIds)}
+          and cr.approval_status = 'approved' and cr.value is not null
+          and m.scope_id is not null`
+    : [];
+
+  const gases: { key: string; total: number }[] = [];
+  const sources: { key: Scope1Source; total: number }[] = [];
+  const categories: { key: WasteCategory | null; total: number }[] = [];
+  const routes: { key: WasteRoute | null; total: number }[] = [];
+  for (const r of rows) {
+    const unit = r.unit?.trim().toLowerCase();
+    const tCo2e =
+      r.value === null
+        ? null
+        : unit === "kgco2e"
+          ? r.value / 1000
+          : unit === "tco2e"
+            ? r.value
+            : null;
+    if (r.scope_code && tCo2e !== null) {
+      addTo(gases, `${r.scope_code}|${r.gases?.trim() ?? ""}`, tCo2e);
+      if (r.scope_code === "SCOPE_1") {
+        const source: Scope1Source =
+          r.emission_source === "process" || r.emission_source === "fugitive"
+            ? r.emission_source
+            : (combustionUse(r.used_in) ?? "combustion_unstated");
+        addTo(sources, source, tCo2e);
+      }
+    }
+    if (r.metric_code === "WASTE_DISPOSED" && r.activity_value !== null && r.activity_unit) {
+      const kg = normalize(r.activity_value, r.activity_unit, "kg");
+      if (kg.ok) {
+        addTo(categories, wasteCategory(r.waste_category), kg.normalized.value / 1000);
+        addTo(routes, wasteRoute(r.used_in), kg.normalized.value / 1000);
+      }
+    }
+  }
+  return {
+    gases: gases.map((g) => {
+      const at = g.key.indexOf("|");
+      return { scopeCode: g.key.slice(0, at), gases: g.key.slice(at + 1) || null, tCo2e: g.total };
+    }),
+    scope1Sources: sources.map((x) => ({ source: x.key, tCo2e: x.total })),
+    wasteByCategory: categories.map((x) => ({ category: x.key, tonnes: x.total })),
+    wasteByRoute: routes.map((x) => ({ route: x.key, tonnes: x.total })),
+  };
 }
 
 const approvedFigures = (figures: Figure[]) =>
@@ -290,26 +445,10 @@ async function collect(sql: Sql, orgUnitId: string, periodIds: string[]) {
     });
   }
 
-  // Scope 1/2/3 totals: summed per unit from approved calculated figures, never across units.
-  const scopes = (
-    [
-      ["SCOPE_1", "Scope 1"],
-      ["SCOPE_2", "Scope 2"],
-      ["SCOPE_3", "Scope 3"],
-    ] as const
-  ).map(([code, name]) => {
-    const figures: { unit: string; value: number | null }[] = [];
-    for (const m of consolidated.filter((x) => x.scopeCode === code && x.method === "sum")) {
-      for (const f of m.figures) {
-        const entry = figures.find((e) => e.unit === f.unit);
-        if (entry) entry.value = (entry.value ?? 0) + (f.approved ?? 0);
-        else figures.push({ unit: f.unit, value: f.approved });
-      }
-    }
-    return { code, name, figures };
-  });
+  const scopes = scopeTotals(consolidated);
+  const breakups = await collectBreakups(sql, orgUnitId, periodIds);
 
-  return { scopes, sections, excluded: excluded.n };
+  return { scopes, sections, breakups, excluded: excluded.n };
 }
 
 export async function buildSnapshot(
@@ -334,6 +473,26 @@ export async function buildSnapshot(
     input.previous ? collect(sql, orgUnitId, input.previous.periodIds) : null,
   ]);
   const { scopes, sections } = current;
+
+  // Each direct child's own roll-up, so the report shows where the total comes from.
+  const childRows = await sql<{ id: string; name: string; level: string }[]>`
+    select o.id, o.name, l.label as level from public.org_units o
+    join public.org_levels l on l.code = o.unit_type
+    where o.parent_id = ${orgUnitId} and o.deleted_at is null order by o.name`;
+  const childTotals = childRows.length
+    ? await consolidateNodes(
+        sql,
+        childRows.map((c) => c.id),
+        periodIds,
+        await loadMetrics(sql),
+      )
+    : null;
+  const [span] = periodIds.length
+    ? await sql<{ from: string | null; to: string | null; days: number }[]>`
+        select min(start_date)::text as "from", max(end_date)::text as "to",
+               coalesce(sum(end_date - start_date + 1), 0)::int as days
+        from public.reporting_periods where id in ${sql(periodIds)}`
+    : [{ from: null, to: null, days: 0 }];
 
   const calculationIds = [
     ...new Set(
@@ -364,7 +523,7 @@ export async function buildSnapshot(
     generatedAt: new Date().toISOString(),
     org: { id: orgUnitId, name: path.at(-1)?.name ?? "", path: path.map((p) => p.name) },
     orgUnitCount: units.n,
-    coverage: { label: input.label, periodIds, financialYear },
+    coverage: { label: input.label, periodIds, financialYear, ...span },
     excludedAwaitingApproval: current.excluded,
     scopes,
     sections,
@@ -373,6 +532,7 @@ export async function buildSnapshot(
         ? {
             label: input.previous.label,
             scopes: before.scopes,
+            breakups: before.breakups,
             sections: before.sections.map((s) => ({
               ...s,
               indicators: s.indicators.map((i) => ({
@@ -389,6 +549,12 @@ export async function buildSnapshot(
             current: await loadReportInputs(sql, financialYear),
             previous: await loadReportInputs(sql, financialYear - 1),
           },
+    breakups: current.breakups,
+    children: childRows.map((c) => ({
+      name: c.name,
+      level: c.level,
+      scopes: scopeTotals(childTotals?.get(c.id) ?? []),
+    })),
     factors: [...factors],
     indicators: sections.flatMap((s) =>
       s.indicators.map((i) => ({

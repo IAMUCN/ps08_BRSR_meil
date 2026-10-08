@@ -418,6 +418,22 @@ policies, no grants to browser roles.
 **Why:** PRD §11 says adding a hierarchy level is configuration; the final audit found it needed a migration
 and a code change (AUDIT_FIXES.md P2). Decision: `.grill/audit-p2-decisions.md`.
 
+## D30 — `conversion_factor_versions.gases`, `esg_metrics.emission_source`, evidence guard (migration `0038`)
+
+**Schema says:** §10.2 a factor version has a value, units, source and geography; §6.2 a metric has a scope; no
+rule in the database ties a verified record to a document.
+
+**Implemented:** `conversion_factor_versions.gases` (nullable text, up to 60 characters): the gases the value
+covers, as its source states. `esg_metrics.emission_source` (nullable; `combustion`, `process` or `fugitive`),
+set for every Scope 1 activity. A trigger on `esg_records` refuses the change to `user_verified` when the record
+has no row in `esg_record_documents`. The same migration adds activities and the `P6-E6` indicator as
+configuration (no schema change).
+
+**Why:** SEBI's greenhouse gas table asks for a break-up by gas "if available", and the KT session asks for
+stationary, mobile, process and fugitive emissions to be told apart; the second audit found six local records
+with no document. `gases` is not frozen by the factor-version guard (D-§19.3): it is a disclosure, not part of
+a calculation. Decision: `.grill/audit-2-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

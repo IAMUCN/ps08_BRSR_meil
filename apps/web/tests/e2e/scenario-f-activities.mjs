@@ -253,7 +253,7 @@ check(
   renamed.error,
 );
 
-section("The Admin sees five active Scope 3 categories");
+section("The Admin sees six active Scope 3 categories");
 const scope3 = (
   await admin.query("scope.getTotal", {
     scopeCode: "SCOPE_3",
@@ -261,8 +261,8 @@ const scope3 = (
   })
 ).data;
 check(
-  "the Scope 3 dashboard's data lists 5 of 10 categories as active",
-  scope3?.categories?.length === 10 && scope3.categories.filter((c) => c.active).length === 5,
+  "the Scope 3 dashboard's data lists 6 of 10 categories as active (downstream transport since 0038)",
+  scope3?.categories?.length === 10 && scope3.categories.filter((c) => c.active).length === 6,
   JSON.stringify(scope3?.categories?.map((c) => [c.code, c.active])),
 );
 

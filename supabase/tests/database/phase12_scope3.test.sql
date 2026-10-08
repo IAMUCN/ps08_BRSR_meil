@@ -52,7 +52,7 @@ select is(
 select ok(
   (select count(*) from public.scopes child
      join public.scopes parent on parent.id = child.parent_scope_id
-    where parent.code = 'SCOPE_3' and not child.is_active) >= 5,
+    where parent.code = 'SCOPE_3' and not child.is_active) >= 4,
   'the categories without evidence stay listed but inactive, so coverage is never implied');
 
 select * from finish();

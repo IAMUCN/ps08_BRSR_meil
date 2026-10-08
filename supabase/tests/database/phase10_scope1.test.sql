@@ -12,8 +12,10 @@ select set_eq(
         -- migration 0035: coal by grade, LNG, PNG, and fugitive top-ups by gas
         'COAL_ANTHRACITE', 'COAL_BITUMINOUS', 'COAL_SUB_BITUMINOUS', 'COAL_LIGNITE', 'LNG_CONSUMPTION',
         'PNG_CONSUMPTION', 'REFRIGERANT_R22', 'REFRIGERANT_R32', 'REFRIGERANT_R410A', 'REFRIGERANT_R134A',
-        'SF6_TOPUP'],
-  'the Scope 1 activities are the fuels, coal by grade and refrigerant top-ups by gas');
+        'SF6_TOPUP',
+        -- migration 0038
+        'PROCESS_CO2'],
+  'the Scope 1 activities are the fuels, coal by grade, refrigerant top-ups by gas and process CO2');
 
 select is(
   (select count(*)::int from public.esg_metrics m
