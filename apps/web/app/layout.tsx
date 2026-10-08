@@ -36,9 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         {children}
         <Toaster />
-        {process.env.NODE_ENV === "development" && (
-          <Agentation endpoint="http://localhost:4747" />
-        )}
+        {process.env.NODE_ENV === "development" && <Agentation endpoint="http://localhost:4747" />}
       </body>
     </html>
   );

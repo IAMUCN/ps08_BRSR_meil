@@ -105,6 +105,13 @@ _Last updated: 2026-10-09._
   a forgot-password link on Profile (`.grill/page-feedback-2026-10-09-decisions.md`, A27). No migration. Checked:
   typecheck, lint, format, web unit. **Not run:** scenario E and `browser-bundle.mjs` (both updated, memory too
   low) — run them before merging.
+- **Full BRSR format (2026-10-09, owner's decision), uncommitted; migration `0040` pushed to hosted 2026-10-09 (owner's go-ahead) and checked there (40 migrations, 146 questions, mappings and records untouched):** all 146
+  questions of Sections A, B and C seeded; an Admin types written answers on Admin → BRSR Disclosures; the
+  report (snapshot version 4) prints everything in SEBI's order, "Not reported" where empty, and all 17 SDGs
+  (`.grill/full-brsr-report-decisions.md`, D32, A28). Checked: web unit 93/93, database 218/218, lint,
+  typecheck, format, a report built from the local database and read. **Not run:** end-to-end, a browser
+  click-through of the new screen, production build. Discard for a wrong multi-bill PDF was
+  added the same day (uncommitted).
 - **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
   org unit, one open period `AUG26`, three users at the group. Needs, in order: the hosted worker container replaced with the `rules-12` image
   (owner's go-ahead); a second Admin invited
@@ -133,7 +140,7 @@ _Last updated: 2026-10-09._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D32** and **A28**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D33** and **A29**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -251,6 +258,13 @@ _Last updated: 2026-10-09._
 - **The owner sends page feedback from the `agentation` widget** (the uncommitted dev-only dependency) and may
   have started another session on the same feedback: `submission-row.tsx` existed, unused, minutes before the
   feature session was asked. Check file times before editing a page named in feedback.
+- **Only the database is needed for `supabase test db` and `supabase migration up`:** `npx supabase db start`
+  starts Postgres alone (works with under 1 GB free); the full `pnpm db:start` does not fit beside the dev
+  server and the hosted worker.
+- **Building a report without the app:** the scratchpad's `full.mjs` pattern (Node `registerHooks` resolving
+  `@/` and `server-only`) runs `buildSnapshot` and `renderReportHtml` against the local database read-only.
+- **The repository's SEBI Annexure I is the 2021 format;** the L&T FY2025-26 report follows the one in
+  force. Take question numbers and wording from the L&T report.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

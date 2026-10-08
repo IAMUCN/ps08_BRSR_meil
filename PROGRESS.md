@@ -36,12 +36,12 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels (`0001`–`0039`, all pushed to hosted) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format (`0001`–`0040`, all pushed to hosted) |
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D31) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A27) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D32) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A28) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
 | `CONTEXT.md` | The live state — uncommitted work, questions waiting on the owner, machine facts, owner preferences, traps already hit. Loaded with this file by `CLAUDE.md`; rewritten at the end of every session |
@@ -81,6 +81,7 @@ may run in parallel with Phases 3–5.
 | — | Audit fixes P1 (Scope 1 and 3 activities, travel by mode, hierarchy rules in the database) | Done, on branch `feature` | `23e1925` |
 | — | Audit fixes P2 (calculation guard, audit context and order, security headers, evidence fingerprint, hierarchy levels, several evidence files) and P3 | Done, on branch `feature` | `23e1925` |
 | — | Second audit follow-up: remaining activities, air emissions, fuller SEBI report tables, sourced factors on local (migration `0038`) | Done locally, committed, **not pushed, not on hosted** | — |
+| — | Full BRSR format in the report: 146 questions, typed disclosures, all 17 SDGs (migration `0040`); owner's page feedback | Done, **uncommitted**; `0040` on hosted | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -652,9 +653,25 @@ deployment.
   scripts (not in one run — see CONTEXT.md), a real-browser pass 48/48, a 300-project scale check, lint,
   typecheck, format, production build. Not run: the OCR integration harness; the `rules-12` image end to end.
 
+**Full BRSR format (2026-10-09).** Decisions: `.grill/full-brsr-report-decisions.md`. The owner compared the
+report with the L&T reference and asked for the whole format.
+- **Finding:** SEBI's format and the L&T report contain no SDGs; they are organised by nine principles.
+- **Migration `0040`** (D32): all 146 questions of Sections A, B and C as configuration, worded as in the L&T
+  report; each is measured (the ten existing) or written; typed answers in `brsr_disclosures`, one per
+  question per financial year.
+- **Admin → BRSR Disclosures** (A28): the Admin types the written answers. Typed entry is for statements
+  only; measured figures still come from approved records.
+- **The report** (snapshot version 4) prints every question in SEBI's order, "Not reported" where empty,
+  and a table of all 17 SDGs.
+- **Limits:** answers are free text, not SEBI's tables; energy in joules, water discharge and water in
+  stressed areas are typed, not measured.
+- Checks: web unit 93/93, database 218/218, lint, typecheck, format, a report built from the local database
+  and read. Not run: end-to-end, a browser click-through, production build.
+
 ## 4. What comes next
 
-**Before Phase 21:** make the hosted project ready for the demo (the owner chose hosted). In order: push the two
+**Before Phase 21:** run the end-to-end suite and click
+through BRSR Disclosures. Make the hosted project ready for the demo (the owner chose hosted). In order: push the
 local commits; replace the hosted worker (migrations `0038` and `0039` were pushed on 2026-10-09) with the
 `rules-12` image; the owner invites a second Admin; the reviewed factors are entered through the app (retire the
 0.02 grid factor first) and an org tree is created; one diesel and one electricity record are taken through to a

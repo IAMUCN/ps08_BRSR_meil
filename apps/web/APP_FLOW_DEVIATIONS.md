@@ -490,3 +490,16 @@ Decisions: `.grill/page-feedback-2026-10-09-decisions.md` (owner's page feedback
 - **Profile** links to the emailed-code password reset under Change password.
 - The upload progress display is more animated (UI brief §12.1 asks for a progress bar, filename and cancel —
   all kept).
+
+## A28 — BRSR Disclosures screen; the report prints the whole format
+
+Decisions: `.grill/full-brsr-report-decisions.md`.
+
+- **New Admin screen, BRSR Disclosures** (`/admin/disclosures`, in the sidebar after BRSR Mapping): every
+  question of SEBI's format by section, with a text box per question for one financial year. Not in App Flow
+  §2.2. Built plainly by the feature role (native `details` sections, one Save per question); the ui role may
+  restyle it.
+- **Typed entry, for written statements only.** The Master Approach keeps normal users to uploads; this screen
+  is for an Admin and for answers that have no source document.
+- **The BRSR report** prints all of Sections A, B and C in SEBI's order and all 17 SDGs. Report Detail keeps
+  listing only the measured indicators (the drill-down is for values).

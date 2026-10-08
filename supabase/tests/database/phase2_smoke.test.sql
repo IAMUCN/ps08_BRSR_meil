@@ -17,6 +17,7 @@ select tables_are('public', array[
   'conversion_factors', 'conversion_factor_versions', 'documents', 'ocr_jobs', 'ocr_extractions',
   'ocr_fields', 'esg_records', 'esg_record_documents', 'verifications', 'validation_results',
   'approvals', 'calculations', 'calculation_inputs', 'brsr_sections', 'brsr_indicators',
+  'brsr_disclosures',
   'brsr_metric_mappings', 'audit_logs', 'report_runs', 'notifications', 'org_settings',
   -- Added by documented deviations (supabase/SCHEMA_DEVIATIONS.md D16, D19, D22, D24, D29), not by drift.
   'rate_limit_events', 'submission_expectations', 'password_reset_otps', 'document_bundle_parts',

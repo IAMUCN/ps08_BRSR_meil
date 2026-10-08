@@ -444,6 +444,18 @@ Development Goals the indicator is tagged with. Seeded for the ten indicators.
 **Why:** the owner asked for SDG tags on the report (2026-10-09). The mapping is indicative, not SEBI's.
 Decision: `.grill/audit-2-decisions.md`.
 
+## D32 — The full BRSR format: question kinds and typed answers (migration `0040`)
+
+**Schema says:** §11.2 an indicator has a code, question text and type; values come from mapped metrics.
+
+**Implemented:** `brsr_indicators.answer_kind` (`data` or `statement`), `principle` (1 to 9), `part` (the
+sub-heading in Sections A and B) and `sort_order`; all 146 questions of SEBI's format seeded. A new table
+`brsr_disclosures` (question, financial year, answer, who and when; one row per question per year; server-only)
+holds the answers an Admin types.
+
+**Why:** the owner asked for a report like the L&T reference, which answers every question. Most questions are
+written statements with no source document. Decision: `.grill/full-brsr-report-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

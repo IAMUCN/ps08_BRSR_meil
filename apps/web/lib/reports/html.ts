@@ -348,14 +348,26 @@ const SDG_TITLES = [
   "Partnerships for the Goals",
 ];
 
+/** The nine NGRBC principles SEBI's Section C is organised by, in SEBI's words. */
+export const PRINCIPLE_TITLES = [
+  "Businesses should conduct and govern themselves with integrity, and in a manner that is Ethical, Transparent and Accountable",
+  "Businesses should provide goods and services in a manner that is sustainable and safe",
+  "Businesses should respect and promote the well-being of all employees, including those in their value chains",
+  "Businesses should respect the interests of and be responsive to all its stakeholders",
+  "Businesses should respect and promote human rights",
+  "Businesses should respect and make efforts to protect and restore the environment",
+  "Businesses, when engaging in influencing public and regulatory policy, should do so in a manner that is responsible and transparent",
+  "Businesses should promote inclusive growth and equitable development",
+  "Businesses should engage with and provide value to their consumers in a responsible manner",
+];
+
 const sdgTags = (goals: number[] | undefined) =>
   (goals ?? []).map((g) => `<span class="sdg">SDG ${g}</span>`).join("");
 
-/** Which goals the report's indicators are tagged with. Nothing when no indicator carries a tag. */
+/** All seventeen goals against the indicators tagged with each (the owner asked for every goal to be listed). */
 function sdgSection(s: Snapshot) {
   const indicators = s.sections.flatMap((x) => x.indicators);
-  const goals = [...new Set(indicators.flatMap((i) => i.sdgs ?? []))].sort((a, b) => a - b);
-  if (!goals.length) return "";
+  const goals = SDG_TITLES.map((_, index) => index + 1);
   return `
     <h2>UN Sustainable Development Goals</h2>
     <p class="note">An indicative reading of which goals each BRSR indicator in this report relates to. SEBI's
@@ -363,10 +375,12 @@ function sdgSection(s: Snapshot) {
     <table><thead><tr><th>Goal</th><th>BRSR indicators in this report</th></tr></thead><tbody>${goals
       .map(
         (g) =>
-          `<tr><td>SDG ${g} — ${escapeHtml(SDG_TITLES[g - 1] ?? "")}</td><td>${indicators
-            .filter((i) => i.sdgs?.includes(g))
-            .map((i) => escapeHtml(i.code))
-            .join(", ")}</td></tr>`,
+          `<tr><td>SDG ${g} — ${escapeHtml(SDG_TITLES[g - 1] ?? "")}</td><td>${
+            indicators
+              .filter((i) => i.sdgs?.includes(g))
+              .map((i) => escapeHtml(i.code))
+              .join(", ") || '<span class="none">No indicator in this report</span>'
+          }</td></tr>`,
       )
       .join("")}</tbody></table>`;
 }
@@ -423,8 +437,12 @@ function indicatorBlock(i: ReportedIndicator, years: Year[]) {
         hidden === 1 ? "activity has" : "activities have"
       } no approved data for ${years.length > 1 ? "either year" : "this period"}.</p>`
     : "";
+  const answer = i.answer ? `<p class="answer">${escapeHtml(i.answer)}</p>` : "";
+  // A written disclosure: the typed answer, or SEBI's question left visibly unanswered.
   const metrics = !i.metrics.length
-    ? '<p class="none">No metric is mapped to this indicator.</p>'
+    ? i.kind === "statement"
+      ? answer || '<p class="none">Not reported</p>'
+      : '<p class="none">No metric is mapped to this indicator.</p>'
     : (shown.length
         ? `<table><thead><tr><th>${sebi ? "Contributing ESG metric" : "ESG metric"}</th>${yearHeads(
             years,
@@ -439,6 +457,7 @@ function indicatorBlock(i: ReportedIndicator, years: Year[]) {
       <p class="question">${escapeHtml(i.questionText)}</p>
       ${sebi ? sebi(years, i.code) + assurance : ""}
       ${metrics}
+      ${i.metrics.length ? answer : ""}
     </div>`;
 }
 
@@ -566,12 +585,30 @@ export function renderReportHtml(s: Snapshot): string {
       ),
     )
     .join("");
+  // SEBI's order: Section A and B under their sub-headings, Section C principle by principle with the
+  // essential indicators before the leadership ones.
   const sections = s.sections
-    .map(
-      (section) => `
+    .map((section) => {
+      let last = "";
+      const blocks = section.indicators.map((i) => {
+        const heads: string[] = [];
+        if (i.principle) {
+          heads.push(
+            `<h3 class="principle">Principle ${i.principle}: ${escapeHtml(
+              PRINCIPLE_TITLES[i.principle - 1] ?? "",
+            )}</h3>`,
+            `<h4>${i.indicatorType === "leadership" ? "Leadership" : "Essential"} indicators</h4>`,
+          );
+        } else if (i.part) heads.push(`<h3 class="principle">${escapeHtml(i.part)}</h3>`);
+        // Only the headings that changed since the previous question are printed.
+        const fresh = heads.filter((h) => !last.includes(h));
+        if (heads.length) last = heads.join("");
+        return fresh.join("") + indicatorBlock(i, years);
+      });
+      return `
       <h2>Section ${escapeHtml(section.code)} — ${escapeHtml(section.name)}</h2>
-      ${section.indicators.map((i) => indicatorBlock(i, years)).join("")}`,
-    )
+      ${blocks.join("")}`;
+    })
     .join("");
 
   return `<!doctype html>
@@ -596,6 +633,9 @@ export function renderReportHtml(s: Snapshot): string {
   .note, .basis { color: #666; font-size: 8.5pt; font-family: "Segoe UI", Arial, sans-serif; white-space: normal; }
   .none { color: #888; font-style: italic; font-family: "Segoe UI", Arial, sans-serif; }
   .indicator { break-inside: avoid; }
+  .principle { font-size: 10.5pt; color: #1f1f1f; background: #f6f6f6; padding: 3pt 5pt; margin-top: 12pt; }
+  h4 { font-size: 9.5pt; margin: 8pt 0 2pt; text-transform: uppercase; letter-spacing: 0.04em; color: #555; }
+  .answer { margin: 2pt 0 4pt; white-space: pre-wrap; overflow-wrap: anywhere; }
   .sdg { margin-left: 6pt; padding: 0 4pt; border-radius: 2pt; background: #eef3f8; color: #1f4e79; font-weight: normal; font-size: 8pt; }
   tr.sub td:first-child { padding-left: 14pt; color: #444; }
   .footer { margin-top: 20pt; color: #666; font-size: 8.5pt; }
@@ -616,7 +656,8 @@ export function renderReportHtml(s: Snapshot): string {
   ${sdgSection(s)}
   ${methodology(s, years)}
   <p class="footer">Every value is consolidated from verified, validated and approved source documents.
-  Indicator numbering and wording follow SEBI's BRSR format as updated in July 2023. Each value can be
+  Question numbering and wording follow SEBI's BRSR format. Written disclosures are entered by the
+  entity; a question it has not answered is printed as "Not reported". Each value can be
   traced to its original document from the report's page in TraceESG.</p>
 </body></html>`;
 }

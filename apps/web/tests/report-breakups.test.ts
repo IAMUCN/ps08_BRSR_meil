@@ -201,7 +201,7 @@ test("a snapshot made before version 3 still renders", () => {
   assert.ok(!html.includes("Consolidation by org unit"));
 });
 
-test("an indicator's SDG tags are printed beside it and summarised; untagged reports say nothing", () => {
+test("an indicator's SDG tags are printed beside it; all seventeen goals are listed", () => {
   const tagged = snapshot();
   tagged.sections[0].indicators[0].sdgs = [7, 9, 13];
   tagged.sections[0].indicators[1].sdgs = [11, 12];
@@ -210,5 +210,66 @@ test("an indicator's SDG tags are printed beside it and summarised; untagged rep
   assert.match(html, /SDG 13 — Climate Action<\/td><td>P6-E7</);
   assert.match(html, /SDG 12 — Responsible Consumption and Production<\/td><td>P6-E9</);
   assert.match(html, /SEBI's\s+format does not prescribe this mapping/);
-  assert.ok(!renderReportHtml(snapshot()).includes("UN Sustainable Development Goals"));
+  assert.match(
+    html,
+    /SDG 14 — Life Below Water<\/td><td><span class="none">No indicator in this report</,
+  );
+  assert.equal(html.match(/<tr><td>SDG \d+ — /g)?.length, 17);
+});
+
+test("written disclosures print in SEBI's order: the typed answer, or Not reported", () => {
+  const s = snapshot();
+  const statement = (code: string, extra: object) => ({
+    ...indicator(code, []),
+    metrics: [],
+    kind: "statement" as const,
+    ...extra,
+  });
+  s.sections = [
+    {
+      code: "A",
+      name: "General Disclosures",
+      indicators: [
+        statement("A-1", {
+          part: "I. Details of the listed entity",
+          answer: "L99999 <CIN>\nline two",
+        }),
+        statement("A-2", { part: "I. Details of the listed entity", answer: null }),
+      ],
+    },
+    {
+      code: "C",
+      name: "Principle Wise Performance Disclosure",
+      indicators: [
+        statement("P6-E2", { principle: 6, indicatorType: "essential", answer: "No." }),
+        {
+          ...indicator("P6-E7", []),
+          principle: 6,
+          indicatorType: "essential",
+          kind: "data" as const,
+          answer: "A note.",
+        },
+        statement("P6-L5", { principle: 6, indicatorType: "leadership", answer: null }),
+      ],
+    },
+  ];
+  const html = renderReportHtml(s);
+  assert.match(
+    html,
+    /<p class="answer">L99999 &lt;CIN&gt;\nline two<\/p>/,
+    "answers are escaped, line breaks kept",
+  );
+  assert.equal(
+    html.match(/I\. Details of the listed entity/g)?.length,
+    1,
+    "a sub-heading is printed once",
+  );
+  assert.equal(html.match(/Principle 6: Businesses should respect and make efforts/g)?.length, 1);
+  assert.equal(html.match(/<p class="none">Not reported<\/p>/g)?.length, 2);
+  assert.ok(html.indexOf("Essential indicators") < html.indexOf("Leadership indicators"));
+  assert.match(html, /<p class="answer">A note\.<\/p>/, "a measured question keeps its typed note");
+  assert.ok(
+    !html.includes("No metric is mapped"),
+    "a written question is not reported as unmapped",
+  );
 });

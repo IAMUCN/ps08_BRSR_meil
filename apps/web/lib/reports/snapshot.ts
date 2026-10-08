@@ -19,7 +19,7 @@ import { EMPTY_INPUTS, REPORT_INPUTS_KEY, type FyInputs } from "./inputs";
 
 type Sql = Tx | ReturnType<typeof db>;
 
-export const SNAPSHOT_VERSION = 3;
+export const SNAPSHOT_VERSION = 4;
 
 export type ReportedRecord = {
   recordId: string;
@@ -53,6 +53,17 @@ export type ReportedIndicator = {
   required: boolean;
   /** UN Sustainable Development Goal numbers the indicator is tagged with (migration 0039). */
   sdgs?: number[];
+  /**
+   * Version 4 (migration 0040): 'statement' questions are answered in writing by an Admin, 'data' ones from
+   * approved records. Absent from earlier snapshots, which hold measured indicators only.
+   */
+  kind?: "data" | "statement";
+  /** Section C: the NGRBC principle, 1 to 9. */
+  principle?: number | null;
+  /** Sections A and B: the sub-heading the question is printed under. */
+  part?: string | null;
+  /** The typed answer for the report's financial year; null when nothing was entered. */
+  answer?: string | null;
   metrics: ReportedMetric[];
 };
 
@@ -140,6 +151,7 @@ export async function unmappedRequiredIndicators(sql: Sql): Promise<string[]> {
     select i.code from public.brsr_indicators i
     join public.brsr_sections s on s.id = i.section_id
     where i.deleted_at is null
+      and i.answer_kind = 'data'
       and (s.code in ('A', 'B') or i.indicator_type = 'essential')
       and not exists (select 1 from public.brsr_metric_mappings x
                        where x.brsr_indicator_id = i.id and x.is_applicable)
@@ -272,8 +284,14 @@ export async function loadReportInputs(sql: Sql, financialYear: number): Promise
 }
 
 /** Scope totals and every indicator's figures for one set of periods under one org node. */
-async function collect(sql: Sql, orgUnitId: string, periodIds: string[]) {
-  const [metrics, indicatorRows, mappings] = await Promise.all([
+async function collect(
+  sql: Sql,
+  orgUnitId: string,
+  periodIds: string[],
+  /** The financial year whose typed answers are printed; null prints none. */
+  disclosureYear: number | null,
+) {
+  const [metrics, indicatorRows, mappings, answers] = await Promise.all([
     loadMetrics(sql),
     sql<
       {
@@ -284,12 +302,15 @@ async function collect(sql: Sql, orgUnitId: string, periodIds: string[]) {
         section_code: string;
         section_name: string;
         sdg_goals: number[];
+        answer_kind: "data" | "statement";
+        principle: number | null;
+        part: string | null;
       }[]
     >`
       select i.id, i.code, i.question_text, i.indicator_type::text, s.code as section_code,
-             s.name as section_name, i.sdg_goals
+             s.name as section_name, i.sdg_goals, i.answer_kind, i.principle, i.part
       from public.brsr_indicators i join public.brsr_sections s on s.id = i.section_id
-      where i.deleted_at is null order by s.code, i.code`,
+      where i.deleted_at is null order by s.code, i.sort_order, i.code`,
     sql<
       {
         indicator_id: string;
@@ -301,6 +322,11 @@ async function collect(sql: Sql, orgUnitId: string, periodIds: string[]) {
       select brsr_indicator_id as indicator_id, esg_metric_id as metric_id, mapping_notes as notes,
              reported_value
       from public.brsr_metric_mappings where is_applicable`,
+    disclosureYear === null
+      ? []
+      : sql<{ indicator_id: string; answer: string }[]>`
+          select brsr_indicator_id as indicator_id, answer from public.brsr_disclosures
+          where financial_year = ${disclosureYear}`,
   ]);
 
   const consolidated =
@@ -442,6 +468,10 @@ async function collect(sql: Sql, orgUnitId: string, periodIds: string[]) {
       indicatorType: row.indicator_type,
       required: row.section_code !== "C" || row.indicator_type === "essential",
       sdgs: [...row.sdg_goals].sort((a, b) => a - b),
+      kind: row.answer_kind,
+      principle: row.principle,
+      part: row.part,
+      answer: answers.find((a) => a.indicator_id === row.id)?.answer ?? null,
       metrics: mappings
         .filter((m) => m.indicator_id === row.id)
         .map((m) => reportedMetric(m.metric_id, m.notes, m.reported_value))
@@ -462,6 +492,11 @@ export async function buildSnapshot(
     periodIds: string[];
     label: string;
     financialYear: number | null;
+    /**
+     * The financial year whose typed disclosures are printed. A single-period report has no
+     * `financialYear` but still belongs to one.
+     */
+    disclosureYear?: number | null;
     /** The financial year before, for SEBI's second column; its periods may be empty. */
     previous?: { periodIds: string[]; label: string } | null;
   },
@@ -473,8 +508,8 @@ export async function buildSnapshot(
       where t.descendant_id = ${orgUnitId} order by t.depth desc`,
     sql<{ n: number }[]>`
       select count(*)::int as n from public.org_unit_tree where ancestor_id = ${orgUnitId}`,
-    collect(sql, orgUnitId, periodIds),
-    input.previous ? collect(sql, orgUnitId, input.previous.periodIds) : null,
+    collect(sql, orgUnitId, periodIds, input.disclosureYear ?? financialYear),
+    input.previous ? collect(sql, orgUnitId, input.previous.periodIds, null) : null,
   ]);
   const { scopes, sections } = current;
 
