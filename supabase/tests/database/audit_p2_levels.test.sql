@@ -6,7 +6,9 @@ create extension if not exists pgtap with schema extensions;
 select plan(11);
 
 select results_eq(
-  $$select code from public.org_levels order by sort_order$$,
+  $$select code from public.org_levels
+    where code in ('group', 'subsidiary', 'business_unit', 'region', 'project', 'site', 'department')
+    order by sort_order$$,
   array['group', 'subsidiary', 'business_unit', 'region', 'project', 'site', 'department'],
   'the seven levels are seeded in hierarchy order');
 select ok(
@@ -16,12 +18,13 @@ select ok(
   'levels are read and written only by the server');
 select hasnt_type('public', 'org_unit_type', 'the fixed enum of levels is gone');
 
--- An Admin adds "Package" between Region and Project: configuration, not a migration.
-insert into public.org_levels (code, label, sort_order) values ('package', 'Package', 45);
+-- An Admin adds "Package" between Region and Project: configuration, not a migration. (Position 47 and its
+-- own code, so the test also passes on a local database where the end-to-end suite left a level at 45.)
+insert into public.org_levels (code, label, sort_order) values ('p2_package', 'Package', 47);
 insert into public.org_units (id, parent_id, unit_type, name) values
   ('00000000-0000-4000-a000-000000000b01', (select id from public.org_units where parent_id is null limit 1),
    'region', 'P2 Test Region'),
-  ('00000000-0000-4000-a000-000000000b02', '00000000-0000-4000-a000-000000000b01', 'package', 'P2 Test Package');
+  ('00000000-0000-4000-a000-000000000b02', '00000000-0000-4000-a000-000000000b01', 'p2_package', 'P2 Test Package');
 select lives_ok(
   $$insert into public.org_units (parent_id, unit_type, name)
     values ('00000000-0000-4000-a000-000000000b02', 'project', 'a project under the new level')$$,
@@ -36,13 +39,13 @@ select throws_ok(
   '23503', null, 'an org unit cannot be at a level that is not configured');
 
 select throws_ok(
-  $$update public.org_levels set sort_order = 15 where code = 'package'$$,
+  $$update public.org_levels set sort_order = 15 where code = 'p2_package'$$,
   '23514', null, 'a level''s position never changes');
 select lives_ok(
-  $$update public.org_levels set label = 'Work Package' where code = 'package'$$,
+  $$update public.org_levels set label = 'Work Package' where code = 'p2_package'$$,
   'its label can');
 select throws_ok(
-  $$delete from public.org_levels where code = 'package'$$,
+  $$delete from public.org_levels where code = 'p2_package'$$,
   '23503', null, 'a level in use cannot be removed');
 select throws_ok(
   $$delete from public.org_levels where code = 'group'$$,

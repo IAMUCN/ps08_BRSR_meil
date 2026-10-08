@@ -4,8 +4,9 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-07 — Phase 20 committed; audit fixes P0-2, P0-3 committed (migration `0033` on hosted); P0-1 factor values
-approved, still to be entered on hosted; P1, P2 and P3 done, uncommitted (migrations `0034`–`0037` on hosted, hosted worker on `rules-11`); Phase 21 (deployment) comes after the audit fixes, hosting to be decided by the owner._
+_Last updated: 2026-10-07 — Phases 1–20 and audit fixes P0-2, P0-3, P1, P2, P3 committed on branch `feature` (pull request #2 open, not merged;
+migrations `0033`–`0037` on hosted, hosted worker on `rules-11`); second audit 71/100; the five approved factors are entered locally,
+not yet on hosted; Phase 21 (deployment) comes after, hosting to be decided by the owner._
 
 ---
 
@@ -75,10 +76,10 @@ may run in parallel with Phases 3–5.
 | 18 | Audit and security hardening | Done | `2f6118b` |
 | 19 | UI polish and responsive behavior | Done | `44ad2e1` |
 | 20 | Testing and edge cases | Done | `8736707` |
-| — | Out-of-sequence work: bulk import, OTP password reset, password policy, theme toggle, DISCOM and water OCR rules, multi-bill PDFs | Done locally, **uncommitted** | — |
+| — | Out-of-sequence work: bulk import, OTP password reset, password policy, theme toggle, DISCOM and water OCR rules, multi-bill PDFs | Done | `2392b6e` |
 | — | Audit fixes P0-2 (SEBI-format report) and P0-3 (July-2023 indicator codes) | Done, on branch `feature` | `cbd9a30` |
-| — | Audit fixes P1 (Scope 1 and 3 activities, travel by mode, hierarchy rules in the database) | Done locally, **uncommitted** | — |
-| — | Audit fixes P2 (calculation guard, audit context and order, security headers, evidence fingerprint) | Done locally, **uncommitted** | — |
+| — | Audit fixes P1 (Scope 1 and 3 activities, travel by mode, hierarchy rules in the database) | Done, on branch `feature` | `23e1925` |
+| — | Audit fixes P2 (calculation guard, audit context and order, security headers, evidence fingerprint, hierarchy levels, several evidence files) and P3 | Done, on branch `feature` | `23e1925` |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -623,10 +624,16 @@ lint, typecheck, format, web unit 83/83, production build; the end-to-end suite 
 
 ## 4. What comes next
 
-**Before Phase 21:** the remaining audit fixes. P0-1 (Indian emission factors): the owner approved the values in
-`.grill/audit-p0-decisions.md` on 2026-10-07; an Admin still has to enter them on hosted, along with factors for the P1 activities. Every audit item except deployment is then closed. Set `SENTRY_DSN` on the web host at deployment. Migrations
-`0034` and `0035` were pushed to hosted on 2026-10-07 and the hosted worker was recreated on `rules-11`. Migration `0033` was pushed to hosted on 2026-10-07.
-
+**Before Phase 21:** the second audit (2026-10-07, read-only, 71/100, "conditionally ready") left these:
+- **Real factors on hosted (P0-1).** The five approved values (`.grill/audit-p0-decisions.md`) are entered on the
+  local database; hosted still holds only the 0.02 grid factor and needs a signed-in Admin to enter them.
+- **Factors with a source for the P1 activities** the demo will show (travel per km, cement, steel, freight,
+  commuting, waste, PNG, R-22 have none; coal, LNG, three refrigerants and SF6 are proposed in
+  `.grill/audit-p1-decisions.md` and await approval). Fuel factors are IPCC defaults, CO2 only — say so.
+- **Hosted demo data:** an org tree below the group, and at least one record taken through to a report.
+- **The industry's promised list of reports** is not in the repository; only the BRSR report exists.
+- Waste by category and recovered quantities; a browser click-through of the demo path.
+- Merge pull request #2 once CI passes. Set `SENTRY_DSN` on the web host at deployment.
 
 **Phase 21 — Deployment** (`06_IMPLEMENTATION_PLAN.md` §Phase 21): the production Supabase project (or the dev
 project promoted — decide explicitly), `apps/web` (Vercel was planned) and the OCR worker (**host to be decided
@@ -634,9 +641,8 @@ by the owner; not Render**, and not a sleeping tier), production migrations as a
 streams, backups confirmed, a rollback procedure tested once, `DEPLOYMENT.md`, and the critical end-to-end test
 re-run against the live URLs. The owner will say where each part is hosted before this starts.
 
-Before Phase 21: check and commit the out-of-sequence work above (it is in the working tree, not in git). All migrations
-`0001`–`0032` are on the hosted project (`0032` pushed 2026-10-05) and the hosted worker container runs the matching
-image (`rules-10`); when migrations and the worker change again, push first, then replace the container — a worker
+All migrations `0001`–`0037` are on the hosted project and the hosted worker container runs the matching image
+(`rules-11`); when migrations and the worker change again, push first, then replace the container — a worker
 newer than the database fails every job.
 
 Things to remember for Phase 21:
@@ -651,8 +657,8 @@ Things to remember for Phase 21:
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0001`–`0032` are
-  pushed (`0015`–`0028` on 2026-09-22 and `0032` on 2026-10-05 with `supabase db push --db-url`, session pooler;
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0001`–`0037` are
+  pushed (`0033`–`0037` on 2026-10-07; `0015`–`0028` on 2026-09-22 and `0032` on 2026-10-05 with `supabase db push --db-url`, session pooler;
   `0029`–`0031`, bulk import / OTP table / default theme, were already there). Verified as of `0028`, and for `0029`–`0032`
   on 2026-10-05 (new columns and table present, RLS on, no browser grants, permissions and `theme-2` default in place):
   37 tables (35 + `rate_limit_events` + `submission_expectations`, D16/D19) all with RLS, `authenticated`

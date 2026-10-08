@@ -69,6 +69,28 @@ _Last updated: 2026-10-07._
   `AUTH_SECRET` removed from `.env.example`; server-side Sentry in `apps/web/instrumentation.ts` (new dependency
   `@sentry/nextjs`), off unless `SENTRY_DSN` is set, checked against a local stand-in endpoint; lint, typecheck,
   format, unit 83/83 and build pass; the end-to-end suite was not re-run for P3. The owner's `ps_documents/provided_docs/KT_Session_Transcript_and_Context.md` is still untracked.
+- **All of the work above is committed** (`23e1925`, branch `feature`) — wherever this section still says
+  "uncommitted", read "committed". **Pushed 2026-10-07; pull request #2 (`feature` → `main`) is open** so CI runs
+  (CI triggers on pull requests and on pushes to `main` only). Not merged. **CI on `23e1925`: web and worker jobs
+  pass, the database job fails** — on a fresh database three test files (`phase9_calculation`, `phase17_reports`,
+  `phase19_user_theme`) found no user to work with (8 tests). They now create their own user; **that fix is
+  uncommitted**, so CI stays red until it is committed and pushed.
+- **Second audit, 2026-10-07 (read-only, reported in chat; 71/100, conditionally ready).** What is left from it:
+  real factors on hosted; no factor source at all for travel per km, cement, steel, freight, commuting, waste, PNG,
+  R-22; the industry's promised report list is not in the repo; waste categories and recovered quantities.
+- **After the audit, same day, on the owner's go-ahead — uncommitted:** `audit_p2_levels` database test no longer
+  clashes with the level the end-to-end suite leaves behind, and the three tests above carry their own user
+  (database 194/194 on the used local database; a fresh database is only confirmed once CI runs on the fix);
+  `README.md` no longer describes Render as the worker host; D25 records that the SEBI PDF in the repo uses the
+  2021 numbering; PROGRESS.md rows corrected.
+- **The five approved factors are entered on the local database** (through the Admin procedures; synthetic grid and
+  diesel versions retired; `.grill/audit-p0-decisions.md`). Checked with end-to-end scenarios A 32/32 and B 16/16.
+  Old approved local records keep their synthetic factor; coal, travel, waste and renewable stay synthetic.
+- **Hosted is not set up for a demo yet** (still the 0.02 grid factor, one org unit, one open period `AUG26`, three
+  users all assigned at the group). It needs a signed-in Admin: `provision-user` refuses a second Admin by design,
+  and the owner's Admin password must not be reset. See §2.
+- **Uncommitted, not from the feature sessions:** `apps/web/app/layout.tsx`, `apps/web/package.json` and
+  `pnpm-lock.yaml` changed at 18:17–18:21 on 2026-10-07 (a development-only `agentation` widget). Ask the owner.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -77,13 +99,7 @@ _Last updated: 2026-10-07._
 |---|---|
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
-| When to commit the uncommitted work | See §1. |
-| Enter the approved factors on hosted (P0-1) | The owner will enter them (said 2026-10-07): five rows in `.grill/audit-p0-decisions.md`, through `/admin/conversion-factors`; retire the 0.02 grid factor first. |
-| Commit the P1 and P2 work | The owner said they will commit it themselves (2026-10-07). |
-| Enter the approved factors on hosted (P0-1) | The owner will enter them (said 2026-10-07): five rows in `.grill/audit-p0-decisions.md`, through `/admin/conversion-factors`; retire the 0.02 grid factor first. |
-| Commit the P1 and P2 work | The owner said they will commit it themselves (2026-10-07). |
-| Hierarchy levels as configuration (P2)? | Replaces the level enum with a table; touches org screens, bulk import, the `0034` trigger. Recommendation: wait until a new level is needed. |
-| Several evidence files per record (P2)? | Screen work in the ui role's lane plus one server procedure. |
+| Hosted demo setup (factors, org tree) | Needs an Admin session. Either the owner enters the five rows of `.grill/audit-p0-decisions.md` at `/admin/conversion-factors` (retire the 0.02 grid factor first) and builds the org tree, or the owner invites a second Admin from Admin → Users for the agent to use (the agent sets that account's password itself and runs the same procedures). |
 | Approve the proposed P1 factors, and find the missing ones | `.grill/audit-p1-decisions.md`: coal grades, LNG, R-32, R-134a, R-410A, SF6 proposed with sources. No value proposed for PNG (needs the supplier's gas density), R-22 (an HCFC — keep the activity?), travel per passenger-km, cement, steel, freight, commuting. AR5 or AR6 GWPs is the owner's choice. |
 | Factors for waste to landfill and business travel spend | No Indian source found; the owner must supply values and sources. |
 | Production Supabase: new project, or promote the dev one | PROGRESS.md §4. Must be decided explicitly. |
@@ -186,6 +202,19 @@ _Last updated: 2026-10-07._
   (its `/login` returned 404). Request the page again before concluding anything.
 - **Running one e2e scenario alone** can fail on stale local data (scenario D picks the newest test record, which may
   sit in another period); run A–D in order.
+- **The end-to-end suite leaves a hierarchy level `e2e_package` (position 45) behind**, and the database test
+  `audit_p2_levels` assumes the seven seeded levels and adds its own level at 45 — so `pnpm db:test` fails on a local
+  database the suite had run on. Fixed 2026-10-07 (the test uses its own level code and position 47); keep new
+  database tests independent of rows the suite leaves behind.
+- **The hosted OCR worker only runs while Docker Desktop on this machine is running.** With Docker closed, hosted
+  uploads wait in "Processing" (seen 2026-10-07: the container had exited two hours earlier).
+- **A factor version that starts later wins.** The engine takes the latest `effective_from` among active *and
+  superseded* versions covering the period, so replacing a factor for past periods means retiring every earlier
+  version (superseded ones too), not just adding one with an earlier start date.
+- **CI runs on pull requests and pushes to `main` only**; pushing `feature` alone starts nothing. `gh` is not
+  installed on this machine.
+- **An end-to-end scenario that stalls on "the OCR queue" with ~1 GB free memory** is the worker container hanging
+  after "worker ready"; remove the leftover container (`docker ps`) and re-run the scenario.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

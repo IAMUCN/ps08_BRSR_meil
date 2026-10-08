@@ -5,6 +5,11 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(9);
 
+-- Its own user, so the test also passes on a fresh database (CI), where nobody has been provisioned yet.
+insert into auth.users (id, email) values ('00000017-0000-4000-8000-0000000000aa', 'phase17@fixture.test');
+insert into public.users (id, display_name, email)
+values ('00000017-0000-4000-8000-0000000000aa', 'Phase 17 fixture', 'phase17@fixture.test');
+
 select throws_ok(
   $$insert into public.report_runs (requested_by, org_unit_id, report_type)
     select (select id from public.users limit 1), (select id from public.org_units limit 1), 'brsr'$$,

@@ -74,6 +74,23 @@ them), so they were **not** written into the hosted database directly.
 - **No Indian source found** for waste to landfill or spend-based business travel; those stay for the owner, and
   records of those activities stay "Not calculated yet" on hosted.
 
+### Entered on the local database, 2026-10-07 (owner's go-ahead in chat)
+
+- The five rows above were entered through the app's own Admin procedures (`factors.setStatus`, `factors.addVersion`,
+  `factors.create`), signed in as the local E2E Admin, so the audit trail holds each change. Geography India,
+  effective from 2024-04-01, notes say "CO2 only" and show the working.
+- **Every earlier synthetic version of grid electricity and diesel was retired first, superseded ones included.**
+  The engine picks the version with the latest start date among active and superseded versions, so a synthetic
+  version starting in 2026 would otherwise win over a real one starting in 2024.
+- Checked: the engine's selection for a September 2026 record returns the five new values; end-to-end scenarios A
+  (32/32) and B (16/16) pass on the local stack with them.
+- **What did not change:** records already approved keep the synthetic factor they were calculated with (approved
+  calculations are closed), so a report over old local data still lists synthetic factors. The local factor
+  *names* are still the test names ("Diesel combustion CO2e (…)"); there is no rename procedure. Coal, travel,
+  waste and renewable factors on local remain synthetic.
+- **Hosted is still to do.** It needs a signed-in Admin, and `provision-user` refuses to create a second Admin
+  while one exists (by design), so it was not scripted around.
+
 ## Out of scope / follow-ups
 
 - Waste by category and recovered quantities; disposal totalled by method (the treatment route is on each record).

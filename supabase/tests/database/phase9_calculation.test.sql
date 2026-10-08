@@ -5,6 +5,11 @@ create extension if not exists pgtap with schema extensions;
 
 select plan(13);
 
+-- Its own user, so the test also passes on a fresh database (CI), where nobody has been provisioned yet.
+insert into auth.users (id, email) values ('00000009-0000-4000-8000-0000000000aa', 'phase09@fixture.test');
+insert into public.users (id, display_name, email)
+values ('00000009-0000-4000-8000-0000000000aa', 'Phase 09 fixture', 'phase09@fixture.test');
+
 select is(
   (select count(*)::int from public.esg_metrics m
     where m.deleted_at is null and m.requires_calculation

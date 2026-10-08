@@ -281,7 +281,7 @@ Notes:
   `low_confidence` when a found field is below `org_settings.ocr_confidence_threshold` — seeded at 80 — or a
   required field is missing, or `ocr_failed` with the reason).
 
-### Deployment (Docker / Render)
+### Deployment (Docker)
 
 `apps/ocr-worker/Dockerfile` builds the worker with the model weights baked in (downloaded at build time,
 never at runtime). It holds no secrets; configure it through environment variables only.
@@ -295,9 +295,9 @@ docker run --rm --env-file apps/ocr-worker/.env.docker traceesg-ocr-worker pytho
 For a container talking to local Supabase use `http://host.docker.internal:55321` and
 `postgresql://postgres:postgres@host.docker.internal:55322/postgres`.
 
-`render.yaml` (repository root) is a Render Blueprint: an always-on **background worker** (Singapore,
-`standard` plan — 2 GB RAM; free tiers sleep). Applying it in the Render dashboard asks for each secret —
-enter them there, never in the repository:
+The worker's host is not chosen yet. It needs an always-on **background process** (no web port, about 2 GB RAM,
+no sleeping tier). `render.yaml` (repository root) is kept only as a reference for those settings — Render is
+not used. Whatever the host, set these there, never in the repository:
 
 | Variable | Value |
 |---|---|

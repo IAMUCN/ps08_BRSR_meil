@@ -357,6 +357,12 @@ seeded them from the May-2021 format.
 **Why:** the final audit found the codes followed a superseded format (AUDIT_FIXES.md P0-3). Decision:
 `.grill/audit-p0-decisions.md`.
 
+**Differs from the SEBI PDF in the repository:** `ps_documents/provided_docs` holds SEBI's Annexure I in its
+May-2021 numbering (greenhouse gases Essential 6, waste Essential 8, Scope 3 Leadership 4), and that PDF is the
+one shared with the hackathon teams. The app follows the current numbering (7, 9, Leadership 2), as companies file
+today (L&T's FY 2025-26 report, same folder), and the report footer says "as updated in July 2023". The questions
+and tables are the same; only the numbers moved.
+
 ## D26 — `org_settings` key `brsr_report_inputs`; report snapshot version 2 (no migration)
 
 **Schema says:** §13.1 `report_runs.snapshot_data` holds the reported values; nothing holds turnover, the PPP
