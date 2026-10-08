@@ -97,9 +97,12 @@ _Last updated: 2026-10-09._
 - **SDG tags on the report (2026-10-09, owner's request), committed locally:** migration `0039` (D31), tags beside
   each indicator and a goals table; the mapping is the agent's own reading (`.grill/audit-2-decisions.md`). Checked:
   web unit 92/92, database 208/208, scenario D 34/34. Not on hosted.
+- **Migrations `0038` and `0039` were pushed to hosted on 2026-10-09** (owner's go-ahead, after the dev server on
+  port 3000 failed with "column v.gases does not exist") and checked there: 39 migrations, 13 new activities, the
+  three columns, the guard; the nine records and the one factor untouched. The hosted worker still runs `rules-11`.
 - **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
-  org unit, one open period `AUG26`, three users at the group, migrations to `0037`. Needs, in order: the owner's
-  go-ahead to push `0038` and `0039`; the hosted worker container replaced with the `rules-12` image; a second Admin invited
+  org unit, one open period `AUG26`, three users at the group. Needs, in order: the hosted worker container replaced with the `rules-12` image
+  (owner's go-ahead); a second Admin invited
   by the owner for the agent (see §2); then the factor script and an org tree.
 - **Uncommitted, not from the feature sessions:** `apps/web/app/layout.tsx`, `apps/web/package.json` and
   `pnpm-lock.yaml` changed at 18:17–18:21 on 2026-10-07 (a development-only `agentation` widget). It fails `pnpm format:check` (`app/layout.tsx`). Left out of
@@ -112,7 +115,7 @@ _Last updated: 2026-10-09._
 |---|---|
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
-| Hosted demo setup | The owner chose hosted for the demo (2026-10-08). Waiting on: (1) go-ahead to push migrations `0038` and `0039` and replace the worker container; (2) a second Admin invited from Admin → Users for the agent — the provisioning script refuses a second Admin by design and the owner's password must not be reset; (3) the owner's review of the factor table in `.grill/audit-2-decisions.md`. |
+| Hosted demo setup | The owner chose hosted for the demo (2026-10-08). Waiting on: (1) go-ahead to replace the hosted worker container with the `rules-12` image; (2) a second Admin invited from Admin → Users for the agent — the provisioning script refuses a second Admin by design and the owner's password must not be reset; (3) the owner's review of the factor table in `.grill/audit-2-decisions.md`. |
 | Push `feature` | Two local commits wait (`f2cb730` and the second-audit work). CI on the pull request stays red until they are pushed. |
 | Factors with no source | PNG (needs the supplier's gas density), purchased steam / heat (the supplier's own factor), freight / commuting / travel by spend and waste (no Indian source found). Supply values, or leave those activities out of the demo. |
 | Approve the proposed P1 factors, and find the missing ones | `.grill/audit-p1-decisions.md`: coal grades, LNG, R-32, R-134a, R-410A, SF6 proposed with sources. No value proposed for PNG (needs the supplier's gas density), R-22 (an HCFC — keep the activity?), travel per passenger-km, cement, steel, freight, commuting. AR5 or AR6 GWPs is the owner's choice. |
@@ -237,6 +240,9 @@ _Last updated: 2026-10-09._
 - **Adding an activity or a factor breaks tests that count them**: five database tests and two end-to-end
   checks held counts or used petrol as "the activity with no factor" (now purchased steam, which has none by
   design). Search the tests for the old count before trusting a red run.
+- **Setting the owner's uncommitted files aside with `git stash` unlinks their dependency**: with `package.json`
+  briefly without it, the next `pnpm` command removed `apps/web/node_modules/agentation` and the dev server broke.
+  Do not stash them; if it happens, `pnpm install --frozen-lockfile` restores the link.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

@@ -6,7 +6,7 @@ session. Update it at the end of every phase (see [How to update this file](#how
 
 _Last updated: 2026-10-09 — Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
 merged); the second audit's follow-up work (migrations `0038`–`0039`, fuller report with SDG tags, 28 sourced factors on local) is committed locally, not
-pushed and not on hosted; Phase 21 (deployment) comes after, hosting to be decided by the owner._
+pushed; migrations `0038`–`0039` are on hosted (2026-10-09), the factors and demo data are not; Phase 21 (deployment) comes after, hosting to be decided by the owner._
 
 ---
 
@@ -36,7 +36,7 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels (`0001`–`0039`; `0001`–`0037` pushed to hosted) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels (`0001`–`0039`, all pushed to hosted) |
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
@@ -652,7 +652,7 @@ deployment.
 ## 4. What comes next
 
 **Before Phase 21:** make the hosted project ready for the demo (the owner chose hosted). In order: push the two
-local commits; push migrations `0038` and `0039` to hosted with the owner's go-ahead, then replace the hosted worker with the
+local commits; replace the hosted worker (migrations `0038` and `0039` were pushed on 2026-10-09) with the
 `rules-12` image; the owner invites a second Admin; the reviewed factors are entered through the app (retire the
 0.02 grid factor first) and an org tree is created; one diesel and one electricity record are taken through to a
 report and the PDF is read. Still open: factors for PNG, steam, spend-based activities and waste; energy in
