@@ -89,7 +89,10 @@ async function catalogue() {
     from public.brsr_indicators i
     join public.brsr_sections s on s.id = i.section_id
     where i.deleted_at is null
-    order by s.code, i.code`;
+      -- Written disclosures (migration 0040) are not mapped to metrics; they live on BRSR Disclosures.
+      and (i.answer_kind = 'data'
+           or exists (select 1 from public.brsr_metric_mappings x where x.brsr_indicator_id = i.id))
+    order by s.code, i.sort_order, i.code`;
 }
 
 /** Sections in order with their indicators, each decorated by `extra`. */
@@ -123,7 +126,113 @@ const mappingInput = z.object({
   reportedValue: z.enum(["result", "activity"]).optional(),
 });
 
+export type DisclosureSection = BrsrSection & {
+  indicators: {
+    id: string;
+    code: string;
+    questionText: string;
+    indicatorType: "essential" | "leadership" | null;
+    kind: "data" | "statement";
+    principle: number | null;
+    part: string | null;
+    answer: string | null;
+  }[];
+};
+
+const financialYear = z.number().int().min(2000).max(2100);
+
 export const brsrRouter = router({
+  /** Every question of SEBI's format in its order, with the answer typed for one financial year. */
+  disclosures: adminProcedure
+    .input(z.object({ financialYear }))
+    .query(async ({ input }): Promise<DisclosureSection[]> => {
+      const rows = await db()<
+        (IndicatorRow & {
+          answer_kind: "data" | "statement";
+          principle: number | null;
+          part: string | null;
+          answer: string | null;
+        })[]
+      >`
+        select i.id, i.code, i.question_text, i.indicator_type::text as indicator_type, i.description,
+               s.code as section_code, s.name as section_name, i.answer_kind, i.principle, i.part,
+               d.answer
+        from public.brsr_indicators i
+        join public.brsr_sections s on s.id = i.section_id
+        left join public.brsr_disclosures d
+          on d.brsr_indicator_id = i.id and d.financial_year = ${input.financialYear}
+        where i.deleted_at is null
+        order by s.code, i.sort_order, i.code`;
+      const sections: DisclosureSection[] = [];
+      for (const row of rows) {
+        let section = sections.find((s) => s.code === row.section_code);
+        if (!section) {
+          section = { code: row.section_code, name: row.section_name, indicators: [] };
+          sections.push(section);
+        }
+        section.indicators.push({
+          id: row.id,
+          code: row.code,
+          questionText: row.question_text,
+          indicatorType: row.indicator_type,
+          kind: row.answer_kind,
+          principle: row.principle,
+          part: row.part,
+          answer: row.answer,
+        });
+      }
+      return sections;
+    }),
+
+  /** Type, change or (with an empty answer) clear one question's answer for one financial year. */
+  saveDisclosure: adminProcedure
+    .input(z.object({ indicatorId: z.uuid(), financialYear, answer: z.string().trim().max(20000) }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const [indicator] = await tx<{ id: string; code: string }[]>`
+          select id, code from public.brsr_indicators
+          where id = ${input.indicatorId} and deleted_at is null`;
+        if (!indicator) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "That BRSR question doesn't exist.",
+          });
+        }
+        const [before] = await tx<{ answer: string }[]>`
+          select answer from public.brsr_disclosures
+          where brsr_indicator_id = ${indicator.id} and financial_year = ${input.financialYear}
+          for update`;
+        if ((before?.answer ?? "") === input.answer) return;
+        if (input.answer) {
+          await tx`
+            insert into public.brsr_disclosures (brsr_indicator_id, financial_year, answer, updated_by)
+            values (${indicator.id}, ${input.financialYear}, ${input.answer}, ${ctx.session.userId})
+            on conflict (brsr_indicator_id, financial_year) do update
+              set answer = excluded.answer, updated_by = excluded.updated_by, updated_at = now()`;
+        } else {
+          await tx`
+            delete from public.brsr_disclosures
+            where brsr_indicator_id = ${indicator.id} and financial_year = ${input.financialYear}`;
+        }
+        await writeAudit(tx, {
+          eventType: "brsr.disclosure_saved",
+          entityType: "brsr_indicator",
+          entityId: indicator.id,
+          userId: ctx.session.userId,
+          oldValue: {
+            code: indicator.code,
+            financial_year: input.financialYear,
+            answer: before?.answer ?? null,
+          },
+          newValue: {
+            code: indicator.code,
+            financial_year: input.financialYear,
+            answer: input.answer || null,
+          },
+        });
+      });
+    }),
+
   /** The mapping table, grouped by BRSR section, plus the metrics nothing maps yet. */
   mappings: adminProcedure.query(async (): Promise<MappingsView> => {
     const sql = db();

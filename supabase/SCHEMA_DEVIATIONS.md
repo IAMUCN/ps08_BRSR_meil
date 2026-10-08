@@ -345,6 +345,117 @@ no browser grants). Each kept bill is an ordinary document, record and OCR job; 
 **Why:** the owner wants one upload to fill several bills separately; the person still confirms the split.
 Decision: `.grill/multi-bill-pdf-decisions.md`.
 
+## D25 — BRSR indicator codes renumbered to SEBI's July-2023 format (migration `0033`)
+
+**Schema says:** nothing about which edition of the BRSR format the indicator codes follow. Migration `0022`
+seeded them from the May-2021 format.
+
+**Implemented:** five rows of `brsr_indicators` are renumbered in place — `A-18`→`A-20`, `A-22`→`A-24`,
+`P6-E6`→`P6-E7`, `P6-E8`→`P6-E9`, `P6-L4`→`P6-L2` — with their descriptions. Ids, mappings and D18's
+`reported_value` are unchanged, so snapshots of earlier reports keep resolving. `0022` is not edited.
+
+**Why:** the final audit found the codes followed a superseded format (AUDIT_FIXES.md P0-3). Decision:
+`.grill/audit-p0-decisions.md`.
+
+**Differs from the SEBI PDF in the repository:** `ps_documents/provided_docs` holds SEBI's Annexure I in its
+May-2021 numbering (greenhouse gases Essential 6, waste Essential 8, Scope 3 Leadership 4), and that PDF is the
+one shared with the hackathon teams. The app follows the current numbering (7, 9, Leadership 2), as companies file
+today (L&T's FY 2025-26 report, same folder), and the report footer says "as updated in July 2023". The questions
+and tables are the same; only the numbers moved.
+
+## D26 — `org_settings` key `brsr_report_inputs`; report snapshot version 2 (no migration)
+
+**Schema says:** §13.1 `report_runs.snapshot_data` holds the reported values; nothing holds turnover, the PPP
+rate or an assurance statement.
+
+**Implemented:** an `org_settings` row with key `brsr_report_inputs`, value `{ "<FY start year>": { turnoverCr,
+pppRate, physicalOutput, physicalOutputUnit, assurance, methodologyNote } }`, written by the Admin procedure
+`reports.saveInputs` (audited as `report_inputs.updated`); the row does not exist until an Admin saves. The
+snapshot gains `previous` (the previous financial year's figures, without records), `inputs` (both years),
+`factors` (each conversion factor version the reported calculations used) and `orgUnitCount`; `version` is 2.
+Version-1 snapshots are still readable — the report page uses only fields both versions have.
+
+**Why:** SEBI's GHG, waste and Scope 3 tables need intensity per rupee of turnover, a PPP-adjusted intensity, a
+previous-year column and an assurance note (AUDIT_FIXES.md P0-2). Decision: `.grill/audit-p0-decisions.md`.
+
+## D27 — Hierarchy rules enforced by a trigger on `org_units` (migration `0034`)
+
+**Schema says:** §4.1 gives `org_units` a self-referencing `parent_id` and the check that only a group may be a
+root; the level ordering is described but not enforced.
+
+**Implemented:** trigger `trg_enforce_org_hierarchy` (before insert, or update of `parent_id` / `unit_type`): a
+child's `unit_type` must come strictly after its parent's in the enum's declared order, a group is never a child,
+and a node's level cannot be changed to one at or after a child's. Violations raise `23514`. This makes cycles
+impossible as well. Existing rows are not re-checked. The app's own checks (`lib/org/rules.ts`) are unchanged and
+still give the friendly messages.
+
+**Why:** the final audit inserted a project under a project, a subsidiary under a project and a cycle directly
+(AUDIT_FIXES.md P1). Decision: `.grill/audit-p1-decisions.md`.
+
+## D28 — Calculations append-only; `audit_logs` gains `ip_address`, `user_agent`, `session_id` (migration `0036`)
+
+**Schema says:** §10.3 calculations are append-only by convention ("never updated, a new row is written"); §12.1
+`audit_logs` has no column for where an action came from.
+
+**Implemented:** triggers on `calculations` and `calculation_inputs` refuse DELETE, TRUNCATE and every UPDATE
+except retiring a calculation (`is_current`), for every role. `audit_logs` gains three nullable text columns,
+written by `writeAudit` from the request when a person acted.
+
+**Why:** the final audit could delete a calculation directly and found approved records whose calculation rows
+were gone; and it asked for the address, session and browser on audit entries (AUDIT_FIXES.md P2). Decision:
+`.grill/audit-p2-decisions.md`.
+
+## D29 — `org_levels` table; `org_units.unit_type` is a level code, not an enum (migration `0037`)
+
+**Schema says:** §4.1 `org_units.unit_type` is the enum `org_unit_type` with seven fixed values.
+
+**Implemented:** table `org_levels (id, code, label, sort_order)`, seeded with the seven levels under the same
+codes; `org_units.unit_type` is `text` with a foreign key to `org_levels.code`; the enum type is dropped. A
+trigger on `org_levels` keeps a level's code and position fixed, keeps `group` as the root level and refuses a
+level before it. The hierarchy trigger of D27 compares positions from the table. Server-only: RLS on, no
+policies, no grants to browser roles.
+
+**Why:** PRD §11 says adding a hierarchy level is configuration; the final audit found it needed a migration
+and a code change (AUDIT_FIXES.md P2). Decision: `.grill/audit-p2-decisions.md`.
+
+## D30 — `conversion_factor_versions.gases`, `esg_metrics.emission_source`, evidence guard (migration `0038`)
+
+**Schema says:** §10.2 a factor version has a value, units, source and geography; §6.2 a metric has a scope; no
+rule in the database ties a verified record to a document.
+
+**Implemented:** `conversion_factor_versions.gases` (nullable text, up to 60 characters): the gases the value
+covers, as its source states. `esg_metrics.emission_source` (nullable; `combustion`, `process` or `fugitive`),
+set for every Scope 1 activity. A trigger on `esg_records` refuses the change to `user_verified` when the record
+has no row in `esg_record_documents`. The same migration adds activities and the `P6-E6` indicator as
+configuration (no schema change).
+
+**Why:** SEBI's greenhouse gas table asks for a break-up by gas "if available", and the KT session asks for
+stationary, mobile, process and fugitive emissions to be told apart; the second audit found six local records
+with no document. `gases` is not frozen by the factor-version guard (D-§19.3): it is a disclosure, not part of
+a calculation. Decision: `.grill/audit-2-decisions.md`.
+
+## D31 — `brsr_indicators.sdg_goals` (migration `0039`)
+
+**Schema says:** §11.2 an indicator has a code, question text and type.
+
+**Implemented:** `sdg_goals smallint[]`, not null, default empty, each value 1 to 17: the UN Sustainable
+Development Goals the indicator is tagged with. Seeded for the ten indicators.
+
+**Why:** the owner asked for SDG tags on the report (2026-10-09). The mapping is indicative, not SEBI's.
+Decision: `.grill/audit-2-decisions.md`.
+
+## D32 — The full BRSR format: question kinds and typed answers (migration `0040`)
+
+**Schema says:** §11.2 an indicator has a code, question text and type; values come from mapped metrics.
+
+**Implemented:** `brsr_indicators.answer_kind` (`data` or `statement`), `principle` (1 to 9), `part` (the
+sub-heading in Sections A and B) and `sort_order`; all 146 questions of SEBI's format seeded. A new table
+`brsr_disclosures` (question, financial year, answer, who and when; one row per question per year; server-only)
+holds the answers an Admin types.
+
+**Why:** the owner asked for a report like the L&T reference, which answers every question. Most questions are
+written statements with no source document. Decision: `.grill/full-brsr-report-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

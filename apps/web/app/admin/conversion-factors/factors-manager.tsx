@@ -20,6 +20,8 @@ import type { FactorRow, FactorVersionRow } from "@/lib/trpc/routers/factors";
 import {
   addFactorVersionAction,
   createFactorAction,
+  renameFactorAction,
+  setFactorGasesAction,
   setFactorVersionStatusAction,
 } from "./actions";
 
@@ -67,6 +69,41 @@ export function FactorsManager({
         return;
       }
       toast.success(status === "active" ? "Version activated" : "Version retired");
+      router.refresh();
+    });
+  }
+
+  // Plain prompts: a name and a disclosure are one line of text each.
+  function rename(factor: FactorRow) {
+    const name = window.prompt("Factor name", factor.name)?.trim();
+    if (!name || name === factor.name) return;
+    startTransition(async () => {
+      const result = await renameFactorAction({ factorId: factor.id, name });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Factor renamed");
+      router.refresh();
+    });
+  }
+
+  function editGases(version: FactorVersionRow) {
+    const gases = window.prompt(
+      "Greenhouse gases this value covers, as its source states (for example: CO2 — or: CO2, CH4, N2O — or: HFCs). Leave empty if the source does not say.",
+      version.gases ?? "",
+    );
+    if (gases === null) return;
+    startTransition(async () => {
+      const result = await setFactorGasesAction({
+        versionId: version.id,
+        gases: gases.trim() || null,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Gases saved");
       router.refresh();
     });
   }
@@ -143,7 +180,15 @@ export function FactorsManager({
                         {active ? "Active" : "Not usable"}
                       </StatusBadge>
                     </td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="px-3 py-3 text-right whitespace-nowrap">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => rename(factor)}
+                      >
+                        Rename
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => setVersionFor(factor)}>
                         New version
                       </Button>
@@ -161,6 +206,7 @@ export function FactorsManager({
                                 "Effective",
                                 "Source reference",
                                 "Geography",
+                                "Gases covered",
                                 "Added by",
                                 "Status",
                                 "",
@@ -184,6 +230,16 @@ export function FactorsManager({
                                 </td>
                                 <td className="px-2 py-1.5">{v.sourceReference}</td>
                                 <td className="px-2 py-1.5">{v.geography ?? "—"}</td>
+                                <td className="px-2 py-1.5">
+                                  <button
+                                    type="button"
+                                    className="underline decoration-dotted underline-offset-2"
+                                    disabled={pending}
+                                    onClick={() => editGases(v)}
+                                  >
+                                    {v.gases ?? "Not stated"}
+                                  </button>
+                                </td>
                                 <td className="px-2 py-1.5">{v.createdBy}</td>
                                 <td className="px-2 py-1.5">
                                   <StatusBadge tone={STATUS[v.status].tone}>
@@ -270,6 +326,7 @@ type SubmitInput = {
   effectiveFrom: string;
   effectiveTo?: string | null;
   notes?: string;
+  gases?: string;
 };
 
 function FactorSheet({
@@ -304,6 +361,7 @@ function FactorSheet({
     outputUnit: latest?.outputUnit ?? "kgCO2e",
     sourceReference: latest?.sourceReference ?? "",
     geography: latest?.geography ?? "",
+    gases: latest?.gases ?? "",
     effectiveFrom: "",
     effectiveTo: "",
     notes: "",
@@ -322,6 +380,7 @@ function FactorSheet({
       effectiveFrom: form.effectiveFrom,
       effectiveTo: form.effectiveTo || null,
       notes: form.notes || undefined,
+      gases: form.gases || undefined,
     };
     if (factor) input.factorId = factor.id;
     else {
@@ -440,6 +499,18 @@ function FactorSheet({
               value={form.geography}
               onChange={(e) => set("geography")(e.target.value)}
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="factor-gases">Gases covered (optional)</Label>
+            <Input
+              id="factor-gases"
+              placeholder="CO2 — or: CO2, CH4, N2O — or: HFCs"
+              value={form.gases}
+              onChange={(e) => set("gases")(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              As the source states. The report&apos;s break-up by gas is grouped on this.
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-2">

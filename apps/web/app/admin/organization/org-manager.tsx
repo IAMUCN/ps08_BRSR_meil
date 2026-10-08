@@ -17,7 +17,8 @@ import {
   allowedChildTypes,
   checkMove,
   isFrozen,
-  ORG_UNIT_TYPE_LABELS,
+  levelLabel,
+  type OrgLevel,
   type OrgUnitType,
 } from "@/lib/org/rules";
 import type { OrgExpectation, OrgUnitRow } from "@/lib/trpc/routers/organization";
@@ -35,9 +36,12 @@ type Impact = { descendants: number; activeAssignments: number; inProgressRecord
 
 export function OrgManager({
   nodes,
+  levels,
   selectedId,
 }: {
   nodes: OrgUnitRow[];
+  /** The configured hierarchy levels, in order (migration 0037). */
+  levels: OrgLevel[];
   selectedId: string | null;
 }) {
   const router = useRouter();
@@ -111,7 +115,7 @@ export function OrgManager({
               {node.name}
             </span>
             <span className="shrink-0 text-xs text-muted-foreground">
-              {ORG_UNIT_TYPE_LABELS[node.unitType]}
+              {levelLabel(levels, node.unitType)}
             </span>
           </button>
         </div>
@@ -132,6 +136,7 @@ export function OrgManager({
           key={selected.id}
           node={selected}
           nodes={nodes}
+          levels={levels}
           onChanged={() => router.refresh()}
           onSelect={select}
         />
@@ -145,11 +150,13 @@ export function OrgManager({
 function NodeDetail({
   node,
   nodes,
+  levels,
   onChanged,
   onSelect,
 }: {
   node: OrgUnitRow;
   nodes: OrgUnitRow[];
+  levels: OrgLevel[];
   onChanged: () => void;
   onSelect: (id: string) => void;
 }) {
@@ -157,7 +164,7 @@ function NodeDetail({
   const frozen = isFrozen(node.id, nodes);
   const frozenByAncestor = frozen && node.status === "active";
   const parent = nodes.find((n) => n.id === node.parentId);
-  const childTypes = allowedChildTypes(node.unitType);
+  const childTypes = allowedChildTypes(levels, node.unitType);
 
   const [name, setName] = useState(node.name);
   const [code, setCode] = useState(node.code ?? "");
@@ -172,7 +179,7 @@ function NodeDetail({
   const moveTargets = nodes.filter(
     (candidate) =>
       candidate.id !== node.parentId &&
-      checkMove(node.id, candidate.id, nodes).ok &&
+      checkMove(node.id, candidate.id, nodes, levels).ok &&
       !isFrozen(candidate.id, nodes),
   );
 
@@ -236,7 +243,7 @@ function NodeDetail({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs leading-4 font-medium tracking-wide text-muted-foreground uppercase">
-              {ORG_UNIT_TYPE_LABELS[node.unitType]}
+              {levelLabel(levels, node.unitType)}
             </p>
             <h2 id="node-heading" className="text-xl leading-7 font-semibold">
               {node.name}
@@ -312,7 +319,7 @@ function NodeDetail({
               >
                 {childTypes.map((type) => (
                   <option key={type} value={type}>
-                    {ORG_UNIT_TYPE_LABELS[type]}
+                    {levelLabel(levels, type)}
                   </option>
                 ))}
               </NativeSelect>
@@ -350,6 +357,7 @@ function NodeDetail({
         </p>
         <OrgUnitBulkImport
           nodes={nodes.filter((n) => !isFrozen(n.id, nodes))}
+          levels={levels}
           defaultParentId={node.id}
           importAction={bulkImportOrgUnitsAction}
           onImported={onChanged}
@@ -373,7 +381,7 @@ function NodeDetail({
                 <option value="">Select a parent…</option>
                 {moveTargets.map((target) => (
                   <option key={target.id} value={target.id}>
-                    {target.name} ({ORG_UNIT_TYPE_LABELS[target.unitType]})
+                    {target.name} ({levelLabel(levels, target.unitType)})
                   </option>
                 ))}
               </NativeSelect>

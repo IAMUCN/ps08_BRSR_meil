@@ -25,6 +25,8 @@ export type FactorVersionRow = {
   effectiveTo: string | null;
   status: "draft" | "active" | "superseded" | "retired";
   notes: string | null;
+  /** The greenhouse gases the value covers, as its source states ("CO2", "HFCs"); null when not stated. */
+  gases: string | null;
   createdBy: string;
   createdAt: string;
   /** Referenced by a stored calculation, so its value and units can never change. */
@@ -50,6 +52,7 @@ const versionInput = {
   effectiveFrom: z.iso.date(),
   effectiveTo: z.iso.date().nullish(),
   notes: z.string().trim().max(1000).optional(),
+  gases: z.string().trim().max(60).optional(),
 };
 
 export const factorsRouter = router({
@@ -71,7 +74,8 @@ export const factorsRouter = router({
                        'inputUnit', v.input_unit, 'outputUnit', v.output_unit,
                        'sourceReference', v.source_reference, 'geography', v.geography,
                        'effectiveFrom', v.effective_from::text, 'effectiveTo', v.effective_to::text,
-                       'status', v.status, 'notes', v.notes, 'createdBy', u.display_name,
+                       'status', v.status, 'notes', v.notes, 'gases', v.gases,
+                       'createdBy', u.display_name,
                        'createdAt', v.created_at,
                        'used', exists (select 1 from public.calculations c
                                         where c.conversion_factor_version_id = v.id))
@@ -206,6 +210,53 @@ export const factorsRouter = router({
       return null;
     }),
 
+  /** A factor's display name. The values, units and sources of its versions are untouched. */
+  rename: manage
+    .input(z.object({ factorId: z.uuid(), name: z.string().trim().min(2).max(160) }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const [factor] = await tx<{ name: string }[]>`
+          select name from public.conversion_factors where id = ${input.factorId} for update`;
+        if (!factor) throw new TRPCError({ code: "NOT_FOUND", message: "Factor not found." });
+        await tx`update public.conversion_factors set name = ${input.name} where id = ${input.factorId}`;
+        await writeAudit(tx, {
+          eventType: "factor.renamed",
+          entityType: "conversion_factor",
+          entityId: input.factorId,
+          userId: ctx.session.userId,
+          oldValue: { name: factor.name },
+          newValue: { name: input.name },
+        });
+      });
+      return null;
+    }),
+
+  /**
+   * Which gases a version's value covers — a disclosure the report groups on, not part of the number, so
+   * it can be stated for a version calculations already used.
+   */
+  setGases: manage
+    .input(z.object({ versionId: z.uuid(), gases: z.string().trim().max(60).nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const [version] = await tx<{ gases: string | null }[]>`
+          select gases from public.conversion_factor_versions where id = ${input.versionId} for update`;
+        if (!version) throw new TRPCError({ code: "NOT_FOUND", message: "Version not found." });
+        await tx`
+          update public.conversion_factor_versions set gases = ${input.gases || null}
+          where id = ${input.versionId}`;
+        await writeAudit(tx, {
+          eventType: "factor.gases_changed",
+          entityType: "conversion_factor_version",
+          entityId: input.versionId,
+          userId: ctx.session.userId,
+          oldValue: { gases: version.gases },
+          newValue: { gases: input.gases || null },
+        });
+      });
+      return null;
+    }),
+
   /**
    * Run the engine again for one record — used after the missing factor is added. Never for an approved
    * record: its number has already been decided on (grill log, Phase 9).
@@ -244,10 +295,11 @@ async function insertVersion(
   const [row] = await tx<{ id: string }[]>`
     insert into public.conversion_factor_versions
       (conversion_factor_id, version_number, value, input_unit, output_unit, source_reference,
-       geography, effective_from, effective_to, status, notes, created_by)
+       geography, effective_from, effective_to, status, notes, gases, created_by)
     values (${factorId}, ${versionNumber}, ${input.value}, ${input.inputUnit}, ${input.outputUnit},
             ${input.sourceReference}, ${input.geography ?? null}, ${input.effectiveFrom},
-            ${input.effectiveTo ?? null}, 'active', ${input.notes ?? null}, ${userId})
+            ${input.effectiveTo ?? null}, 'active', ${input.notes ?? null}, ${input.gases || null},
+            ${userId})
     returning id`;
   return row.id;
 }

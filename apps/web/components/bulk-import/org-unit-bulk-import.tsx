@@ -14,7 +14,7 @@ import {
   ORG_UNIT_HEADERS,
   parseSheetRows,
 } from "@/lib/bulk-import/xlsx";
-import { allowedChildTypes, ORG_UNIT_TYPE_LABELS, type OrgUnitType } from "@/lib/org/rules";
+import { allowedChildTypes, levelLabel, type OrgLevel, type OrgUnitType } from "@/lib/org/rules";
 import type { OrgBulkImportRowResult } from "@/lib/trpc/routers/organization";
 
 type NodeOption = { id: string; name: string; code: string | null; unitType: OrgUnitType };
@@ -25,11 +25,13 @@ type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 // parent — no multi-level sheets — so no topological ordering is needed between rows.
 export function OrgUnitBulkImport({
   nodes,
+  levels,
   defaultParentId,
   importAction,
   onImported,
 }: {
   nodes: NodeOption[];
+  levels: OrgLevel[];
   defaultParentId?: string;
   importAction: (input: {
     parentId: string;
@@ -44,7 +46,7 @@ export function OrgUnitBulkImport({
   const [pending, startTransition] = useTransition();
 
   const parent = nodes.find((n) => n.id === parentId) ?? null;
-  const childTypes = parent ? allowedChildTypes(parent.unitType) : [];
+  const childTypes = parent ? allowedChildTypes(levels, parent.unitType) : [];
 
   function onFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -118,7 +120,7 @@ export function OrgUnitBulkImport({
           <option value="">Select a node…</option>
           {nodes.map((n) => (
             <option key={n.id} value={n.id}>
-              {n.name} ({ORG_UNIT_TYPE_LABELS[n.unitType]})
+              {n.name} ({levelLabel(levels, n.unitType)})
             </option>
           ))}
         </NativeSelect>
@@ -134,7 +136,7 @@ export function OrgUnitBulkImport({
               onClick={() =>
                 downloadOrgUnitTemplate(
                   parent.name,
-                  childTypes.map((t) => ({ value: t, label: ORG_UNIT_TYPE_LABELS[t] })),
+                  childTypes.map((t) => ({ value: t, label: levelLabel(levels, t) })),
                 )
               }
             >
@@ -156,7 +158,7 @@ export function OrgUnitBulkImport({
           <p className="text-xs text-muted-foreground">
             Every row becomes a direct child of {parent.name}. Allowed types:{" "}
             {childTypes.length > 0
-              ? childTypes.map((t) => ORG_UNIT_TYPE_LABELS[t]).join(", ")
+              ? childTypes.map((t) => levelLabel(levels, t)).join(", ")
               : "none — this node can't have children"}
             .
           </p>

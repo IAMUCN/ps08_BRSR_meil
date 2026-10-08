@@ -26,6 +26,7 @@ import {
   rejectDocumentAction,
   setDocumentTypeAction,
 } from "@/app/app/verify/[documentId]/actions";
+import { EvidenceFiles } from "@/components/records/evidence-files";
 
 const INVOICE_FIELD = "invoice_number";
 
@@ -236,6 +237,8 @@ export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
             </Button>
           </div>
         ) : null}
+
+        {doc.recordId ? <EvidenceFiles recordId={doc.recordId} /> : null}
 
         <ul className="divide-y">
           {doc.fields.map((field) => {

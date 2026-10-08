@@ -329,13 +329,20 @@ check(
 );
 
 section("Missing conversion factor / calculation failure");
+// Purchased steam has no factor by design (the supplier's own figure is the factor), so it stays a standing
+// example of a missing one. The waste certificate sample is a quantity in kilograms, which steam accepts.
 const petrolFactor = await one(
-  sql`select id from public.conversion_factors where activity_type = 'PETROL_CONSUMPTION'`,
+  sql`select id from public.conversion_factors where activity_type = 'PURCHASED_STEAM'`,
 );
-check("(precondition) Petrol has no conversion factor configured", !petrolFactor);
-const petrol = await upload(pm, sample("diesel"), `edge-petrol-${RUN}.pdf`, {
-  metric: "PETROL_CONSUMPTION",
-});
+check("(precondition) Purchased steam has no conversion factor configured", !petrolFactor);
+const petrol = await upload(
+  pm,
+  sample("waste", { period: "15-Sep-2026" }),
+  `edge-steam-${RUN}.pdf`,
+  {
+    metric: "PURCHASED_STEAM",
+  },
+);
 await runWorker();
 const petrolConfirm = await confirm(pm, petrol.documentId);
 const petrolRecord = await recordOf(petrol.documentId);

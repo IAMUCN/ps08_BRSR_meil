@@ -1,13 +1,13 @@
 "use client";
 
-import { AlertTriangle, CalendarRange, Loader2, RotateCcw } from "lucide-react";
+import { AlertTriangle, CalendarRange, CheckCircle2, Loader2, RotateCcw } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { ORG_UNIT_TYPE_LABELS, isOrgUnitType } from "@/lib/org/rules";
 import { acceptedTypesLabel, formatMegabytes } from "@/lib/storage/evidence";
 import type {
   DuplicateWarnings,
@@ -87,6 +87,8 @@ export function UploadForm({
   const [uploaded, setUploaded] = useState<Uploaded | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState(0);
+  /** The upload that just finished. The person stays here to add the next document. */
+  const [received, setReceived] = useState<{ fileName: string; splitHref?: string } | null>(null);
 
   const target = targets.find((t) => t.orgUnitId === orgUnitId) ?? targets[0];
   const metric = useMemo(
@@ -135,8 +137,12 @@ export function UploadForm({
         setWarnings(outcome.data.warnings);
         return;
       }
-      toast.success("PDF received — reading it now");
-      router.push(`/app/upload/split/${outcome.data.documentId}`);
+      setFile(null);
+      setUploaded(null);
+      setReceived({
+        fileName: chosen.name,
+        splitHref: `/app/upload/split/${outcome.data.documentId}`,
+      });
       return;
     }
     const result = await completeUploadAction({
@@ -158,8 +164,15 @@ export function UploadForm({
       setWarnings(result.data.warnings);
       return;
     }
-    toast.success("Document received, processing");
-    router.push("/app/submissions?tab=processing");
+    // A replacement is one document for one failed record: go back to the list. Otherwise stay.
+    if (replaces) {
+      toast.success("Document received, processing");
+      router.push("/app/submissions?tab=processing");
+      return;
+    }
+    setFile(null);
+    setUploaded(null);
+    setReceived({ fileName: chosen.name });
   }
 
   async function submit(acknowledge: boolean) {
@@ -297,7 +310,7 @@ export function UploadForm({
             {targets.map((t) => (
               <option key={t.orgUnitId} value={t.orgUnitId}>
                 {t.name}
-                {isOrgUnitType(t.unitType) ? ` (${ORG_UNIT_TYPE_LABELS[t.unitType]})` : ""}
+                {` (${t.unitTypeLabel})`}
               </option>
             ))}
           </NativeSelect>
@@ -355,15 +368,43 @@ export function UploadForm({
         accept={acceptedTypes.join(",")}
         hint={`${acceptedTypesLabel(acceptedTypes)} · up to ${formatMegabytes(maxBytes)}${bundle ? ` · at most ${BUNDLE_MAX_PAGES} pages` : ""}`}
         error={fileError}
-        progress={phase === "uploading" ? progress : null}
+        progress={phase === "idle" ? null : phase === "checking" ? 0 : progress}
+        stage={
+          phase === "checking"
+            ? "Checking the file…"
+            : phase === "finishing"
+              ? "Saving…"
+              : undefined
+        }
         disabled={busy}
-        onCancel={() => xhrRef.current?.abort()}
+        onCancel={phase === "uploading" ? () => xhrRef.current?.abort() : undefined}
         onFile={(picked) => {
+          setReceived(null);
           setFile(picked);
           setFileError(checkFile(picked, acceptedTypes));
           resetAttempt();
         }}
       />
+
+      {received ? (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-status-success/40 bg-status-success/10 p-4 text-sm leading-5"
+        >
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="size-4 shrink-0 text-status-success" aria-hidden />
+            <span>
+              <span className="font-medium">{received.fileName}</span> received — it&apos;s being
+              read in the background. Add the next document whenever you&apos;re ready.
+            </span>
+          </span>
+          <Button asChild variant="outline" size="sm">
+            <Link href={received.splitHref ?? "/app/submissions?tab=processing"}>
+              {received.splitHref ? "Check the split" : "My Submissions"}
+            </Link>
+          </Button>
+        </div>
+      ) : null}
 
       {warnings ? (
         <div

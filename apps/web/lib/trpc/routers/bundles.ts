@@ -274,6 +274,62 @@ export const bundlesRouter = router({
       }
     }),
 
+  /**
+   * The uploader's PDFs whose split is not confirmed yet. They have no record, so My Submissions lists
+   * them from here — otherwise leaving the split screen loses them. A failed one drops off after a week.
+   */
+  pending: upload.query(async ({ ctx }) => {
+    const rows = await db()<
+      { id: string; file_name: string; created_at: Date; job_status: string | null }[]
+    >`
+      select d.id, d.file_name, d.created_at, j.status::text as job_status
+      from public.documents d
+      left join public.ocr_jobs j on j.document_id = d.id
+      where d.is_bundle and d.deleted_at is null and d.uploaded_by = ${ctx.session.userId}
+        and not exists (select 1 from public.document_bundle_parts p
+                         where p.bundle_document_id = d.id and p.status <> 'proposed')
+        and (j.status is distinct from 'failed' or d.created_at > now() - interval '7 days')
+      order by d.created_at desc`;
+    return rows.map((row) => ({
+      documentId: row.id,
+      fileName: row.file_name,
+      uploadedAt: row.created_at.toISOString(),
+      status:
+        row.job_status === "completed"
+          ? ("ready" as const)
+          : row.job_status === "failed"
+            ? ("failed" as const)
+            : ("processing" as const),
+    }));
+  }),
+
+  /**
+   * The uploader drops a PDF they uploaded by mistake. Only before anything is recorded from it, and not
+   * while the worker is still reading it. The stored file is kept; the document is marked deleted.
+   */
+  discard: upload.input(z.object({ documentId: z.uuid() })).mutation(async ({ ctx, input }) => {
+    const sql = db();
+    const bundle = await loadBundle(sql, input.documentId, ctx.session.userId);
+    if (bundle.job_status !== "completed" && bundle.job_status !== "failed") {
+      badRequest("This PDF is still being read — discard it once that has finished.");
+    }
+    await sql.begin(async (tx) => {
+      const [recorded] = await tx`
+        select 1 from public.document_bundle_parts
+        where bundle_document_id = ${bundle.id} and status <> 'proposed' limit 1`;
+      if (recorded) badRequest("Bills from this PDF are already recorded; it can't be discarded.");
+      await tx`update public.documents set deleted_at = now() where id = ${bundle.id}`;
+      await writeAudit(tx, {
+        eventType: "document.bundle_discarded",
+        entityType: "document",
+        entityId: bundle.id,
+        userId: ctx.session.userId,
+        oldValue: { file_name: bundle.file_name },
+      });
+    });
+    return { discarded: true };
+  }),
+
   /** The review screen's data: status, the proposed bills, and what the uploader may record. */
   review: upload.input(z.object({ documentId: z.uuid() })).query(async ({ ctx, input }) => {
     const sql = db();

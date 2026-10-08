@@ -39,3 +39,15 @@ export async function setExpectationAction(input: {
 }) {
   return runAction((api) => api.organization.setExpectation(input));
 }
+
+export async function addLevelAction(input: { label: string; afterCode: string }) {
+  return runAction((api) => api.organization.addLevel(input));
+}
+
+export async function renameLevelAction(input: { code: string; label: string }) {
+  return runAction((api) => api.organization.renameLevel(input));
+}
+
+export async function removeLevelAction(input: { code: string }) {
+  return runAction((api) => api.organization.removeLevel(input));
+}

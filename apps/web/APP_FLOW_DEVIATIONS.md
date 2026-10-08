@@ -435,3 +435,71 @@ owner.
   possible duplicates must be acknowledged. Afterwards the page lists the recorded bills with links to verify them.
 - A bill the uploader's role may not record (water for a Project Manager) is shown, said to be left out, and not
   offered in the activity list. The notification "PDF ready to split" deep-links to the page.
+
+## A24 — Reports: SEBI-format tables and the yearly inputs form
+
+Decisions: `.grill/audit-p0-decisions.md` (audit fixes P0-2 and P0-3).
+
+- **The BRSR report PDF** prints greenhouse gas emissions, waste and Scope 3 as the July-2023 SEBI tables: current
+  and previous financial year, metric tonnes, intensity rows and the assurance note, followed by a methodology,
+  boundary and factor-source section. Indicator codes follow the July-2023 numbering (`A-20`, `P6-E7`, …).
+- **Admin → Reports** gains a collapsed section, _Turnover, PPP rate and assurance for the report_: one set of
+  values per financial year, saved with an outline button (the page keeps one primary button). An addition to
+  App Flow §2.2, which has only the parameter form. Built plainly by the feature role
+  (`app/admin/reports/report-inputs-form.tsx`); the ui role may restyle it.
+- Anything not entered prints as "Not provided"; a single-period report shows no annual intensity.
+
+## A25 — Hierarchy levels section; evidence files list
+
+Decisions: `.grill/audit-p2-decisions.md` (audit fixes P2).
+
+- **Admin → Organization** gains a collapsed section, _Hierarchy levels_: the levels in order, each renameable,
+  removable when no org unit uses it, and a form to add a level after an existing one. An addition to App Flow
+  §2.2 (Organization), which treats the levels as fixed. Every screen that names a level reads the configured name.
+- **Verify Extraction and the record drawer** gain an _Evidence files_ list: the original document and any
+  supporting files, each opening in a new tab, and an _Add a supporting file_ button for whoever could have
+  uploaded the record, until it is approved or rejected. An addition to App Flow §2.3, which has one document per
+  record on screen.
+- Both are plain sections built by the feature role (`app/admin/organization/levels-card.tsx`,
+  `components/records/evidence-files.tsx`); the ui role may restyle them. Outline buttons only — each page keeps
+  one primary button.
+
+## A26 — Factor screen: gases covered and rename; fuller report tables
+
+Decisions: `.grill/audit-2-decisions.md` (second audit).
+
+- **Admin → Conversion Factors:** the add / new-version sheet gains an optional _Gases covered_ field; the version
+  history shows it and lets an Admin set it on an existing version; each factor has a _Rename_ button. The two
+  edits use the browser's own prompt — one line of text each. Built plainly by the feature role; the ui role
+  may replace the prompts with a dialog.
+- **The BRSR report** gains: a break-up by gas under each scope total, a _Scope 1 by emission source_ table,
+  SEBI's full waste table (categories A to H, recovered and disposed by operation), a _Consolidation by org
+  unit_ table, and a line saying which days of the financial year the report covers when it is not the whole
+  year. Additions to App Flow §2.2 (Reports), which describes the report only as "BRSR format".
+- **Notifications:** a _Deadline approaching_ notice within three days of an open period's closing date.
+
+## A27 — Upload stays on Upload; My Submissions lists PDFs waiting for their split
+
+Decisions: `.grill/page-feedback-2026-10-09-decisions.md` (owner's page feedback).
+
+- **App Flow §2.3 (Upload Document)** sends the user to My Submissions → Processing after an upload. The owner
+  uploads several bills in a row, so the form now stays, shows a "received" notice with a link, and keeps the
+  project and activity. Replacing a failed document still returns to My Submissions.
+- **My Submissions** gains a section above the tabs for multi-bill PDFs whose split is not confirmed; each row
+  opens its split screen. The whole of a submission row is clickable.
+- **Profile** links to the emailed-code password reset under Change password.
+- The upload progress display is more animated (UI brief §12.1 asks for a progress bar, filename and cancel —
+  all kept).
+
+## A28 — BRSR Disclosures screen; the report prints the whole format
+
+Decisions: `.grill/full-brsr-report-decisions.md`.
+
+- **New Admin screen, BRSR Disclosures** (`/admin/disclosures`, in the sidebar after BRSR Mapping): every
+  question of SEBI's format by section, with a text box per question for one financial year. Not in App Flow
+  §2.2. Built plainly by the feature role (native `details` sections, one Save per question); the ui role may
+  restyle it.
+- **Typed entry, for written statements only.** The Master Approach keeps normal users to uploads; this screen
+  is for an Admin and for answers that have no source document.
+- **The BRSR report** prints all of Sections A, B and C in SEBI's order and all 17 SDGs. Report Detail keeps
+  listing only the measured indicators (the drill-down is for values).

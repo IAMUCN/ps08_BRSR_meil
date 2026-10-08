@@ -62,21 +62,28 @@ try {
   const uploadButton = await buttonWith("Upload PDF");
   await uploadButton.click();
   // The same file again (a repeated run) asks for acknowledgement first: say so, then carry on.
+  const received = () => document.body.innerText.includes("received —");
   await page.waitForFunction(
     () =>
-      location.pathname.startsWith("/app/upload/split/") ||
+      document.body.innerText.includes("received —") ||
       document.body.innerText.includes("Possible duplicate"),
     { timeout: 90_000 },
   );
-  if (!page.url().includes("/app/upload/split/")) {
+  if (!(await page.evaluate(received))) {
     check("an identical file is warned about", true);
-    await Promise.all([
-      page.waitForNavigation({ timeout: 90_000 }),
-      (await buttonWith("Upload anyway")).click(),
-    ]);
+    await (await buttonWith("Upload anyway")).click();
+    await page.waitForFunction(received, { timeout: 90_000 });
   }
+  check("the PM stays on Upload, ready for the next document", page.url().endsWith("/app/upload"));
+  await page.goto(`${APP}/app/submissions`);
+  await waitText("PDFs with several bills");
+  check("My Submissions lists the PDF waiting for its split", true);
+  await Promise.all([
+    page.waitForNavigation({ timeout: 90_000 }),
+    page.click('a[href^="/app/upload/split/"]'),
+  ]);
   const splitUrl = page.url();
-  check("upload goes to the split page", splitUrl.includes("/app/upload/split/"), splitUrl);
+  check("its row opens the split page", splitUrl.includes("/app/upload/split/"), splitUrl);
   await waitText("Reading your PDF");
   check("it says the PDF is being read", true);
   await page.screenshot({ path: join(shots, "2-reading.png") });

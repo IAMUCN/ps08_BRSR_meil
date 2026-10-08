@@ -9,7 +9,7 @@ stored extractions stay reproducible (it is recorded in `ocr_jobs.model_version`
 
 from dataclasses import dataclass
 
-EXTRACTOR_VERSION = "rules-10"
+EXTRACTOR_VERSION = "rules-12"
 
 
 @dataclass(frozen=True)
@@ -22,7 +22,18 @@ class Profile:
 
 FIELD_PROFILES: dict[str, Profile] = {
     "quantity": Profile(
-        labels=("quantity", "qty", "volume", "litres", "liters"),
+        labels=(
+            "quantity emitted",
+            "co2 emitted",
+            "energy supplied",
+            "quantity",
+            "qty",
+            "volume",
+            "litres",
+            "liters",
+            "net weight",
+            "distance",
+        ),
         kind="number",
         exclude=("rate", "price", "amount"),
     ),
@@ -135,12 +146,18 @@ FIELD_PROFILES: dict[str, Profile] = {
             "supply source",
             "treatment route",
             "disposal route",
+            "used in",
             "mode",
             "water source",
             "csr project",
             "authority",
             "source",
         ),
+        kind="text",
+    ),
+    # SEBI's waste table is by category; a certificate usually names one.
+    "waste_category": Profile(
+        labels=("waste category", "category of waste", "type of waste", "waste type"),
         kind="text",
     ),
 }
@@ -189,7 +206,19 @@ DOCUMENT_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
     ),
     # Petrol, CNG and LPG share this type (migration 0017); a diesel invoice scores higher as
     # DIESEL_INVOICE.
-    "FUEL_INVOICE": ("petrol", "cng", "lpg", "motor spirit", "fuel", "litres", "kg", "invoice"),
+    "FUEL_INVOICE": (
+        "petrol",
+        "cng",
+        "lpg",
+        "lng",
+        "png",
+        "coal",
+        "motor spirit",
+        "fuel",
+        "litres",
+        "kg",
+        "invoice",
+    ),
     "RENEWABLE_CERTIFICATE": (
         "renewable",
         "certificate",
@@ -207,6 +236,25 @@ DOCUMENT_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
         "treatment",
     ),
     "TRAVEL_INVOICE": ("travel", "airline", "air", "rail", "passenger", "sector", "ticket"),
+    "REFRIGERANT_RECORD": ("refrigerant", "sf6", "gas charged", "r-22", "r-32", "r-410a", "r-134a"),
+    "MATERIAL_INVOICE": ("cement", "steel", "tmt", "opc", "ppc", "material", "net weight"),
+    "PROCESS_EMISSION_STATEMENT": (
+        "process emission",
+        "mass balance",
+        "co2 emitted",
+        "calcination",
+    ),
+    "STEAM_HEAT_INVOICE": ("steam", "chilled water", "district cooling", "heat supplied"),
+    "STACK_MONITORING_REPORT": (
+        "stack",
+        "monitoring",
+        "nox",
+        "sox",
+        "particulate",
+        "emission test",
+    ),
+    "FREIGHT_INVOICE": ("freight", "transporter", "consignment", "lorry receipt", "logistics"),
+    "EMPLOYEE_TRANSPORT_INVOICE": ("employee transport", "staff bus", "shuttle", "commute"),
     "WORKFORCE_STATEMENT": ("headcount", "workforce", "employees", "women", "men", "statement"),
     "TRAINING_RECORD": ("training", "trained", "employees", "programme", "attendance"),
     "WATER_BILL": ("water", "withdrawal", "discharge", "meter", "supply"),

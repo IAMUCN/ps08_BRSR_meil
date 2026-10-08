@@ -1,6 +1,10 @@
 import "server-only";
 import { writeAudit } from "@/lib/audit";
-import { financialYearLabel, financialYearRange } from "@/lib/consolidation/aggregate";
+import {
+  financialYearLabel,
+  financialYearOf,
+  financialYearRange,
+} from "@/lib/consolidation/aggregate";
 import { db } from "@/lib/db";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { renderReportHtml } from "./html";
@@ -91,18 +95,30 @@ export async function runReport(runId: string): Promise<void> {
       );
     }
 
-    let periodIds: string[];
-    let label: string;
-    if (run.financial_year !== null) {
-      const { from, to } = financialYearRange(run.financial_year);
-      periodIds = (
+    const periodsOf = async (financialYear: number) => {
+      const { from, to } = financialYearRange(financialYear);
+      return (
         await sql<{ id: string }[]>`
           select id from public.reporting_periods where start_date >= ${from} and end_date <= ${to}`
       ).map((p) => p.id);
+    };
+    let periodIds: string[];
+    let label: string;
+    // SEBI's tables show the previous financial year beside the current one.
+    let previous: { periodIds: string[]; label: string } | null = null;
+    let disclosureYear = run.financial_year;
+    if (run.financial_year !== null) {
+      periodIds = await periodsOf(run.financial_year);
       label = financialYearLabel(run.financial_year);
+      previous = {
+        periodIds: await periodsOf(run.financial_year - 1),
+        label: financialYearLabel(run.financial_year - 1),
+      };
     } else {
-      const [period] = await sql<{ label: string }[]>`
-        select label from public.reporting_periods where id = ${run.reporting_period_id}`;
+      const [period] = await sql<{ label: string; start_date: string }[]>`
+        select label, start_date::text from public.reporting_periods
+        where id = ${run.reporting_period_id}`;
+      if (period) disclosureYear = financialYearOf(period.start_date);
       periodIds = [run.reporting_period_id!];
       label = period?.label ?? "";
     }
@@ -117,6 +133,8 @@ export async function runReport(runId: string): Promise<void> {
       periodIds,
       label,
       financialYear: run.financial_year,
+      disclosureYear,
+      previous,
     });
     let pdf: Uint8Array;
     try {
