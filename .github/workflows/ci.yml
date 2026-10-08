@@ -1,4 +1,5 @@
-# Lint + typecheck only; no deploy step (02_TRD.md §37, 06_IMPLEMENTATION_PLAN.md Phase 1).
+# Lint, typecheck, unit and database tests; no deploy step (02_TRD.md §37, 06_IMPLEMENTATION_PLAN.md Phases 1
+# and 20). End-to-end tests run locally (they need the app, the OCR worker image and Python).
 name: CI
 
 on:
@@ -22,6 +23,25 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm format:check
+
+  database:
+    name: Database (migrations + pgTAP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      # The Supabase CLI is a pinned root dev dependency.
+      - run: pnpm install --frozen-lockfile
+      # Applies every migration and supabase/seed.sql to a fresh local stack. Auth and Storage stay on: the
+      # tests use auth.users and the private evidence and reports buckets.
+      - run: pnpm exec supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,supavisor,studio
+      - run: pnpm db:test
+      - if: always()
+        run: pnpm exec supabase stop --no-backup
 
   ocr-worker:
     name: OCR worker (ruff + extraction unit tests)

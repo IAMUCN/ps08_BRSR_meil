@@ -205,6 +205,146 @@ field keys named in the plan, so the OCR worker reads *which* fields to extract 
 migration runs before any user exists, so a not-null `updated_by` made seeding impossible. Decision:
 `.grill/phase-6-ocr-integration-decisions.md`.
 
+## D14 — `percentage` formula type (migration `0020`)
+
+**Schema says (§6.7):** `formula_type enum(direct_multiply, subtract, custom)`, `custom` reserved.
+
+**Implemented:** a fourth value, `percentage` — part ÷ whole × 100, with
+`formula_definition = {"part": "<field_key>", "whole": "<field_key>"}`. `subtract` is implemented as
+specified (`{"inputs": ["withdrawal", "discharge"]}`); `custom` is still never evaluated.
+
+**Why:** BRSR HR and procurement indicators are shares (% women, % trained, MSME share of spend) that
+HR and Procurement must not calculate themselves (Master Approach §18). A named type keeps each formula
+reviewable instead of turning `custom` into an expression language. Decision:
+`.grill/phase-13-role-modules-decisions.md`.
+
+## D15 — `brsr_metric_mappings.is_applicable` (migration `0022`)
+
+**Schema says (§11.3):** `id`, `esg_metric_id`, `brsr_indicator_id`, `mapping_notes`.
+
+**Implemented:** plus `is_applicable boolean not null default true`.
+
+**Why:** `03_APP_FLOW.md` §2.2 BRSR Mapping lists "mark a mapping's applicability" as a primary action, and
+the schema has nowhere to store it. Switching a mapping off keeps its history and notes; the readiness tree
+ignores it. Decision: `.grill/phase-14-brsr-mapping-decisions.md`.
+
+## D16 — `submission_expectations` (migration `0024`)
+
+**Schema says:** nothing — no table records which submissions are expected.
+
+**Implemented:** `submission_expectations (id, org_unit_id, metric_id, created_by, created_at)`, unique per
+org unit and metric; RLS read like the org unit, server-only writes. `org_settings.brsr_readiness_weights`
+holds the BRSR Readiness % weights.
+
+**Why:** UI brief §13.1's Submission Completion % ("of expected submissions this period"), the Scope 1/2/3
+Completion % cards and the "projects with missing submissions" issue all need a denominator, and deriving
+it from history would never report a project that has not submitted at all. Decision:
+`.grill/phase-16-control-tower-decisions.md`.
+
+## D17 — `report_runs` covers a period or a financial year (migration `0025`)
+
+**Schema says (§13.1):** `reporting_period_id uuid not null`.
+
+**Implemented:** `reporting_period_id` is nullable and `financial_year integer` (the April–March year by its
+starting calendar year) sits beside it; a check constraint requires exactly one. A private `reports`
+storage bucket holds the rendered PDFs.
+
+**Why:** BRSR is an annual disclosure, and the owner chose reports by period or financial year; a year is
+many monthly periods, which one foreign key can't express. Decision:
+`.grill/phase-17-reporting-decisions.md`.
+
+## D18 — `brsr_metric_mappings.reported_value` (migration `0026`)
+
+**Schema says (§11.3):** a mapping links a metric to an indicator, nothing about which of the metric's values
+the indicator reports.
+
+**Implemented:** `reported_value text not null default 'result'`, `'result'` or `'activity'`: the calculated
+result (emissions, water consumed, a percentage) or the verified quantity. The waste → P6-E8 mapping reports
+the quantity; its emissions go to P6-L4.
+
+**Why:** found while checking the first generated report (Phase 17): P6-E8 asks for waste in metric tonnes,
+but reporting every metric's calculated result printed the waste's emissions there. Decision:
+`.grill/phase-17-reporting-decisions.md`.
+
+## D19 — `rate_limit_events` and an append-only trigger on `audit_logs` (migration `0027`)
+
+**Schema says:** nothing about rate limiting; `audit_logs` is "append-only" (§12.1) without saying how.
+
+**Implemented:** `rate_limit_events (id, bucket, created_at)` — one row per counted attempt in a hashed
+bucket (failed sign-ins per account and per client address, upload preparations per user); server-only.
+Triggers on `audit_logs` refuse UPDATE, DELETE and TRUNCATE for every role. `audit_logs.created_at` defaults
+to `clock_timestamp()` instead of `now()`, so the entries one transaction writes keep the order they happened.
+
+**Why:** the security review found sign-in throttling effectively global (Supabase sees the app server's one
+address) and the audit log protected only by grants. Decision: `.grill/phase-18-audit-security-decisions.md`;
+review: `SECURITY_REVIEW.md`.
+
+## D20 — `users.theme` (migration `0028`)
+
+**Schema says:** nothing; the UI brief (§4) and App Flow (Profile) say the chosen theme is "persisted
+per-user … synced to the profile record".
+
+**Implemented:** `users.theme text not null default 'theme-1'`, checked to `theme-1`/`theme-2`/`theme-3`.
+Readable by the user's own session like the rest of their row; changed only by the server
+(`profile.setTheme`, audited `user.theme_changed`).
+
+**Why:** so the choice follows the user to another device. Decision:
+`.grill/phase-19-ui-polish-decisions.md`.
+
+## D21 — `users.employee_id` and two bulk-import permissions (migration `0029`)
+
+**Schema says:** nothing — bulk import isn't in any implementation-plan phase; the owner requested it
+directly mid-session.
+
+**Implemented:** `users.employee_id text`, nullable, unique when present (partial unique index) — only the
+bulk-import path writes it, the single Admin "Invite user" form is untouched. Two new rows in
+`permissions`: `user.bulk_import` and `org.bulk_import`, following the existing permission-code gate
+pattern exactly (`permissionProcedure`), not a hard-coded role check. Admin gets both (migration `0009`'s
+"every permission" pattern, repeated for just these two since that cross join already ran); `hr` gets
+`user.bulk_import` by default; `org.bulk_import` starts unassigned, reassignable by an Admin from the
+existing Roles & Permissions matrix.
+
+**Why:** decision `.grill/bulk-import-decisions.md`.
+
+## D22 — `password_reset_otps` (migration `0030`)
+
+**Schema says:** nothing; Phase 3's auth decisions assumed Supabase Auth's own reset-link email, which only
+reaches the Supabase team on the hosted project — the same reason bulk-import passwords need Brevo instead
+of an invite link.
+
+**Implemented:** `password_reset_otps (id, user_id, code_hash, expires_at, consumed_at, attempts,
+created_at)` — server-only (RLS on, no policies, no browser grants), same shape as `rate_limit_events`
+(D19). A 6-digit code is hashed before storage, expires in 10 minutes, and is capped at 5 wrong guesses.
+
+**Why:** decision `.grill/bulk-import-decisions.md`. Replaces `resetPasswordForEmail`'s reset-link email for
+`/forgot-password` only; `/reset-password` (invite / first-password-set) is unaffected.
+
+## D23 — `users.theme` default changed to `theme-2` (migration `0031`)
+
+**Schema says:** nothing (see D20).
+
+**Implemented:** the column's default moves from `theme-1` to `theme-2`; the constraint and the column
+itself are unchanged. Existing rows are left as they are — this only changes what a newly provisioned
+account gets before anyone chooses for themselves.
+
+**Why:** the owner asked for the "blue, red, white" theme (`theme-2`, labelled Corporate) to be the default,
+not the peach/coral one (`theme-1`). Decision: `.grill/theme-toggle-decisions.md`.
+
+## D24 — Multi-bill PDFs: `documents.is_bundle`, `documents.bundle_document_id`, `document_bundle_parts` (migration `0032`)
+
+**Schema says:** nothing — one document is one record's evidence; a PDF holding several bills isn't covered.
+Requested directly by the owner.
+
+**Implemented:** `documents.is_bundle` (default false) marks an uploaded multi-bill PDF, which is a document of
+its own with no record; `documents.bundle_document_id` points each bill cut from it back at it.
+`document_bundle_parts (id, bundle_document_id, part_number, page_from, page_to, proposed_document_type_id,
+proposed_metric_id, status, created_document_id)` holds the OCR's proposed split and, after the uploader confirms,
+the confirmed one (`proposed` / `created` / `skipped`). Server-only like `rate_limit_events` (RLS on, no policies,
+no browser grants). Each kept bill is an ordinary document, record and OCR job; nothing downstream changed.
+
+**Why:** the owner wants one upload to fill several bills separately; the person still confirms the split.
+Decision: `.grill/multi-bill-pdf-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

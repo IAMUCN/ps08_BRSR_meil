@@ -14,10 +14,18 @@ import type {
   ReplacementTarget,
   UploadTarget,
 } from "@/lib/trpc/routers/documents";
-import { completeUploadAction, prepareUploadAction } from "@/app/app/upload/actions";
+import {
+  completeBundleUploadAction,
+  completeUploadAction,
+  prepareBundleUploadAction,
+  prepareUploadAction,
+} from "@/app/app/upload/actions";
+import { BUNDLE_MAX_PAGES } from "@/lib/documents/bundle";
 import { DropZone } from "./drop-zone";
 
 type Phase = "idle" | "checking" | "uploading" | "finishing";
+/** One bill for one activity, or one PDF holding several bills (split and confirmed after OCR). */
+type Mode = "single" | "bundle";
 type Uploaded = { documentId: string; reportingPeriodId: string };
 
 const UPLOAD_FAILED = "The upload failed — check your connection and try again.";
@@ -68,6 +76,7 @@ export function UploadForm({
   const nodeFieldId = useId();
   const xhrRef = useRef<XMLHttpRequest | null>(null);
 
+  const [mode, setMode] = useState<Mode>("single");
   const [orgUnitId, setOrgUnitId] = useState(replaces?.orgUnitId ?? targets[0].orgUnitId);
   const [metricId, setMetricId] = useState(replaces?.metricId ?? "");
   const [file, setFile] = useState<File | null>(null);
@@ -84,7 +93,10 @@ export function UploadForm({
     () => target.categories.flatMap((c) => c.metrics).find((m) => m.id === metricId),
     [target, metricId],
   );
-  const acceptedTypes = metric?.acceptedMimeTypes ?? ["application/pdf", "image/jpeg", "image/png"];
+  const bundle = mode === "bundle" && !replaces;
+  const acceptedTypes = bundle
+    ? ["application/pdf"]
+    : (metric?.acceptedMimeTypes ?? ["application/pdf", "image/jpeg", "image/png"]);
   const busy = phase !== "idle";
 
   function resetAttempt() {
@@ -106,6 +118,27 @@ export function UploadForm({
 
   async function complete(done: Uploaded, acknowledge: boolean, chosen: File) {
     setPhase("finishing");
+    if (bundle) {
+      const outcome = await completeBundleUploadAction({
+        ...done,
+        orgUnitId,
+        fileName: chosen.name,
+        acknowledgeDuplicates: acknowledge,
+      });
+      setPhase("idle");
+      if (!outcome.ok) {
+        setFailure(outcome.error);
+        return;
+      }
+      if (outcome.data.status === "confirm") {
+        setUploaded(done);
+        setWarnings(outcome.data.warnings);
+        return;
+      }
+      toast.success("PDF received — reading it now");
+      router.push(`/app/upload/split/${outcome.data.documentId}`);
+      return;
+    }
     const result = await completeUploadAction({
       ...done,
       orgUnitId,
@@ -130,7 +163,7 @@ export function UploadForm({
   }
 
   async function submit(acknowledge: boolean) {
-    const metricMissing = metricId ? null : "Choose what this document is evidence for.";
+    const metricMissing = bundle || metricId ? null : "Choose what this document is evidence for.";
     const invalidFile = checkFile(file, acceptedTypes);
     setMetricError(metricMissing);
     setFileError(invalidFile);
@@ -143,15 +176,23 @@ export function UploadForm({
 
     try {
       setPhase("checking");
-      const prepared = await prepareUploadAction({
-        orgUnitId,
-        metricId,
-        mimeType: file.type,
-        fileSize: file.size,
-        sha256: await sha256Hex(file),
-        acknowledgeDuplicates: acknowledge,
-        replacesDocumentId: replaces?.documentId,
-      });
+      const sha256 = await sha256Hex(file);
+      const prepared = bundle
+        ? await prepareBundleUploadAction({
+            orgUnitId,
+            fileSize: file.size,
+            sha256,
+            acknowledgeDuplicates: acknowledge,
+          })
+        : await prepareUploadAction({
+            orgUnitId,
+            metricId,
+            mimeType: file.type,
+            fileSize: file.size,
+            sha256,
+            acknowledgeDuplicates: acknowledge,
+            replacesDocumentId: replaces?.documentId,
+          });
       if (!prepared.ok) {
         setPhase("idle");
         setFailure(prepared.error);
@@ -187,7 +228,7 @@ export function UploadForm({
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-6">
       <p className="flex items-center gap-2 text-sm leading-5">
-        <CalendarRange className="size-4 text-primary" strokeWidth={1.5} aria-hidden />
+        <CalendarRange className="size-4 text-primary-text" strokeWidth={1.5} aria-hidden />
         Reporting period: <span className="font-medium">{periodLabel}</span>
       </p>
 
@@ -197,6 +238,47 @@ export function UploadForm({
           failed. The project and activity are fixed to match; the old record closes when this
           upload finishes.
         </div>
+      ) : null}
+
+      {!replaces ? (
+        <fieldset className="space-y-2" disabled={busy}>
+          <legend className="text-sm leading-5 font-medium">What are you uploading?</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                ["single", "One bill", "A bill or invoice for one activity."],
+                [
+                  "bundle",
+                  "A PDF with several bills",
+                  `Different bills in one PDF (up to ${BUNDLE_MAX_PAGES} pages). You'll check how it's split.`,
+                ],
+              ] as const
+            ).map(([value, title, hint]) => (
+              <label
+                key={value}
+                className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface-elevated p-3 text-sm leading-5 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
+              >
+                <input
+                  type="radio"
+                  name="upload-mode"
+                  value={value}
+                  checked={mode === value}
+                  onChange={() => {
+                    setMode(value);
+                    setMetricError(null);
+                    setFileError(null);
+                    resetAttempt();
+                  }}
+                  className="mt-0.5 accent-[var(--primary)]"
+                />
+                <span>
+                  <span className="block font-medium">{title}</span>
+                  <span className="block text-muted-foreground">{hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
       ) : null}
 
       {targets.length > 1 && !replaces ? (
@@ -226,50 +308,52 @@ export function UploadForm({
         </p>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor={metricFieldId}>ESG activity</Label>
-        <NativeSelect
-          id={metricFieldId}
-          value={metricId}
-          disabled={busy || Boolean(replaces)}
-          aria-invalid={metricError ? true : undefined}
-          aria-describedby={metricError ? `${metricFieldId}-error` : undefined}
-          onChange={(event) => {
-            setMetricId(event.target.value);
-            setMetricError(null);
-            resetAttempt();
-            const next = target.categories
-              .flatMap((c) => c.metrics)
-              .find((m) => m.id === event.target.value);
-            if (file && next) setFileError(checkFile(file, next.acceptedMimeTypes));
-          }}
-        >
-          <option value="">Select an activity…</option>
-          {target.categories.map((category) => (
-            <optgroup key={category.id} label={category.name}>
-              {category.metrics.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({m.unit})
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </NativeSelect>
-        {metricError ? (
-          <p
-            id={`${metricFieldId}-error`}
-            role="alert"
-            className="text-sm leading-5 text-status-error"
+      {bundle ? null : (
+        <div className="space-y-2">
+          <Label htmlFor={metricFieldId}>ESG activity</Label>
+          <NativeSelect
+            id={metricFieldId}
+            value={metricId}
+            disabled={busy || Boolean(replaces)}
+            aria-invalid={metricError ? true : undefined}
+            aria-describedby={metricError ? `${metricFieldId}-error` : undefined}
+            onChange={(event) => {
+              setMetricId(event.target.value);
+              setMetricError(null);
+              resetAttempt();
+              const next = target.categories
+                .flatMap((c) => c.metrics)
+                .find((m) => m.id === event.target.value);
+              if (file && next) setFileError(checkFile(file, next.acceptedMimeTypes));
+            }}
           >
-            {metricError}
-          </p>
-        ) : null}
-      </div>
+            <option value="">Select an activity…</option>
+            {target.categories.map((category) => (
+              <optgroup key={category.id} label={category.name}>
+                {category.metrics.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.unit})
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </NativeSelect>
+          {metricError ? (
+            <p
+              id={`${metricFieldId}-error`}
+              role="alert"
+              className="text-sm leading-5 text-status-error"
+            >
+              {metricError}
+            </p>
+          ) : null}
+        </div>
+      )}
 
       <DropZone
         file={file}
         accept={acceptedTypes.join(",")}
-        hint={`${acceptedTypesLabel(acceptedTypes)} · up to ${formatMegabytes(maxBytes)}`}
+        hint={`${acceptedTypesLabel(acceptedTypes)} · up to ${formatMegabytes(maxBytes)}${bundle ? ` · at most ${BUNDLE_MAX_PAGES} pages` : ""}`}
         error={fileError}
         progress={phase === "uploading" ? progress : null}
         disabled={busy}
@@ -340,7 +424,9 @@ export function UploadForm({
               ? "Uploading…"
               : phase === "finishing"
                 ? "Saving…"
-                : "Upload document"}
+                : bundle
+                  ? "Upload PDF"
+                  : "Upload document"}
         </Button>
       </div>
     </form>

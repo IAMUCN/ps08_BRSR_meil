@@ -2,6 +2,7 @@ import "server-only";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import type { ActiveSession } from "@/lib/auth/session";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
 import {
   canBeChildOf,
@@ -9,11 +10,21 @@ import {
   descendantIds,
   isFrozen,
   ORG_UNIT_TYPES,
+  reachableNodeIds,
   type OrgNode,
 } from "@/lib/org/rules";
 import { permissionProcedure, router } from "@/lib/trpc/init";
 
 const orgManage = permissionProcedure("org.manage");
+const orgBulkImport = permissionProcedure("org.bulk_import");
+
+export type OrgExpectation = {
+  metricId: string;
+  metricName: string;
+  categoryName: string;
+  frequency: string;
+  expected: boolean;
+};
 
 export type OrgUnitRow = OrgNode & { name: string; code: string | null; activeAssignments: number };
 
@@ -226,4 +237,184 @@ export const organizationRouter = router({
       });
       return null;
     }),
+
+  /** Which metrics this node must submit each period (Control Tower denominators, D16). */
+  expectations: orgManage
+    .input(z.object({ orgUnitId: z.uuid() }))
+    .query(async ({ input }): Promise<OrgExpectation[]> => {
+      const rows = await db()<
+        { id: string; name: string; category_name: string; frequency: string; expected: boolean }[]
+      >`
+        select m.id, m.name, c.name as category_name, m.frequency::text,
+               exists (select 1 from public.submission_expectations e
+                        where e.org_unit_id = ${input.orgUnitId} and e.metric_id = m.id) as expected
+        from public.esg_metrics m join public.esg_categories c on c.id = m.category_id
+        where m.deleted_at is null
+        order by c.name, m.name`;
+      return rows.map((r) => ({
+        metricId: r.id,
+        metricName: r.name,
+        categoryName: r.category_name,
+        frequency: r.frequency,
+        expected: r.expected,
+      }));
+    }),
+
+  setExpectation: orgManage
+    .input(z.object({ orgUnitId: z.uuid(), metricId: z.uuid(), expected: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const [unit] = await tx<{ id: string }[]>`
+          select id from public.org_units where id = ${input.orgUnitId} and deleted_at is null`;
+        if (!unit) badRequest("Node not found.");
+        const changed = input.expected
+          ? await tx`
+              insert into public.submission_expectations (org_unit_id, metric_id, created_by)
+              values (${input.orgUnitId}, ${input.metricId}, ${ctx.session.userId})
+              on conflict (org_unit_id, metric_id) do nothing returning id`
+          : await tx`
+              delete from public.submission_expectations
+              where org_unit_id = ${input.orgUnitId} and metric_id = ${input.metricId} returning id`;
+        if (changed.length === 0) return;
+        await writeAudit(tx, {
+          eventType: input.expected ? "expectation.added" : "expectation.removed",
+          entityType: "org_unit",
+          entityId: input.orgUnitId,
+          userId: ctx.session.userId,
+          newValue: { metric_id: input.metricId, expected: input.expected },
+        });
+      });
+      return null;
+    }),
+
+  bulkImportOptions: orgBulkImport.query(async ({ ctx }) => {
+    const rows = await db()<
+      {
+        id: string;
+        parent_id: string | null;
+        unit_type: string;
+        status: string;
+        name: string;
+        code: string | null;
+      }[]
+    >`
+      select id, parent_id, unit_type, status, name, code from public.org_units
+      where deleted_at is null`;
+    const nodes: OrgNode[] = rows.map((r) => ({
+      id: r.id,
+      parentId: r.parent_id,
+      unitType: r.unit_type as OrgNode["unitType"],
+      status: r.status as OrgNode["status"],
+    }));
+    const reachable = new Set(
+      ctx.session.isAdmin
+        ? nodes.filter((n) => !isFrozen(n.id, nodes)).map((n) => n.id)
+        : reachableNodeIds(
+            nodes,
+            ctx.session.assignments.map((a) => a.orgUnitId),
+          ),
+    );
+    return rows
+      .filter((r) => reachable.has(r.id))
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        code: r.code,
+        unitType: r.unit_type as OrgNode["unitType"],
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }),
+
+  bulkImport: orgBulkImport
+    .input(
+      z.object({
+        parentId: z.uuid(),
+        rows: z
+          .array(z.object({ unitType: z.enum(ORG_UNIT_TYPES), name: nameSchema, code: codeSchema }))
+          .min(1, "The sheet has no rows.")
+          .max(500, "Import at most 500 rows at a time."),
+      }),
+    )
+    .mutation(async ({ ctx, input }): Promise<{ results: OrgBulkImportRowResult[] }> => {
+      const results: OrgBulkImportRowResult[] = [];
+      for (const [index, row] of input.rows.entries()) {
+        // Sheet row 1 is the header, so the first data row is row 2.
+        results.push(await importOneOrgUnit(ctx.session, input.parentId, row, index + 2));
+      }
+      return { results };
+    }),
 });
+
+type OrgBulkImportRow = {
+  unitType: (typeof ORG_UNIT_TYPES)[number];
+  name: string;
+  code: string | null;
+};
+
+export type OrgBulkImportRowResult =
+  | { row: number; ok: true; id: string; name: string }
+  | { row: number; ok: false; name: string; error: string };
+
+/** One row of a bulk org-unit import, isolated so one bad row can't take down the rest of the batch. */
+async function importOneOrgUnit(
+  session: ActiveSession,
+  parentId: string,
+  row: OrgBulkImportRow,
+  rowNum: number,
+): Promise<OrgBulkImportRowResult> {
+  try {
+    return await db().begin(async (tx) => {
+      const nodes = await loadTreeForUpdate(tx);
+      const parent = nodes.find((n) => n.id === parentId);
+      if (!parent)
+        return { row: rowNum, ok: false as const, name: row.name, error: "Parent node not found." };
+      if (isFrozen(parent.id, nodes)) {
+        return {
+          row: rowNum,
+          ok: false as const,
+          name: row.name,
+          error: "That node is inactive (or under an inactive node).",
+        };
+      }
+      if (
+        !session.isAdmin &&
+        !reachableNodeIds(
+          nodes,
+          session.assignments.map((a) => a.orgUnitId),
+        ).includes(parent.id)
+      ) {
+        return { row: rowNum, ok: false as const, name: row.name, error: "Outside your scope." };
+      }
+      if (!canBeChildOf(parent.unitType, row.unitType)) {
+        return {
+          row: rowNum,
+          ok: false as const,
+          name: row.name,
+          error: "That level can't be placed under the selected parent.",
+        };
+      }
+      const [created] = await tx<{ id: string }[]>`
+        insert into public.org_units (parent_id, unit_type, name, code)
+        values (${parent.id}, ${row.unitType}, ${row.name}, ${row.code})
+        returning id`;
+      await writeAudit(tx, {
+        eventType: "org_unit.bulk_imported",
+        entityType: "org_unit",
+        entityId: created.id,
+        userId: session.userId,
+        newValue: { parent_id: parent.id, unit_type: row.unitType, name: row.name, code: row.code },
+      });
+      return { row: rowNum, ok: true as const, id: created.id, name: row.name };
+    });
+  } catch (error) {
+    if (pgErrorCode(error) === "23505") {
+      return {
+        row: rowNum,
+        ok: false,
+        name: row.name,
+        error: "That code is already used by another node.",
+      };
+    }
+    throw error;
+  }
+}

@@ -34,3 +34,7 @@ export async function deactivateUserAction(input: { userId: string }) {
 export async function reactivateUserAction(input: { userId: string }) {
   return runAction((api) => api.users.reactivate(input));
 }
+
+export async function deleteUserAction(input: { userId: string }) {
+  return runAction((api) => api.users.delete(input));
+}

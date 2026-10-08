@@ -6,10 +6,12 @@ import {
   checkMove,
   descendantIds,
   isFrozen,
+  reachableNodeIds,
   type OrgNode,
 } from "../lib/org/rules.ts";
+import { PASSWORD_RULES } from "../lib/auth/password-policy.ts";
 import { checkPeriodDates, checkTransition } from "../lib/periods/rules.ts";
-import { checkAdminRemoval, checkRoleAtNode } from "../lib/users/rules.ts";
+import { checkAdminRemoval, checkRoleAtNode, generateDefaultPassword } from "../lib/users/rules.ts";
 
 const tree: OrgNode[] = [
   { id: "meil", parentId: null, unitType: "group", status: "active" },
@@ -112,6 +114,50 @@ test("period dates and submission window", () => {
       submissionClosesOn: "2026-11-01",
     }).ok,
     false,
+  );
+});
+
+test("bulk import: reachable nodes and default passwords", () => {
+  assert.deepEqual(
+    new Set(reachableNodeIds(tree, ["sub-a"])),
+    new Set(["sub-a", "prj-x", "site-1", "dept-1"]),
+    "a node's own subtree, itself included",
+  );
+  assert.deepEqual(
+    reachableNodeIds(tree, ["sub-b"]),
+    [],
+    "an inactive assignment node contributes nothing",
+  );
+  assert.deepEqual(reachableNodeIds(tree, ["missing"]), []);
+  assert.deepEqual(
+    new Set(reachableNodeIds(tree, ["sub-a", "prj-x"])),
+    new Set(["sub-a", "prj-x", "site-1", "dept-1"]),
+    "overlapping assignments de-duplicate",
+  );
+
+  assert.equal(
+    generateDefaultPassword("Ravi Kumar", "EMP1042", () => 0),
+    "Ravi@EMP1042",
+    "already 12 characters — no padding needed",
+  );
+  assert.equal(
+    generateDefaultPassword("ravi", "1", () => 0),
+    "Ravi@1000000",
+  );
+  assert.equal(
+    generateDefaultPassword("  ", "42", () => 0.9),
+    "User@4299999",
+    "an unusable name falls back to a fixed token",
+  );
+  assert.ok(generateDefaultPassword("A", "1").length >= 12, "always meets the 12-char minimum");
+  assert.equal(
+    generateDefaultPassword("A", "EMP", () => 0),
+    "A@EMPx700000",
+    "fills in a missing lowercase letter and digit when the name/id alone don't supply one",
+  );
+  assert.ok(
+    PASSWORD_RULES.every((rule) => rule.test(generateDefaultPassword("A", "EMP"))),
+    "the generated password always satisfies every policy rule, not just length",
   );
 });
 

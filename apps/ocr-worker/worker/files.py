@@ -10,10 +10,15 @@ from worker.errors import UNREADABLE, PermanentError
 # ponytail: only the first pages are read — bills/invoices are 1–3 pages; raise if multi-page
 # evidence (e.g. registers) needs more. The page counts are recorded in raw_output.
 MAX_PAGES = 10
+# A multi-bill PDF is read in full; the web app refuses longer ones at upload (same number, in
+# apps/web/lib/documents/bundle.ts) so one upload can't tie the worker up for an hour.
+BUNDLE_MAX_PAGES = 20
 PDF_RENDER_DPI = 200
 
 
-def to_page_images(data: bytes, mime_type: str) -> tuple[list[np.ndarray], int]:
+def to_page_images(
+    data: bytes, mime_type: str, max_pages: int = MAX_PAGES
+) -> tuple[list[np.ndarray], int]:
     """Returns (BGR page images, total page count)."""
     if mime_type == "application/pdf":
         try:
@@ -25,7 +30,7 @@ def to_page_images(data: bytes, mime_type: str) -> tuple[list[np.ndarray], int]:
             raise PermanentError(UNREADABLE)
         pages = []
         try:
-            for index in range(min(total, MAX_PAGES)):
+            for index in range(min(total, max_pages)):
                 rgb = np.array(pdf[index].render(scale=PDF_RENDER_DPI / 72).to_pil().convert("RGB"))
                 pages.append(np.ascontiguousarray(rgb[:, :, ::-1]))  # RGB → BGR
         except pdfium.PdfiumError as error:

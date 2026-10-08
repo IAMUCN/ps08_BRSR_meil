@@ -1,4 +1,5 @@
 import { Sidebar, type NavItem } from "@/components/shell/sidebar";
+import { ThemeSync } from "@/components/shell/theme-sync";
 import { TopBar } from "@/components/shell/top-bar";
 import { requireAdminSession } from "@/lib/auth/session";
 
@@ -12,13 +13,18 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/users", label: "Users", icon: "users" },
   { href: "/admin/roles", label: "Roles & Permissions", icon: "roles" },
   { href: "/admin/reporting-periods", label: "Reporting Periods", icon: "periods" },
+  { href: "/admin/submissions", label: "Submission Monitoring", icon: "submissions" },
   { href: "/admin/ocr-monitoring", label: "OCR Monitoring", icon: "ocr" },
   { href: "/admin/validation-queue", label: "Validation Queue", icon: "validation" },
   { href: "/admin/approval-queue", label: "Approval Queue", icon: "approvals" },
   { href: "/admin/conversion-factors", label: "Conversion Factors", icon: "factors" },
-  { href: "/admin/scope-1", label: "Scope 1", icon: "scope" },
-  { href: "/admin/scope-2", label: "Scope 2", icon: "scope" },
-  { href: "/admin/scope-3", label: "Scope 3", icon: "scope" },
+  { href: "/admin/brsr-mapping", label: "BRSR Mapping", icon: "brsr" },
+  { href: "/admin/data-explorer", label: "Data Explorer", icon: "explorer" },
+  { href: "/admin/reports", label: "Reports", icon: "reports" },
+  { href: "/admin/audit-trail", label: "Audit Trail", icon: "audit" },
+  { href: "/admin/scope-1", label: "Scope 1", icon: "scope1" },
+  { href: "/admin/scope-2", label: "Scope 2", icon: "scope2" },
+  { href: "/admin/scope-3", label: "Scope 3", icon: "scope3" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
@@ -26,10 +32,11 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
 
   return (
     <div className="flex min-h-screen flex-1">
+      <ThemeSync theme={session.theme} />
       <Sidebar items={ADMIN_NAV} label="Admin navigation" />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar session={session} profileHref="/admin/profile" />
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

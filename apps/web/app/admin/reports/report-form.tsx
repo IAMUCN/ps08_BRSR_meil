@@ -1,0 +1,116 @@
+"use client";
+
+import { FileText } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition, type FormEvent } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import type { ReportOptions } from "@/lib/trpc/routers/reports";
+import { generateReportAction } from "./actions";
+
+// UI brief §14: "a simple parameter form (period + org scope) … generation itself uses the non-blocking
+// pattern, never a modal wizard".
+export function ReportForm({ options }: { options: ReportOptions }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [orgUnitId, setOrgUnitId] = useState(options.orgUnits[0]?.id ?? "");
+  const [coverage, setCoverage] = useState<"period" | "year">("period");
+  const [periodId, setPeriodId] = useState(options.defaultPeriodId ?? "");
+  const [year, setYear] = useState(String(options.defaultFinancialYear ?? ""));
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    startTransition(async () => {
+      const result = await generateReportAction(
+        coverage === "period"
+          ? { orgUnitId, periodId }
+          : { orgUnitId, financialYear: Number(year) },
+      );
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Generating report… you'll be notified when it's ready.");
+      router.refresh();
+    });
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex flex-wrap items-end gap-4 rounded-md border bg-card p-4"
+      aria-label="Generate a BRSR report"
+    >
+      <div className="space-y-2">
+        <Label htmlFor="report-org">Organization scope</Label>
+        <NativeSelect
+          id="report-org"
+          value={orgUnitId}
+          onChange={(e) => setOrgUnitId(e.target.value)}
+        >
+          {options.orgUnits.map((o) => (
+            <option key={o.id} value={o.id}>
+              {`${"  ".repeat(o.depth)}${o.name}`}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">Covering</legend>
+        <div className="flex items-center gap-3 text-sm">
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="coverage"
+              checked={coverage === "period"}
+              onChange={() => setCoverage("period")}
+            />
+            One period
+          </label>
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="coverage"
+              checked={coverage === "year"}
+              onChange={() => setCoverage("year")}
+            />
+            Financial year
+          </label>
+        </div>
+      </fieldset>
+      {coverage === "period" ? (
+        <div className="space-y-2">
+          <Label htmlFor="report-period">Reporting period</Label>
+          <NativeSelect
+            id="report-period"
+            value={periodId}
+            onChange={(e) => setPeriodId(e.target.value)}
+          >
+            {options.periods.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="report-year">Financial year (April–March)</Label>
+          <NativeSelect id="report-year" value={year} onChange={(e) => setYear(e.target.value)}>
+            {options.financialYears.map((y) => (
+              <option key={y.startYear} value={y.startYear}>
+                {y.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      )}
+      <Button type="submit" disabled={pending || !orgUnitId}>
+        <FileText aria-hidden />
+        Generate BRSR report
+      </Button>
+    </form>
+  );
+}

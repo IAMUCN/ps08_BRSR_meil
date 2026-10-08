@@ -1,4 +1,4 @@
-import { Factory } from "lucide-react";
+import { Zap } from "lucide-react";
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
@@ -32,9 +32,10 @@ export default async function ScopeTwoPage({ searchParams }: PageProps<"/admin/s
         />
       ) : (
         <EmptyState
-          icon={Factory}
+          icon={Zap}
           title="Nothing to total yet"
           message="Scope 2 figures appear once a reporting period exists and electricity records have been calculated."
+          link={{ href: "/admin/submissions", label: "See what has been submitted" }}
         />
       )}
     </div>

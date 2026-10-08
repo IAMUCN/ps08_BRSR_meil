@@ -58,7 +58,7 @@ export function NotificationBell({ viewAllHref }: { viewAllHref?: string }) {
           <Bell className="size-5" strokeWidth={1.5} aria-hidden />
           {hasUnread ? (
             <span
-              className="absolute top-1.5 right-1.5 size-2 rounded-full bg-status-error"
+              className="absolute top-1.5 right-1.5 size-2 rounded-full bg-status-error ring-2 ring-header"
               aria-hidden
             />
           ) : null}

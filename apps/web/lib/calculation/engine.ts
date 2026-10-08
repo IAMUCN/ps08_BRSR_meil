@@ -1,8 +1,16 @@
 import "server-only";
 // Relative imports (with extensions) so scripts/calculate-pending.ts can run this engine with plain Node.
 import { writeAudit } from "../audit.ts";
-import type { Tx } from "../db.ts";
-import { normalize } from "./units.ts";
+import type { db, Tx } from "../db.ts";
+import { parseNumber } from "../validation/checks.ts";
+import {
+  activityInput,
+  evaluate,
+  formulaInputs,
+  parseFormula,
+  type FormulaDefinition,
+} from "./formulas.ts";
+import { normalize, type Normalized } from "./units.ts";
 
 // The calculation engine (06_IMPLEMENTATION_PLAN.md Phase 9, TRD §24, schema §10). Deterministic TS over
 // stored data: verified value → normalised value → the factor version effective for the record's period →
@@ -11,7 +19,7 @@ import { normalize } from "./units.ts";
 // approver without its trace, and from calculation.recalculate.
 
 /** Bumped by hand whenever the maths changes; stored on every calculations row for reproducibility. */
-export const ENGINE_VERSION = "calc-1.0.0";
+export const ENGINE_VERSION = "calc-1.1.0";
 
 export type CalculationOutcome =
   | { status: "calculated"; calculationId: string; resultValue: number; resultUnit: string }
@@ -34,7 +42,24 @@ type RecordRow = {
   activity_value: number | null;
   activity_unit: string | null;
   file_name: string | null;
+  extraction_id: string | null;
 };
+
+type Sql = Tx | ReturnType<typeof db>;
+
+/** The metric's active formula (latest version), or null. Verification uses it to find the activity field. */
+export async function activeFormula(sql: Sql, metricId: string): Promise<FormulaDefinition | null> {
+  const [row] = await sql<{ formula_type: string; formula_definition: unknown }[]>`
+    select formula_type::text, formula_definition from public.calculation_formulas
+    where metric_id = ${metricId} and status = 'active'
+    order by version desc limit 1`;
+  return row ? parseFormula(row.formula_type, row.formula_definition) : null;
+}
+
+/** The field key holding a metric's activity value when its formula names one (percentage, subtract). */
+export async function activityKeyFor(sql: Sql, metricId: string): Promise<string | null> {
+  return activityInput(await activeFormula(sql, metricId));
+}
 
 /**
  * Calculates one record in the caller's transaction, replacing any previous current calculation. A missing
@@ -51,13 +76,15 @@ export async function runCalculation(
            p.end_date::text as period_end, p.label as period_label,
            r.metric_id, m.code as metric_code, m.name as metric_name, m.unit as metric_unit,
            m.scope_id, m.requires_calculation, m.requires_conversion_factor,
-           r.activity_value_verified::float as activity_value, r.activity_unit, d.file_name
+           r.activity_value_verified::float as activity_value, r.activity_unit, d.file_name,
+           e.id as extraction_id
     from public.esg_records r
     join public.org_units o on o.id = r.org_unit_id
     join public.reporting_periods p on p.id = r.reporting_period_id
     join public.esg_metrics m on m.id = r.metric_id
     left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
     left join public.documents d on d.id = erd.document_id and d.deleted_at is null
+    left join public.ocr_extractions e on e.document_id = d.id
     where r.id = ${recordId}`;
 
   if (!record.requires_calculation) {
@@ -93,33 +120,76 @@ export async function runCalculation(
     return { status: "blocked", reason };
   };
 
-  if (record.activity_value === null || !record.activity_unit) {
-    return blocked("The record has no verified activity value and unit.");
-  }
-
-  const normalized = normalize(record.activity_value, record.activity_unit, record.metric_unit);
-  if (!normalized.ok) return blocked(normalized.reason);
-
-  const [formula] = await tx<{ id: string; formula_type: string }[]>`
-    select id, formula_type::text
+  const [formulaRow] = await tx<
+    { id: string; formula_type: string; formula_definition: unknown }[]
+  >`
+    select id, formula_type::text, formula_definition
     from public.calculation_formulas
     where metric_id = ${record.metric_id} and status = 'active'
       and effective_from <= ${record.period_end}::date
       and (effective_to is null or effective_to >= ${record.period_end}::date)
     order by version desc
     limit 1`;
-  if (!formula) {
+  if (!formulaRow) {
     return blocked(`No active calculation formula for ${record.metric_name} in this period.`);
   }
-  if (formula.formula_type !== "direct_multiply") {
-    // `subtract` arrives with Phase 13's water metric; `custom` is reserved and not built (schema §6.7).
-    return blocked(`Formula type "${formula.formula_type}" is not implemented yet.`);
+  const formula = parseFormula(formulaRow.formula_type, formulaRow.formula_definition);
+  if (!formula) {
+    // `custom` is reserved and not built (schema §6.7); a malformed definition is a configuration gap.
+    return blocked(
+      `Formula type "${formulaRow.formula_type}" is not implemented or is misconfigured.`,
+    );
+  }
+
+  if (record.activity_value === null) {
+    return blocked("The record has no verified activity value.");
+  }
+  // Workforce counts carry no unit field: the numbers are counts (.grill/phase-13-role-modules-decisions.md).
+  const inputUnit = record.activity_unit ?? (formula.op === "percentage" ? "count" : null);
+  if (!inputUnit) return blocked("The record has no verified activity unit.");
+
+  // `normalized` is the activity value in the metric's terms; `base` is what the formula produced.
+  let normalized: Normalized;
+  let base: Normalized;
+  const inputs: { key: string; value: number }[] = [];
+  if (formula.op === "multiply_by_factor") {
+    const n = normalize(record.activity_value, inputUnit, record.metric_unit);
+    if (!n.ok) return blocked(n.reason);
+    normalized = base = n.normalized;
+  } else {
+    // Every input is a verified field of the same document (schema §10.4 calculation_inputs).
+    const keys = formulaInputs(formula);
+    const rows = await tx<
+      { field_key: string; field_label: string; verified_value: string | null }[]
+    >`
+      select f.field_key, f.field_label, f.verified_value from public.ocr_fields f
+      where f.ocr_extraction_id = ${record.extraction_id} and f.field_key in ${tx(keys)}`;
+    const values: Record<string, number> = {};
+    for (const k of keys) {
+      const row = rows.find((r) => r.field_key === k);
+      const parsed = parseNumber(row?.verified_value ?? null);
+      if (parsed === null) return blocked(`${row?.field_label ?? k} has no verified number.`);
+      // Subtraction happens in the metric's unit (m³ and KL alike); a percentage's units cancel.
+      if (formula.op === "subtract") {
+        const n = normalize(parsed, inputUnit, record.metric_unit);
+        if (!n.ok) return blocked(n.reason);
+        values[k] = n.normalized.value;
+      } else {
+        values[k] = parsed;
+      }
+      inputs.push({ key: k, value: parsed });
+    }
+    const result = evaluate(formula, values);
+    if (!result.ok) return blocked(result.reason);
+    const unit = formula.op === "subtract" ? record.metric_unit : inputUnit;
+    normalized = { value: values[keys[0]], unit };
+    base = { value: result.value, unit: formula.op === "subtract" ? record.metric_unit : "%" };
   }
 
   let factorId: string | null = null;
   let factorValue: number | null = null;
-  let resultValue = normalized.normalized.value;
-  let resultUnit = normalized.normalized.unit;
+  let resultValue = base.value;
+  let resultUnit = base.unit;
 
   if (record.requires_conversion_factor) {
     // The version effective for the record's period — never "the newest row" (TRD §25).
@@ -143,14 +213,10 @@ export async function runCalculation(
       );
     }
     // The factor may be written per KL while the record normalised to L: convert, don't assume.
-    const inFactorUnit = normalize(
-      normalized.normalized.value,
-      normalized.normalized.unit,
-      factor.input_unit,
-    );
+    const inFactorUnit = normalize(base.value, base.unit, factor.input_unit);
     if (!inFactorUnit.ok) {
       return blocked(
-        `The factor is per "${factor.input_unit}" but the record is in "${normalized.normalized.unit}".`,
+        `The factor is per "${factor.input_unit}" but the record is in "${base.unit}".`,
       );
     }
     factorId = factor.id;
@@ -166,10 +232,15 @@ export async function runCalculation(
       (esg_record_id, conversion_factor_version_id, calculation_formula_id, input_value, input_unit,
        normalized_value, normalized_unit, factor_value_snapshot, result_value, result_unit, scope_id,
        engine_version)
-    values (${record.id}, ${factorId}, ${formula.id}, ${record.activity_value}, ${record.activity_unit},
-            ${normalized.normalized.value}, ${normalized.normalized.unit}, ${factorValue},
+    values (${record.id}, ${factorId}, ${formulaRow.id}, ${record.activity_value}, ${inputUnit},
+            ${normalized.value}, ${normalized.unit}, ${factorValue},
             ${resultValue}, ${resultUnit}, ${record.scope_id}, ${ENGINE_VERSION})
     returning id`;
+  for (const input of inputs) {
+    await tx`
+      insert into public.calculation_inputs (calculation_id, input_key, input_value, input_unit)
+      values (${row.id}, ${input.key}, ${input.value}, ${inputUnit})`;
+  }
   await tx`update public.esg_records set calculation_status = 'calculated' where id = ${record.id}`;
   await writeAudit(tx, {
     eventType: "calculation.completed",
@@ -180,8 +251,9 @@ export async function runCalculation(
       calculation_id: row.id,
       conversion_factor_version_id: factorId,
       factor_value: factorValue,
-      input: { value: record.activity_value, unit: record.activity_unit },
-      normalized: normalized.normalized,
+      input: { value: record.activity_value, unit: inputUnit },
+      inputs,
+      normalized,
       result: { value: resultValue, unit: resultUnit },
       engine_version: ENGINE_VERSION,
     },

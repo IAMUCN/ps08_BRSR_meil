@@ -2,15 +2,17 @@
 
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { OrgUnitBulkImport } from "@/components/bulk-import/org-unit-bulk-import";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { bulkImportOrgUnitsAction } from "@/lib/bulk-import/actions";
 import {
   allowedChildTypes,
   checkMove,
@@ -18,9 +20,11 @@ import {
   ORG_UNIT_TYPE_LABELS,
   type OrgUnitType,
 } from "@/lib/org/rules";
-import type { OrgUnitRow } from "@/lib/trpc/routers/organization";
+import type { OrgExpectation, OrgUnitRow } from "@/lib/trpc/routers/organization";
 import {
   createOrgUnitAction,
+  orgExpectationsAction,
+  setExpectationAction,
   moveOrgUnitAction,
   orgUnitImpactAction,
   setOrgUnitStatusAction,
@@ -281,6 +285,8 @@ function NodeDetail({
         </form>
       </div>
 
+      <ExpectationsCard orgUnitId={node.id} />
+
       <div className="rounded-md border bg-card p-6">
         <h3 className="text-base leading-6 font-semibold">Add a child node</h3>
         {frozen ? (
@@ -335,6 +341,19 @@ function NodeDetail({
             </Button>
           </form>
         )}
+      </div>
+
+      <div className="rounded-md border bg-card p-6">
+        <h3 className="text-base leading-6 font-semibold">Bulk-add child nodes</h3>
+        <p className="mt-1 mb-4 text-sm leading-5 text-muted-foreground">
+          Create several child nodes at once from a spreadsheet, instead of one at a time above.
+        </p>
+        <OrgUnitBulkImport
+          nodes={nodes.filter((n) => !isFrozen(n.id, nodes))}
+          defaultParentId={node.id}
+          importAction={bulkImportOrgUnitsAction}
+          onImported={onChanged}
+        />
       </div>
 
       {node.parentId ? (
@@ -444,5 +463,81 @@ function NodeDetail({
         )}
       </ConfirmDialog>
     </section>
+  );
+}
+
+/** Expected submissions (D16): what this node must file each period — the Control Tower's denominators. */
+function ExpectationsCard({ orgUnitId }: { orgUnitId: string }) {
+  const [rows, setRows] = useState<OrgExpectation[] | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    let live = true;
+    orgExpectationsAction({ orgUnitId }).then((result) => {
+      if (live) setRows(result.ok ? result.data : []);
+    });
+    return () => {
+      live = false;
+    };
+  }, [orgUnitId]);
+
+  function toggle(row: OrgExpectation) {
+    // Optimistic: the box flips at once and flips back if the server refuses.
+    const flip = (expected: boolean) =>
+      setRows(
+        (prev) => prev?.map((r) => (r.metricId === row.metricId ? { ...r, expected } : r)) ?? null,
+      );
+    flip(!row.expected);
+    startTransition(async () => {
+      const result = await setExpectationAction({
+        orgUnitId,
+        metricId: row.metricId,
+        expected: !row.expected,
+      });
+      if (!result.ok) {
+        flip(row.expected);
+        toast.error(result.error);
+        return;
+      }
+      toast.success(row.expected ? "No longer expected" : "Expected every period");
+    });
+  }
+
+  const categories = [...new Set((rows ?? []).map((r) => r.categoryName))];
+  return (
+    <div className="rounded-md border bg-card p-6">
+      <h3 className="text-base leading-6 font-semibold">Expected submissions</h3>
+      <p className="mt-1 text-sm leading-5 text-muted-foreground">
+        What this node must submit in every period of the metric&apos;s frequency. The Control
+        Tower&apos;s completion figures and &ldquo;missing submissions&rdquo; count against these.
+      </p>
+      {rows === null ? (
+        <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
+      ) : (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {categories.map((category) => (
+            <fieldset key={category} className="space-y-1.5">
+              <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {category}
+              </legend>
+              {rows
+                .filter((r) => r.categoryName === category)
+                .map((row) => (
+                  <label key={row.metricId} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={row.expected}
+                      disabled={pending}
+                      onChange={() => toggle(row)}
+                    />
+                    {row.metricName}
+                    <span className="text-xs text-muted-foreground">{row.frequency}</span>
+                  </label>
+                ))}
+            </fieldset>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

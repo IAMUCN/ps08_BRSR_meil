@@ -17,7 +17,7 @@ const input = z.object({
   periodId: z.uuid().optional(),
 });
 
-async function resolvePeriod(periodId: string | undefined): Promise<string | null> {
+export async function resolvePeriod(periodId: string | undefined): Promise<string | null> {
   if (periodId) return periodId;
   const sql = db();
   const [open] = await sql<{ id: string }[]>`
