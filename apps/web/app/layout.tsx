@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { DEFAULT_THEME, THEME_BOOT_SCRIPT } from "@/lib/theme";
+import { Agentation } from "agentation";
 import "./globals.css";
 
 const inter = Inter({
@@ -35,6 +36,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         {children}
         <Toaster />
+        {process.env.NODE_ENV === "development" && (
+          <Agentation endpoint="http://localhost:4747" />
+        )}
       </body>
     </html>
   );

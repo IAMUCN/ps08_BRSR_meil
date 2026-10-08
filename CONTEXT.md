@@ -100,6 +100,11 @@ _Last updated: 2026-10-09._
 - **Migrations `0038` and `0039` were pushed to hosted on 2026-10-09** (owner's go-ahead, after the dev server on
   port 3000 failed with "column v.gases does not exist") and checked there: 39 migrations, 13 new activities, the
   three columns, the guard; the nine records and the one factor untouched. The hosted worker still runs `rules-11`.
+- **Owner's page feedback (2026-10-09), uncommitted:** My Submissions lists multi-bill PDFs waiting for their
+  split (the "disappeared PDF"), whole rows clickable, no redirect after an upload, a livelier upload animation,
+  a forgot-password link on Profile (`.grill/page-feedback-2026-10-09-decisions.md`, A27). No migration. Checked:
+  typecheck, lint, format, web unit. **Not run:** scenario E and `browser-bundle.mjs` (both updated, memory too
+  low) — run them before merging.
 - **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
   org unit, one open period `AUG26`, three users at the group. Needs, in order: the hosted worker container replaced with the `rules-12` image
   (owner's go-ahead); a second Admin invited
@@ -128,7 +133,7 @@ _Last updated: 2026-10-09._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D32** and **A27**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D32** and **A28**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -243,6 +248,9 @@ _Last updated: 2026-10-09._
 - **Setting the owner's uncommitted files aside with `git stash` unlinks their dependency**: with `package.json`
   briefly without it, the next `pnpm` command removed `apps/web/node_modules/agentation` and the dev server broke.
   Do not stash them; if it happens, `pnpm install --frozen-lockfile` restores the link.
+- **The owner sends page feedback from the `agentation` widget** (the uncommitted dev-only dependency) and may
+  have started another session on the same feedback: `submission-row.tsx` existed, unused, minutes before the
+  feature session was asked. Check file times before editing a page named in feedback.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

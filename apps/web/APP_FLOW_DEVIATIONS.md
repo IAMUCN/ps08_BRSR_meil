@@ -477,3 +477,16 @@ Decisions: `.grill/audit-2-decisions.md` (second audit).
   unit_ table, and a line saying which days of the financial year the report covers when it is not the whole
   year. Additions to App Flow §2.2 (Reports), which describes the report only as "BRSR format".
 - **Notifications:** a _Deadline approaching_ notice within three days of an open period's closing date.
+
+## A27 — Upload stays on Upload; My Submissions lists PDFs waiting for their split
+
+Decisions: `.grill/page-feedback-2026-10-09-decisions.md` (owner's page feedback).
+
+- **App Flow §2.3 (Upload Document)** sends the user to My Submissions → Processing after an upload. The owner
+  uploads several bills in a row, so the form now stays, shows a "received" notice with a link, and keeps the
+  project and activity. Replacing a failed document still returns to My Submissions.
+- **My Submissions** gains a section above the tabs for multi-bill PDFs whose split is not confirmed; each row
+  opens its split screen. The whole of a submission row is clickable.
+- **Profile** links to the emailed-code password reset under Change password.
+- The upload progress display is more animated (UI brief §12.1 asks for a progress bar, filename and cancel —
+  all kept).

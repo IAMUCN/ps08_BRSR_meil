@@ -41,7 +41,7 @@ Big rules that shape everything:
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D31) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A26) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A27) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
 | `CONTEXT.md` | The live state — uncommitted work, questions waiting on the owner, machine facts, owner preferences, traps already hit. Loaded with this file by `CLAUDE.md`; rewritten at the end of every session |
@@ -644,6 +644,9 @@ deployment.
   Notifications, and CI's database job fixed for a fresh database.
 - **SDG tags** (2026-10-09, migration `0039`, D31): each indicator carries the UN goals it relates to; the report
   prints them and a goals table, labelled as an indicative mapping. Web unit 92/92, database 208/208, scenario D 34/34.
+- **Owner's page feedback** (2026-10-09, A27, `.grill/page-feedback-2026-10-09-decisions.md`): My Submissions
+  lists multi-bill PDFs waiting for their split, rows are clickable, Upload no longer redirects, a livelier
+  upload animation, a forgot-password link on Profile. Scenario E and the browser bundle test not re-run.
 - **Kept as it is, by the owner's decision:** upload-only, no typed-entry form.
 - Checks: web unit 91/91, worker unit 43/43 and Ruff, database 206/206, end-to-end 231 checks across all eight
   scripts (not in one run — see CONTEXT.md), a real-browser pass 48/48, a 300-project scale check, lint,

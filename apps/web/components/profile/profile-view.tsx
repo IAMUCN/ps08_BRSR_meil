@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -147,6 +148,15 @@ export function ProfileView({ session }: { session: ActiveSession }) {
             {passwordPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
             Change password
           </Button>
+          <p className="text-sm leading-5 text-muted-foreground">
+            Forgot your current password?{" "}
+            <Link
+              href="/forgot-password"
+              className="font-medium text-primary-text underline-offset-4 hover:underline"
+            >
+              Reset it with a code sent to your email
+            </Link>
+          </p>
         </form>
       </section>
     </div>
