@@ -49,3 +49,7 @@ export async function confirmBundleAction(input: {
 }) {
   return runAction((api) => api.bundles.confirm(input));
 }
+
+export async function discardBundleAction(input: { documentId: string }) {
+  return runAction((api) => api.bundles.discard(input));
+}

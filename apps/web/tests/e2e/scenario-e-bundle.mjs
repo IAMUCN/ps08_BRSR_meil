@@ -92,6 +92,9 @@ check(
   allowed.includes(grid) && allowed.includes(diesel),
 );
 check("water belongs to EHS, so it is not offered to the PM", !allowed.includes(water));
+const waiting = async () =>
+  ((await pm.query("bundles.pending")).data ?? []).find((b) => b.documentId === documentId);
+check("My Submissions lists it as waiting for its split", (await waiting())?.status === "ready");
 check("the OCR's water guess is still shown", review?.parts?.[2]?.metricId === water);
 check(
   "another user cannot open it",
@@ -155,6 +158,11 @@ check(
   "two bills are recorded",
   ok(confirmed) && confirmed.data?.status === "recorded" && confirmed.data.count === 2,
   JSON.stringify(confirmed.data ?? confirmed.error),
+);
+check("once confirmed it no longer waits for a split", !(await waiting()));
+check(
+  "and can no longer be discarded",
+  rejected(await pm.mutate("bundles.discard", { documentId }), "already recorded"),
 );
 const children = await sql`
   select d.id, d.mime_type, d.file_hash, d.file_size_bytes, m.code as metric,

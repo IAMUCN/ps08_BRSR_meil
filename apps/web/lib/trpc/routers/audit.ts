@@ -21,6 +21,10 @@ export type AuditEvent = {
   oldValue: unknown;
   newValue: unknown;
   reason: string | null;
+  /** Where the action came from (migration 0036); null for system events and older entries. */
+  ipAddress: string | null;
+  userAgent: string | null;
+  sessionId: string | null;
 };
 
 export type RecordHistory = {
@@ -58,6 +62,9 @@ type Row = {
   old_value: unknown;
   new_value: unknown;
   reason: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  session_id: string | null;
 };
 
 const toEvent = (r: Row): AuditEvent => ({
@@ -70,6 +77,9 @@ const toEvent = (r: Row): AuditEvent => ({
   oldValue: r.old_value,
   newValue: r.new_value,
   reason: r.reason,
+  ipAddress: r.ip_address,
+  userAgent: r.user_agent,
+  sessionId: r.session_id,
 });
 
 export const auditRouter = router({
@@ -95,7 +105,7 @@ export const auditRouter = router({
     const sql = db();
     const rows = await sql<(Row & { cursor_at: string })[]>`
       select a.id, a.created_at, a.event_type, a.entity_type, a.entity_id, u.display_name as who,
-             a.old_value, a.new_value, a.reason,
+             a.old_value, a.new_value, a.reason, a.ip_address, a.user_agent, a.session_id,
              -- the cursor keeps microseconds: a JS Date would drop them and skip events written in one
              -- transaction, which share a timestamp (hence ::text below — postgres.js sends a timestamptz
              -- parameter through a Date too)
@@ -150,7 +160,7 @@ export const auditRouter = router({
       const [events, reports] = await Promise.all([
         sql<Row[]>`
         select a.id, a.created_at, a.event_type, a.entity_type, a.entity_id, u.display_name as who,
-               a.old_value, a.new_value, a.reason
+               a.old_value, a.new_value, a.reason, a.ip_address, a.user_agent, a.session_id
         from public.audit_logs a left join public.users u on u.id = a.user_id
         where a.entity_id = ${record.id}
            or a.entity_id = ${record.document_id}

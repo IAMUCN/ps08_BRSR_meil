@@ -70,7 +70,9 @@ _UNIT = re.compile(
     r"(?<![A-Za-z])"
     r"(kwh|kvah|mwh|kilolitres|kilolitre|litres|liters|litre|liter|ltrs|ltr|kl|l"
     r"|kilograms|kilogram|kgs|kg|tonnes|tonne|mt"
-    r"|rupees|inr|rs|m3|m³|cubic metres)"
+    r"|rupees|inr|rs|m3|m³|cubic metres"
+    # Distance (travel in passenger-km) and piped gas in standard cubic metres.
+    r"|kilometres|kilometers|kilometre|kilometer|kms|km|pkm|scm)"
     r"(?![A-Za-z])",
     re.IGNORECASE,
 )

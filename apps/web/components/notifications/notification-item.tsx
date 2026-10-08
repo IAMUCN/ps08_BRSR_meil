@@ -90,7 +90,8 @@ export function NotificationRow({
         <span className="block text-sm leading-5 break-words text-muted-foreground">
           {item.message}
         </span>
-        <span className="block text-xs leading-4 text-muted-foreground">
+        {/* "5 seconds ago" is a different string by the time the browser hydrates: expected, not an error. */}
+        <span className="block text-xs leading-4 text-muted-foreground" suppressHydrationWarning>
           {relativeTime(item.createdAt)}
         </span>
       </span>

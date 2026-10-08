@@ -8,6 +8,7 @@ import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { ReportForm } from "./report-form";
+import { ReportInputsForm } from "./report-inputs-form";
 
 export const metadata: Metadata = { title: "Reports · TraceESG" };
 
@@ -26,6 +27,9 @@ const when = (iso: string | null) =>
 export default async function ReportsPage() {
   const [, caller] = await Promise.all([requireAdminSession(), api()]);
   const [options, runs] = await Promise.all([caller.reports.options(), caller.reports.list()]);
+  const inputsYear = options.defaultFinancialYear ?? options.financialYears[0]?.startYear ?? null;
+  const inputs =
+    inputsYear === null ? null : await caller.reports.inputs({ financialYear: inputsYear });
   const running = runs.some((r) => r.status === "pending" || r.status === "generating");
 
   return (
@@ -36,6 +40,13 @@ export default async function ReportsPage() {
         description="Consolidated BRSR reports from approved records, for any part of the organization and a period or financial year. Every reported value drills down to its original document."
       />
       <ReportForm options={options} />
+      {inputsYear !== null && inputs ? (
+        <ReportInputsForm
+          years={options.financialYears.map((y) => y.startYear)}
+          initialYear={inputsYear}
+          initial={inputs}
+        />
+      ) : null}
 
       {runs.length === 0 ? (
         <EmptyState

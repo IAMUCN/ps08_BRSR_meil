@@ -98,9 +98,33 @@ const csvCell = (v: unknown) => {
 };
 
 function exportCsv(events: AuditEvent[]) {
-  const header = ["When", "Action", "Record type", "Record id", "By", "Before", "After", "Reason"];
+  const header = [
+    "When",
+    "Action",
+    "Record type",
+    "Record id",
+    "By",
+    "Before",
+    "After",
+    "Reason",
+    "Address",
+    "Browser",
+    "Session",
+  ];
   const lines = events.map((e) =>
-    [e.at, e.event, e.entityType, e.entityId, e.who ?? "system", e.oldValue, e.newValue, e.reason]
+    [
+      e.at,
+      e.event,
+      e.entityType,
+      e.entityId,
+      e.who ?? "system",
+      e.oldValue,
+      e.newValue,
+      e.reason,
+      e.ipAddress,
+      e.userAgent,
+      e.sessionId,
+    ]
       .map(csvCell)
       .join(","),
   );
@@ -205,6 +229,13 @@ export function AuditTable({ events }: { events: AuditEvent[] }) {
                             </div>
                           ))}
                         </div>
+                        {e.ipAddress || e.userAgent || e.sessionId ? (
+                          <p className="mt-2 text-xs break-all text-muted-foreground">
+                            From {e.ipAddress ?? "an unknown address"}
+                            {e.sessionId ? ` · session ${e.sessionId}` : ""}
+                            {e.userAgent ? ` · ${e.userAgent}` : ""}
+                          </p>
+                        ) : null}
                       </td>
                     </tr>
                   ) : null}

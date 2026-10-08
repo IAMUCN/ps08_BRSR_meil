@@ -19,6 +19,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/approval-queue", label: "Approval Queue", icon: "approvals" },
   { href: "/admin/conversion-factors", label: "Conversion Factors", icon: "factors" },
   { href: "/admin/brsr-mapping", label: "BRSR Mapping", icon: "brsr" },
+  { href: "/admin/disclosures", label: "BRSR Disclosures", icon: "reports" },
   { href: "/admin/data-explorer", label: "Data Explorer", icon: "explorer" },
   { href: "/admin/reports", label: "Reports", icon: "reports" },
   { href: "/admin/audit-trail", label: "Audit Trail", icon: "audit" },

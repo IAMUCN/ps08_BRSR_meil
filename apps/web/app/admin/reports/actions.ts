@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { FyInputs } from "@/lib/reports/inputs";
 import { runAction } from "@/lib/trpc/server";
 
 // Reports (03_APP_FLOW.md §2.2). The procedures check `report.generate` and audit the request; generation
@@ -21,4 +22,12 @@ export async function reportedRecordAction(input: {
   calculationId: string | null;
 }) {
   return runAction((api) => api.reports.reportedRecord(input));
+}
+
+export async function reportInputsAction(input: { financialYear: number }) {
+  return runAction((api) => api.reports.inputs(input));
+}
+
+export async function saveReportInputsAction(input: { financialYear: number } & FyInputs) {
+  return runAction((api) => api.reports.saveInputs(input));
 }

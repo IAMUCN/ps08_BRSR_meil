@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/shell/empty-state";
 import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
+import { DiscardBundle } from "@/components/upload/discard-bundle";
 import { SplitReview } from "@/components/upload/split-review";
 import { pagesLabel } from "@/lib/documents/bundle";
 import { requireAppSession } from "@/lib/auth/session";
@@ -39,6 +40,7 @@ export default async function SplitPage({ params }: PageProps<"/app/upload/split
         icon={CircleX}
         title="This PDF couldn't be read"
         message={review.errorMessage ?? "Processing failed — try uploading it again."}
+        action={<DiscardBundle documentId={review.documentId} fileName={review.fileName} />}
         link={{ href: "/app/upload", label: "Upload again" }}
       />
     );
@@ -87,6 +89,7 @@ export default async function SplitPage({ params }: PageProps<"/app/upload/split
       <PageHeader
         title="Check how your PDF is split"
         description="We read every page and guessed where each bill starts and what it is for. Nothing is recorded until you confirm."
+        action={<DiscardBundle documentId={review.documentId} fileName={review.fileName} />}
       />
       <SplitReview
         documentId={review.documentId}

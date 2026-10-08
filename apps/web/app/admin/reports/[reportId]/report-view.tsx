@@ -36,6 +36,12 @@ type Selected = { indicator: ReportedIndicator; metric: ReportedMetric; record: 
 
 export function ReportView({ snapshot }: { snapshot: Snapshot }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const measured = snapshot.sections
+    .map((section) => ({
+      ...section,
+      indicators: section.indicators.filter((i) => i.kind !== "statement" || i.metrics.length > 0),
+    }))
+    .filter((section) => section.indicators.length > 0);
   const [selected, setSelected] = useState<Selected | null>(null);
   const [detail, setDetail] = useState<{
     available: boolean;
@@ -79,8 +85,9 @@ export function ReportView({ snapshot }: { snapshot: Snapshot }) {
         </div>
       </section>
 
+      {/* The drill-down is for measured values; written disclosures are read in the PDF. */}
       <ul aria-label="Reported BRSR indicators" className="rounded-md border">
-        {snapshot.sections.map((section) => (
+        {measured.map((section) => (
           <li key={section.code} className="border-b last:border-b-0">
             <p className="px-3 py-2 font-semibold text-brsr-heading">
               Section {section.code} — {section.name}

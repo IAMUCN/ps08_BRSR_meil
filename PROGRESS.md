@@ -4,9 +4,9 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-05 — Phase 20 committed; out-of-sequence work (bulk import, OTP reset, password policy,
-theme toggle, DISCOM and water OCR rules, multi-bill PDFs) done but uncommitted; Phase 21 next, hosting to be
-decided by the owner._
+_Last updated: 2026-10-09 — Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
+merged); the second audit's follow-up work (migrations `0038`–`0039`, fuller report with SDG tags, 28 sourced factors on local) is committed locally, not
+pushed; migrations `0038`–`0039` are on hosted (2026-10-09), the factors and demo data are not; Phase 21 (deployment) comes after, hosting to be decided by the owner._
 
 ---
 
@@ -36,12 +36,12 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs (`0001`–`0032`; `0029`–`0032` local only) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format (`0001`–`0040`, all pushed to hosted) |
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
-| `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–E, authorization, edge cases (`pnpm --filter web test:e2e`) |
+| `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D24) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A23) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D32) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A28) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
 | `CONTEXT.md` | The live state — uncommitted work, questions waiting on the owner, machine facts, owner preferences, traps already hit. Loaded with this file by `CLAUDE.md`; rewritten at the end of every session |
@@ -76,8 +76,13 @@ may run in parallel with Phases 3–5.
 | 18 | Audit and security hardening | Done | `2f6118b` |
 | 19 | UI polish and responsive behavior | Done | `44ad2e1` |
 | 20 | Testing and edge cases | Done | `8736707` |
-| — | Out-of-sequence work: bulk import, OTP password reset, password policy, theme toggle, DISCOM and water OCR rules, multi-bill PDFs | Done locally, **uncommitted** | — |
-| 21 | Deployment (hosting to be decided by the owner) | **Next** | — |
+| — | Out-of-sequence work: bulk import, OTP password reset, password policy, theme toggle, DISCOM and water OCR rules, multi-bill PDFs | Done | `2392b6e` |
+| — | Audit fixes P0-2 (SEBI-format report) and P0-3 (July-2023 indicator codes) | Done, on branch `feature` | `cbd9a30` |
+| — | Audit fixes P1 (Scope 1 and 3 activities, travel by mode, hierarchy rules in the database) | Done, on branch `feature` | `23e1925` |
+| — | Audit fixes P2 (calculation guard, audit context and order, security headers, evidence fingerprint, hierarchy levels, several evidence files) and P3 | Done, on branch `feature` | `23e1925` |
+| — | Second audit follow-up: remaining activities, air emissions, fuller SEBI report tables, sourced factors on local (migration `0038`) | Done locally, committed, **not pushed, not on hosted** | — |
+| — | Full BRSR format in the report: 146 questions, typed disclosures, all 17 SDGs (migration `0040`); owner's page feedback | Done, **uncommitted**; `0040` on hosted | — |
+| 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
 
@@ -560,7 +565,119 @@ for it, so run the usual checks before committing. Decisions: `.grill/bulk-impor
   REST key); `BREVO_SMTP_LOGIN` is optional, and `.env.example` does not list it. `RESEND_API_KEY` was removed from
   `.env.example`.
 
+**Audit fixes P0-2 and P0-3 (2026-10-07).** Decisions: `.grill/audit-p0-decisions.md`; list: `AUDIT_FIXES.md`.
+- **Indicator codes follow SEBI's July-2023 BRSR format** (migration `0033`, D25): `A-20`, `A-24`, `P6-E7`, `P6-E9`,
+  `P6-L2` renumbered in place, checked against a report filed in the new format; four codes did not move.
+- **The report prints SEBI's tables** for greenhouse gases, waste and Scope 3: current and previous financial year,
+  metric tonnes of CO2 equivalent, intensity per rupee of turnover, PPP-adjusted and per physical output, the
+  assurance note, then a methodology section with the boundary and every conversion factor used and its source.
+  Every other indicator also gained the previous-year column. Snapshot version 2 (D26).
+- **Turnover, PPP rate, physical output and assurance** are entered once per financial year on Admin → Reports
+  (A24), Admin only, audited; anything empty prints "Not provided", never a default.
+- **Known gaps, stated in the report itself:** waste by category and recovered quantities are not captured; no
+  break-up by gas.
+- Checks: web unit 82/82, database 165/165, end-to-end scenarios A–D 82/82 (local stack, real worker image), the
+  generated PDF read page by page, lint, typecheck, format, production build. Not run: scenarios E, authorization
+  and edge-cases; the OCR harness (no worker change); a browser click-through of the new form.
+
+**Audit fixes P1 (2026-10-07).** Decisions: `.grill/audit-p1-decisions.md`.
+- **Hierarchy rules hold for every writer** (migration `0034`, D27): a database trigger refuses a child at the same
+  or an earlier level than its parent, a second group, and a level change past a node's children; cycles follow.
+- **18 new activities as configuration** (migration `0035`), no engine or schema change. Scope 1: coal by grade
+  (anthracite, bituminous, sub-bituminous, lignite), LNG, PNG, refrigerant top-ups R-22 / R-32 / R-410A / R-134a
+  and SF6 (owned by EHS). Scope 3: business travel by air, rail and bus/road in passenger-km (the person types
+  the distance), cement and steel by weight, freight and employee commuting by spend. Five of ten Scope 3
+  categories are active. Every Scope 1 fuel records, optionally, whether it was used in a generator, vehicle or
+  equipment.
+- Engine units: km and SCM. OCR: the same units, keywords for four new document types; `EXTRACTOR_VERSION`
+  `rules-11`, image rebuilt.
+- **Not done:** process emissions; the stationary/mobile split in dashboards; other purchased goods. **No factor
+  exists for any new activity.**
+- Checks: web unit 83/83, worker unit 41/41 and Ruff, database 177/177 (12 new), end-to-end 206/206 on the local
+  stack with the real worker image (new Scenario F: a flight and a train of the same distance give different
+  results; coal in tonnes against a per-kg factor; role boundaries), lint, typecheck, format, production build.
+  Not run: the OCR integration harness, a browser click-through.
+
+**Audit fixes P2 (2026-10-07).** Decisions: `.grill/audit-p2-decisions.md`.
+- **Calculations are append-only in the database** (migration `0036`, D28): no delete, no truncate, no update except
+  retiring a superseded calculation. The five approved local grid bills without a calculation row were traced to
+  early, uncommitted test scripts that deleted factors together with the calculations that used them.
+- **Audit entries record where an action came from** — address, browser, sign-in session — shown in the Audit
+  Trail and its CSV; and the trail now reads validated → calculated → queued.
+- **Security headers** on every response (no framing, nosniff, referrer and permissions policies, HSTS, a basic
+  Content-Security-Policy; scripts are not yet restricted). The evidence route keeps its own stricter policy.
+- **Evidence is re-checked on read**: a stored file that no longer matches its upload fingerprint is refused.
+- Factor geography is kept as a disclosure in the report.
+- **Hierarchy levels are configuration** (migration `0037`, D29, A25): an `org_levels` table replaces the enum; an
+  Admin adds a level after an existing one, renames one, or removes an unused one, on Admin → Organization. A
+  level's code and position never change; `group` stays the root. No existing org unit changed.
+- **Several evidence files per record** (A25): supporting files can be added on the verify screen or the record
+  drawer by whoever could have uploaded the record, until it is approved or rejected. They are evidence only —
+  OCR does not read them and no value changes.
+- Checks: database 194/194, web unit 83/83, full end-to-end suite 226/226 on the local stack, lint, typecheck,
+  format, production build. Not run: a browser click-through of the new sections.
+
+**Audit fixes P3 (2026-10-07).** Decisions: `.grill/audit-p3-decisions.md`. `AUTH_SECRET` (and the unused
+`SENTRY_AUTH_TOKEN`) removed from `.env.example`. The web server reports errors to Sentry when `SENTRY_DSN` is set
+(`apps/web/instrumentation.ts`, new dependency `@sentry/nextjs`): server errors and logged errors only, with the
+SDK's collection of cookies, headers, bodies, query strings, user details and local variables switched off —
+checked by forcing an error against a stand-in endpoint. Browser errors and source maps are not set up. Checks:
+lint, typecheck, format, web unit 83/83, production build; the end-to-end suite was not re-run.
+
+**Second audit follow-up (2026-10-08).** Decisions: `.grill/audit-2-decisions.md`. The second audit (read-only,
+72/100) left factors, a few activities and parts of SEBI's tables open; the owner asked for all of it except
+deployment.
+- **Migration `0038`** (D30): process CO2 (Scope 1); purchased steam and heat / cooling (Scope 2); road freight
+  by light, medium and heavy truck, in and out, by distance, and employee commuting by bus in passenger-km (6 of
+  10 Scope 3 categories active); air emissions NOx, SOx and particulate matter as recorded amounts under a new
+  indicator `P6-E6`; an optional waste category on the certificate; the gases a factor covers; how a Scope 1
+  activity emits; a guard that a record cannot be verified without a document.
+- **The report** (snapshot version 3) breaks each scope up by gas, tells Scope 1 apart by stationary, mobile,
+  process and fugitive, fills SEBI's waste table (categories A to H, recovered and disposed by operation), shows
+  each child org unit's roll-up, and says which days of the year it covers when not all of them. Text that matches
+  no group is printed as "not stated", never guessed.
+- **28 factors with a source** entered on the local database through the Admin procedures: grid (CEA); fuels,
+  coal and LNG (IPCC 2006 defaults); refrigerants and SF6 (AR5 GWPs); air, rail, bus and road freight (India GHG
+  Program, 2015 — India-specific, not a government publication); steel (Ministry of Steel); cement (NITI Aayog as
+  quoted by CSE). None for PNG, steam, spend-based activities or waste.
+- Also: factor rename and gases on the factor screen, Nm3, a deadline reminder, scripts restricted to the app's
+  own origin, OCR `rules-12` (image rebuilt, hosted container not replaced), a hydration warning fixed on
+  Notifications, and CI's database job fixed for a fresh database.
+- **SDG tags** (2026-10-09, migration `0039`, D31): each indicator carries the UN goals it relates to; the report
+  prints them and a goals table, labelled as an indicative mapping. Web unit 92/92, database 208/208, scenario D 34/34.
+- **Owner's page feedback** (2026-10-09, A27, `.grill/page-feedback-2026-10-09-decisions.md`): My Submissions
+  lists multi-bill PDFs waiting for their split, rows are clickable, Upload no longer redirects, a livelier
+  upload animation, a forgot-password link on Profile. Scenario E and the browser bundle test not re-run.
+- **Kept as it is, by the owner's decision:** upload-only, no typed-entry form.
+- Checks: web unit 91/91, worker unit 43/43 and Ruff, database 206/206, end-to-end 231 checks across all eight
+  scripts (not in one run — see CONTEXT.md), a real-browser pass 48/48, a 300-project scale check, lint,
+  typecheck, format, production build. Not run: the OCR integration harness; the `rules-12` image end to end.
+
+**Full BRSR format (2026-10-09).** Decisions: `.grill/full-brsr-report-decisions.md`. The owner compared the
+report with the L&T reference and asked for the whole format.
+- **Finding:** SEBI's format and the L&T report contain no SDGs; they are organised by nine principles.
+- **Migration `0040`** (D32): all 146 questions of Sections A, B and C as configuration, worded as in the L&T
+  report; each is measured (the ten existing) or written; typed answers in `brsr_disclosures`, one per
+  question per financial year.
+- **Admin → BRSR Disclosures** (A28): the Admin types the written answers. Typed entry is for statements
+  only; measured figures still come from approved records.
+- **The report** (snapshot version 4) prints every question in SEBI's order, "Not reported" where empty,
+  and a table of all 17 SDGs.
+- **Limits:** answers are free text, not SEBI's tables; energy in joules, water discharge and water in
+  stressed areas are typed, not measured.
+- Checks: web unit 93/93, database 218/218, lint, typecheck, format, a report built from the local database
+  and read. Not run: end-to-end, a browser click-through, production build.
+
 ## 4. What comes next
+
+**Before Phase 21:** run the end-to-end suite and click
+through BRSR Disclosures. Make the hosted project ready for the demo (the owner chose hosted). In order: push the
+local commits; replace the hosted worker (migrations `0038` and `0039` were pushed on 2026-10-09) with the
+`rules-12` image; the owner invites a second Admin; the reviewed factors are entered through the app (retire the
+0.02 grid factor first) and an org tree is created; one diesel and one electricity record are taken through to a
+report and the PDF is read. Still open: factors for PNG, steam, spend-based activities and waste; energy in
+joules and water discharge (not captured); the industry's promised list of reports; merging pull request #2.
+Set `SENTRY_DSN` on the web host at deployment.
 
 **Phase 21 — Deployment** (`06_IMPLEMENTATION_PLAN.md` §Phase 21): the production Supabase project (or the dev
 project promoted — decide explicitly), `apps/web` (Vercel was planned) and the OCR worker (**host to be decided
@@ -568,14 +685,14 @@ by the owner; not Render**, and not a sleeping tier), production migrations as a
 streams, backups confirmed, a rollback procedure tested once, `DEPLOYMENT.md`, and the critical end-to-end test
 re-run against the live URLs. The owner will say where each part is hosted before this starts.
 
-Before Phase 21: check and commit the out-of-sequence work above (it is in the working tree, not in git). The web app
-points at the hosted Supabase project, which does not have migrations `0029`–`0032` yet: push them (owner's go-ahead),
-**then** recreate the hosted worker container from the new image — a worker newer than the database fails every job.
+All migrations `0001`–`0037` are on the hosted project and the hosted worker container runs the matching image
+(`rules-11`); when migrations and the worker change again, push first, then replace the container — a worker
+newer than the database fails every job.
 
 Things to remember for Phase 21:
 - The end-to-end suite refuses any non-local database by design; running Scenarios A–D against production
   needs a deliberate, reviewed switch (and test accounts and synthetic data that must not stay there).
-- Everything in "Open items" below: migrations `0029`–`0032` not pushed, the database password to rotate,
+- Everything in "Open items" below: the database password to rotate,
   Supabase Auth limits (SECURITY_REVIEW.md F8) and password rules, SMTP, Chromium on Vercel, the worker host.
 - The OCR worker is a background process with no web port: it polls Postgres, needs about 2 GB RAM and must stay
   running. Its image (`apps/ocr-worker/Dockerfile`, ~2.3 GB) bakes the model weights in; `DATABASE_URL` must be
@@ -584,10 +701,10 @@ Things to remember for Phase 21:
 
 ## 5. Open items and blockers
 
-- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0001`–`0028` are
-  pushed (`0015`–`0028` pushed 2026-09-22 with `supabase db push --db-url`, direct connection); **`0029`–`0032`
-  (bulk import, OTP table, default theme) exist only locally and must be pushed before those features work
-  there**. Verified as of `0028`:
+- **Hosted Supabase (`ps08_brsr_meil`, Mumbai, development only):** migrations `0001`–`0037` are
+  pushed (`0033`–`0037` on 2026-10-07; `0015`–`0028` on 2026-09-22 and `0032` on 2026-10-05 with `supabase db push --db-url`, session pooler;
+  `0029`–`0031`, bulk import / OTP table / default theme, were already there). Verified as of `0028`, and for `0029`–`0032`
+  on 2026-10-05 (new columns and table present, RLS on, no browser grants, permissions and `theme-2` default in place):
   37 tables (35 + `rate_limit_events` + `submission_expectations`, D16/D19) all with RLS, `authenticated`
   has zero table-level write privilege anywhere, `anon` zero read privilege anywhere, both `evidence` and
   `reports` buckets private, the append-only audit triggers exist, `org_settings` holds exactly
