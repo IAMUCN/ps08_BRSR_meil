@@ -200,3 +200,15 @@ test("a snapshot made before version 3 still renders", () => {
   assert.ok(!html.includes("of which:"));
   assert.ok(!html.includes("Consolidation by org unit"));
 });
+
+test("an indicator's SDG tags are printed beside it and summarised; untagged reports say nothing", () => {
+  const tagged = snapshot();
+  tagged.sections[0].indicators[0].sdgs = [7, 9, 13];
+  tagged.sections[0].indicators[1].sdgs = [11, 12];
+  const html = renderReportHtml(tagged);
+  assert.match(html, /<span class="sdg">SDG 13<\/span>/);
+  assert.match(html, /SDG 13 — Climate Action<\/td><td>P6-E7</);
+  assert.match(html, /SDG 12 — Responsible Consumption and Production<\/td><td>P6-E9</);
+  assert.match(html, /SEBI's\s+format does not prescribe this mapping/);
+  assert.ok(!renderReportHtml(snapshot()).includes("UN Sustainable Development Goals"));
+});

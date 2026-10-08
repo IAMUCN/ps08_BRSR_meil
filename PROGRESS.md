@@ -4,8 +4,8 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-08 — Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
-merged); the second audit's follow-up work (migration `0038`, fuller report, 28 sourced factors on local) is committed locally, not
+_Last updated: 2026-10-09 — Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
+merged); the second audit's follow-up work (migrations `0038`–`0039`, fuller report with SDG tags, 28 sourced factors on local) is committed locally, not
 pushed and not on hosted; Phase 21 (deployment) comes after, hosting to be decided by the owner._
 
 ---
@@ -36,11 +36,11 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels (`0001`–`0038`; `0001`–`0037` pushed to hosted) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels (`0001`–`0039`; `0001`–`0037` pushed to hosted) |
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D30) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D31) |
 | `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A26) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
@@ -642,6 +642,8 @@ deployment.
 - Also: factor rename and gases on the factor screen, Nm3, a deadline reminder, scripts restricted to the app's
   own origin, OCR `rules-12` (image rebuilt, hosted container not replaced), a hydration warning fixed on
   Notifications, and CI's database job fixed for a fresh database.
+- **SDG tags** (2026-10-09, migration `0039`, D31): each indicator carries the UN goals it relates to; the report
+  prints them and a goals table, labelled as an indicative mapping. Web unit 92/92, database 208/208, scenario D 34/34.
 - **Kept as it is, by the owner's decision:** upload-only, no typed-entry form.
 - Checks: web unit 91/91, worker unit 43/43 and Ruff, database 206/206, end-to-end 231 checks across all eight
   scripts (not in one run — see CONTEXT.md), a real-browser pass 48/48, a 300-project scale check, lint,
@@ -650,7 +652,7 @@ deployment.
 ## 4. What comes next
 
 **Before Phase 21:** make the hosted project ready for the demo (the owner chose hosted). In order: push the two
-local commits; push migration `0038` to hosted with the owner's go-ahead, then replace the hosted worker with the
+local commits; push migrations `0038` and `0039` to hosted with the owner's go-ahead, then replace the hosted worker with the
 `rules-12` image; the owner invites a second Admin; the reviewed factors are entered through the app (retire the
 0.02 grid factor first) and an org tree is created; one diesel and one electricity record are taken through to a
 report and the PDF is read. Still open: factors for PNG, steam, spend-based activities and waste; energy in

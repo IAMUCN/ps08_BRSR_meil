@@ -107,3 +107,15 @@ Things the owner should know before accepting them:
 - **The industry's promised list of reports** is still not in the repository.
 - **`ESG` and `consolidated` report types** (PRD §34): the one BRSR report now carries the consolidation table;
   no second format is built without knowing what it should contain.
+
+## SDG tags on the report (owner's request, 2026-10-09)
+
+- Each BRSR indicator carries the UN Sustainable Development Goals it relates to (`brsr_indicators.sdg_goals`,
+  migration `0039`, D31). The report prints the tags beside each indicator and a table of goals against
+  indicators, with a line saying SEBI's format does not prescribe the mapping and a tag is not a claim of progress.
+- **The mapping is the agent's own reading**, shown to the owner in chat before they asked for it to be added:
+  A-20 → 5, 8; A-24 → 11; P1-E2 → 16; P3-E8 → 8; P6-E3 → 6; P6-E6 → 3, 11; P6-E7 → 7, 9, 13; P6-E9 → 11, 12;
+  P6-L2 → 12, 13, 17; P8-E4 → 8. Goals 1, 2, 4, 10, 14 and 15 have no data in the app.
+- Configuration, not code: changing a tag is an update to the indicator row. There is no screen for it yet.
+- Checked: web unit 92/92, database 208/208, end-to-end scenario D 34/34 on the local stack, the tags read in a
+  generated report. Not on hosted.

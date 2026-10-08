@@ -51,6 +51,8 @@ export type ReportedIndicator = {
   questionText: string;
   indicatorType: string | null;
   required: boolean;
+  /** UN Sustainable Development Goal numbers the indicator is tagged with (migration 0039). */
+  sdgs?: number[];
   metrics: ReportedMetric[];
 };
 
@@ -281,10 +283,11 @@ async function collect(sql: Sql, orgUnitId: string, periodIds: string[]) {
         indicator_type: string | null;
         section_code: string;
         section_name: string;
+        sdg_goals: number[];
       }[]
     >`
       select i.id, i.code, i.question_text, i.indicator_type::text, s.code as section_code,
-             s.name as section_name
+             s.name as section_name, i.sdg_goals
       from public.brsr_indicators i join public.brsr_sections s on s.id = i.section_id
       where i.deleted_at is null order by s.code, i.code`,
     sql<
@@ -438,6 +441,7 @@ async function collect(sql: Sql, orgUnitId: string, periodIds: string[]) {
       questionText: row.question_text,
       indicatorType: row.indicator_type,
       required: row.section_code !== "C" || row.indicator_type === "essential",
+      sdgs: [...row.sdg_goals].sort((a, b) => a - b),
       metrics: mappings
         .filter((m) => m.indicator_id === row.id)
         .map((m) => reportedMetric(m.metric_id, m.notes, m.reported_value))

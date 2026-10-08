@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(14);
 
 select is(
   (select count(*)::int from public.esg_metrics m
@@ -91,6 +91,14 @@ select lives_ok(
   $$update public.esg_records set verification_status = 'user_verified'
      where id = '00000038-0000-4000-8000-0000000000b1'$$,
   'with its document it can');
+
+-- Migration 0039: indicative SDG tags on the indicators.
+select is(
+  (select sdg_goals from public.brsr_indicators where code = 'P6-E7'), array[7, 9, 13]::smallint[],
+  'the greenhouse gas indicator is tagged with energy, industry and climate action');
+select throws_ok(
+  $$update public.brsr_indicators set sdg_goals = array[18]::smallint[] where code = 'P6-E7'$$,
+  '23514', null, 'there are seventeen goals');
 
 select * from finish();
 rollback;

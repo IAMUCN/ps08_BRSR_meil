@@ -169,6 +169,13 @@ check(
   JSON.stringify(s.coverage),
 );
 check(
+  "each indicator carries its SDG tags (migration 0039)",
+  s.sections
+    .flatMap((x) => x.indicators)
+    .find((i) => i.code === "P6-E7")
+    ?.sdgs?.join() === "7,9,13",
+);
+check(
   "indicators carry the July-2023 BRSR numbers (D25)",
   ["A-20", "A-24", "P6-E7", "P6-E9", "P6-L2"].every((code) =>
     s.sections.some((x) => x.indicators.some((i) => i.code === code)),

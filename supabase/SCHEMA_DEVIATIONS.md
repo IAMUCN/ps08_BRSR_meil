@@ -434,6 +434,16 @@ stationary, mobile, process and fugitive emissions to be told apart; the second 
 with no document. `gases` is not frozen by the factor-version guard (D-§19.3): it is a disclosure, not part of
 a calculation. Decision: `.grill/audit-2-decisions.md`.
 
+## D31 — `brsr_indicators.sdg_goals` (migration `0039`)
+
+**Schema says:** §11.2 an indicator has a code, question text and type.
+
+**Implemented:** `sdg_goals smallint[]`, not null, default empty, each value 1 to 17: the UN Sustainable
+Development Goals the indicator is tagged with. Seeded for the ten indicators.
+
+**Why:** the owner asked for SDG tags on the report (2026-10-09). The mapping is indicative, not SEBI's.
+Decision: `.grill/audit-2-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

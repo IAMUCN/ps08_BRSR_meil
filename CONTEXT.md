@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-10-08._
+_Last updated: 2026-10-09._
 
 ---
 
@@ -94,9 +94,12 @@ _Last updated: 2026-10-08._
     free memory); a real-browser pass in Edge over 17 Admin and 5 Project Manager screens, 48/48, no console
     errors; a 300-project, 86,400-record scale check (group roll-up for a year in 0.23 s, rolled back).
     **Not run:** the OCR integration harness, and no end-to-end run with the `rules-12` image.
+- **SDG tags on the report (2026-10-09, owner's request), committed locally:** migration `0039` (D31), tags beside
+  each indicator and a goals table; the mapping is the agent's own reading (`.grill/audit-2-decisions.md`). Checked:
+  web unit 92/92, database 208/208, scenario D 34/34. Not on hosted.
 - **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
   org unit, one open period `AUG26`, three users at the group, migrations to `0037`. Needs, in order: the owner's
-  go-ahead to push `0038`; the hosted worker container replaced with the `rules-12` image; a second Admin invited
+  go-ahead to push `0038` and `0039`; the hosted worker container replaced with the `rules-12` image; a second Admin invited
   by the owner for the agent (see §2); then the factor script and an org tree.
 - **Uncommitted, not from the feature sessions:** `apps/web/app/layout.tsx`, `apps/web/package.json` and
   `pnpm-lock.yaml` changed at 18:17–18:21 on 2026-10-07 (a development-only `agentation` widget). It fails `pnpm format:check` (`app/layout.tsx`). Left out of
@@ -109,7 +112,7 @@ _Last updated: 2026-10-08._
 |---|---|
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
-| Hosted demo setup | The owner chose hosted for the demo (2026-10-08). Waiting on: (1) go-ahead to push migration `0038` and replace the worker container; (2) a second Admin invited from Admin → Users for the agent — the provisioning script refuses a second Admin by design and the owner's password must not be reset; (3) the owner's review of the factor table in `.grill/audit-2-decisions.md`. |
+| Hosted demo setup | The owner chose hosted for the demo (2026-10-08). Waiting on: (1) go-ahead to push migrations `0038` and `0039` and replace the worker container; (2) a second Admin invited from Admin → Users for the agent — the provisioning script refuses a second Admin by design and the owner's password must not be reset; (3) the owner's review of the factor table in `.grill/audit-2-decisions.md`. |
 | Push `feature` | Two local commits wait (`f2cb730` and the second-audit work). CI on the pull request stays red until they are pushed. |
 | Factors with no source | PNG (needs the supplier's gas density), purchased steam / heat (the supplier's own factor), freight / commuting / travel by spend and waste (no Indian source found). Supply values, or leave those activities out of the demo. |
 | Approve the proposed P1 factors, and find the missing ones | `.grill/audit-p1-decisions.md`: coal grades, LNG, R-32, R-134a, R-410A, SF6 proposed with sources. No value proposed for PNG (needs the supplier's gas density), R-22 (an HCFC — keep the activity?), travel per passenger-km, cement, steel, freight, commuting. AR5 or AR6 GWPs is the owner's choice. |
@@ -122,7 +125,7 @@ _Last updated: 2026-10-08._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D31** and **A27**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D32** and **A27**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on

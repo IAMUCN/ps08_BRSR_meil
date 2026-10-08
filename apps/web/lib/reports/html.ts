@@ -327,6 +327,50 @@ function wasteTable(years: Year[], code: string) {
   );
 }
 
+// The UN's own short titles of the 17 goals.
+const SDG_TITLES = [
+  "No Poverty",
+  "Zero Hunger",
+  "Good Health and Well-being",
+  "Quality Education",
+  "Gender Equality",
+  "Clean Water and Sanitation",
+  "Affordable and Clean Energy",
+  "Decent Work and Economic Growth",
+  "Industry, Innovation and Infrastructure",
+  "Reduced Inequalities",
+  "Sustainable Cities and Communities",
+  "Responsible Consumption and Production",
+  "Climate Action",
+  "Life Below Water",
+  "Life on Land",
+  "Peace, Justice and Strong Institutions",
+  "Partnerships for the Goals",
+];
+
+const sdgTags = (goals: number[] | undefined) =>
+  (goals ?? []).map((g) => `<span class="sdg">SDG ${g}</span>`).join("");
+
+/** Which goals the report's indicators are tagged with. Nothing when no indicator carries a tag. */
+function sdgSection(s: Snapshot) {
+  const indicators = s.sections.flatMap((x) => x.indicators);
+  const goals = [...new Set(indicators.flatMap((i) => i.sdgs ?? []))].sort((a, b) => a - b);
+  if (!goals.length) return "";
+  return `
+    <h2>UN Sustainable Development Goals</h2>
+    <p class="note">An indicative reading of which goals each BRSR indicator in this report relates to. SEBI's
+    format does not prescribe this mapping, and a tag is not a claim of progress towards the goal.</p>
+    <table><thead><tr><th>Goal</th><th>BRSR indicators in this report</th></tr></thead><tbody>${goals
+      .map(
+        (g) =>
+          `<tr><td>SDG ${g} — ${escapeHtml(SDG_TITLES[g - 1] ?? "")}</td><td>${indicators
+            .filter((i) => i.sdgs?.includes(g))
+            .map((i) => escapeHtml(i.code))
+            .join(", ")}</td></tr>`,
+      )
+      .join("")}</tbody></table>`;
+}
+
 const SEBI_TABLES: Partial<Record<string, (years: Year[], code: string) => string>> = {
   "P6-E7": ghgTable,
   "P6-E9": wasteTable,
@@ -391,7 +435,7 @@ function indicatorBlock(i: ReportedIndicator, years: Year[]) {
     <div class="indicator">
       <h3><span class="code">${escapeHtml(i.code)}</span>${
         i.indicatorType ? `<span class="type">${escapeHtml(i.indicatorType)}</span>` : ""
-      }</h3>
+      }${sdgTags(i.sdgs)}</h3>
       <p class="question">${escapeHtml(i.questionText)}</p>
       ${sebi ? sebi(years, i.code) + assurance : ""}
       ${metrics}
@@ -552,6 +596,7 @@ export function renderReportHtml(s: Snapshot): string {
   .note, .basis { color: #666; font-size: 8.5pt; font-family: "Segoe UI", Arial, sans-serif; white-space: normal; }
   .none { color: #888; font-style: italic; font-family: "Segoe UI", Arial, sans-serif; }
   .indicator { break-inside: avoid; }
+  .sdg { margin-left: 6pt; padding: 0 4pt; border-radius: 2pt; background: #eef3f8; color: #1f4e79; font-weight: normal; font-size: 8pt; }
   tr.sub td:first-child { padding-left: 14pt; color: #444; }
   .footer { margin-top: 20pt; color: #666; font-size: 8.5pt; }
 </style></head>
@@ -568,6 +613,7 @@ export function renderReportHtml(s: Snapshot): string {
   ${sebiTable(years, scopes)}
   ${childrenTable(s)}
   ${sections}
+  ${sdgSection(s)}
   ${methodology(s, years)}
   <p class="footer">Every value is consolidated from verified, validated and approved source documents.
   Indicator numbering and wording follow SEBI's BRSR format as updated in July 2023. Each value can be
