@@ -9,7 +9,7 @@ stored extractions stay reproducible (it is recorded in `ocr_jobs.model_version`
 
 from dataclasses import dataclass
 
-EXTRACTOR_VERSION = "rules-12"
+EXTRACTOR_VERSION = "rules-13"
 
 
 @dataclass(frozen=True)
@@ -59,6 +59,27 @@ FIELD_PROFILES: dict[str, Profile] = {
     ),
     "female_employees": Profile(labels=("women", "female employees", "female"), kind="number"),
     "male_employees": Profile(labels=("men", "male employees", "male"), kind="number"),
+    # Safety incident statements (migration 0041): each count under its own label.
+    "person_hours": Profile(
+        labels=("person-hours worked", "person hours worked", "man-hours worked", "hours worked"),
+        kind="number",
+    ),
+    "lost_time_injuries": Profile(
+        labels=("lost time injuries", "lost-time injuries", "lti"), kind="number"
+    ),
+    "recordable_injuries": Profile(
+        labels=(
+            "total recordable injuries",
+            "recordable injuries",
+            "recordable work-related injuries",
+        ),
+        kind="number",
+    ),
+    "fatalities": Profile(labels=("fatalities", "number of fatalities"), kind="number"),
+    "high_consequence_injuries": Profile(
+        labels=("high consequence injuries", "high-consequence injuries", "high consequence"),
+        kind="number",
+    ),
     "trained_employees": Profile(
         labels=("employees trained", "trained employees", "number trained"), kind="number"
     ),
@@ -255,6 +276,14 @@ DOCUMENT_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
     ),
     "FREIGHT_INVOICE": ("freight", "transporter", "consignment", "lorry receipt", "logistics"),
     "EMPLOYEE_TRANSPORT_INVOICE": ("employee transport", "staff bus", "shuttle", "commute"),
+    "SAFETY_INCIDENT_STATEMENT": (
+        "safety",
+        "incident",
+        "injuries",
+        "fatalities",
+        "person-hours",
+        "lost time",
+    ),
     "WORKFORCE_STATEMENT": ("headcount", "workforce", "employees", "women", "men", "statement"),
     "TRAINING_RECORD": ("training", "trained", "employees", "programme", "attendance"),
     "WATER_BILL": ("water", "withdrawal", "discharge", "meter", "supply"),

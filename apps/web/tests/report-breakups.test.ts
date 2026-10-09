@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { normalize } from "../lib/calculation/units.ts";
-import { combustionUse, wasteCategory, wasteRoute } from "../lib/reports/classify.ts";
+import {
+  combustionUse,
+  dischargeDestination,
+  dischargeTreated,
+  wasteCategory,
+  wasteRoute,
+} from "../lib/reports/classify.ts";
 import { renderReportHtml } from "../lib/reports/html.ts";
 import type { ReportedIndicator, Snapshot } from "../lib/reports/snapshot.ts";
 
@@ -272,4 +278,54 @@ test("written disclosures print in SEBI's order: the typed answer, or Not report
     !html.includes("No metric is mapped"),
     "a written question is not reported as unmapped",
   );
+});
+
+test("classify: discharge destination and treatment; unmatched text is not stated", () => {
+  assert.equal(dischargeDestination("Municipal sewer"), "third_party");
+  assert.equal(dischargeDestination("Recharge pit / groundwater"), "ground");
+  assert.equal(dischargeDestination("Nala behind the site"), "surface");
+  assert.equal(dischargeDestination("Arabian Sea outfall"), "sea");
+  assert.equal(dischargeDestination("somewhere"), null);
+  assert.equal(dischargeTreated("None"), false);
+  assert.equal(dischargeTreated("Untreated"), false);
+  assert.equal(dischargeTreated("Secondary (STP)"), true);
+  assert.equal(dischargeTreated(""), null);
+});
+
+test("SEBI's water-discharge and safety tables are built from the records' verified fields", () => {
+  const s = snapshot();
+  s.sections[0].indicators.push(indicator("P6-E4", []), indicator("P3-E11", []));
+  s.breakups!.waterDischarge = [
+    { destination: "third_party", treated: true, kl: 300 },
+    { destination: "third_party", treated: false, kl: 50 },
+    { destination: "surface", treated: null, kl: 20 },
+    { destination: null, treated: null, kl: 5 },
+  ];
+  s.breakups!.safety = [
+    {
+      workforce: "workers",
+      personHours: 2_400_000,
+      lostTimeInjuries: 3,
+      recordableInjuries: 7,
+      fatalities: 1,
+      highConsequenceInjuries: 2,
+    },
+  ];
+  const text = renderReportHtml(s)
+    .replace(/<[^>]+>/g, "|")
+    .replace(/\|+/g, "|");
+  assert.match(text, /\(iv\) Sent to third parties\|Kilolitres\|350\|/);
+  assert.match(text, /No treatment\|Kilolitres\|50\|/);
+  assert.match(text, /With treatment\|Kilolitres\|300\|/);
+  assert.match(text, /Treatment not stated on the record\|Kilolitres\|20\|/);
+  assert.match(text, /Destination not stated on the record\|Kilolitres\|5\|/);
+  assert.match(text, /Total water discharged\|Kilolitres\|375\|/);
+  assert.match(
+    text,
+    /\(iii\) To seawater\|Kilolitres\|—\|/,
+    "nothing recorded prints a dash, never 0",
+  );
+  // 3 ÷ 2,400,000 × 1,000,000 = 1.25; employees have no statement, so a dash.
+  assert.match(text, /LTIFR[^|]*\|Employees\|—\|[^|]*\|?Workers\|1\.25\|/);
+  assert.match(text, /No\. of fatalities\|Employees\|—\|[^|]*\|?Workers\|1\|/);
 });

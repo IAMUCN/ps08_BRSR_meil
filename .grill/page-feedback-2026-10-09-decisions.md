@@ -28,3 +28,20 @@ Checked: typecheck, lint, format, web unit tests; the new query run read-only on
 PDFs). **Not run:** the end-to-end suite and the browser test (both updated for the new flow) — the machine had
 1.6 GB free with the owner's dev server and the hosted worker running. Run scenario E and
 `tests/e2e/browser-bundle.mjs` before merging.
+
+## Later the same day: BRSR Mapping, Reports and the sidebar
+
+- **BRSR Mapping** always shows Sections A, B and C under SEBI's names, Section C grouped by principle. Under
+  each section the written questions are listed with "Answered" / "Not reported" for the current financial
+  year, how they reach the report, when to answer them, and an Answer link. Section B has no mapping table
+  because all twelve of its questions are written.
+- **Asking the Admin:** the Reports page warns how many written disclosures have no answer for the year before
+  a report is generated. It does not block; unanswered ones print "Not reported". **Not built:** copying last
+  year's answers forward, a bell notification, a Control Tower issue.
+- **Reports page:** two buttons, "Past reports" (`/admin/reports/history`, every run) and "Evidence for FY …"
+  (`/admin/reports/evidence`, every evidence file behind the year's records, each opening through the
+  access-checked evidence route). The Reports page itself lists the latest five runs.
+- **Turnover / PPP / assurance form:** its summary now says what it is for.
+- **Sidebar:** Roles & Permissions before Users.
+- Checked: typecheck, lint, format, web unit 96/96; the new queries run read-only on hosted. Not viewed in a
+  browser.

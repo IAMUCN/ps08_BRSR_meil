@@ -503,3 +503,17 @@ Decisions: `.grill/full-brsr-report-decisions.md`.
   is for an Admin and for answers that have no source document.
 - **The BRSR report** prints all of Sections A, B and C in SEBI's order and all 17 SDGs. Report Detail keeps
   listing only the measured indicators (the drill-down is for values).
+
+## A29 — Reports history and evidence pages, KPI trends, reminders, mapping page sections
+
+Decisions: `.grill/page-feedback-2026-10-09-decisions.md`, `.grill/grand-finale-deliverables-decisions.md`.
+
+- **Reports** gains two buttons and two pages not in App Flow §2.2: _Past reports_ (`/admin/reports/history`)
+  and _Evidence for the financial year_ (`/admin/reports/evidence`). The Reports page lists the latest five
+  runs and warns how many written disclosures are unanswered.
+- **Control Tower** gains a _KPI trends by financial year_ card below the issue panel.
+- **Submission Monitoring**, missing-submissions view, gains a _Send reminders_ button.
+- **BRSR Mapping** always shows Sections A, B and C, Section C grouped by principle, and lists each section's
+  written questions with their answered state.
+- **Organization:** expected submissions are grouped under Scope 1, 2, 3 and Other disclosures.
+- **Sidebar:** Roles & Permissions before Users. All built plainly by the feature role; the ui role may restyle.

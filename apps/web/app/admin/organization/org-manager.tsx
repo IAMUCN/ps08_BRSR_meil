@@ -511,7 +511,9 @@ function ExpectationsCard({ orgUnitId }: { orgUnitId: string }) {
     });
   }
 
-  const categories = [...new Set((rows ?? []).map((r) => r.categoryName))];
+  // Scope 1, 2 and 3 first, in the order the server sent them; everything else under one heading.
+  const OTHER = "Other disclosures";
+  const groups = [...new Set((rows ?? []).map((r) => r.scopeName ?? OTHER))];
   return (
     <div className="rounded-md border bg-card p-6">
       <h3 className="text-base leading-6 font-semibold">Expected submissions</h3>
@@ -522,28 +524,56 @@ function ExpectationsCard({ orgUnitId }: { orgUnitId: string }) {
       {rows === null ? (
         <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
       ) : (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {categories.map((category) => (
-            <fieldset key={category} className="space-y-1.5">
-              <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {category}
-              </legend>
-              {rows
-                .filter((r) => r.categoryName === category)
-                .map((row) => (
-                  <label key={row.metricId} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={row.expected}
-                      disabled={pending}
-                      onChange={() => toggle(row)}
-                    />
-                    {row.metricName}
-                    <span className="text-xs text-muted-foreground">{row.frequency}</span>
-                  </label>
-                ))}
-            </fieldset>
-          ))}
+        <div className="mt-4 space-y-5">
+          {groups.map((group) => {
+            const inGroup = rows.filter((r) => (r.scopeName ?? OTHER) === group);
+            const categories = [...new Set(inGroup.map((r) => r.categoryName))];
+            return (
+              <section key={group} aria-label={group}>
+                <h4 className="border-b pb-1 text-sm leading-5 font-semibold">
+                  {group}
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {inGroup.filter((r) => r.expected).length} of {inGroup.length} expected
+                  </span>
+                </h4>
+                <div className="mt-3 grid items-start gap-x-8 gap-y-4 sm:grid-cols-2">
+                  {categories.map((category) => (
+                    // A plain group, not a fieldset: a legend sits off the grid line and the two columns
+                    // then start at different heights.
+                    <div key={category} role="group" aria-label={category} className="min-w-0">
+                      <p className="mb-1.5 text-xs leading-4 font-medium tracking-wide text-muted-foreground uppercase">
+                        {category}
+                      </p>
+                      <div className="space-y-1.5">
+                        {inGroup
+                          .filter((r) => r.categoryName === category)
+                          .map((row) => (
+                            // Three fixed columns, so a name that wraps keeps its box and its
+                            // frequency on the first line.
+                            <label
+                              key={row.metricId}
+                              className="grid grid-cols-[1rem_minmax(0,1fr)_4.5rem] items-start gap-x-2 text-sm leading-5"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={row.expected}
+                                disabled={pending}
+                                onChange={() => toggle(row)}
+                                className="mt-0.5 size-4"
+                              />
+                              <span>{row.metricName}</span>
+                              <span className="text-right text-xs leading-5 text-muted-foreground capitalize">
+                                {row.frequency}
+                              </span>
+                            </label>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
       )}
     </div>

@@ -6,6 +6,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { readParams, stringParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
 
+import { RemindButton } from "./remind-button";
 export const metadata: Metadata = { title: "Submission Monitoring · TraceESG" };
 
 // Where each issue is acted on (the Control Tower lands here with the exact slice it counted).
@@ -37,10 +38,15 @@ export default async function SubmissionMonitoringPage({
           description={`Expected submissions with nothing filed for ${context.periodLabel}. Expectations are set per node on the Organization page.`}
         />
         <ContextFilters context={context} params={params} variant="monitoring" />
-        <p className="text-sm text-muted-foreground">
-          {rows.length} expected submission(s) missing across{" "}
-          {new Set(rows.map((r) => r.orgUnitId)).size} org unit(s).
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {rows.length} expected submission(s) missing across{" "}
+            {new Set(rows.map((r) => r.orgUnitId)).size} org unit(s).
+          </p>
+          {rows.length > 0 ? (
+            <RemindButton orgUnitId={context.orgUnitId} periodId={context.periodId} />
+          ) : null}
+        </div>
         <div className="overflow-x-auto rounded-md border border-table-border">
           <table className="w-full border-collapse text-sm">
             <thead className="bg-table-header text-table-header-foreground">

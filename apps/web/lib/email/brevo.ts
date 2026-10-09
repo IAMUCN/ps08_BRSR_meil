@@ -84,3 +84,19 @@ export function passwordResetOtpEmailHtml(input: {
 <p style="font-size: 28px; font-weight: bold; letter-spacing: 4px;">${escapeHtml(input.code)}</p>
 <p>It expires in ${input.expiryMinutes} minutes. If you didn&#39;t request this, ignore this email.</p>`;
 }
+
+export function submissionReminderEmailHtml(input: {
+  displayName: string;
+  periodLabel: string;
+  closesOn: string | null;
+  items: { orgUnitName: string; metricName: string }[];
+}): string {
+  return `<p>Hi ${escapeHtml(input.displayName)},</p>
+<p>These submissions are expected for ${escapeHtml(input.periodLabel)} and nothing has been uploaded yet${
+    input.closesOn ? ` (submissions close on ${escapeHtml(input.closesOn)})` : ""
+  }:</p>
+<ul>${input.items
+    .map((i) => `<li>${escapeHtml(i.metricName)} — ${escapeHtml(i.orgUnitName)}</li>`)
+    .join("")}</ul>
+<p>Sign in to TraceESG and upload the supporting document for each.</p>`;
+}

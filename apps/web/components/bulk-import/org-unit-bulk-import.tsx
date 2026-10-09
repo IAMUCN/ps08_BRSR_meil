@@ -137,7 +137,7 @@ export function OrgUnitBulkImport({
                 downloadOrgUnitTemplate(
                   parent.name,
                   childTypes.map((t) => ({ value: t, label: levelLabel(levels, t) })),
-                )
+                ).catch(() => toast.error("Couldn't generate the template — try again."))
               }
             >
               <Download aria-hidden />

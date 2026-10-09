@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { indicatorStatus, type IndicatorStatus } from "@/lib/brsr/readiness";
+import { financialYearOf } from "@/lib/consolidation/aggregate";
 import { db } from "@/lib/db";
 import { adminProcedure, permissionProcedure, router } from "@/lib/trpc/init";
 import { resolvePeriod } from "@/lib/trpc/routers/scope";
@@ -30,12 +31,31 @@ export type BrsrIndicator = {
   questionText: string;
   indicatorType: "essential" | "leadership" | null;
   description: string | null;
+  /** Section C: the NGRBC principle the question sits under. */
+  principle: number | null;
 };
 
 export type BrsrSection = { code: string; name: string };
 
+export type WrittenQuestion = {
+  code: string;
+  questionText: string;
+  principle: number | null;
+  /** Whether an answer is typed for `financialYear`. */
+  answered: boolean;
+};
+
 export type MappingsView = {
-  sections: (BrsrSection & { indicators: (BrsrIndicator & { mappings: BrsrMapping[] })[] })[];
+  /** The financial year (its starting year) the written questions' answers are checked for. */
+  financialYear: number;
+  /**
+   * Sections A, B and C, always all three. `written` lists the questions no metric feeds: they are typed on
+   * BRSR Disclosures and printed in the report from there.
+   */
+  sections: (BrsrSection & {
+    written: WrittenQuestion[];
+    indicators: (BrsrIndicator & { mappings: BrsrMapping[] })[];
+  })[];
   metrics: { id: string; code: string; name: string; categoryName: string }[];
   unmappedMetrics: string[];
 };
@@ -78,6 +98,7 @@ type IndicatorRow = {
   question_text: string;
   indicator_type: "essential" | "leadership" | null;
   description: string | null;
+  principle: number | null;
   section_code: string;
   section_name: string;
 };
@@ -85,7 +106,7 @@ type IndicatorRow = {
 async function catalogue() {
   return db()<IndicatorRow[]>`
     select i.id, i.code, i.question_text, i.indicator_type::text as indicator_type, i.description,
-           s.code as section_code, s.name as section_name
+           i.principle, s.code as section_code, s.name as section_name
     from public.brsr_indicators i
     join public.brsr_sections s on s.id = i.section_id
     where i.deleted_at is null
@@ -110,6 +131,7 @@ function bySection<T>(rows: IndicatorRow[], extra: (row: IndicatorRow) => T) {
       questionText: row.question_text,
       indicatorType: row.indicator_type,
       description: row.description,
+      principle: row.principle,
       ...extra(row),
     });
   }
@@ -236,7 +258,8 @@ export const brsrRouter = router({
   /** The mapping table, grouped by BRSR section, plus the metrics nothing maps yet. */
   mappings: adminProcedure.query(async (): Promise<MappingsView> => {
     const sql = db();
-    const [rows, mappings, metrics] = await Promise.all([
+    const year = financialYearOf(new Date().toISOString().slice(0, 10));
+    const [rows, mappings, metrics, allSections, written] = await Promise.all([
       catalogue(),
       sql<
         {
@@ -260,20 +283,53 @@ export const brsrRouter = router({
         from public.esg_metrics m join public.esg_categories c on c.id = m.category_id
         where m.deleted_at is null
         order by c.name, m.name`,
+      // Every section is listed, even one whose questions are all written (Section B).
+      sql<{ code: string; name: string }[]>`
+        select code, name from public.brsr_sections order by code`,
+      sql<
+        {
+          section_code: string;
+          code: string;
+          question_text: string;
+          principle: number | null;
+          answered: boolean;
+        }[]
+      >`
+        select s.code as section_code, i.code, i.question_text, i.principle,
+               exists (select 1 from public.brsr_disclosures d
+                        where d.brsr_indicator_id = i.id and d.financial_year = ${year}) as answered
+        from public.brsr_indicators i
+        join public.brsr_sections s on s.id = i.section_id
+        where i.deleted_at is null and i.answer_kind = 'statement'
+          and not exists (select 1 from public.brsr_metric_mappings x where x.brsr_indicator_id = i.id)
+        order by s.code, i.sort_order, i.code`,
     ]);
+    const measured = bySection(rows, (row) => ({
+      mappings: mappings
+        .filter((x) => x.indicator_id === row.id)
+        .map((x) => ({
+          id: x.id,
+          metricId: x.metric_id,
+          metricCode: x.metric_code,
+          metricName: x.metric_name,
+          notes: x.notes,
+          isApplicable: x.is_applicable,
+          reportedValue: x.reported_value,
+        })),
+    }));
     return {
-      sections: bySection(rows, (row) => ({
-        mappings: mappings
-          .filter((x) => x.indicator_id === row.id)
-          .map((x) => ({
-            id: x.id,
-            metricId: x.metric_id,
-            metricCode: x.metric_code,
-            metricName: x.metric_name,
-            notes: x.notes,
-            isApplicable: x.is_applicable,
-            reportedValue: x.reported_value,
+      financialYear: year,
+      sections: allSections.map((section) => ({
+        ...section,
+        written: written
+          .filter((q) => q.section_code === section.code)
+          .map((q) => ({
+            code: q.code,
+            questionText: q.question_text,
+            principle: q.principle,
+            answered: q.answered,
           })),
+        indicators: measured.find((m) => m.code === section.code)?.indicators ?? [],
       })),
       metrics: metrics.map((m) => ({
         id: m.id,

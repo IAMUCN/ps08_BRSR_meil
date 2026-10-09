@@ -100,21 +100,33 @@ _Last updated: 2026-10-09._
 - **Migrations `0038` and `0039` were pushed to hosted on 2026-10-09** (owner's go-ahead, after the dev server on
   port 3000 failed with "column v.gases does not exist") and checked there: 39 migrations, 13 new activities, the
   three columns, the guard; the nine records and the one factor untouched. The hosted worker still runs `rules-11`.
-- **Owner's page feedback (2026-10-09), uncommitted:** My Submissions lists multi-bill PDFs waiting for their
+- **Owner's page feedback (2026-10-09), committed:** My Submissions lists multi-bill PDFs waiting for their
   split (the "disappeared PDF"), whole rows clickable, no redirect after an upload, a livelier upload animation,
   a forgot-password link on Profile (`.grill/page-feedback-2026-10-09-decisions.md`, A27). No migration. Checked:
   typecheck, lint, format, web unit. **Not run:** scenario E and `browser-bundle.mjs` (both updated, memory too
   low) — run them before merging.
-- **Full BRSR format (2026-10-09, owner's decision), uncommitted; migration `0040` pushed to hosted 2026-10-09 (owner's go-ahead) and checked there (40 migrations, 146 questions, mappings and records untouched):** all 146
+- **Full BRSR format (2026-10-09, owner's decision), committed; migration `0040` pushed to hosted 2026-10-09 (owner's go-ahead) and checked there (40 migrations, 146 questions, mappings and records untouched):** all 146
   questions of Sections A, B and C seeded; an Admin types written answers on Admin → BRSR Disclosures; the
   report (snapshot version 4) prints everything in SEBI's order, "Not reported" where empty, and all 17 SDGs
   (`.grill/full-brsr-report-decisions.md`, D32, A28). Checked: web unit 93/93, database 218/218, lint,
   typecheck, format, a report built from the local database and read. **Not run:** end-to-end, a browser
   click-through of the new screen, production build. Discard for a wrong multi-bill PDF was
-  added the same day (uncommitted).
+  added the same day.
+- **Safety incidents and water discharge (2026-10-09, owner's request), committed on `feature` (not pushed); migration `0041` pushed to hosted and the hosted worker recreated from the `rules-13` image
+  the same day (owner's go-ahead; 41 migrations, records and factor untouched, worker reports ready):** P3-E11 from a safety incident statement (two EHS activities, LTIFR), P6-E4 from two optional
+  fields on the water record; OCR `rules-13`. `.grill/safety-and-water-discharge-decisions.md`,
+  D33. Checked: web unit 96/96, worker unit 44/44, database 225/225, lint, typecheck, format, both report tables
+  on local data. Not run: an upload through the app, end-to-end, the build. `ps_documents/implementation_docs/PPT_CONTEXT.md` (the owner moved it there) is
+  the presentation context for mid evaluation.
+- **Grand Finale deliverables (2026-10-09), committed on `feature` (not pushed):** `ASSURANCE.md` (the assurance account for BRSR Core
+  KPIs), a KPI-trends-by-financial-year card on the Control Tower, and "Send reminders" for missing submissions
+  (in-app + email, manual, audited). Also page feedback: BRSR Mapping sections, Reports history and evidence
+  pages, expected submissions by scope, template dropdowns (`.grill/grand-finale-deliverables-decisions.md`,
+  `.grill/page-feedback-2026-10-09-decisions.md`, A29). No migration. Checked: web unit 98/98, lint, typecheck,
+  format; queries run on local and hosted. Not run: end-to-end, a browser view, the reminder through the app.
+  **The owner will build the demo data** (three plants, users per role, three earlier periods for the anomaly demo).
 - **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
-  org unit, one open period `AUG26`, three users at the group. Needs, in order: the hosted worker container replaced with the `rules-12` image
-  (owner's go-ahead); a second Admin invited
+  org unit, one open period `AUG26`, three users at the group. Needs, in order: a second Admin invited
   by the owner for the agent (see §2); then the factor script and an org tree.
 - **Uncommitted, not from the feature sessions:** `apps/web/app/layout.tsx`, `apps/web/package.json` and
   `pnpm-lock.yaml` changed at 18:17–18:21 on 2026-10-07 (a development-only `agentation` widget). It fails `pnpm format:check` (`app/layout.tsx`). Left out of
@@ -140,7 +152,7 @@ _Last updated: 2026-10-09._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D33** and **A29**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D34** and **A30**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on

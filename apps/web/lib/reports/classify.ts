@@ -69,3 +69,32 @@ export function wasteRoute(text: string | null | undefined): WasteRoute | null {
   if (/dispos|tsdf|treatment/.test(t)) return "other_disposal";
   return null;
 }
+
+/** SEBI's water-discharge destinations (Principle 6, Essential Indicator 4), in the order of its table. */
+export const DISCHARGE_DESTINATIONS = [
+  ["surface", "To surface water"],
+  ["ground", "To groundwater"],
+  ["sea", "To seawater"],
+  ["third_party", "Sent to third parties"],
+  ["other", "Others"],
+] as const;
+export type DischargeDestination = (typeof DISCHARGE_DESTINATIONS)[number][0];
+
+export function dischargeDestination(text: string | null | undefined): DischargeDestination | null {
+  const t = text?.trim().toLowerCase();
+  if (!t) return null;
+  if (/sea|marine|ocean/.test(t)) return "sea";
+  if (/ground|bore|recharge|soak|percolat/.test(t)) return "ground";
+  if (/surface|river|lake|stream|canal|nala|nallah|pond|storm/.test(t)) return "surface";
+  if (/third|municipal|sewer|sewage|cetp|tanker|common effluent/.test(t)) return "third_party";
+  if (/other|land|irrigation|garden|green belt/.test(t)) return "other";
+  return null;
+}
+
+/** Whether the water was treated before discharge: "None" / "Untreated" is no; a stated level is yes. */
+export function dischargeTreated(text: string | null | undefined): boolean | null {
+  const t = text?.trim().toLowerCase();
+  if (!t) return null;
+  if (/^(no|none|nil|na|n\/a)\b|untreated|no treatment|without treatment/.test(t)) return false;
+  return true;
+}
