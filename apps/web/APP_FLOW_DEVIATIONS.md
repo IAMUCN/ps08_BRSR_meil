@@ -517,3 +517,16 @@ Decisions: `.grill/page-feedback-2026-10-09-decisions.md`, `.grill/grand-finale-
   written questions with their answered state.
 - **Organization:** expected submissions are grouped under Scope 1, 2, 3 and Other disclosures.
 - **Sidebar:** Roles & Permissions before Users. All built plainly by the feature role; the ui role may restyle.
+
+## A30 — Side panels dock on wide screens; Organization page in three columns
+
+Decision: `.grill/page-feedback-2026-10-09-decisions.md` (owner's page feedback).
+
+- **Every side panel** (record drawer, approval and validation drawers, the add / edit sheets — all built on
+  `components/ui/sheet.tsx`): on a screen 1900px wide or more, a right-hand panel docks into the empty space
+  beside the page, below the top bar, with no backdrop, and the page stays usable. An _Expand_ button opens it
+  full size over the page; _Dock_ returns it. On narrower screens panels open over the page as the UI brief
+  (§11) describes. The panel is non-modal in both views, so focus is not trapped inside the full-size view.
+- **Organization** is three columns on wide screens: the tree (kept in view while scrolling), the selected
+  unit, and the cards for adding units under it. "Child node" is worded as "unit under {name}"; the expected
+  submissions card names the unit it applies to.

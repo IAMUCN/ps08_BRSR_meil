@@ -1,5 +1,6 @@
 "use client";
 
+import { rowClick } from "@/components/ui/row-click";
 import { RotateCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -148,7 +149,8 @@ export function OcrJobsTable({ jobs, threshold }: { jobs: OcrJobRow[]; threshold
               filtered.map((job) => (
                 <tr
                   key={job.id}
-                  className="border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
+                  onClick={rowClick(() => setSelectedId(job.id))}
+                  className="cursor-pointer border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
                 >
                   <td className="px-3 py-3">
                     <button
@@ -327,9 +329,12 @@ function JobDrawer({
                           threshold === null ||
                           (f.confidence !== null && f.confidence < threshold);
                         return (
-                          <li key={f.key} className="flex items-center gap-3 px-3 py-2">
-                            <span className="w-32 shrink-0 text-muted-foreground">{f.label}</span>
-                            <span className="min-w-0 flex-1 font-mono text-xs break-words">
+                          <li
+                            key={f.key}
+                            className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_auto] items-baseline gap-3 px-3 py-2"
+                          >
+                            <span className="leading-5 text-muted-foreground">{f.label}</span>
+                            <span className="font-mono leading-5 break-words">
                               {f.value ?? <span className="font-sans italic">Not found</span>}
                             </span>
                             <span

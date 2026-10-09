@@ -1,5 +1,6 @@
 "use client";
 
+import { rowClick } from "@/components/ui/row-click";
 import { Download } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -274,7 +275,8 @@ export function RecordsTable({
               {rows.map((r) => (
                 <tr
                   key={r.recordId}
-                  className="border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
+                  onClick={rowClick(() => setSelected(r.recordId))}
+                  className="cursor-pointer border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
                 >
                   <td className="px-3 py-2.5">
                     <button

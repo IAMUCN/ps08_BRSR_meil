@@ -125,6 +125,11 @@ _Last updated: 2026-10-09._
   `.grill/page-feedback-2026-10-09-decisions.md`, A29). No migration. Checked: web unit 98/98, lint, typecheck,
   format; queries run on local and hosted. Not run: end-to-end, a browser view, the reminder through the app.
   **The owner will build the demo data** (three plants, users per role, three earlier periods for the anomaly demo).
+- **Committed on `feature`, not pushed (2026-10-09, after `6e8ddeb`):** Organization page in three columns with renamed add cards, and
+  every side panel docking on screens of 1900px and wider with an Expand button (`components/ui/sheet.tsx`, A30);
+  the record panel in two columns when expanded; whole rows clickable in the panel-opening tables.
+  Typecheck, lint, format pass; **not viewed in a browser** — the docking is CSS and Radix behaviour that only
+  a real screen confirms.
 - **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
   org unit, one open period `AUG26`, three users at the group. Needs, in order: a second Admin invited
   by the owner for the agent (see §2); then the factor script and an org tree.
@@ -152,7 +157,7 @@ _Last updated: 2026-10-09._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D34** and **A30**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D34** and **A31**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on

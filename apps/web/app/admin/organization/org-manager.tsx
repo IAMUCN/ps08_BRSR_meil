@@ -127,8 +127,16 @@ export function OrgManager({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(280px,380px)_1fr]">
-      <section aria-label="Organization tree" className="rounded-md border bg-card p-2">
+    // Tree | the selected unit | adding units under it. On a narrower screen the third column drops below.
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(260px,340px)_minmax(0,1fr)_minmax(320px,400px)]">
+      <section
+        aria-label="Organization tree"
+        // Stays in view while the panels beside it scroll.
+        className="rounded-md border bg-card p-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
+      >
+        <h2 className="px-2 pt-1 pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Organization tree
+        </h2>
         {root ? <ul>{renderNode(root, 0)}</ul> : null}
       </section>
       {selected ? (
@@ -138,16 +146,28 @@ export function OrgManager({
           nodes={nodes}
           levels={levels}
           onChanged={() => router.refresh()}
-          onSelect={select}
         />
       ) : (
         <p className="text-sm text-muted-foreground">No organization root exists yet.</p>
       )}
+      {selected ? (
+        <div className="space-y-6 lg:col-span-2 2xl:col-span-1">
+          <AddChildren
+            key={selected.id}
+            node={selected}
+            nodes={nodes}
+            levels={levels}
+            onChanged={() => router.refresh()}
+            onSelect={select}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function NodeDetail({
+/** Adding children to the selected node, one at a time or from a spreadsheet — beside the tree it grows. */
+function AddChildren({
   node,
   nodes,
   levels,
@@ -163,14 +183,129 @@ function NodeDetail({
   const [pending, startTransition] = useTransition();
   const frozen = isFrozen(node.id, nodes);
   const frozenByAncestor = frozen && node.status === "active";
-  const parent = nodes.find((n) => n.id === node.parentId);
   const childTypes = allowedChildTypes(levels, node.unitType);
-
-  const [name, setName] = useState(node.name);
-  const [code, setCode] = useState(node.code ?? "");
   const [childType, setChildType] = useState<OrgUnitType | "">(childTypes[0] ?? "");
   const [childName, setChildName] = useState("");
   const [childCode, setChildCode] = useState("");
+
+  function onAddChild(event: FormEvent) {
+    event.preventDefault();
+    if (!childType) return;
+    startTransition(async () => {
+      const result = await createOrgUnitAction({
+        parentId: node.id,
+        unitType: childType,
+        name: childName,
+        code: childCode,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Node added");
+      setChildName("");
+      setChildCode("");
+      onSelect(result.data.id);
+      onChanged();
+    });
+  }
+
+  return (
+    <>
+      <div className="rounded-md border bg-card p-4">
+        <h3 className="text-base leading-6 font-semibold">Add a unit under {node.name}</h3>
+        <p className="mt-1 text-sm leading-5 text-muted-foreground">
+          Creates a new company, business unit, project or other level directly beneath{" "}
+          <span className="font-medium text-foreground">{node.name}</span>. To add under a different
+          unit, select it in the tree first.
+        </p>
+        {frozen ? (
+          <p className="mt-2 text-sm leading-5 text-muted-foreground">
+            {node.name} is inactive{frozenByAncestor ? " because a unit above it is inactive" : ""}{" "}
+            — nothing new can be added under it.
+          </p>
+        ) : childTypes.length === 0 ? (
+          <p className="mt-2 text-sm leading-5 text-muted-foreground">
+            This is the lowest level; nothing can be added beneath it.
+          </p>
+        ) : (
+          <form onSubmit={onAddChild} className="mt-4 space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="child-type">Level</Label>
+              <NativeSelect
+                id="child-type"
+                value={childType}
+                onChange={(e) => setChildType(e.target.value as OrgUnitType)}
+              >
+                {childTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {levelLabel(levels, type)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="child-name">Name</Label>
+              <Input
+                id="child-name"
+                value={childName}
+                onChange={(e) => setChildName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="child-code">Code (optional)</Label>
+              <Input
+                id="child-code"
+                value={childCode}
+                onChange={(e) => setChildCode(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <Button type="submit" disabled={pending || childName.trim() === ""}>
+              {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+              Add
+            </Button>
+          </form>
+        )}
+      </div>
+
+      <div className="rounded-md border bg-card p-4">
+        <h3 className="text-base leading-6 font-semibold">Add several units from a spreadsheet</h3>
+        <p className="mt-1 mb-4 text-sm leading-5 text-muted-foreground">
+          Download the template, list the new units, and upload it — instead of adding them one at a
+          time above.
+        </p>
+        <OrgUnitBulkImport
+          nodes={nodes.filter((n) => !isFrozen(n.id, nodes))}
+          levels={levels}
+          defaultParentId={node.id}
+          importAction={bulkImportOrgUnitsAction}
+          onImported={onChanged}
+        />
+      </div>
+    </>
+  );
+}
+
+function NodeDetail({
+  node,
+  nodes,
+  levels,
+  onChanged,
+}: {
+  node: OrgUnitRow;
+  nodes: OrgUnitRow[];
+  levels: OrgLevel[];
+  onChanged: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const frozen = isFrozen(node.id, nodes);
+  const frozenByAncestor = frozen && node.status === "active";
+  const parent = nodes.find((n) => n.id === node.parentId);
+
+  const [name, setName] = useState(node.name);
+  const [code, setCode] = useState(node.code ?? "");
   const [newParentId, setNewParentId] = useState("");
   const [moveOpen, setMoveOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -203,26 +338,6 @@ function NodeDetail({
   function onSave(event: FormEvent) {
     event.preventDefault();
     run(() => updateOrgUnitAction({ id: node.id, name, code }), "Saved");
-  }
-
-  function onAddChild(event: FormEvent) {
-    event.preventDefault();
-    if (!childType) return;
-    run(
-      () =>
-        createOrgUnitAction({
-          parentId: node.id,
-          unitType: childType,
-          name: childName,
-          code: childCode,
-        }),
-      "Node added",
-      (data) => {
-        setChildName("");
-        setChildCode("");
-        onSelect(data.id);
-      },
-    );
   }
 
   function openStatusDialog() {
@@ -292,77 +407,7 @@ function NodeDetail({
         </form>
       </div>
 
-      <ExpectationsCard orgUnitId={node.id} />
-
-      <div className="rounded-md border bg-card p-6">
-        <h3 className="text-base leading-6 font-semibold">Add a child node</h3>
-        {frozen ? (
-          <p className="mt-2 text-sm leading-5 text-muted-foreground">
-            This node is inactive{frozenByAncestor ? " because a parent is inactive" : ""} — no new
-            child nodes.
-          </p>
-        ) : childTypes.length === 0 ? (
-          <p className="mt-2 text-sm leading-5 text-muted-foreground">
-            Departments are the lowest level.
-          </p>
-        ) : (
-          <form
-            onSubmit={onAddChild}
-            className="mt-4 grid gap-4 sm:grid-cols-[200px_1fr_160px_auto] sm:items-end"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="child-type">Level</Label>
-              <NativeSelect
-                id="child-type"
-                value={childType}
-                onChange={(e) => setChildType(e.target.value as OrgUnitType)}
-              >
-                {childTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {levelLabel(levels, type)}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="child-name">Name</Label>
-              <Input
-                id="child-name"
-                value={childName}
-                onChange={(e) => setChildName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="child-code">Code (optional)</Label>
-              <Input
-                id="child-code"
-                value={childCode}
-                onChange={(e) => setChildCode(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-            <Button type="submit" disabled={pending || childName.trim() === ""}>
-              {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              Add
-            </Button>
-          </form>
-        )}
-      </div>
-
-      <div className="rounded-md border bg-card p-6">
-        <h3 className="text-base leading-6 font-semibold">Bulk-add child nodes</h3>
-        <p className="mt-1 mb-4 text-sm leading-5 text-muted-foreground">
-          Create several child nodes at once from a spreadsheet, instead of one at a time above.
-        </p>
-        <OrgUnitBulkImport
-          nodes={nodes.filter((n) => !isFrozen(n.id, nodes))}
-          levels={levels}
-          defaultParentId={node.id}
-          importAction={bulkImportOrgUnitsAction}
-          onImported={onChanged}
-        />
-      </div>
+      <ExpectationsCard orgUnitId={node.id} nodeName={node.name} />
 
       {node.parentId ? (
         <div className="rounded-md border bg-card p-6">
@@ -475,7 +520,7 @@ function NodeDetail({
 }
 
 /** Expected submissions (D16): what this node must file each period — the Control Tower's denominators. */
-function ExpectationsCard({ orgUnitId }: { orgUnitId: string }) {
+function ExpectationsCard({ orgUnitId, nodeName }: { orgUnitId: string; nodeName: string }) {
   const [rows, setRows] = useState<OrgExpectation[] | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -516,10 +561,13 @@ function ExpectationsCard({ orgUnitId }: { orgUnitId: string }) {
   const groups = [...new Set((rows ?? []).map((r) => r.scopeName ?? OTHER))];
   return (
     <div className="rounded-md border bg-card p-6">
-      <h3 className="text-base leading-6 font-semibold">Expected submissions</h3>
+      <h3 className="text-base leading-6 font-semibold">Expected submissions for {nodeName}</h3>
       <p className="mt-1 text-sm leading-5 text-muted-foreground">
         What this node must submit in every period of the metric&apos;s frequency. The Control
         Tower&apos;s completion figures and &ldquo;missing submissions&rdquo; count against these.
+        The ticks apply to {nodeName} only — the unit selected in the tree. To set them for another
+        project, select it in the tree. Each unit keeps its own list; nothing is inherited from the
+        unit above or passed down.
       </p>
       {rows === null ? (
         <p className="mt-4 text-sm text-muted-foreground">Loading…</p>

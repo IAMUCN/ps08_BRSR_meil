@@ -45,3 +45,19 @@ PDFs). **Not run:** the end-to-end suite and the browser test (both updated for 
 - **Sidebar:** Roles & Permissions before Users.
 - Checked: typecheck, lint, format, web unit 96/96; the new queries run read-only on hosted. Not viewed in a
   browser.
+
+## Organization page and side panels (same day, after the commit `6e8ddeb`)
+
+- **Organization:** three columns on a wide screen — tree, selected unit, add cards — and the page is wider
+  than the other Admin pages. The owner first asked for the add cards under the tree, then for them on the
+  unused right side with the tree alone on the left. "Child node" became "unit under {name}". The expected
+  submissions card is titled with the unit it applies to and says each unit keeps its own list.
+- **Side panels dock** (A30): one change in the shared sheet component, so it applies to all fourteen panels.
+  The docked width is the space left beside a full-width page (about 336px at 1912px), so a wide panel such as
+  the record drawer is cramped until expanded. Not viewed in a browser.
+- **Follow-ups the same evening:** the docked panel had covered the top bar (a side-specific rule won over the
+  offset; now forced) and Expand opens up to 1,400px wide. The record panel shows the document in its own
+  column beside the values once it is wider than about 900px (a container query), one column when docked.
+  Label / value rows in the record, approval and OCR panels share a baseline. A click anywhere on a row opens
+  its panel in the approval, validation, records, OCR and scope tables (`components/ui/row-click.ts`).
+  The sidebar is back to Users before Roles & Permissions, at the owner's second request.

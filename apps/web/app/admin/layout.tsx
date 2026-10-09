@@ -10,8 +10,8 @@ import { requireAdminSession } from "@/lib/auth/session";
 const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: "dashboard" },
   { href: "/admin/organization", label: "Organization", icon: "organization" },
-  { href: "/admin/roles", label: "Roles & Permissions", icon: "roles" },
   { href: "/admin/users", label: "Users", icon: "users" },
+  { href: "/admin/roles", label: "Roles & Permissions", icon: "roles" },
   { href: "/admin/reporting-periods", label: "Reporting Periods", icon: "periods" },
   { href: "/admin/submissions", label: "Submission Monitoring", icon: "submissions" },
   { href: "/admin/ocr-monitoring", label: "OCR Monitoring", icon: "ocr" },
