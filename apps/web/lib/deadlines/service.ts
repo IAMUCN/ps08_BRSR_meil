@@ -131,7 +131,7 @@ export async function getDeadlineData(
 
   // 1. Fetch available reporting periods
   const periodRows = await sql<{ id: string; name: string; is_open: boolean }[]>`
-    select id, name, (status = 'open') as is_open
+    select id, label as name, (status = 'open') as is_open
     from public.reporting_periods
     order by start_date desc`;
 
@@ -170,7 +170,7 @@ export async function getDeadlineData(
       o.name as org_unit_name,
       o.unit_type as org_unit_type,
       p.id as period_id,
-      p.name as period_name,
+      p.label as period_name,
       to_char(p.submission_closes_on, 'YYYY-MM-DD') as submission_closes_on,
       to_char(p.end_date, 'YYYY-MM-DD') as end_date,
       m.id as metric_id,
