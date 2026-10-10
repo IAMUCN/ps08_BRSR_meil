@@ -14,8 +14,6 @@ import {
   TrendingUp,
   ShieldAlert,
   HardHat,
-  ChevronUp,
-  ChevronDown,
 } from "lucide-react";
 
 export interface CapabilityItem {
@@ -172,11 +170,11 @@ const ROTATION_INTERVAL_MS = 2800;
 const CARD_HEIGHT = 196;
 const OFFSET_Y = [0, 100, 128, 150]; // px from the front card's centre, by distance (3 = parked, hidden)
 const OFFSET_X = [0, 12, 27, 27]; // % of card width
-const FADE = [1, 0.55, 0.2]; // opacity at the far edge of a receding card
+const FADE = [1, 0.85, 0.6]; // opacity at the far edge of a receding card
 const SHADOWS = [
-  "shadow-[-6px_14px_32px_rgba(15,23,42,0.12),0_0_0_1px_rgba(226,232,240,0.9)]",
-  "shadow-[-4px_8px_20px_rgba(15,23,42,0.08),0_0_0_1px_rgba(226,232,240,0.7)]",
-  "shadow-[-3px_4px_10px_rgba(15,23,42,0.05),0_0_0_1px_rgba(226,232,240,0.6)]",
+  "shadow-[10px_14px_22px_-10px_rgba(15,23,42,0.28)]",
+  "shadow-[8px_10px_16px_-8px_rgba(15,23,42,0.2)]",
+  "shadow-[6px_7px_12px_-7px_rgba(15,23,42,0.14)]",
 ];
 
 export function HeroCapabilityCard() {
@@ -219,11 +217,11 @@ export function HeroCapabilityCard() {
         const slot = Math.min(absDiff, 3);
         const y = Math.sign(diff) * OFFSET_Y[slot];
         const Icon = item.icon;
-        // Fade toward the outer edge: top of upper cards, bottom of lower cards.
-        const fade =
+        // Fade toward the outer edge with a white wash, so the card itself stays opaque.
+        const wash =
           diff === 0 || absDiff > 2
             ? undefined
-            : `linear-gradient(to ${diff < 0 ? "bottom" : "top"}, rgba(0,0,0,${FADE[absDiff]}), #000 75%)`;
+            : `linear-gradient(to ${diff < 0 ? "bottom" : "top"}, rgba(255,255,255,${1 - FADE[absDiff]}), rgba(255,255,255,0) 75%)`;
 
         return (
           <div
@@ -238,46 +236,28 @@ export function HeroCapabilityCard() {
               zIndex: 30 - absDiff * 10,
               opacity: absDiff > 2 ? 0 : 1,
               pointerEvents: absDiff > 2 ? "none" : "auto",
-              maskImage: fade,
-              WebkitMaskImage: fade,
               transition: "transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease",
             }}
             className={`absolute overflow-hidden rounded-2xl border border-slate-200/90 bg-white ${SHADOWS[Math.min(absDiff, 2)]}`}
           >
-            {diff < 0 && absDiff <= 2 && (
+            {wash && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 z-[5]"
+                style={{ background: wash }}
+              />
+            )}
+
+            {diff !== 0 && absDiff <= 2 && (
               <button
                 type="button"
                 onClick={() => setCurrentIndex(idx)}
                 aria-label={`Show ${item.title}`}
-                className="flex h-[34px] w-full cursor-pointer items-center justify-between px-4 text-left transition-colors hover:bg-slate-50"
-              >
-                <span className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  {item.category}
-                </span>
-                <ChevronUp className="h-3.5 w-3.5 shrink-0 text-slate-500" />
-              </button>
+                className="absolute inset-0 z-10 cursor-pointer"
+              />
             )}
 
-            {diff > 0 && absDiff <= 2 && (
-              <button
-                type="button"
-                onClick={() => setCurrentIndex(idx)}
-                aria-label={`Show ${item.title}`}
-                className="absolute inset-x-0 bottom-0 flex h-[34px] cursor-pointer items-center justify-between border-t border-slate-100 px-4 text-left transition-colors hover:bg-slate-50"
-              >
-                <span className="truncate text-[11px] font-semibold text-slate-600">
-                  {item.title}
-                </span>
-                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-500" />
-              </button>
-            )}
-
-            <div
-              aria-hidden={diff !== 0}
-              className={`flex h-full flex-col justify-between p-5 transition-opacity duration-300 ${
-                diff === 0 ? "opacity-100" : "pointer-events-none opacity-0"
-              }`}
-            >
+            <div aria-hidden={diff !== 0} className="flex h-full flex-col justify-between p-5">
               <div className="flex items-start gap-3.5">
                 <div
                   className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${item.accentColor}`}
