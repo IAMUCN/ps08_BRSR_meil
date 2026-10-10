@@ -16,8 +16,6 @@ import {
   HardHat,
   ChevronUp,
   ChevronDown,
-  Pause,
-  Play,
 } from "lucide-react";
 
 export interface CapabilityItem {
@@ -185,8 +183,7 @@ export function HeroCapabilityCard() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const [userPaused, setUserPaused] = useState(false);
-  const isPaused = hovered || focused || userPaused;
+  const isPaused = hovered || focused;
   const total = CAPABILITIES.length;
 
   useEffect(() => {
@@ -313,15 +310,6 @@ export function HeroCapabilityCard() {
           </div>
         );
       })}
-
-      <button
-        type="button"
-        onClick={() => setUserPaused((v) => !v)}
-        aria-label={userPaused ? "Resume rotation" : "Pause rotation"}
-        className="absolute bottom-0 left-0 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-xs transition-colors hover:text-[#313490]"
-      >
-        {userPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
-      </button>
     </div>
   );
 }

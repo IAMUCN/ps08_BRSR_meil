@@ -70,7 +70,7 @@ export function HeroSection() {
 
           <BlurFade
             delay={0.2}
-            className="relative flex justify-center lg:col-span-6 lg:justify-end"
+            className="relative flex justify-center lg:col-span-6 lg:justify-end lg:self-start"
           >
             <HeroCapabilityCard />
           </BlurFade>
