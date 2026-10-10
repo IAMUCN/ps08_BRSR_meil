@@ -61,3 +61,16 @@ PDFs). **Not run:** the end-to-end suite and the browser test (both updated for 
   Label / value rows in the record, approval and OCR panels share a baseline. A click anywhere on a row opens
   its panel in the approval, validation, records, OCR and scope tables (`components/ui/row-click.ts`).
   The sidebar is back to Users before Roles & Permissions, at the owner's second request.
+
+## 2026-10-10 — Organization page (A31)
+
+- **Add forms hidden until asked for.** Two buttons above the grid open the single-unit form or the
+  spreadsheet import in the shared side panel. The grid is back to two columns; while the panel is docked the
+  grid is padded by the panel's width, because this page is wider than the space the docked panel assumes.
+  After a single unit is added the panel closes and the new unit is selected.
+- **Unit and expected submissions in one tile**, since the ticks belong to the selected unit.
+- **Save and Clear for expected submissions.** Ticks are held in the browser until Save, which writes each
+  changed tick through the existing `setExpectation` procedure (one audited write each; a refusal stops the
+  rest). "Clear" was read as "untick everything" — the agent's reading; it also needs Save. Selecting another
+  unit drops unsaved ticks without a warning.
+- Checked: typecheck, lint, format. Not viewed in a browser.

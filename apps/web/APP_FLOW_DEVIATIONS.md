@@ -530,3 +530,14 @@ Decision: `.grill/page-feedback-2026-10-09-decisions.md` (owner's page feedback)
 - **Organization** is three columns on wide screens: the tree (kept in view while scrolling), the selected
   unit, and the cards for adding units under it. "Child node" is worded as "unit under {name}"; the expected
   submissions card names the unit it applies to.
+
+## A31 — Organization: add forms in a side panel; expected submissions saved with a button
+
+Decision: `.grill/page-feedback-2026-10-09-decisions.md` (owner's page feedback, 2026-10-10). Replaces the
+three-column layout in A30.
+
+- **Adding units:** two buttons above the page, _Add a unit_ and _Add from a spreadsheet_; the form opens in
+  the side panel (docked on wide screens, where the page makes room for it) and is not shown otherwise.
+- **One tile for the selected unit:** its name and code, then its expected submissions.
+- **Expected submissions** are no longer written tick by tick: _Save expected submissions_ writes the changed
+  ticks, _Clear all_ unticks every box (still needs Save), and the number of unsaved changes is shown.

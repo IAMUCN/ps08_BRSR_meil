@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-10-09._
+_Last updated: 2026-10-10._
 
 ---
 
@@ -130,6 +130,9 @@ _Last updated: 2026-10-09._
   the record panel in two columns when expanded; whole rows clickable in the panel-opening tables.
   Typecheck, lint, format pass; **not viewed in a browser** — the docking is CSS and Radix behaviour that only
   a real screen confirms.
+- **Uncommitted (2026-10-10, owner's page feedback, A31):** Organization page — the add forms open in the side
+  panel from two buttons, the unit and its expected submissions are one tile, and the ticks are written by a
+  Save button (Clear all unticks). Typecheck, lint, format pass; **not viewed in a browser**.
 - **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
   org unit, one open period `AUG26`, three users at the group. Needs, in order: a second Admin invited
   by the owner for the agent (see §2); then the factor script and an org tree.
@@ -157,7 +160,7 @@ _Last updated: 2026-10-09._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D34** and **A31**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D34** and **A32**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on

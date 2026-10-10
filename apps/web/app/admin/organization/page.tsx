@@ -16,7 +16,7 @@ export default async function OrganizationPage({ searchParams }: PageProps<"/adm
   const selectedId = typeof params.node === "string" ? params.node : null;
 
   return (
-    // Wider than the other Admin pages: tree, selected unit and the add forms sit side by side.
+    // Wider than the other Admin pages: the tree and the selected unit sit side by side.
     <div className="max-w-[1760px]">
       <PageHeader
         title="Organization"
