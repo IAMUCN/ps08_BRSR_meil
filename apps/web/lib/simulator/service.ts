@@ -120,8 +120,13 @@ export async function getSimulatorBaseline(
     const scopeCode = m.top_scope_code as ScopeCode;
     const existing = consolidationMap.get(m.metric_id);
 
-    // Prefer approved value; if none approved but calculated exists, note it
-    const rawVal = existing?.approved_value ?? 0;
+    // Prefer approved value; if none approved but calculated exists, use it
+    const rawVal =
+      existing?.approved_value && existing.approved_value > 0
+        ? existing.approved_value
+        : existing?.total_calculated_value && existing.total_calculated_value > 0
+          ? existing.total_calculated_value
+          : 0;
     const emissionsTco2e = toTonnesCo2e(rawVal, existing?.value_unit ?? "tCO2e");
     const recordCount = existing?.record_count ?? 0;
     const isEligible = emissionsTco2e > 0;

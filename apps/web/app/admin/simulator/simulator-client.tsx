@@ -282,8 +282,7 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
           <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
             <AlertTriangle className="size-4 shrink-0" aria-hidden />
             <span>
-              <strong>{currentCategory.name}</strong> currently has no approved calculation baseline in this period.
-              Simulation models are enabled only for categories with verified calculation records.
+              <strong>{currentCategory.name}</strong> has no approved baseline records in this period (Baseline: 0.00 tCO₂e). You can still adjust hypothetical reduction assumptions freely; potential savings will apply once source records are verified and approved.
             </span>
           </div>
         )}
@@ -397,7 +396,7 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
               step="1"
               value={reductionPercent}
               onChange={(e) => setReductionPercent(Number(e.target.value))}
-              disabled={!currentCategory?.isEligible}
+              disabled={!currentCategory}
               className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Hypothetical reduction percentage slider"
             />
@@ -428,7 +427,7 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
                     const parsed = validateReductionPercent(e.target.value);
                     setReductionPercent(parsed.value);
                   }}
-                  disabled={!currentCategory?.isEligible}
+                  disabled={!currentCategory}
                   className="h-8 w-full rounded-md border border-input bg-background pr-6 pl-2.5 font-mono text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none disabled:opacity-50"
                 />
                 <span className="pointer-events-none absolute top-2 right-2 text-xs text-muted-foreground">
@@ -445,7 +444,7 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
                   key={p}
                   type="button"
                   onClick={() => handlePresetClick(p)}
-                  disabled={!currentCategory?.isEligible}
+                  disabled={!currentCategory}
                   className={`rounded border px-2 py-0.5 text-[11px] font-medium transition-colors ${
                     reductionPercent === p
                       ? "border-primary bg-primary text-primary-foreground"
