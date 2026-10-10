@@ -85,7 +85,7 @@ async function traces(sql: Sql, where: ReturnType<Sql>, byCalculation: boolean) 
         inputs: inputs.map(({ label, value, unit }) => ({ label, value, unit })),
         formula:
           formula?.op === "percentage"
-            ? `${label(formula.part)} ÷ ${label(formula.whole)} × 100`
+            ? `${label(formula.part)} ÷ ${label(formula.whole)} × ${formula.scale.toLocaleString("en-IN")}`
             : formula?.op === "subtract"
               ? `${label(formula.inputs[0])} − ${label(formula.inputs[1])}`
               : null,

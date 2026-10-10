@@ -21,7 +21,14 @@ export type MetricInfo = {
   unit: string;
   requiresCalculation: boolean;
   /** Set for percentage metrics: the field keys and their labels. */
-  ratio: { part: string; whole: string; partLabel: string; wholeLabel: string } | null;
+  ratio: {
+    part: string;
+    whole: string;
+    partLabel: string;
+    wholeLabel: string;
+    /** part ÷ whole × scale; 100 (a percentage) when absent. */
+    scale?: number;
+  } | null;
 };
 
 export type Figure = {
@@ -44,7 +51,8 @@ export type Consolidated = {
   } | null;
 };
 
-const ratio = (part: number, whole: number) => (whole === 0 ? null : (part / whole) * 100);
+const ratio = (part: number, whole: number, scale = 100) =>
+  whole === 0 ? null : (part / whole) * scale;
 
 export function consolidate(
   info: MetricInfo,
@@ -71,9 +79,9 @@ export function consolidate(
       figures: records
         ? [
             {
-              unit: "%",
-              approved: ratio(approved.part, approved.whole),
-              awaiting: ratio(awaiting.part, awaiting.whole),
+              unit: (info.ratio.scale ?? 100) === 100 ? "%" : info.unit,
+              approved: ratio(approved.part, approved.whole, info.ratio.scale),
+              awaiting: ratio(awaiting.part, awaiting.whole, info.ratio.scale),
               records,
             },
           ]

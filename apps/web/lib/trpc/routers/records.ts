@@ -4,12 +4,16 @@ import { z } from "zod";
 import { loadCalculations } from "@/lib/calculation/lookup";
 import type { CalculationState } from "@/lib/calculation/trace";
 import { financialYearOf, financialYearRange } from "@/lib/consolidation/aggregate";
+import { writeAudit } from "@/lib/audit";
 import {
+  missingSubmissionOwners,
   missingSubmissions,
   summary,
   type MissingSubmission,
   type Summary,
 } from "@/lib/dashboard/summary";
+import { kpiTrends, type KpiTrends, type TrendRow } from "@/lib/dashboard/trends";
+import { sendEmail, submissionReminderEmailHtml } from "@/lib/email/brevo";
 import { db } from "@/lib/db";
 import {
   ISSUES,
@@ -129,6 +133,130 @@ export const recordsRouter = router({
         summary: context.periodId ? await summary(db(), context.orgUnitId, context.periodId) : null,
       };
     }),
+
+  /** The headline figures of each financial year for the node and everything beneath it. */
+  kpiTrends: permissionProcedure("monitoring.view")
+    .input(z.object({ orgUnitId: z.uuid() }))
+    .query(async ({ input }): Promise<KpiTrends> => {
+      const rows = await db()<
+        {
+          financial_year: number;
+          scope_code: string | null;
+          metric_code: string;
+          value: number | null;
+          unit: string | null;
+          activity: number | null;
+          activity_unit: string | null;
+        }[]
+      >`
+        select (extract(year from p.start_date)::int
+                 - case when extract(month from p.start_date) < 4 then 1 else 0 end) as financial_year,
+               coalesce(ps.code, s.code) as scope_code, m.code as metric_code,
+               sum(cr.value)::float as value, cr.value_unit as unit,
+               sum(r.activity_value_verified)::float as activity, r.activity_unit
+        from public.consolidation_records cr
+        join public.esg_records r on r.id = cr.esg_record_id
+        join public.reporting_periods p on p.id = cr.reporting_period_id
+        join public.esg_metrics m on m.id = cr.metric_id
+        left join public.scopes s on s.id = m.scope_id
+        left join public.scopes ps on ps.id = s.parent_scope_id
+        where cr.org_unit_id = ${input.orgUnitId} and cr.approval_status = 'approved'
+          and cr.value is not null
+          and (m.scope_id is not null or m.code = 'WATER_CONSUMPTION')
+        group by 1, 2, 3, cr.value_unit, r.activity_unit`;
+      return kpiTrends(
+        rows.map((r): TrendRow => ({
+          financialYear: r.financial_year,
+          scopeCode: r.scope_code,
+          metricCode: r.metric_code,
+          value: r.value,
+          unit: r.unit,
+          activity: r.activity,
+          activityUnit: r.activity_unit,
+        })),
+      );
+    }),
+
+  /**
+   * Reminds the people who can file each missing expected submission: one in-app notification each, and an
+   * email when email is configured. At most one reminder per person per period per day.
+   */
+  // ponytail: sent when an Admin presses the button — there is no scheduler. Add a daily job when the app
+  // is deployed somewhere that has one.
+  remindMissing: adminProcedure.input(contextInput).mutation(async ({ ctx, input }) => {
+    const context = await resolveContext(input.orgUnitId, input.periodId);
+    if (!context.periodId) return { missing: 0, reminded: 0, emailed: 0, alreadyReminded: 0 };
+    const sql = db();
+    const [missing, owners, [period]] = await Promise.all([
+      missingSubmissions(sql, context.orgUnitId, context.periodId),
+      missingSubmissionOwners(sql, context.orgUnitId, context.periodId),
+      sql<{ closes_on: string | null }[]>`
+          select to_char(submission_closes_on, 'DD Mon YYYY') as closes_on
+          from public.reporting_periods where id = ${context.periodId}`,
+    ]);
+    const people = [...new Set(owners.map((o) => o.userId))].map((userId) => {
+      const items = owners.filter((o) => o.userId === userId);
+      return { userId, email: items[0].email, displayName: items[0].displayName, items };
+    });
+
+    const reminded: typeof people = [];
+    await sql.begin(async (tx) => {
+      for (const person of people) {
+        const n = person.items.length;
+        const inserted = await tx`
+            insert into public.notifications
+              (user_id, type, title, message, related_entity_type, related_entity_id, deep_link_path)
+            select ${person.userId}, 'submission_reminder', 'Submissions still expected',
+                   ${`${n} expected submission${n === 1 ? " is" : "s are"} missing for ${context.periodLabel}: ${person.items
+                     .slice(0, 3)
+                     .map((i) => `${i.metricName} (${i.orgUnitName})`)
+                     .join(", ")}${n > 3 ? ` and ${n - 3} more` : ""}.`},
+                   'reporting_period', ${context.periodId}, '/app/upload'
+            where not exists (
+              select 1 from public.notifications x
+              where x.user_id = ${person.userId} and x.type = 'submission_reminder'
+                and x.related_entity_id = ${context.periodId}
+                and x.created_at > now() - interval '1 day')
+            returning id`;
+        if (inserted.length) reminded.push(person);
+      }
+      if (reminded.length) {
+        await writeAudit(tx, {
+          eventType: "submission.reminders_sent",
+          entityType: "reporting_period",
+          entityId: context.periodId,
+          userId: ctx.session.userId,
+          newValue: {
+            org_unit_id: context.orgUnitId,
+            missing: missing.length,
+            reminded_user_ids: reminded.map((p) => p.userId),
+          },
+        });
+      }
+    });
+
+    // Email after the transaction: a slow or failing mail server must not undo the notifications.
+    const sent = await Promise.all(
+      reminded.map((person) =>
+        sendEmail({
+          to: { email: person.email, name: person.displayName },
+          subject: `TraceESG: ${person.items.length} submission(s) still expected for ${context.periodLabel}`,
+          html: submissionReminderEmailHtml({
+            displayName: person.displayName,
+            periodLabel: context.periodLabel,
+            closesOn: period?.closes_on ?? null,
+            items: person.items,
+          }),
+        }),
+      ),
+    );
+    return {
+      missing: missing.length,
+      reminded: reminded.length,
+      emailed: sent.filter((r) => r.sent).length,
+      alreadyReminded: people.length - reminded.length,
+    };
+  }),
 
   search: adminProcedure
     .input(searchInput)

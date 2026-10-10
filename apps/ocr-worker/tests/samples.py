@@ -249,6 +249,28 @@ def training_record_pdf(
     return _statement("Sample HR Services", "TRAINING ATTENDANCE RECORD", rows)
 
 
+def safety_statement_pdf(
+    period: str = "01-Sep-2026 to 30-Sep-2026",
+    hours: str = "2,40,000",
+    lost_time: str = "1",
+    recordable: str = "3",
+    fatalities: str = "0",
+    high_consequence: str = "0",
+    workforce: str = "Workers (including contract workers)",
+) -> bytes:
+    """An EHS safety incident statement for one period and one category of workforce."""
+    rows = [
+        ("Statement Period:", period),
+        ("Workforce Category:", workforce),
+        ("Person-hours Worked:", hours),
+        ("Lost Time Injuries:", lost_time),
+        ("Recordable Injuries:", recordable),
+        ("Fatalities:", fatalities),
+        ("High Consequence Injuries:", high_consequence),
+    ]
+    return _statement("Sample EHS Department", "SAFETY INCIDENT STATEMENT", rows)
+
+
 def water_bill_pdf(
     bill: str = "WB-2026-0001",
     period: str = "01-Sep-2026 to 30-Sep-2026",

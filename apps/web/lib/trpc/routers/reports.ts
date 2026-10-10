@@ -5,7 +5,11 @@ import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { loadCalculationsById } from "@/lib/calculation/lookup";
 import type { CalculationState } from "@/lib/calculation/trace";
-import { financialYearLabel, financialYearOf } from "@/lib/consolidation/aggregate";
+import {
+  financialYearLabel,
+  financialYearOf,
+  financialYearRange,
+} from "@/lib/consolidation/aggregate";
 import { db } from "@/lib/db";
 import { expireStaleRuns, runReport } from "@/lib/reports/generate";
 import { REPORT_INPUTS_KEY, type FyInputs } from "@/lib/reports/inputs";
@@ -27,6 +31,22 @@ export type ReportRunRow = {
   requestedAt: string;
   completedAt: string | null;
   error: string | null;
+};
+
+/** One evidence file behind a record of a financial year. */
+export type EvidenceFile = {
+  documentId: string;
+  recordId: string;
+  fileName: string;
+  /** The document the values were read from; false for a supporting file added later. */
+  isPrimary: boolean;
+  metricName: string;
+  orgUnitName: string;
+  periodLabel: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  /** The record's approval status, or "rejected". */
+  approvalStatus: string;
 };
 
 export type ReportOptions = {
@@ -88,6 +108,53 @@ export const reportsRouter = router({
           newValue: { financial_year: year, ...values },
         });
       });
+    }),
+
+  /** Every evidence file linked to a record whose reporting period lies in the financial year. */
+  evidence: adminProcedure
+    .input(z.object({ financialYear }))
+    .query(async ({ input }): Promise<EvidenceFile[]> => {
+      const { from, to } = financialYearRange(input.financialYear);
+      const rows = await db()<
+        {
+          document_id: string;
+          record_id: string;
+          file_name: string;
+          is_primary: boolean;
+          metric_name: string;
+          org_unit_name: string;
+          period_label: string;
+          uploaded_by: string;
+          uploaded_at: Date;
+          approval_status: string;
+        }[]
+      >`
+        select d.id as document_id, r.id as record_id, d.file_name, erd.is_primary,
+               m.name as metric_name, o.name as org_unit_name, p.label as period_label,
+               u.display_name as uploaded_by, d.created_at as uploaded_at,
+               case when r.data_quality_state = 'rejected' then 'rejected'
+                    else r.approval_status::text end as approval_status
+        from public.esg_records r
+        join public.reporting_periods p on p.id = r.reporting_period_id
+        join public.esg_record_documents erd on erd.esg_record_id = r.id
+        join public.documents d on d.id = erd.document_id and d.deleted_at is null
+        join public.esg_metrics m on m.id = r.metric_id
+        join public.org_units o on o.id = r.org_unit_id
+        join public.users u on u.id = d.uploaded_by
+        where p.start_date >= ${from} and p.end_date <= ${to}
+        order by p.start_date, o.name, m.name, erd.is_primary desc, d.created_at`;
+      return rows.map((r) => ({
+        documentId: r.document_id,
+        recordId: r.record_id,
+        fileName: r.file_name,
+        isPrimary: r.is_primary,
+        metricName: r.metric_name,
+        orgUnitName: r.org_unit_name,
+        periodLabel: r.period_label,
+        uploadedBy: r.uploaded_by,
+        uploadedAt: r.uploaded_at.toISOString(),
+        approvalStatus: r.approval_status,
+      }));
     }),
 
   options: generateProcedure.query(async (): Promise<ReportOptions> => {

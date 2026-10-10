@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
 import { requireAdminSession } from "@/lib/auth/session";
 import { financialYearLabel } from "@/lib/consolidation/aggregate";
-import { PRINCIPLE_TITLES } from "@/lib/reports/html";
+import { PRINCIPLE_TITLES } from "@/lib/brsr/principles";
 import { api } from "@/lib/trpc/server";
 import { DisclosureAnswer } from "./disclosure-answer";
 
@@ -37,6 +37,9 @@ export default async function DisclosuresPage({ searchParams }: PageProps<"/admi
   const all = sections.flatMap((s) => s.indicators);
   const typed = all.filter((i) => i.kind === "statement");
   const answered = typed.filter((i) => i.answer).length;
+  const firstOpen = sections.find((s) =>
+    s.indicators.some((i) => i.kind === "statement" && !i.answer),
+  )?.code;
 
   return (
     <div className="max-w-5xl space-y-4">
@@ -69,7 +72,12 @@ export default async function DisclosuresPage({ searchParams }: PageProps<"/admi
       {sections.map((section) => {
         const done = section.indicators.filter((i) => i.answer).length;
         return (
-          <details key={section.code} className="rounded-md border bg-card">
+          <details
+            key={section.code}
+            // The first section with something left to answer starts open.
+            open={section.code === firstOpen}
+            className="rounded-md border bg-card"
+          >
             <summary className="cursor-pointer px-4 py-3 text-base leading-6 font-semibold">
               Section {section.code} — {section.name}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
@@ -86,7 +94,7 @@ export default async function DisclosuresPage({ searchParams }: PageProps<"/admi
                       ? i.part
                       : null;
                 return (
-                  <div key={i.id} className="space-y-2">
+                  <div key={i.id} id={`q-${i.code}`} className="scroll-mt-4 space-y-2">
                     {heading ? (
                       <h3 className="border-b pb-1 text-sm leading-5 font-semibold">{heading}</h3>
                     ) : null}

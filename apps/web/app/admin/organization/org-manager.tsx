@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, FileSpreadsheet, Loader2, Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -11,6 +11,13 @@ import { OrgUnitBulkImport } from "@/components/bulk-import/org-unit-bulk-import
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { bulkImportOrgUnitsAction } from "@/lib/bulk-import/actions";
 import {
@@ -59,6 +66,8 @@ export function OrgManager({
   }, [nodes]);
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Which add form the side panel shows; closed until one of the two buttons is pressed.
+  const [adding, setAdding] = useState<"one" | "many" | null>(null);
 
   function select(id: string) {
     router.replace(`${pathname}?node=${id}`, { scroll: false });
@@ -127,8 +136,34 @@ export function OrgManager({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(280px,380px)_1fr]">
-      <section aria-label="Organization tree" className="rounded-md border bg-card p-2">
+    // Tree | the selected unit. The add forms open in a side panel; while it is docked (1900px and up) the
+    // page makes room for it instead of sitting underneath.
+    <div
+      className={cn(
+        "grid items-start gap-6 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]",
+        adding && "min-[1900px]:pr-[clamp(20rem,calc(100vw-98.5rem),40rem)]",
+      )}
+    >
+      {selected ? (
+        <div className="flex flex-wrap justify-end gap-2 lg:col-span-2">
+          <Button type="button" variant="outline" onClick={() => setAdding("one")}>
+            <Plus aria-hidden />
+            Add a unit
+          </Button>
+          <Button type="button" variant="outline" onClick={() => setAdding("many")}>
+            <FileSpreadsheet aria-hidden />
+            Add from a spreadsheet
+          </Button>
+        </div>
+      ) : null}
+      <section
+        aria-label="Organization tree"
+        // Stays in view while the panels beside it scroll.
+        className="rounded-md border bg-card p-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
+      >
+        <h2 className="px-2 pt-1 pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Organization tree
+        </h2>
         {root ? <ul>{renderNode(root, 0)}</ul> : null}
       </section>
       {selected ? (
@@ -138,22 +173,58 @@ export function OrgManager({
           nodes={nodes}
           levels={levels}
           onChanged={() => router.refresh()}
-          onSelect={select}
         />
       ) : (
         <p className="text-sm text-muted-foreground">No organization root exists yet.</p>
       )}
+      {selected ? (
+        <Sheet open={adding !== null} onOpenChange={(open) => (open ? null : setAdding(null))}>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>
+                {adding === "many"
+                  ? "Add several units from a spreadsheet"
+                  : `Add a unit under ${selected.name}`}
+              </SheetTitle>
+              <SheetDescription>
+                {adding === "many"
+                  ? "Download the template, list the new units, and upload it."
+                  : `Creates a new company, business unit, project or other level directly beneath ${selected.name}. To add under a different unit, select it in the tree first.`}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="overflow-y-auto px-4 pb-6">
+              {adding ? (
+                <AddChildren
+                  key={selected.id}
+                  mode={adding}
+                  node={selected}
+                  nodes={nodes}
+                  levels={levels}
+                  onChanged={() => router.refresh()}
+                  onSelect={(id) => {
+                    setAdding(null);
+                    select(id);
+                  }}
+                />
+              ) : null}
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : null}
     </div>
   );
 }
 
-function NodeDetail({
+/** Adding children to the selected node, one at a time or from a spreadsheet — the body of the side panel. */
+function AddChildren({
+  mode,
   node,
   nodes,
   levels,
   onChanged,
   onSelect,
 }: {
+  mode: "one" | "many";
   node: OrgUnitRow;
   nodes: OrgUnitRow[];
   levels: OrgLevel[];
@@ -163,14 +234,118 @@ function NodeDetail({
   const [pending, startTransition] = useTransition();
   const frozen = isFrozen(node.id, nodes);
   const frozenByAncestor = frozen && node.status === "active";
-  const parent = nodes.find((n) => n.id === node.parentId);
   const childTypes = allowedChildTypes(levels, node.unitType);
-
-  const [name, setName] = useState(node.name);
-  const [code, setCode] = useState(node.code ?? "");
   const [childType, setChildType] = useState<OrgUnitType | "">(childTypes[0] ?? "");
   const [childName, setChildName] = useState("");
   const [childCode, setChildCode] = useState("");
+
+  function onAddChild(event: FormEvent) {
+    event.preventDefault();
+    if (!childType) return;
+    startTransition(async () => {
+      const result = await createOrgUnitAction({
+        parentId: node.id,
+        unitType: childType,
+        name: childName,
+        code: childCode,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Node added");
+      setChildName("");
+      setChildCode("");
+      onSelect(result.data.id);
+      onChanged();
+    });
+  }
+
+  if (mode === "many") {
+    return (
+      <OrgUnitBulkImport
+        nodes={nodes.filter((n) => !isFrozen(n.id, nodes))}
+        levels={levels}
+        defaultParentId={node.id}
+        importAction={bulkImportOrgUnitsAction}
+        onImported={onChanged}
+      />
+    );
+  }
+
+  return (
+    <>
+      {frozen ? (
+        <p className="text-sm leading-5 text-muted-foreground">
+          {node.name} is inactive{frozenByAncestor ? " because a unit above it is inactive" : ""} —
+          nothing new can be added under it.
+        </p>
+      ) : childTypes.length === 0 ? (
+        <p className="text-sm leading-5 text-muted-foreground">
+          This is the lowest level; nothing can be added beneath it.
+        </p>
+      ) : (
+        <form onSubmit={onAddChild} className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="child-type">Level</Label>
+            <NativeSelect
+              id="child-type"
+              value={childType}
+              onChange={(e) => setChildType(e.target.value as OrgUnitType)}
+            >
+              {childTypes.map((type) => (
+                <option key={type} value={type}>
+                  {levelLabel(levels, type)}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="child-name">Name</Label>
+            <Input
+              id="child-name"
+              value={childName}
+              onChange={(e) => setChildName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="child-code">Code (optional)</Label>
+            <Input
+              id="child-code"
+              value={childCode}
+              onChange={(e) => setChildCode(e.target.value)}
+              className="font-mono"
+            />
+          </div>
+          <Button type="submit" disabled={pending || childName.trim() === ""}>
+            {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+            Add
+          </Button>
+        </form>
+      )}
+    </>
+  );
+}
+
+function NodeDetail({
+  node,
+  nodes,
+  levels,
+  onChanged,
+}: {
+  node: OrgUnitRow;
+  nodes: OrgUnitRow[];
+  levels: OrgLevel[];
+  onChanged: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const frozen = isFrozen(node.id, nodes);
+  const frozenByAncestor = frozen && node.status === "active";
+  const parent = nodes.find((n) => n.id === node.parentId);
+
+  const [name, setName] = useState(node.name);
+  const [code, setCode] = useState(node.code ?? "");
   const [newParentId, setNewParentId] = useState("");
   const [moveOpen, setMoveOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -203,26 +378,6 @@ function NodeDetail({
   function onSave(event: FormEvent) {
     event.preventDefault();
     run(() => updateOrgUnitAction({ id: node.id, name, code }), "Saved");
-  }
-
-  function onAddChild(event: FormEvent) {
-    event.preventDefault();
-    if (!childType) return;
-    run(
-      () =>
-        createOrgUnitAction({
-          parentId: node.id,
-          unitType: childType,
-          name: childName,
-          code: childCode,
-        }),
-      "Node added",
-      (data) => {
-        setChildName("");
-        setChildCode("");
-        onSelect(data.id);
-      },
-    );
   }
 
   function openStatusDialog() {
@@ -290,78 +445,8 @@ function NodeDetail({
             Save
           </Button>
         </form>
-      </div>
 
-      <ExpectationsCard orgUnitId={node.id} />
-
-      <div className="rounded-md border bg-card p-6">
-        <h3 className="text-base leading-6 font-semibold">Add a child node</h3>
-        {frozen ? (
-          <p className="mt-2 text-sm leading-5 text-muted-foreground">
-            This node is inactive{frozenByAncestor ? " because a parent is inactive" : ""} — no new
-            child nodes.
-          </p>
-        ) : childTypes.length === 0 ? (
-          <p className="mt-2 text-sm leading-5 text-muted-foreground">
-            Departments are the lowest level.
-          </p>
-        ) : (
-          <form
-            onSubmit={onAddChild}
-            className="mt-4 grid gap-4 sm:grid-cols-[200px_1fr_160px_auto] sm:items-end"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="child-type">Level</Label>
-              <NativeSelect
-                id="child-type"
-                value={childType}
-                onChange={(e) => setChildType(e.target.value as OrgUnitType)}
-              >
-                {childTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {levelLabel(levels, type)}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="child-name">Name</Label>
-              <Input
-                id="child-name"
-                value={childName}
-                onChange={(e) => setChildName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="child-code">Code (optional)</Label>
-              <Input
-                id="child-code"
-                value={childCode}
-                onChange={(e) => setChildCode(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-            <Button type="submit" disabled={pending || childName.trim() === ""}>
-              {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              Add
-            </Button>
-          </form>
-        )}
-      </div>
-
-      <div className="rounded-md border bg-card p-6">
-        <h3 className="text-base leading-6 font-semibold">Bulk-add child nodes</h3>
-        <p className="mt-1 mb-4 text-sm leading-5 text-muted-foreground">
-          Create several child nodes at once from a spreadsheet, instead of one at a time above.
-        </p>
-        <OrgUnitBulkImport
-          nodes={nodes.filter((n) => !isFrozen(n.id, nodes))}
-          levels={levels}
-          defaultParentId={node.id}
-          importAction={bulkImportOrgUnitsAction}
-          onImported={onChanged}
-        />
+        <ExpectationsCard orgUnitId={node.id} nodeName={node.name} />
       </div>
 
       {node.parentId ? (
@@ -475,14 +560,19 @@ function NodeDetail({
 }
 
 /** Expected submissions (D16): what this node must file each period — the Control Tower's denominators. */
-function ExpectationsCard({ orgUnitId }: { orgUnitId: string }) {
+function ExpectationsCard({ orgUnitId, nodeName }: { orgUnitId: string; nodeName: string }) {
+  // `rows` is what the boxes show; `saved` is what the server holds. Nothing is written until Save.
   const [rows, setRows] = useState<OrgExpectation[] | null>(null);
+  const [saved, setSaved] = useState<Map<string, boolean>>(new Map());
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     let live = true;
     orgExpectationsAction({ orgUnitId }).then((result) => {
-      if (live) setRows(result.ok ? result.data : []);
+      if (!live) return;
+      const data = result.ok ? result.data : [];
+      setRows(data);
+      setSaved(new Map(data.map((r) => [r.metricId, r.expected])));
     });
     return () => {
       live = false;
@@ -490,60 +580,120 @@ function ExpectationsCard({ orgUnitId }: { orgUnitId: string }) {
   }, [orgUnitId]);
 
   function toggle(row: OrgExpectation) {
-    // Optimistic: the box flips at once and flips back if the server refuses.
-    const flip = (expected: boolean) =>
-      setRows(
-        (prev) => prev?.map((r) => (r.metricId === row.metricId ? { ...r, expected } : r)) ?? null,
-      );
-    flip(!row.expected);
+    setRows(
+      (prev) =>
+        prev?.map((r) => (r.metricId === row.metricId ? { ...r, expected: !r.expected } : r)) ??
+        null,
+    );
+  }
+
+  const changed = (rows ?? []).filter((r) => r.expected !== saved.get(r.metricId));
+
+  function save() {
     startTransition(async () => {
-      const result = await setExpectationAction({
-        orgUnitId,
-        metricId: row.metricId,
-        expected: !row.expected,
-      });
-      if (!result.ok) {
-        flip(row.expected);
-        toast.error(result.error);
-        return;
+      // One change at a time: each is its own audited write, and a refusal stops the rest.
+      const done = new Map(saved);
+      for (const row of changed) {
+        const result = await setExpectationAction({
+          orgUnitId,
+          metricId: row.metricId,
+          expected: row.expected,
+        });
+        if (!result.ok) {
+          setSaved(done);
+          toast.error(`${row.metricName}: ${result.error}`);
+          return;
+        }
+        done.set(row.metricId, row.expected);
       }
-      toast.success(row.expected ? "No longer expected" : "Expected every period");
+      setSaved(done);
+      toast.success(`Expected submissions saved for ${nodeName}`);
     });
   }
 
-  const categories = [...new Set((rows ?? []).map((r) => r.categoryName))];
+  // Scope 1, 2 and 3 first, in the order the server sent them; everything else under one heading.
+  const OTHER = "Other disclosures";
+  const groups = [...new Set((rows ?? []).map((r) => r.scopeName ?? OTHER))];
   return (
-    <div className="rounded-md border bg-card p-6">
+    <div className="mt-6 border-t pt-6">
       <h3 className="text-base leading-6 font-semibold">Expected submissions</h3>
       <p className="mt-1 text-sm leading-5 text-muted-foreground">
-        What this node must submit in every period of the metric&apos;s frequency. The Control
+        What {nodeName} must submit in every period of the metric&apos;s frequency. The Control
         Tower&apos;s completion figures and &ldquo;missing submissions&rdquo; count against these.
+        Each unit keeps its own list; nothing is inherited from the unit above or passed down.
       </p>
       {rows === null ? (
         <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
       ) : (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {categories.map((category) => (
-            <fieldset key={category} className="space-y-1.5">
-              <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {category}
-              </legend>
-              {rows
-                .filter((r) => r.categoryName === category)
-                .map((row) => (
-                  <label key={row.metricId} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={row.expected}
-                      disabled={pending}
-                      onChange={() => toggle(row)}
-                    />
-                    {row.metricName}
-                    <span className="text-xs text-muted-foreground">{row.frequency}</span>
-                  </label>
-                ))}
-            </fieldset>
-          ))}
+        <div className="mt-4 space-y-5">
+          {groups.map((group) => {
+            const inGroup = rows.filter((r) => (r.scopeName ?? OTHER) === group);
+            const categories = [...new Set(inGroup.map((r) => r.categoryName))];
+            return (
+              <section key={group} aria-label={group}>
+                <h4 className="border-b pb-1 text-sm leading-5 font-semibold">
+                  {group}
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {inGroup.filter((r) => r.expected).length} of {inGroup.length} expected
+                  </span>
+                </h4>
+                <div className="mt-3 grid items-start gap-x-8 gap-y-4 sm:grid-cols-2">
+                  {categories.map((category) => (
+                    // A plain group, not a fieldset: a legend sits off the grid line and the two columns
+                    // then start at different heights.
+                    <div key={category} role="group" aria-label={category} className="min-w-0">
+                      <p className="mb-1.5 text-xs leading-4 font-medium tracking-wide text-muted-foreground uppercase">
+                        {category}
+                      </p>
+                      <div className="space-y-1.5">
+                        {inGroup
+                          .filter((r) => r.categoryName === category)
+                          .map((row) => (
+                            // Three fixed columns, so a name that wraps keeps its box and its
+                            // frequency on the first line.
+                            <label
+                              key={row.metricId}
+                              className="grid grid-cols-[1rem_minmax(0,1fr)_4.5rem] items-start gap-x-2 text-sm leading-5"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={row.expected}
+                                disabled={pending}
+                                onChange={() => toggle(row)}
+                                className="mt-0.5 size-4"
+                              />
+                              <span>{row.metricName}</span>
+                              <span className="text-right text-xs leading-5 text-muted-foreground capitalize">
+                                {row.frequency}
+                              </span>
+                            </label>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+          <div className="flex flex-wrap items-center gap-3 border-t pt-4">
+            <Button type="button" disabled={pending || changed.length === 0} onClick={save}>
+              {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+              Save expected submissions
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending || !rows.some((r) => r.expected)}
+              onClick={() => setRows(rows.map((r) => ({ ...r, expected: false })))}
+            >
+              Clear all
+            </Button>
+            {changed.length > 0 ? (
+              <p className="text-sm text-muted-foreground" role="status">
+                {changed.length} unsaved change{changed.length === 1 ? "" : "s"}
+              </p>
+            ) : null}
+          </div>
         </div>
       )}
     </div>

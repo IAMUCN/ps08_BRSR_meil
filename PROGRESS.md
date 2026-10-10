@@ -40,9 +40,10 @@ Big rules that shape everything:
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D32) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A28) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D33) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A30) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
+| `ASSURANCE.md` | How the system supports assurance on BRSR Core KPIs: controls, KPI-by-KPI status, an assurer's walkthrough |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
 | `CONTEXT.md` | The live state — uncommitted work, questions waiting on the owner, machine facts, owner preferences, traps already hit. Loaded with this file by `CLAUDE.md`; rewritten at the end of every session |
 | `README.md` | Setup and day-to-day commands |
@@ -667,6 +668,20 @@ report with the L&T reference and asked for the whole format.
   stressed areas are typed, not measured.
 - Checks: web unit 93/93, database 218/218, lint, typecheck, format, a report built from the local database
   and read. Not run: end-to-end, a browser click-through, production build.
+
+**Safety incidents and water discharge (2026-10-09).** Decisions:
+`.grill/safety-and-water-discharge-decisions.md`. Migration `0041` (D33): safety incident statements for
+employees and for workers (EHS) give the lost time injury frequency rate and fill SEBI's P3-E11 table; a water
+record may say where its discharge went and whether it was treated, which fills SEBI's P6-E4 table. 12 of the
+146 questions are now answered from records. OCR `rules-13`. Migration `0041` is on hosted and the hosted
+worker runs `rules-13` (2026-10-09). Checks: web unit 96/96, worker unit 44/44,
+database 225/225, lint, typecheck, format. Not run: an upload through the app, end-to-end, the build.
+
+**Grand Finale deliverables (2026-10-09).** Decisions: `.grill/grand-finale-deliverables-decisions.md`. Against
+the five stated deliverables: `ASSURANCE.md` documents how the system supports assurance on BRSR Core KPIs;
+the Control Tower shows KPI trends across financial years; Admins can send reminders for missing submissions;
+Reports has Past reports and a full-year Evidence list (A29). Checks: web unit 98/98, lint, typecheck, format.
+Not run: end-to-end, a browser view. The three-plant demonstration data is the owner's to build.
 
 ## 4. What comes next
 

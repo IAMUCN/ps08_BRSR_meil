@@ -2,8 +2,8 @@
 
     python scripts/make_sample_invoice.py              # -> sample_diesel_invoice_<number>.pdf
     python scripts/make_sample_invoice.py --kind electricity
-    python scripts/make_sample_invoice.py --kind workforce   # also training, water, procurement,
-                                                              # csr, penalty (Phase 13 modules)
+    python scripts/make_sample_invoice.py --kind workforce   # also training, safety, water,
+                                                              # procurement, csr, penalty
     python scripts/make_sample_invoice.py --out my.pdf --invoice SMP-INV-TEST-1
 
 Synthetic only (no real MEIL documents until Phase 18). Every run gets a new invoice number, so
@@ -23,6 +23,7 @@ from tests.samples import (  # noqa: E402
     electricity_bill_pdf,
     penalty_order_pdf,
     procurement_statement_pdf,
+    safety_statement_pdf,
     training_record_pdf,
     travel_invoice_pdf,
     waste_certificate_pdf,
@@ -34,6 +35,7 @@ from tests.samples import (  # noqa: E402
 MODULES = {
     "workforce": (workforce_statement_pdf, False),
     "training": (training_record_pdf, False),
+    "safety": (safety_statement_pdf, False),
     "water": (water_bill_pdf, True),
     "procurement": (procurement_statement_pdf, False),
     "csr": (csr_payment_pdf, True),

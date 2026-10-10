@@ -1,5 +1,6 @@
 "use client";
 
+import { rowClick } from "@/components/ui/row-click";
 import { CheckCircle2, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -152,7 +153,8 @@ export function ValidationQueueTable({ rows }: { rows: QueueRow[] }) {
               filtered.map((row) => (
                 <tr
                   key={row.recordId}
-                  className="border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
+                  onClick={rowClick(() => setSelectedId(row.recordId))}
+                  className="cursor-pointer border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
                 >
                   <td className="px-3 py-3">
                     <button

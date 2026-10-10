@@ -503,3 +503,41 @@ Decisions: `.grill/full-brsr-report-decisions.md`.
   is for an Admin and for answers that have no source document.
 - **The BRSR report** prints all of Sections A, B and C in SEBI's order and all 17 SDGs. Report Detail keeps
   listing only the measured indicators (the drill-down is for values).
+
+## A29 — Reports history and evidence pages, KPI trends, reminders, mapping page sections
+
+Decisions: `.grill/page-feedback-2026-10-09-decisions.md`, `.grill/grand-finale-deliverables-decisions.md`.
+
+- **Reports** gains two buttons and two pages not in App Flow §2.2: _Past reports_ (`/admin/reports/history`)
+  and _Evidence for the financial year_ (`/admin/reports/evidence`). The Reports page lists the latest five
+  runs and warns how many written disclosures are unanswered.
+- **Control Tower** gains a _KPI trends by financial year_ card below the issue panel.
+- **Submission Monitoring**, missing-submissions view, gains a _Send reminders_ button.
+- **BRSR Mapping** always shows Sections A, B and C, Section C grouped by principle, and lists each section's
+  written questions with their answered state.
+- **Organization:** expected submissions are grouped under Scope 1, 2, 3 and Other disclosures.
+- **Sidebar:** Roles & Permissions before Users. All built plainly by the feature role; the ui role may restyle.
+
+## A30 — Side panels dock on wide screens; Organization page in three columns
+
+Decision: `.grill/page-feedback-2026-10-09-decisions.md` (owner's page feedback).
+
+- **Every side panel** (record drawer, approval and validation drawers, the add / edit sheets — all built on
+  `components/ui/sheet.tsx`): on a screen 1900px wide or more, a right-hand panel docks into the empty space
+  beside the page, below the top bar, with no backdrop, and the page stays usable. An _Expand_ button opens it
+  full size over the page; _Dock_ returns it. On narrower screens panels open over the page as the UI brief
+  (§11) describes. The panel is non-modal in both views, so focus is not trapped inside the full-size view.
+- **Organization** is three columns on wide screens: the tree (kept in view while scrolling), the selected
+  unit, and the cards for adding units under it. "Child node" is worded as "unit under {name}"; the expected
+  submissions card names the unit it applies to.
+
+## A31 — Organization: add forms in a side panel; expected submissions saved with a button
+
+Decision: `.grill/page-feedback-2026-10-09-decisions.md` (owner's page feedback, 2026-10-10). Replaces the
+three-column layout in A30.
+
+- **Adding units:** two buttons above the page, _Add a unit_ and _Add from a spreadsheet_; the form opens in
+  the side panel (docked on wide screens, where the page makes room for it) and is not shown otherwise.
+- **One tile for the selected unit:** its name and code, then its expected submissions.
+- **Expected submissions** are no longer written tick by tick: _Save expected submissions_ writes the changed
+  ticks, _Clear all_ unticks every box (still needs Save), and the number of unsaved changes is shown.

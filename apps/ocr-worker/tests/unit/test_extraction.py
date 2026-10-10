@@ -357,6 +357,46 @@ class DiscomThermalBillTest(unittest.TestCase):
         lines = [line("Consumption: 5", 10, 100), line("Water withdrawn: 90", 10, 120)]
         self.assertEqual(extract_fields(lines, self.WATER_SPECS)[0].value, "90")
 
+    def test_safety_statement_counts_each_under_its_own_label(self):
+        specs = [
+            FieldSpec("person_hours", "Person-hours worked", "number"),
+            FieldSpec("lost_time_injuries", "Lost time injuries", "number"),
+            FieldSpec("recordable_injuries", "Total recordable work-related injuries", "number"),
+            FieldSpec("fatalities", "Fatalities", "number"),
+            FieldSpec("high_consequence_injuries", "High consequence injuries", "number"),
+            FieldSpec("billing_period", "Statement period", "text"),
+        ]
+        lines = [
+            line("SAFETY INCIDENT STATEMENT", 60, 170),
+            line("Statement Period:", 60, 280),
+            line("01-Sep-2026 to 30-Sep-2026", 560, 280),
+            line("Person-hours Worked:", 60, 400),
+            line("2,40,000", 560, 400),
+            line("Lost Time Injuries:", 60, 460),
+            line("1", 560, 460),
+            line("Recordable Injuries:", 60, 520),
+            line("3", 560, 520),
+            line("Fatalities:", 60, 580),
+            line("0", 560, 580),
+            line("High Consequence Injuries:", 60, 640),
+            line("2", 560, 640),
+        ]
+        self.assertEqual(
+            values(extract_fields(lines, specs)),
+            {
+                "person_hours": "240000",
+                "lost_time_injuries": "1",
+                "recordable_injuries": "3",
+                "fatalities": "0",
+                "high_consequence_injuries": "2",
+                "billing_period": "01-Sep-2026 to 30-Sep-2026",
+            },
+        )
+        self.assertEqual(
+            classify(lines, {"SAFETY_INCIDENT_STATEMENT": "a", "TRAINING_RECORD": "b"})[0],
+            "SAFETY_INCIDENT_STATEMENT",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,6 +18,7 @@ export const NOTIFICATION_TYPES = {
   report_ready: "Report ready",
   report_failed: "Report failed",
   deadline_approaching: "Deadline approaching",
+  submission_reminder: "Submission reminder",
 } as const;
 
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;

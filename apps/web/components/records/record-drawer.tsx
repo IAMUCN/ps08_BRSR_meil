@@ -91,103 +91,119 @@ export function RecordDrawer({
           </SheetDescription>
         </SheetHeader>
         {detail ? (
-          <div className="space-y-5 overflow-y-auto px-4 pb-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <StageBadge row={detail.statuses} />
-              <span className="text-sm text-muted-foreground">
-                Submitted by {detail.submittedBy}
-                {detail.verifiedBy ? `, verified by ${detail.verifiedBy}` : ""}
-              </span>
-              {queue ? (
-                <Link
-                  href={queue.href}
-                  className="ml-auto text-sm font-medium underline underline-offset-2"
-                >
-                  {queue.label}
-                </Link>
-              ) : null}
-            </div>
-
-            <section className="space-y-2">
-              <h3 className="text-sm font-semibold">Extracted and verified values</h3>
-              {detail.fields.length ? (
-                <dl className="divide-y rounded-md border text-sm">
-                  {detail.fields.map((f) => (
-                    <div key={f.label} className="flex gap-3 px-3 py-1.5">
-                      <dt className="w-40 shrink-0 text-muted-foreground">{f.label}</dt>
-                      <dd className="font-mono text-xs">{f.value ?? "—"}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : (
-                <p className="text-sm text-muted-foreground">Nothing extracted yet.</p>
-              )}
-              {detail.activityValue !== null ? (
-                <p className="text-sm">
-                  Activity value:{" "}
-                  <span className="font-mono">
-                    {formatQuantity(detail.activityValue, detail.activityUnit ?? "")}
-                  </span>
-                </p>
-              ) : null}
-            </section>
-
-            {detail.results.length ? (
-              <section className="space-y-2">
-                <h3 className="text-sm font-semibold">Validation</h3>
-                <ValidationResult
-                  results={detail.results.map((r) => ({
-                    ruleType: r.ruleType as RuleType,
-                    outcome: r.outcome as Outcome,
-                    message: r.message,
-                  }))}
-                />
-              </section>
-            ) : null}
-
-            {detail.calculation.trace || detail.calculation.blockedReason ? (
-              <CalculationTraceView state={detail.calculation} />
-            ) : null}
-
-            {detail.documentId && detail.mimeType ? (
-              <DocumentViewer
-                src={`/api/documents/${detail.documentId}/file`}
-                mimeType={detail.mimeType}
-                fileName={detail.fileName ?? "Evidence"}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">No evidence document is attached.</p>
-            )}
-
-            <EvidenceFiles recordId={detail.recordId} />
-
-            <section className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Audit trail</h3>
-                <Link
-                  href={`/admin/audit-trail?record=${detail.recordId}`}
-                  className="text-sm font-medium underline underline-offset-2"
-                >
-                  View audit history
-                </Link>
+          // Sized by the panel, not the screen: one column while docked, document beside the values once
+          // the panel is expanded.
+          <div className="@container overflow-y-auto px-4 pb-6">
+            <div className="grid gap-5 @4xl:grid-cols-2 @4xl:items-start">
+              <div className="order-last @4xl:sticky @4xl:top-0 @4xl:order-first">
+                {detail.documentId && detail.mimeType ? (
+                  <DocumentViewer
+                    src={`/api/documents/${detail.documentId}/file`}
+                    mimeType={detail.mimeType}
+                    fileName={detail.fileName ?? "Evidence"}
+                    className="@4xl:h-[calc(100vh-9rem)]"
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">No evidence document is attached.</p>
+                )}
               </div>
-              <ol className="space-y-1 text-sm">
-                {detail.audit.map((a, i) => (
-                  <li key={i} className="flex gap-3">
-                    <time className="w-36 shrink-0 font-mono text-xs text-muted-foreground">
-                      {new Date(a.at).toLocaleString("en-IN")}
-                    </time>
-                    <span>
-                      {EVENT_LABELS[a.event] ?? a.event}
-                      {a.who ? ` — ${a.who}` : " — system"}
-                      {a.reason ? (
-                        <span className="block text-xs text-muted-foreground">{a.reason}</span>
-                      ) : null}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </section>
+              <div className="min-w-0 space-y-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StageBadge row={detail.statuses} />
+                  <span className="text-sm text-muted-foreground">
+                    Submitted by {detail.submittedBy}
+                    {detail.verifiedBy ? `, verified by ${detail.verifiedBy}` : ""}
+                  </span>
+                  {queue ? (
+                    <Link
+                      href={queue.href}
+                      className="ml-auto text-sm font-medium underline underline-offset-2"
+                    >
+                      {queue.label}
+                    </Link>
+                  ) : null}
+                </div>
+
+                <section className="space-y-2">
+                  <h3 className="text-sm font-semibold">Extracted and verified values</h3>
+                  {detail.fields.length ? (
+                    <dl className="divide-y rounded-md border text-sm">
+                      {detail.fields.map((f) => (
+                        // Two columns that share the row's baseline and wrap inside their own width, so the
+                        // values line up whether the panel is docked (narrow) or expanded.
+                        <div
+                          key={f.label}
+                          className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-baseline gap-3 px-3 py-2"
+                        >
+                          <dt className="leading-5 text-muted-foreground">{f.label}</dt>
+                          <dd className="font-mono leading-5 break-words">{f.value ?? "—"}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Nothing extracted yet.</p>
+                  )}
+                  {detail.activityValue !== null ? (
+                    <p className="text-sm">
+                      Activity value:{" "}
+                      <span className="font-mono">
+                        {formatQuantity(detail.activityValue, detail.activityUnit ?? "")}
+                      </span>
+                    </p>
+                  ) : null}
+                </section>
+
+                {detail.results.length ? (
+                  <section className="space-y-2">
+                    <h3 className="text-sm font-semibold">Validation</h3>
+                    <ValidationResult
+                      results={detail.results.map((r) => ({
+                        ruleType: r.ruleType as RuleType,
+                        outcome: r.outcome as Outcome,
+                        message: r.message,
+                      }))}
+                    />
+                  </section>
+                ) : null}
+
+                {detail.calculation.trace || detail.calculation.blockedReason ? (
+                  <CalculationTraceView state={detail.calculation} />
+                ) : null}
+
+                <EvidenceFiles recordId={detail.recordId} />
+
+                <section className="space-y-2">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                    <h3 className="text-sm font-semibold">Audit trail</h3>
+                    <Link
+                      href={`/admin/audit-trail?record=${detail.recordId}`}
+                      className="text-sm font-medium underline underline-offset-2"
+                    >
+                      View audit history
+                    </Link>
+                  </div>
+                  <ol className="space-y-1 text-sm">
+                    {detail.audit.map((a, i) => (
+                      <li
+                        key={i}
+                        className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-baseline gap-3"
+                      >
+                        <time className="font-mono text-xs leading-5 text-muted-foreground">
+                          {new Date(a.at).toLocaleString("en-IN")}
+                        </time>
+                        <span className="leading-5">
+                          {EVENT_LABELS[a.event] ?? a.event}
+                          {a.who ? ` — ${a.who}` : " — system"}
+                          {a.reason ? (
+                            <span className="block text-xs text-muted-foreground">{a.reason}</span>
+                          ) : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              </div>
+            </div>
           </div>
         ) : null}
       </SheetContent>

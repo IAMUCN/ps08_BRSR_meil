@@ -183,7 +183,11 @@ export async function runCalculation(
     if (!result.ok) return blocked(result.reason);
     const unit = formula.op === "subtract" ? record.metric_unit : inputUnit;
     normalized = { value: values[keys[0]], unit };
-    base = { value: result.value, unit: formula.op === "subtract" ? record.metric_unit : "%" };
+    base = {
+      value: result.value,
+      // A rate that is not a percentage is in the metric's own unit ("per million person-hours").
+      unit: formula.op === "subtract" || formula.scale !== 100 ? record.metric_unit : "%",
+    };
   }
 
   let factorId: string | null = null;
