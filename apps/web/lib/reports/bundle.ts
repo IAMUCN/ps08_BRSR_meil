@@ -305,54 +305,54 @@ export async function generateAuditEvidenceBundle(
   const recordIds = records.map((r) => r.id);
 
   // 4. Collect calculations and conversion factor versions
-type CalculationRow = {
-  id: string;
-  esg_record_id: string;
-  formula_type: string | null;
-  result_value: number | null;
-  result_unit: string | null;
-  version: number;
-  calculated_at: Date;
-  calculated_by: string | null;
-  trace_log: unknown;
-};
+  type CalculationRow = {
+    id: string;
+    esg_record_id: string;
+    formula_type: string | null;
+    result_value: number | null;
+    result_unit: string | null;
+    version: number;
+    calculated_at: Date;
+    calculated_by: string | null;
+    trace_log: unknown;
+  };
 
-type CalcInputRow = {
-  calculation_id: string;
-  input_key: string;
-  input_value: number;
-  unit: string;
-  factor_version_id: string | null;
-  factor_name: string | null;
-  factor_value: number | null;
-  factor_unit: string | null;
-  factor_version: number | null;
-  source_reference: string | null;
-  source_url: string | null;
-};
+  type CalcInputRow = {
+    calculation_id: string;
+    input_key: string;
+    input_value: number;
+    unit: string;
+    factor_version_id: string | null;
+    factor_name: string | null;
+    factor_value: number | null;
+    factor_unit: string | null;
+    factor_version: number | null;
+    source_reference: string | null;
+    source_url: string | null;
+  };
 
-type DocumentRow = {
-  document_id: string;
-  record_id: string;
-  is_primary: boolean;
-  file_name: string;
-  mime_type: string;
-  file_size_bytes: number;
-  file_hash: string;
-  storage_path: string;
-  uploaded_by: string;
-  uploaded_at: Date;
-  ocr_job_status: string | null;
-  model_version: string | null;
-};
+  type DocumentRow = {
+    document_id: string;
+    record_id: string;
+    is_primary: boolean;
+    file_name: string;
+    mime_type: string;
+    file_size_bytes: number;
+    file_hash: string;
+    storage_path: string;
+    uploaded_by: string;
+    uploaded_at: Date;
+    ocr_job_status: string | null;
+    model_version: string | null;
+  };
 
-type ExtractionRow = {
-  document_id: string;
-  field_key: string;
-  extracted_value: string;
-  confidence_score: number;
-  page_number: number | null;
-};
+  type ExtractionRow = {
+    document_id: string;
+    field_key: string;
+    extracted_value: string;
+    confidence_score: number;
+    page_number: number | null;
+  };
 
   const calculations: CalculationRow[] =
     recordIds.length === 0
@@ -668,7 +668,14 @@ type ExtractionRow = {
   addFile("data/approvals.csv", toCsv(approvalsCsvHeaders, approvalsCsvRows));
 
   // --- G. Audit Events Data (CSV) ---
-  const auditCsvHeaders = ["event_id", "event_type", "entity_type", "entity_id", "user", "timestamp"];
+  const auditCsvHeaders = [
+    "event_id",
+    "event_type",
+    "entity_type",
+    "entity_id",
+    "user",
+    "timestamp",
+  ];
   const auditCsvRows = auditEvents.map((a) => [
     a.id,
     a.event_type,
@@ -898,7 +905,9 @@ type ExtractionRow = {
   const reportRow = existingReports[0];
   if (reportRow && reportRow.storage_path) {
     try {
-      const { data } = await supabase.storage.from(reportsBucket()).download(reportRow.storage_path);
+      const { data } = await supabase.storage
+        .from(reportsBucket())
+        .download(reportRow.storage_path);
       if (data) {
         const reportBytes = new Uint8Array(await data.arrayBuffer());
         addFile("reports/brsr-report.pdf", reportBytes);

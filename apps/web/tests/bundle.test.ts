@@ -27,18 +27,12 @@ test("bundle safeArchiveDocPath: deterministically isolates documents by UUID", 
     safeArchiveDocPath(docId, "electricity-bill-july.pdf"),
     `evidence/documents/${docId}.pdf`,
   );
-  assert.equal(
-    safeArchiveDocPath(docId, "invoice..backup.jpg"),
-    `evidence/documents/${docId}.jpg`,
-  );
+  assert.equal(safeArchiveDocPath(docId, "invoice..backup.jpg"), `evidence/documents/${docId}.jpg`);
   assert.equal(
     safeArchiveDocPath(docId, "../../unsafe-path.png"),
     `evidence/documents/${docId}.png`,
   );
-  assert.equal(
-    safeArchiveDocPath(docId, "noextension"),
-    `evidence/documents/${docId}.bin`,
-  );
+  assert.equal(safeArchiveDocPath(docId, "noextension"), `evidence/documents/${docId}.bin`);
 });
 
 test("bundle toCsv: correctly escapes quotes, commas, newlines and nulls", () => {
@@ -74,7 +68,10 @@ test("bundle checksums: computes SHA-256 and formats sha256sum lines without sel
   ];
 
   const formatted = formatChecksums(manifest);
-  assert.ok(!formatted.includes("checksums.sha256"), "Must not include checksums.sha256 in its own list");
+  assert.ok(
+    !formatted.includes("checksums.sha256"),
+    "Must not include checksums.sha256 in its own list",
+  );
   assert.ok(formatted.includes(`${hash1}  data/metrics.csv\r\n`));
   assert.ok(formatted.includes(`${hash2}  evidence/doc.pdf\r\n`));
 });
@@ -84,7 +81,12 @@ test("bundle manifest: calculates traceability completeness and records scope an
     bundleId: "test-bundle-123",
     generatedAt: "2026-10-10T20:00:00.000Z",
     scope: {
-      organization: { id: "org-1", code: "MEIL-HQ", name: "MEIL Corporate HQ", type: "headquarters" },
+      organization: {
+        id: "org-1",
+        code: "MEIL-HQ",
+        name: "MEIL Corporate HQ",
+        type: "headquarters",
+      },
       coverage: "FY 2026-27",
       financialYear: 2026,
       reportingPeriodId: null,
@@ -237,7 +239,10 @@ test("synthetic bundle archive: produces valid ZIP with matching SHA-256 cryptog
   assert.ok(unzipped.file("data/metrics.csv"), "data/metrics.csv must exist in ZIP");
   assert.ok(unzipped.file("data/calculations.csv"), "data/calculations.csv must exist in ZIP");
   assert.ok(unzipped.file(docPath), `${docPath} must exist in ZIP`);
-  assert.ok(unzipped.file("limitations/missing-evidence.csv"), "limitations/missing-evidence.csv must exist");
+  assert.ok(
+    unzipped.file("limitations/missing-evidence.csv"),
+    "limitations/missing-evidence.csv must exist",
+  );
   assert.ok(unzipped.file("manifest.json"), "manifest.json must exist in ZIP");
   assert.ok(unzipped.file("checksums.sha256"), "checksums.sha256 must exist in ZIP");
 

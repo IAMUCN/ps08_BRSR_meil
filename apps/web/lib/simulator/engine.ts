@@ -86,7 +86,10 @@ export const STANDARD_SCENARIOS = [
  * Converts a raw emission figure to metric tonnes (tCO2e).
  * TraceESG rule: 1 t = 1000 kg.
  */
-export function toTonnesCo2e(value: number | null | undefined, unit: string | null | undefined): number {
+export function toTonnesCo2e(
+  value: number | null | undefined,
+  unit: string | null | undefined,
+): number {
   if (value === null || value === undefined || isNaN(value)) return 0;
   const u = unit?.trim().toLowerCase() ?? "";
   if (u === "kgco2e" || u === "kg") {
@@ -158,9 +161,27 @@ export function calculateSimulation({
       orgProjected: orgTotal,
       overallReductionPercent: 0,
       scopes: [
-        { scopeCode: "SCOPE_1", scopeName: "Scope 1", baseline: baseline.scopeTotals.scope1, projected: baseline.scopeTotals.scope1, avoided: 0 },
-        { scopeCode: "SCOPE_2", scopeName: "Scope 2", baseline: baseline.scopeTotals.scope2, projected: baseline.scopeTotals.scope2, avoided: 0 },
-        { scopeCode: "SCOPE_3", scopeName: "Scope 3", baseline: baseline.scopeTotals.scope3, projected: baseline.scopeTotals.scope3, avoided: 0 },
+        {
+          scopeCode: "SCOPE_1",
+          scopeName: "Scope 1",
+          baseline: baseline.scopeTotals.scope1,
+          projected: baseline.scopeTotals.scope1,
+          avoided: 0,
+        },
+        {
+          scopeCode: "SCOPE_2",
+          scopeName: "Scope 2",
+          baseline: baseline.scopeTotals.scope2,
+          projected: baseline.scopeTotals.scope2,
+          avoided: 0,
+        },
+        {
+          scopeCode: "SCOPE_3",
+          scopeName: "Scope 3",
+          baseline: baseline.scopeTotals.scope3,
+          projected: baseline.scopeTotals.scope3,
+          avoided: 0,
+        },
       ],
     };
   }
@@ -176,7 +197,8 @@ export function calculateSimulation({
   // Compute breakdown per scope
   const scopes: ScopeSimulationBreakdown[] = (["SCOPE_1", "SCOPE_2", "SCOPE_3"] as const).map(
     (scCode) => {
-      const scopeName = scCode === "SCOPE_1" ? "Scope 1" : scCode === "SCOPE_2" ? "Scope 2" : "Scope 3";
+      const scopeName =
+        scCode === "SCOPE_1" ? "Scope 1" : scCode === "SCOPE_2" ? "Scope 2" : "Scope 3";
       const scBase =
         scCode === "SCOPE_1"
           ? baseline.scopeTotals.scope1

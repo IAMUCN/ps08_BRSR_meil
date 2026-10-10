@@ -40,7 +40,9 @@ export type SimulatorOptions = {
 const PRESETS = [5, 10, 15, 20, 25];
 
 export function SimulatorClient({ options }: { options: SimulatorOptions }) {
-  const [orgUnitId, setOrgUnitId] = useState(options.defaultOrgUnitId ?? options.orgUnits[0]?.id ?? "");
+  const [orgUnitId, setOrgUnitId] = useState(
+    options.defaultOrgUnitId ?? options.orgUnits[0]?.id ?? "",
+  );
   const [periodId, setPeriodId] = useState(options.defaultPeriodId ?? options.periods[0]?.id ?? "");
 
   const [baseline, setBaseline] = useState<BaselineData | null>(null);
@@ -136,7 +138,12 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
   };
 
   // Quick Action Template loaders
-  const handleApplyTemplate = (scope: ScopeCode, keyword: string, percent: number, templateTitle: string) => {
+  const handleApplyTemplate = (
+    scope: ScopeCode,
+    keyword: string,
+    percent: number,
+    templateTitle: string,
+  ) => {
     if (!baseline) return;
     const matched = baseline.categories.find(
       (c) => c.scopeCode === scope && c.name.toLowerCase().includes(keyword.toLowerCase()),
@@ -167,14 +174,16 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
               </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              This tool models hypothetical emissions-reduction assumptions for decision support. Projected outputs
-              do not modify approved activity records, verified evidence, emission factors, or official SEBI BRSR reports.
+              This tool models hypothetical emissions-reduction assumptions for decision support.
+              Projected outputs do not modify approved activity records, verified evidence, emission
+              factors, or official SEBI BRSR reports.
             </p>
           </div>
         </div>
 
         <div className="shrink-0 text-xs text-muted-foreground">
-          Assurance Standard: <strong className="font-semibold text-foreground">ICAI SSAE 3000 / SEBI Core</strong>
+          Assurance Standard:{" "}
+          <strong className="font-semibold text-foreground">ICAI SSAE 3000 / SEBI Core</strong>
         </div>
       </div>
 
@@ -198,7 +207,10 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {/* Organization Selector */}
           <div>
-            <label htmlFor="sim-org" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            <label
+              htmlFor="sim-org"
+              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+            >
               Organization / Project
             </label>
             <NativeSelect
@@ -217,7 +229,10 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
 
           {/* Period Selector */}
           <div>
-            <label htmlFor="sim-period" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            <label
+              htmlFor="sim-period"
+              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+            >
               Reporting Period
             </label>
             <NativeSelect
@@ -236,7 +251,10 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
 
           {/* Scope Filter */}
           <div>
-            <label htmlFor="sim-scope" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            <label
+              htmlFor="sim-scope"
+              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+            >
               Emissions Scope Filter
             </label>
             <NativeSelect
@@ -254,7 +272,10 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
 
           {/* Category Selector */}
           <div>
-            <label htmlFor="sim-cat" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            <label
+              htmlFor="sim-cat"
+              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+            >
               Target Emissions Category
             </label>
             <NativeSelect
@@ -282,7 +303,9 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
           <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
             <AlertTriangle className="size-4 shrink-0" aria-hidden />
             <span>
-              <strong>{currentCategory.name}</strong> has no approved baseline records in this period (Baseline: 0.00 tCO₂e). You can still adjust hypothetical reduction assumptions freely; potential savings will apply once source records are verified and approved.
+              <strong>{currentCategory.name}</strong> has no approved baseline records in this
+              period (Baseline: 0.00 tCO₂e). You can still adjust hypothetical reduction assumptions
+              freely; potential savings will apply once source records are verified and approved.
             </span>
           </div>
         )}
@@ -302,14 +325,21 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
 
       {/* C. Action Templates & Presets */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground">Decarbonization Templates:</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          Decarbonization Templates:
+        </span>
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="text-xs"
           onClick={() =>
-            handleApplyTemplate("SCOPE_2", "electricity", 20, "20% Clean Power Transition (Scope 2)")
+            handleApplyTemplate(
+              "SCOPE_2",
+              "electricity",
+              20,
+              "20% Clean Power Transition (Scope 2)",
+            )
           }
         >
           <Zap className="size-3 text-status-warning" aria-hidden />
@@ -349,7 +379,8 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
               Hypothetical Reduction Assumption
             </h3>
             <p className="text-xs text-muted-foreground">
-              Target: <strong className="text-foreground">{currentCategory?.name ?? "None"}</strong> · Range: 0% to 100%
+              Target: <strong className="text-foreground">{currentCategory?.name ?? "None"}</strong>{" "}
+              · Range: 0% to 100%
             </p>
           </div>
 
@@ -554,8 +585,8 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
             <Layers className="size-8 text-muted-foreground/50" aria-hidden />
             <h4 className="mt-3 text-sm font-medium text-foreground">No Eligible Baseline Data</h4>
             <p className="mt-1 max-w-md text-xs text-muted-foreground">
-              Approved calculation records are required to project emissions reductions. Please select an organization
-              unit and reporting period with verified emissions.
+              Approved calculation records are required to project emissions reductions. Please
+              select an organization unit and reporting period with verified emissions.
             </p>
           </div>
         ) : (
@@ -642,11 +673,13 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
               Hypothetical Scenarios Comparison
             </h3>
             <p className="text-xs text-muted-foreground">
-              Comparing Conservative (5%), Moderate (15%), Ambitious (25%), and Custom assumptions on the same baseline.
+              Comparing Conservative (5%), Moderate (15%), Ambitious (25%), and Custom assumptions
+              on the same baseline.
             </p>
           </div>
           <span className="text-xs font-medium text-muted-foreground">
-            Target Category: <strong className="text-foreground">{currentCategory?.name ?? "None"}</strong>
+            Target Category:{" "}
+            <strong className="text-foreground">{currentCategory?.name ?? "None"}</strong>
           </span>
         </div>
 
@@ -729,7 +762,8 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
         <div className="flex items-center gap-2">
           <CheckCircle2 className="size-4 text-primary" aria-hidden />
           <span>
-            Every baseline calculation originates from verified invoices and approved factor versions.
+            Every baseline calculation originates from verified invoices and approved factor
+            versions.
           </span>
         </div>
         <div className="flex items-center gap-3 font-medium">

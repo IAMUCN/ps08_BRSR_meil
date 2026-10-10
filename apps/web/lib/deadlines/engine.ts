@@ -17,7 +17,10 @@ export const DEFAULT_DEADLINE_CONFIG: DeadlineRuleConfig = {
  * Converts a Date to a YYYY-MM-DD string in the specified timezone.
  * Uses "en-CA" locale which standardizes on ISO format.
  */
-export function formatDateInTimezone(date: Date, timezone: string = DEFAULT_DEADLINE_CONFIG.timezone): string {
+export function formatDateInTimezone(
+  date: Date,
+  timezone: string = DEFAULT_DEADLINE_CONFIG.timezone,
+): string {
   try {
     const formatter = new Intl.DateTimeFormat("en-CA", {
       timeZone: timezone,
@@ -185,9 +188,7 @@ export function evaluateDeadlineStatus(input: EvaluationInput): EvaluationResult
 /**
  * Aggregates summary KPIs from a list of evaluated deadline tasks.
  */
-export function calculateDeadlineKPIs(
-  tasks: Array<{ status: DeadlineStatus }>,
-): DeadlineKPIs {
+export function calculateDeadlineKPIs(tasks: Array<{ status: DeadlineStatus }>): DeadlineKPIs {
   const totalTasks = tasks.length;
   let upcoming = 0;
   let dueSoon = 0;

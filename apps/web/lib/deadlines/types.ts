@@ -1,10 +1,5 @@
 export type DeadlineStatus =
-  | "completed"
-  | "escalated"
-  | "overdue"
-  | "due_today"
-  | "due_soon"
-  | "upcoming";
+  "completed" | "escalated" | "overdue" | "due_today" | "due_soon" | "upcoming";
 
 export type EscalationLevel = 0 | 1 | 2;
 

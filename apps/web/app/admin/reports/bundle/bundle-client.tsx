@@ -125,7 +125,10 @@ export function BundleClient({ options }: { options: BundleOptions }) {
 
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
-            <label htmlFor="bundle-org-select" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            <label
+              htmlFor="bundle-org-select"
+              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+            >
               Organization Entity / Project
             </label>
             <NativeSelect
@@ -144,7 +147,10 @@ export function BundleClient({ options }: { options: BundleOptions }) {
           </div>
 
           <div>
-            <label htmlFor="bundle-scope-mode" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            <label
+              htmlFor="bundle-scope-mode"
+              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+            >
               Scope Coverage Mode
             </label>
             <NativeSelect
@@ -161,7 +167,10 @@ export function BundleClient({ options }: { options: BundleOptions }) {
           <div>
             {scopeMode === "financial_year" ? (
               <>
-                <label htmlFor="bundle-fy-select" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <label
+                  htmlFor="bundle-fy-select"
+                  className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                >
                   Financial Year
                 </label>
                 <NativeSelect
@@ -179,7 +188,10 @@ export function BundleClient({ options }: { options: BundleOptions }) {
               </>
             ) : (
               <>
-                <label htmlFor="bundle-period-select" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <label
+                  htmlFor="bundle-period-select"
+                  className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                >
                   Reporting Period
                 </label>
                 <NativeSelect
@@ -201,8 +213,11 @@ export function BundleClient({ options }: { options: BundleOptions }) {
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
           <div className="text-xs text-muted-foreground">
-            Target: <strong className="font-semibold text-foreground">{preview?.scope.orgUnitName ?? "..."}</strong> (
-            {preview?.scope.coverageLabel ?? "..."})
+            Target:{" "}
+            <strong className="font-semibold text-foreground">
+              {preview?.scope.orgUnitName ?? "..."}
+            </strong>{" "}
+            ({preview?.scope.coverageLabel ?? "..."})
           </div>
 
           <Button
@@ -282,7 +297,9 @@ export function BundleClient({ options }: { options: BundleOptions }) {
           </div>
           <div
             className={`mt-2 text-2xl font-bold tracking-tight ${
-              (preview?.counts.missingEvidenceRecords ?? 0) > 0 ? "text-status-warning" : "text-status-success"
+              (preview?.counts.missingEvidenceRecords ?? 0) > 0
+                ? "text-status-warning"
+                : "text-status-success"
             }`}
           >
             {loading ? "..." : (preview?.counts.missingEvidenceRecords ?? 0)}
@@ -321,7 +338,8 @@ export function BundleClient({ options }: { options: BundleOptions }) {
 
           <div className="text-xs text-muted-foreground">
             Package includes: <span className="font-mono text-foreground">manifest.json</span>,{" "}
-            <span className="font-mono text-foreground">checksums.sha256</span>, CSV ledgers &amp; raw files
+            <span className="font-mono text-foreground">checksums.sha256</span>, CSV ledgers &amp;
+            raw files
           </div>
         </div>
 
@@ -366,7 +384,9 @@ export function BundleClient({ options }: { options: BundleOptions }) {
                     <tr key={r.id} className="hover:bg-muted/30">
                       <td className="px-4 py-2.5 font-medium text-foreground">
                         <div>{r.metricName}</div>
-                        <div className="font-mono text-[10px] text-muted-foreground">{r.metricCode}</div>
+                        <div className="font-mono text-[10px] text-muted-foreground">
+                          {r.metricCode}
+                        </div>
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">{r.orgUnitName}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{r.periodLabel}</td>

@@ -13,10 +13,7 @@ export async function runEscalationSweepAction(input?: { periodId?: string }) {
 /**
  * Server action to manually send an immediate reminder for a specific task.
  */
-export async function remindTaskAction(input: {
-  expectationId: string;
-  periodId: string;
-}) {
+export async function remindTaskAction(input: { expectationId: string; periodId: string }) {
   return runAction((api) => api.deadlines.remindTask(input));
 }
 

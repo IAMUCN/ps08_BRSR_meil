@@ -122,7 +122,10 @@ export function buildManifestData(params: {
   const completeness =
     totalRecords === 0
       ? 100
-      : Math.max(0, Math.min(100, Math.round(((totalRecords - missingEvidenceCount) / totalRecords) * 100)));
+      : Math.max(
+          0,
+          Math.min(100, Math.round(((totalRecords - missingEvidenceCount) / totalRecords) * 100)),
+        );
 
   return {
     bundleId: params.bundleId,

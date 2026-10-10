@@ -29,11 +29,7 @@ import type {
   DeadlineStatus,
   DeadlineTask,
 } from "@/lib/deadlines/types";
-import {
-  fetchDeadlinesAction,
-  remindTaskAction,
-  runEscalationSweepAction,
-} from "./actions";
+import { fetchDeadlinesAction, remindTaskAction, runEscalationSweepAction } from "./actions";
 
 interface DeadlinesClientProps {
   initialTasks: DeadlineTask[];
@@ -193,7 +189,8 @@ export function DeadlinesClient({
             Compliance Governance & Escalation Sweep
           </h2>
           <p className="text-xs text-muted-foreground">
-            Deterministic rules evaluate approaching submission windows, trigger multi-tiered escalations (L1 to PM, L2 to Corporate ESG), and send in-app and email notices.
+            Deterministic rules evaluate approaching submission windows, trigger multi-tiered
+            escalations (L1 to PM, L2 to Corporate ESG), and send in-app and email notices.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -203,10 +200,7 @@ export function DeadlinesClient({
             disabled={isPending || isSweeping}
             onClick={() => applyFilter()}
           >
-            <RefreshCw
-              className={`size-3.5 ${isPending ? "animate-spin" : ""}`}
-              aria-hidden
-            />
+            <RefreshCw className={`size-3.5 ${isPending ? "animate-spin" : ""}`} aria-hidden />
             Refresh
           </Button>
           <Button
@@ -416,15 +410,33 @@ export function DeadlinesClient({
           <table className="w-full border-collapse text-left text-sm">
             <thead className="border-b border-border bg-muted/60 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th scope="col" className="px-4 py-3">Task & ESG Metric</th>
-                <th scope="col" className="px-4 py-3">Entity / Project</th>
-                <th scope="col" className="px-4 py-3">Period</th>
-                <th scope="col" className="px-4 py-3">Assigned Owner(s)</th>
-                <th scope="col" className="px-4 py-3">Statutory Due Date</th>
-                <th scope="col" className="px-4 py-3">Time Remaining</th>
-                <th scope="col" className="px-4 py-3">Status</th>
-                <th scope="col" className="px-4 py-3">Escalation Tier</th>
-                <th scope="col" className="px-4 py-3 text-right">Actions</th>
+                <th scope="col" className="px-4 py-3">
+                  Task & ESG Metric
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Entity / Project
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Period
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Assigned Owner(s)
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Statutory Due Date
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Time Remaining
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Status
+                </th>
+                <th scope="col" className="px-4 py-3">
+                  Escalation Tier
+                </th>
+                <th scope="col" className="px-4 py-3 text-right">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

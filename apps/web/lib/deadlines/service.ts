@@ -6,10 +6,7 @@ import { sendEmail } from "@/lib/email/brevo";
 import { escapeHtml } from "@/lib/reports/html";
 
 export type Sql = postgres.Sql;
-import {
-  calculateDeadlineKPIs,
-  evaluateDeadlineStatus,
-} from "./engine";
+import { calculateDeadlineKPIs, evaluateDeadlineStatus } from "./engine";
 import type {
   DeadlineFilter,
   DeadlineKPIs,
@@ -67,9 +64,10 @@ function buildDeadlineEmailHtml(params: {
         Dear <strong>${escapeHtml(params.recipientName)}</strong>,
       </p>
       <p style="font-size: 14px; line-height: 1.6; color: #334155;">
-        ${params.isEscalation
-          ? `This is an automated governance escalation. An expected ESG compliance submission for <strong>${escapeHtml(params.orgUnitName)}</strong> is past due and requires immediate resolution.`
-          : `This is a scheduled reminder for an upcoming ESG compliance submission due for <strong>${escapeHtml(params.orgUnitName)}</strong>.`
+        ${
+          params.isEscalation
+            ? `This is an automated governance escalation. An expected ESG compliance submission for <strong>${escapeHtml(params.orgUnitName)}</strong> is past due and requires immediate resolution.`
+            : `This is a scheduled reminder for an upcoming ESG compliance submission due for <strong>${escapeHtml(params.orgUnitName)}</strong>.`
         }
       </p>
 
@@ -147,23 +145,25 @@ export async function getDeadlineData(
   const targetPeriodId = filters?.periodId;
   const targetOrgUnitId = filters?.orgUnitId;
 
-  const expectationsQuery = await sql<{
-    expectation_id: string;
-    org_unit_id: string;
-    org_unit_name: string;
-    org_unit_type: string;
-    period_id: string;
-    period_name: string;
-    submission_closes_on: string | null;
-    end_date: string;
-    metric_id: string;
-    metric_name: string;
-    metric_code: string | null;
-    frequency: string;
-    category_name: string;
-    owning_role_id: string;
-    scope_code: string | null;
-  }[]>`
+  const expectationsQuery = await sql<
+    {
+      expectation_id: string;
+      org_unit_id: string;
+      org_unit_name: string;
+      org_unit_type: string;
+      period_id: string;
+      period_name: string;
+      submission_closes_on: string | null;
+      end_date: string;
+      metric_id: string;
+      metric_name: string;
+      metric_code: string | null;
+      frequency: string;
+      category_name: string;
+      owning_role_id: string;
+      scope_code: string | null;
+    }[]
+  >`
     select
       e.id as expectation_id,
       e.org_unit_id,
@@ -212,15 +212,17 @@ export async function getDeadlineData(
   }
 
   // 4. Batch query existing records for completion status
-  const existingRecords = await sql<{
-    org_unit_id: string;
-    metric_id: string;
-    reporting_period_id: string;
-    verification_status: string;
-    validation_status: string;
-    approval_status: string;
-    data_quality_state: string;
-  }[]>`
+  const existingRecords = await sql<
+    {
+      org_unit_id: string;
+      metric_id: string;
+      reporting_period_id: string;
+      verification_status: string;
+      validation_status: string;
+      approval_status: string;
+      data_quality_state: string;
+    }[]
+  >`
     select distinct on (r.org_unit_id, r.metric_id, r.reporting_period_id)
       r.org_unit_id,
       r.metric_id,
@@ -233,20 +235,22 @@ export async function getDeadlineData(
     where r.data_quality_state <> 'rejected'
     order by r.org_unit_id, r.metric_id, r.reporting_period_id, r.created_at desc`;
 
-  const recordMap = new Map<string, typeof existingRecords[0]>();
+  const recordMap = new Map<string, (typeof existingRecords)[0]>();
   for (const r of existingRecords) {
     recordMap.set(`${r.org_unit_id}:${r.metric_id}:${r.reporting_period_id}`, r);
   }
 
   // 5. Batch query assigned owners (users matching category's owning role at or above org_unit)
-  const ownerRows = await sql<{
-    org_unit_id: string;
-    role_id: string;
-    user_id: string;
-    display_name: string;
-    email: string;
-    role_name: string;
-  }[]>`
+  const ownerRows = await sql<
+    {
+      org_unit_id: string;
+      role_id: string;
+      user_id: string;
+      display_name: string;
+      email: string;
+      role_name: string;
+    }[]
+  >`
     select distinct
       e.org_unit_id,
       cat.owning_role_id as role_id,
@@ -276,13 +280,15 @@ export async function getDeadlineData(
   }
 
   // 6. Batch query Project Managers (L1 Escalation)
-  const managerRows = await sql<{
-    org_unit_id: string;
-    user_id: string;
-    display_name: string;
-    email: string;
-    role_name: string;
-  }[]>`
+  const managerRows = await sql<
+    {
+      org_unit_id: string;
+      user_id: string;
+      display_name: string;
+      email: string;
+      role_name: string;
+    }[]
+  >`
     select distinct
       up.descendant_id as org_unit_id,
       u.id as user_id,
@@ -309,12 +315,14 @@ export async function getDeadlineData(
   }
 
   // 7. Batch query Corporate ESG & Admins (L2 Escalation)
-  const adminRows = await sql<{
-    user_id: string;
-    display_name: string;
-    email: string;
-    role_name: string;
-  }[]>`
+  const adminRows = await sql<
+    {
+      user_id: string;
+      display_name: string;
+      email: string;
+      role_name: string;
+    }[]
+  >`
     select distinct
       u.id as user_id,
       u.display_name,
@@ -336,10 +344,12 @@ export async function getDeadlineData(
   );
 
   // 8. Batch query last reminded timestamp
-  const reminderNoticeRows = await sql<{
-    related_entity_id: string;
-    last_reminded: string;
-  }[]>`
+  const reminderNoticeRows = await sql<
+    {
+      related_entity_id: string;
+      last_reminded: string;
+    }[]
+  >`
     select related_entity_id, max(created_at) as last_reminded
     from public.notifications
     where type in ('deadline_reminder', 'deadline_escalated', 'submission_reminder')
@@ -381,10 +391,7 @@ export async function getDeadlineData(
     const owners = ownerMap.get(`${exp.org_unit_id}:${exp.owning_role_id}`) ?? [];
     const projectManagers = managerMap.get(exp.org_unit_id) ?? [];
 
-    const escalationRecipients: EscalationRecipient[] = [
-      ...projectManagers,
-      ...corporateAdmins,
-    ];
+    const escalationRecipients: EscalationRecipient[] = [...projectManagers, ...corporateAdmins];
 
     allTasks.push({
       expectationId: exp.expectation_id,
@@ -435,7 +442,9 @@ export async function getDeadlineData(
         t.metricName.toLowerCase().includes(q) ||
         t.orgUnitName.toLowerCase().includes(q) ||
         t.categoryName.toLowerCase().includes(q) ||
-        t.assignedOwners.some((o) => o.displayName.toLowerCase().includes(q) || o.email.toLowerCase().includes(q)),
+        t.assignedOwners.some(
+          (o) => o.displayName.toLowerCase().includes(q) || o.email.toLowerCase().includes(q),
+        ),
     );
   }
 
@@ -686,7 +695,8 @@ export async function sendManualTaskReminder(input: {
       success: false,
       reminded: 0,
       emailed: 0,
-      message: "No assigned owners found for this task. Please assign users in the Organization or Users page.",
+      message:
+        "No assigned owners found for this task. Please assign users in the Organization or Users page.",
     };
   }
 
@@ -733,7 +743,10 @@ export async function sendManualTaskReminder(input: {
           orgUnitName: task.orgUnitName,
           periodName: task.periodName,
           dueDateFormatted: task.dueDate,
-          urgencyText: task.daysRemaining < 0 ? `${task.daysOverdue} days overdue` : `${task.daysRemaining} days remaining`,
+          urgencyText:
+            task.daysRemaining < 0
+              ? `${task.daysOverdue} days overdue`
+              : `${task.daysRemaining} days remaining`,
           deepLinkUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}${task.deepLinkPath}`,
         }),
       });

@@ -100,7 +100,7 @@ export async function getSimulatorBaseline(
       and coalesce(ps.code, s.code) in ('SCOPE_1', 'SCOPE_2', 'SCOPE_3')
     order by top_scope_code, m.name`;
 
-  const consolidationMap = new Map<string, typeof consolidationRows[0]>();
+  const consolidationMap = new Map<string, (typeof consolidationRows)[0]>();
   let totalUncalculated = 0;
 
   for (const row of consolidationRows) {
