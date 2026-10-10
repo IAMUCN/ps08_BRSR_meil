@@ -170,7 +170,8 @@ const ROTATION_INTERVAL_MS = 2800;
 const CARD_HEIGHT = 196;
 const OFFSET_Y = [0, 100, 128, 150]; // px from the front card's centre, by distance (3 = parked, hidden)
 const OFFSET_X = [0, 12, 27, 27]; // % of card width
-const FADE = [1, 0.85, 0.6]; // opacity at the far edge of a receding card
+const OPACITY = [1, 0.7, 0.5]; // content opacity by distance from the front card
+const BLUR = [0, 3, 5]; // px, so receding cards read as depth, not as competing text
 const SHADOWS = [
   "shadow-[10px_14px_22px_-10px_rgba(15,23,42,0.28)]",
   "shadow-[8px_10px_16px_-8px_rgba(15,23,42,0.2)]",
@@ -217,11 +218,6 @@ export function HeroCapabilityCard() {
         const slot = Math.min(absDiff, 3);
         const y = Math.sign(diff) * OFFSET_Y[slot];
         const Icon = item.icon;
-        // Fade toward the outer edge with a white wash, so the card itself stays opaque.
-        const wash =
-          diff === 0 || absDiff > 2
-            ? undefined
-            : `linear-gradient(to ${diff < 0 ? "bottom" : "top"}, rgba(255,255,255,${1 - FADE[absDiff]}), rgba(255,255,255,0) 75%)`;
 
         return (
           <div
@@ -234,20 +230,12 @@ export function HeroCapabilityCard() {
               marginTop: -CARD_HEIGHT / 2,
               transform: `translate(${OFFSET_X[slot]}%, ${y}px)`,
               zIndex: 30 - absDiff * 10,
-              opacity: absDiff > 2 ? 0 : 1,
+              opacity: absDiff > 2 ? 0 : 1, // the card stays opaque so layers behind never show through
               pointerEvents: absDiff > 2 ? "none" : "auto",
               transition: "transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease",
             }}
             className={`absolute overflow-hidden rounded-2xl border border-slate-200/90 bg-white ${SHADOWS[Math.min(absDiff, 2)]}`}
           >
-            {wash && (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 z-[5]"
-                style={{ background: wash }}
-              />
-            )}
-
             {diff !== 0 && absDiff <= 2 && (
               <button
                 type="button"
@@ -257,7 +245,15 @@ export function HeroCapabilityCard() {
               />
             )}
 
-            <div aria-hidden={diff !== 0} className="flex h-full flex-col justify-between p-5">
+            <div
+              aria-hidden={diff !== 0}
+              className="flex h-full flex-col justify-between p-5"
+              style={{
+                opacity: OPACITY[Math.min(absDiff, 2)],
+                filter: `blur(${BLUR[Math.min(absDiff, 2)]}px)`,
+                transition: "filter 0.7s ease, opacity 0.5s ease",
+              }}
+            >
               <div className="flex items-start gap-3.5">
                 <div
                   className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${item.accentColor}`}
