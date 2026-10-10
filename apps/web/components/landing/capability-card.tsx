@@ -205,7 +205,7 @@ export function HeroCapabilityCard() {
       role="region"
       aria-roledescription="carousel"
       aria-label="Platform capabilities"
-      className="relative h-[460px] w-full max-w-[540px] select-none"
+      className="relative h-[460px] w-full max-w-[500px] select-none"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}
@@ -299,7 +299,7 @@ export function HeroCapabilityCard() {
               <p className="text-sm leading-relaxed text-slate-600">{item.description}</p>
 
               <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-slate-50/90 px-3 py-2 text-xs">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                   {item.metricLabel}
                 </span>
                 <span className="truncate text-right font-bold text-slate-800">

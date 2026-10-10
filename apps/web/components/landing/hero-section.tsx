@@ -15,7 +15,7 @@ export function HeroSection() {
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid items-center gap-14 lg:grid-cols-12 lg:gap-8">
-          <div className="flex flex-col items-start lg:col-span-6">
+          <div className="flex flex-col items-start lg:col-span-7">
             <BlurFade>
               <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#313490]/15 bg-[#313490]/[0.06] px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#313490]">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -24,10 +24,8 @@ export function HeroSection() {
             </BlurFade>
 
             <BlurFade delay={0.08}>
-              <h1 className="font-display mb-6 text-5xl font-bold leading-[1.08] tracking-tight text-slate-900 sm:text-6xl lg:text-[72px]">
-                From Real
-                <br />
-                Documents
+              <h1 className="font-display mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-slate-900 sm:text-5xl lg:text-[52px] xl:text-[64px]">
+                From Real Documents
                 <br />
                 to Real Impact.
               </h1>
@@ -70,7 +68,7 @@ export function HeroSection() {
 
           <BlurFade
             delay={0.2}
-            className="relative flex justify-center lg:col-span-6 lg:justify-end lg:self-start"
+            className="relative flex justify-center lg:col-span-5 lg:justify-end lg:self-start"
           >
             <HeroCapabilityCard />
           </BlurFade>
