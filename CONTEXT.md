@@ -130,7 +130,7 @@ _Last updated: 2026-10-10._
   the record panel in two columns when expanded; whole rows clickable in the panel-opening tables.
   Typecheck, lint, format pass; **not viewed in a browser** — the docking is CSS and Radix behaviour that only
   a real screen confirms.
-- **Uncommitted (2026-10-10, owner's page feedback, A31):** Organization page — the add forms open in the side
+- **Committed and pushed on `feature` (2026-10-10, owner's page feedback, A31; `5b3188c`):** Organization page — the add forms open in the side
   panel from two buttons, the unit and its expected submissions are one tile, and the ticks are written by a
   Save button (Clear all unticks). Typecheck, lint, format pass; **not viewed in a browser**.
 - **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
