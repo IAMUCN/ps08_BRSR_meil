@@ -21,8 +21,8 @@ select is(
 
 select is(
   (select array_agg(code order by code) from public.brsr_indicators where answer_kind = 'data'),
-  array['A-20', 'A-24', 'P1-E2', 'P3-E8', 'P6-E3', 'P6-E6', 'P6-E7', 'P6-E9', 'P6-L2', 'P8-E4'],
-  'the ten indicators the app measures stay data indicators');
+  array['A-20', 'A-24', 'P1-E2', 'P3-E11', 'P3-E8', 'P6-E3', 'P6-E4', 'P6-E6', 'P6-E7', 'P6-E9', 'P6-L2', 'P8-E4'],
+  'the indicators the app measures are data indicators');
 
 select is(
   (select count(*)::int from public.brsr_metric_mappings x

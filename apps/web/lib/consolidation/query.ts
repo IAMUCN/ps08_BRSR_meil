@@ -115,6 +115,7 @@ export async function consolidateNodes(
               whole: formula.whole,
               partLabel: labelOf(formula.part),
               wholeLabel: labelOf(formula.whole),
+              scale: formula.scale,
             }
           : null,
     };

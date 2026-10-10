@@ -456,6 +456,16 @@ holds the answers an Admin types.
 **Why:** the owner asked for a report like the L&T reference, which answers every question. Most questions are
 written statements with no source document. Decision: `.grill/full-brsr-report-decisions.md`.
 
+## D33 — A rate's scale in the percentage formula (migration `0041`)
+
+**Schema says:** §10.3 a `percentage` formula is part ÷ whole × 100.
+
+**Implemented:** the formula definition may carry `"scale"`; absent, it is 100. The lost time injury frequency
+rate uses 1,000,000. The result's unit is the metric's own when the scale is not 100.
+
+**Why:** safety incidents (BRSR P3-E11) are a rate per million person-hours; a new formula type would have
+repeated the percentage's roll-up rule. Decision: `.grill/safety-and-water-discharge-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

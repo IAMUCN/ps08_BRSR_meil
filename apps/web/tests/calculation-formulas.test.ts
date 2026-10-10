@@ -22,6 +22,7 @@ test("formulas: the stored definitions parse, anything else is refused", () => {
       op: "percentage",
       part: "female_employees",
       whole: "total_employees",
+      scale: 100,
     },
   );
   assert.equal(parseFormula("custom", { expr: "a*b" }), null); // reserved, never evaluated
@@ -84,4 +85,22 @@ test("units: water in cubic metres normalises to kilolitres one for one", () => 
   const r = normalize(850, "m³", "KL");
   assert.ok(r.ok);
   assert.equal(r.normalized.value, 850);
+});
+
+test("formulas: a rate states its scale; a percentage is the default", () => {
+  const pct = parseFormula("percentage", { part: "women", whole: "total" });
+  assert.ok(pct && pct.op === "percentage" && pct.scale === 100);
+  const ltifr = parseFormula("percentage", {
+    part: "lost_time_injuries",
+    whole: "person_hours",
+    scale: 1000000,
+  });
+  assert.ok(ltifr && ltifr.op === "percentage" && ltifr.scale === 1_000_000);
+  // 3 lost time injuries in 2,400,000 person-hours = 1.25 per million.
+  assert.deepEqual(evaluate(ltifr, { lost_time_injuries: 3, person_hours: 2_400_000 }), {
+    ok: true,
+    value: 1.25,
+  });
+  const none = evaluate(ltifr, { lost_time_injuries: 0, person_hours: 0 });
+  assert.ok(!none.ok && /no rate/.test(none.reason));
 });

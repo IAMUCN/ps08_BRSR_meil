@@ -1,5 +1,6 @@
 "use client";
 
+import { rowClick } from "@/components/ui/row-click";
 import { BarChart3, ChevronRight, Table2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -507,7 +508,8 @@ function RecordTable({
           {records.map((record) => (
             <tr
               key={record.recordId}
-              className="border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
+              onClick={rowClick(() => onOpen(record))}
+              className="cursor-pointer border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
             >
               <td className="px-3 py-3">
                 <button

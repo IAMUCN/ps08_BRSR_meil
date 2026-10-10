@@ -16,7 +16,8 @@ export default async function OrganizationPage({ searchParams }: PageProps<"/adm
   const selectedId = typeof params.node === "string" ? params.node : null;
 
   return (
-    <div className="max-w-7xl">
+    // Wider than the other Admin pages: the tree and the selected unit sit side by side.
+    <div className="max-w-[1760px]">
       <PageHeader
         title="Organization"
         description="The configurable hierarchy from Group down to Department. Levels can be skipped but never inverted; deactivated nodes are frozen for new activity but their history stays readable."

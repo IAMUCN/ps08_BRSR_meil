@@ -107,7 +107,7 @@ export function OrgUnitBulkImport({
   return (
     <div className="space-y-4 rounded-md border p-4">
       <div className="space-y-2">
-        <Label htmlFor="bulk-org-parent">Parent node</Label>
+        <Label htmlFor="bulk-org-parent">Add under</Label>
         <NativeSelect
           id="bulk-org-parent"
           value={parentId}
@@ -117,7 +117,7 @@ export function OrgUnitBulkImport({
             setResults(null);
           }}
         >
-          <option value="">Select a node…</option>
+          <option value="">Select a unit…</option>
           {nodes.map((n) => (
             <option key={n.id} value={n.id}>
               {n.name} ({levelLabel(levels, n.unitType)})
@@ -137,7 +137,7 @@ export function OrgUnitBulkImport({
                 downloadOrgUnitTemplate(
                   parent.name,
                   childTypes.map((t) => ({ value: t, label: levelLabel(levels, t) })),
-                )
+                ).catch(() => toast.error("Couldn't generate the template — try again."))
               }
             >
               <Download aria-hidden />

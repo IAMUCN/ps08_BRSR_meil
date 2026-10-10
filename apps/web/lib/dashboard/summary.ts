@@ -209,3 +209,48 @@ export async function missingSubmissions(
     categoryName: r.category_name,
   }));
 }
+
+/** One missing expected submission and a person who can file it. */
+export type MissingOwner = {
+  userId: string;
+  email: string;
+  displayName: string;
+  orgUnitName: string;
+  metricName: string;
+};
+
+/**
+ * Who to remind: for each missing expectation, the active users whose role owns the activity's category
+ * and who are assigned at that org unit or above it (the same people Upload offers the activity to).
+ */
+export async function missingSubmissionOwners(
+  sql: Sql,
+  orgUnitId: string,
+  periodId: string,
+): Promise<MissingOwner[]> {
+  const rows = await sql<
+    {
+      user_id: string;
+      email: string;
+      display_name: string;
+      org_unit_name: string;
+      metric_name: string;
+    }[]
+  >`
+    select distinct u.id as user_id, u.email, u.display_name, o.name as org_unit_name,
+           m.name as metric_name
+    ${expectationsFrom(sql, orgUnitId, periodId)}
+    join public.esg_categories cat on cat.id = m.category_id
+    join public.user_org_assignments a on a.role_id = cat.owning_role_id and a.revoked_at is null
+    join public.org_unit_tree up on up.descendant_id = e.org_unit_id and up.ancestor_id = a.org_unit_id
+    join public.users u on u.id = a.user_id and u.is_active and u.deleted_at is null
+    where not ${submitted(sql, periodId)}
+    order by u.display_name, o.name, m.name`;
+  return rows.map((r) => ({
+    userId: r.user_id,
+    email: r.email,
+    displayName: r.display_name,
+    orgUnitName: r.org_unit_name,
+    metricName: r.metric_name,
+  }));
+}

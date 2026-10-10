@@ -13,29 +13,6 @@ function triggerDownload(bytes: BlobPart, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function downloadWorkbook(wb: XLSX.WorkBook, filename: string) {
-  const data = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-  triggerDownload(data, filename);
-}
-
-function sheetWithReference(
-  sheetName: string,
-  headers: string[],
-  exampleRow: (string | number)[],
-  reference: (string | number)[][],
-) {
-  const wb = XLSX.utils.book_new();
-  const sheet = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
-  sheet["!cols"] = headers.map((h) => ({ wch: Math.max(h.length + 4, 18) }));
-  XLSX.utils.book_append_sheet(wb, sheet, sheetName);
-  if (reference.length > 0) {
-    const refSheet = XLSX.utils.aoa_to_sheet(reference);
-    refSheet["!cols"] = [{ wch: 24 }, { wch: 40 }];
-    XLSX.utils.book_append_sheet(wb, refSheet, "Valid codes");
-  }
-  return wb;
-}
-
 export const EMPLOYEE_HEADERS = [
   "Employee ID",
   "Name",
@@ -80,10 +57,23 @@ export async function downloadEmployeeTemplate(
   const lastRoleRow = refSheet.rowCount;
   refSheet.addRow(["", ""]);
   refSheet.addRow(["Organization Scope code", "Name"]);
+  const firstOrgRow = refSheet.rowCount + 1;
   orgUnits.forEach((o) => refSheet.addRow([o.code, o.name]));
+  const lastOrgRow = refSheet.rowCount;
 
   const roleColumnIndex = EMPLOYEE_HEADERS.indexOf("Role") + 1;
+  const scopeColumnIndex = EMPLOYEE_HEADERS.indexOf("Organization Scope") + 1;
   for (let row = 2; row <= MAX_IMPORT_ROWS + 1; row++) {
+    if (orgUnits.length > 0) {
+      sheet.getCell(row, scopeColumnIndex).dataValidation = {
+        type: "list",
+        allowBlank: false,
+        formulae: [`'Valid codes'!$A$${firstOrgRow}:$A$${lastOrgRow}`],
+        showErrorMessage: true,
+        errorTitle: "Invalid organization scope",
+        error: "Pick an organization scope code from the dropdown list.",
+      };
+    }
     sheet.getCell(row, roleColumnIndex).dataValidation = {
       type: "list",
       allowBlank: false,
@@ -99,21 +89,40 @@ export async function downloadEmployeeTemplate(
 
 export const ORG_UNIT_HEADERS = ["Code", "Name", "Type"] as const;
 
-export function downloadOrgUnitTemplate(
+/** Like the employee template's Role column: Type is a dropdown of the levels allowed under the parent. */
+export async function downloadOrgUnitTemplate(
   parentName: string,
   childTypes: { value: string; label: string }[],
 ) {
-  const wb = sheetWithReference(
-    "New org units",
-    [...ORG_UNIT_HEADERS],
-    ["PRJ-NEW", "New Project", childTypes[0]?.value ?? ""],
-    [
-      [`Direct children of "${parentName}" only`, ""],
-      ["Type value", "Label"],
-      ...childTypes.map((t) => [t.value, t.label]),
-    ],
-  );
-  downloadWorkbook(wb, "org-unit-bulk-import-template.xlsx");
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+
+  const sheet = wb.addWorksheet("New org units");
+  sheet.columns = ORG_UNIT_HEADERS.map((header) => ({
+    header,
+    width: Math.max(header.length + 4, 18),
+  }));
+  sheet.addRow(["PRJ-NEW", "New Project", childTypes[0]?.value ?? ""]);
+
+  const refSheet = wb.addWorksheet("Valid codes");
+  refSheet.columns = [{ width: 24 }, { width: 40 }];
+  refSheet.addRow([`Direct children of "${parentName}" only`, ""]);
+  refSheet.addRow(["Type value", "Label"]);
+  childTypes.forEach((t) => refSheet.addRow([t.value, t.label]));
+
+  const typeColumnIndex = ORG_UNIT_HEADERS.indexOf("Type") + 1;
+  for (let row = 2; row <= MAX_IMPORT_ROWS + 1; row++) {
+    sheet.getCell(row, typeColumnIndex).dataValidation = {
+      type: "list",
+      allowBlank: false,
+      formulae: [`'Valid codes'!$A$3:$A$${refSheet.rowCount}`],
+      showErrorMessage: true,
+      errorTitle: "Invalid type",
+      error: `Pick a type allowed under ${parentName} from the dropdown list.`,
+    };
+  }
+
+  triggerDownload(await wb.xlsx.writeBuffer(), "org-unit-bulk-import-template.xlsx");
 }
 
 /** Same download-link trick as the audit trail's CSV export (app/admin/audit-trail/audit-view.tsx). */

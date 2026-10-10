@@ -75,8 +75,10 @@ export function ReportInputsForm({
       <summary className="cursor-pointer text-sm font-medium">
         Turnover, PPP rate and assurance for the report
         <span className="ml-2 font-normal text-muted-foreground">
-          Used for the intensity rows and notes of the BRSR tables. Anything left empty prints as
-          “Not provided”.
+          SEBI&apos;s tables ask for emissions per rupee of turnover, per PPP-adjusted turnover and
+          per unit of output, and whether the figures were independently assured. No bill carries
+          these, so an Admin enters them once per financial year. Anything left empty prints as “Not
+          provided”; no emission figure depends on them.
         </span>
       </summary>
       {/* Re-mounted per year so the fields show that year's saved values. */}

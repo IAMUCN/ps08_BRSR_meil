@@ -24,6 +24,8 @@ export type OrgExpectation = {
   metricId: string;
   metricName: string;
   categoryName: string;
+  /** "Scope 1", "Scope 2", "Scope 3", or null for activities outside the three scopes. */
+  scopeName: string | null;
   frequency: string;
   expected: boolean;
 };
@@ -347,18 +349,31 @@ export const organizationRouter = router({
     .input(z.object({ orgUnitId: z.uuid() }))
     .query(async ({ input }): Promise<OrgExpectation[]> => {
       const rows = await db()<
-        { id: string; name: string; category_name: string; frequency: string; expected: boolean }[]
+        {
+          id: string;
+          name: string;
+          category_name: string;
+          scope_name: string | null;
+          frequency: string;
+          expected: boolean;
+        }[]
       >`
-        select m.id, m.name, c.name as category_name, m.frequency::text,
+        -- A Scope 3 activity sits under its category, whose parent is Scope 3: group by the scope itself
+        -- and show the category beneath it.
+        select m.id, m.name, case when ps.id is null then c.name else s.name end as category_name,
+               coalesce(ps.name, s.name) as scope_name, m.frequency::text,
                exists (select 1 from public.submission_expectations e
                         where e.org_unit_id = ${input.orgUnitId} and e.metric_id = m.id) as expected
         from public.esg_metrics m join public.esg_categories c on c.id = m.category_id
+        left join public.scopes s on s.id = m.scope_id
+        left join public.scopes ps on ps.id = s.parent_scope_id
         where m.deleted_at is null
-        order by c.name, m.name`;
+        order by coalesce(ps.code, s.code) nulls last, 3, m.name`;
       return rows.map((r) => ({
         metricId: r.id,
         metricName: r.name,
         categoryName: r.category_name,
+        scopeName: r.scope_name,
         frequency: r.frequency,
         expected: r.expected,
       }));

@@ -23,6 +23,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import type { Fraction } from "@/lib/dashboard/kpis";
 import { readParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
+import { KpiTrendsCard } from "./kpi-trends";
 
 export const metadata: Metadata = { title: "Admin Dashboard · TraceESG" };
 
@@ -87,6 +88,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
     orgUnitId: q.orgUnitId,
     periodId: q.periodId,
   });
+  const trends = await caller.records.kpiTrends({ orgUnitId: context.orgUnitId });
   const ctx = `org=${context.orgUnitId}&period=${context.periodId}`;
   const notice = typeof raw.notice === "string" ? raw.notice : undefined;
 
@@ -293,6 +295,11 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
           })}
         </ul>
       </section>
+
+      <KpiTrendsCard
+        trends={trends}
+        orgName={context.orgUnits.find((o) => o.id === context.orgUnitId)?.name ?? ""}
+      />
     </div>
   );
 }

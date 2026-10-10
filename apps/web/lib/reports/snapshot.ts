@@ -3,8 +3,12 @@ import { consolidateNodes, loadMetrics } from "@/lib/consolidation/query";
 import type { Figure, Method } from "@/lib/consolidation/aggregate";
 import { normalize } from "@/lib/calculation/units";
 import type { db, Tx } from "@/lib/db";
+import { parseNumber } from "@/lib/validation/checks";
 import {
   combustionUse,
+  dischargeDestination,
+  dischargeTreated,
+  type DischargeDestination,
   wasteCategory,
   wasteRoute,
   type WasteCategory,
@@ -87,6 +91,23 @@ export type Breakups = {
   scope1Sources: { source: Scope1Source; tCo2e: number }[];
   wasteByCategory: { category: WasteCategory | null; tonnes: number }[];
   wasteByRoute: { route: WasteRoute | null; tonnes: number }[];
+  /** Water discharged, in kilolitres, by where it went and whether it was treated (migration 0041). */
+  waterDischarge?: {
+    destination: DischargeDestination | null;
+    treated: boolean | null;
+    kl: number;
+  }[];
+  /** The counts on approved safety incident statements, summed (migration 0041). */
+  safety?: SafetyTotals[];
+};
+
+export type SafetyTotals = {
+  workforce: "employees" | "workers";
+  personHours: number;
+  lostTimeInjuries: number;
+  recordableInjuries: number;
+  fatalities: number;
+  highConsequenceInjuries: number;
 };
 
 /** A direct child of the reported org unit with its own rolled-up scope totals. */
@@ -262,7 +283,65 @@ async function collectBreakups(
       }
     }
   }
+  // SEBI's water-discharge and safety tables are built from the verified fields of approved records.
+  const fieldRows = periodIds.length
+    ? await sql<
+        { metric_code: string; unit: string | null; fields: Record<string, string | null> | null }[]
+      >`
+        select m.code as metric_code, r.activity_unit as unit,
+               (select jsonb_object_agg(f.field_key, f.verified_value) from public.ocr_fields f
+                 where f.ocr_extraction_id = e.id) as fields
+        from public.consolidation_records cr
+        join public.esg_records r on r.id = cr.esg_record_id
+        join public.esg_metrics m on m.id = cr.metric_id
+        left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
+        left join lateral (select x.id from public.ocr_extractions x
+                            where x.document_id = erd.document_id
+                            order by x.extracted_at desc limit 1) e on true
+        where cr.org_unit_id = ${orgUnitId} and cr.reporting_period_id in ${sql(periodIds)}
+          and cr.approval_status = 'approved'
+          and m.code in ('WATER_CONSUMPTION', 'SAFETY_EMPLOYEES', 'SAFETY_WORKERS')`
+    : [];
+  const waterDischarge: NonNullable<Breakups["waterDischarge"]> = [];
+  const safety: SafetyTotals[] = [];
+  for (const r of fieldRows) {
+    const number = (key: string) => parseNumber(r.fields?.[key] ?? null);
+    if (r.metric_code === "WATER_CONSUMPTION") {
+      const discharged = number("discharge");
+      const kl = discharged !== null && r.unit ? normalize(discharged, r.unit, "KL") : null;
+      if (!kl?.ok || kl.normalized.value === 0) continue;
+      const destination = dischargeDestination(r.fields?.discharge_destination);
+      const treated = dischargeTreated(r.fields?.discharge_treatment);
+      const entry = waterDischarge.find(
+        (x) => x.destination === destination && x.treated === treated,
+      );
+      if (entry) entry.kl += kl.normalized.value;
+      else waterDischarge.push({ destination, treated, kl: kl.normalized.value });
+      continue;
+    }
+    const workforce = r.metric_code === "SAFETY_EMPLOYEES" ? "employees" : "workers";
+    let totals = safety.find((x) => x.workforce === workforce);
+    if (!totals) {
+      totals = {
+        workforce,
+        personHours: 0,
+        lostTimeInjuries: 0,
+        recordableInjuries: 0,
+        fatalities: 0,
+        highConsequenceInjuries: 0,
+      };
+      safety.push(totals);
+    }
+    totals.personHours += number("person_hours") ?? 0;
+    totals.lostTimeInjuries += number("lost_time_injuries") ?? 0;
+    totals.recordableInjuries += number("recordable_injuries") ?? 0;
+    totals.fatalities += number("fatalities") ?? 0;
+    totals.highConsequenceInjuries += number("high_consequence_injuries") ?? 0;
+  }
+
   return {
+    waterDischarge,
+    safety,
     gases: gases.map((g) => {
       const at = g.key.indexOf("|");
       return { scopeCode: g.key.slice(0, at), gases: g.key.slice(at + 1) || null, tCo2e: g.total };

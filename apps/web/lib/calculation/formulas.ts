@@ -4,7 +4,8 @@
 export type FormulaDefinition =
   | { op: "multiply_by_factor" }
   | { op: "subtract"; inputs: [string, string] }
-  | { op: "percentage"; part: string; whole: string };
+  /** part ÷ whole × scale. 100 is a percentage; 1,000,000 a rate per million (LTIFR, migration 0041). */
+  | { op: "percentage"; part: string; whole: string; scale: number };
 
 /** Reads a stored formula_type + formula_definition; null when the pair isn't one this build evaluates. */
 export function parseFormula(type: string, definition: unknown): FormulaDefinition | null {
@@ -16,7 +17,8 @@ export function parseFormula(type: string, definition: unknown): FormulaDefiniti
     if (key(a) && key(b)) return { op: "subtract", inputs: [a as string, b as string] };
   }
   if (type === "percentage" && key(def.part) && key(def.whole)) {
-    return { op: "percentage", part: def.part as string, whole: def.whole as string };
+    const scale = typeof def.scale === "number" && def.scale > 0 ? def.scale : 100;
+    return { op: "percentage", part: def.part as string, whole: def.whole as string, scale };
   }
   return null;
 }
@@ -45,6 +47,9 @@ export function evaluate(
     return { ok: true, value: values[formula.inputs[0]] - values[formula.inputs[1]] };
   const whole = values[formula.whole];
   if (whole === 0)
-    return { ok: false, reason: "The total is zero, so no percentage can be derived." };
-  return { ok: true, value: (values[formula.part] / whole) * 100 };
+    return {
+      ok: false,
+      reason: `The total is zero, so no ${formula.scale === 100 ? "percentage" : "rate"} can be derived.`,
+    };
+  return { ok: true, value: (values[formula.part] / whole) * formula.scale };
 }

@@ -4,8 +4,16 @@
 // BRSR format prints them (current and previous financial year, metric tonnes, intensity rows, the assurance
 // note); every other indicator gets the same two year columns (.grill/audit-p0-decisions.md).
 import { formatQuantity } from "../calculation/trace.ts";
+import { PRINCIPLE_TITLES } from "../brsr/principles.ts";
 import { intensity, pppRevenueMnUsd, type FyInputs } from "./inputs.ts";
-import { WASTE_CATEGORIES, WASTE_ROUTES, type WasteCategory, type WasteRoute } from "./classify.ts";
+import {
+  DISCHARGE_DESTINATIONS,
+  WASTE_CATEGORIES,
+  WASTE_ROUTES,
+  type DischargeDestination,
+  type WasteCategory,
+  type WasteRoute,
+} from "./classify.ts";
 import type {
   Breakups,
   ReportedIndicator,
@@ -348,19 +356,6 @@ const SDG_TITLES = [
   "Partnerships for the Goals",
 ];
 
-/** The nine NGRBC principles SEBI's Section C is organised by, in SEBI's words. */
-export const PRINCIPLE_TITLES = [
-  "Businesses should conduct and govern themselves with integrity, and in a manner that is Ethical, Transparent and Accountable",
-  "Businesses should provide goods and services in a manner that is sustainable and safe",
-  "Businesses should respect and promote the well-being of all employees, including those in their value chains",
-  "Businesses should respect the interests of and be responsive to all its stakeholders",
-  "Businesses should respect and promote human rights",
-  "Businesses should respect and make efforts to protect and restore the environment",
-  "Businesses, when engaging in influencing public and regulatory policy, should do so in a manner that is responsible and transparent",
-  "Businesses should promote inclusive growth and equitable development",
-  "Businesses should engage with and provide value to their consumers in a responsible manner",
-];
-
 const sdgTags = (goals: number[] | undefined) =>
   (goals ?? []).map((g) => `<span class="sdg">SDG ${g}</span>`).join("");
 
@@ -385,7 +380,96 @@ function sdgSection(s: Snapshot) {
       .join("")}</tbody></table>`;
 }
 
+/** SEBI's water-discharge table: each destination, split by whether the water was treated. */
+function dischargeTable(years: Year[]) {
+  const kl = "Kilolitres";
+  const sum = (
+    y: Year,
+    keep: (x: { destination: DischargeDestination | null; treated: boolean | null }) => boolean,
+  ) => {
+    const rows = y.breakups?.waterDischarge?.filter(keep) ?? [];
+    return rows.length ? rows.reduce((n, x) => n + x.kl, 0) : undefined;
+  };
+  const cells = (keep: Parameters<typeof sum>[1]) => years.map((y) => tonnesCell(sum(y, keep)));
+  const optional = (label: string, keep: Parameters<typeof sum>[1], sub: boolean) =>
+    years.some((y) => sum(y, keep) !== undefined)
+      ? (sub ? subRow : row)(label, kl, cells(keep))
+      : "";
+  return sebiTable(
+    years,
+    DISCHARGE_DESTINATIONS.map(
+      ([d, label], index) =>
+        row(
+          `(${["i", "ii", "iii", "iv", "v"][index]}) ${label}`,
+          kl,
+          cells((x) => x.destination === d),
+        ) +
+        subRow(
+          "No treatment",
+          kl,
+          cells((x) => x.destination === d && x.treated === false),
+        ) +
+        subRow(
+          "With treatment",
+          kl,
+          cells((x) => x.destination === d && x.treated === true),
+        ) +
+        optional(
+          "Treatment not stated on the record",
+          (x) => x.destination === d && x.treated === null,
+          true,
+        ),
+    ).join("") +
+      optional("Destination not stated on the record", (x) => x.destination === null, false) +
+      row(
+        "Total water discharged",
+        kl,
+        cells(() => true),
+      ),
+  );
+}
+
+/** SEBI's safety table: the lost time injury frequency rate and the counts, employees and workers apart. */
+function safetyTable(years: Year[]) {
+  const of = (y: Year, w: "employees" | "workers") =>
+    y.breakups?.safety?.find((x) => x.workforce === w);
+  const count = (value: number | undefined) =>
+    value === undefined ? DASH : escapeHtml(num(value, 2));
+  const line = (
+    parameter: string,
+    value: (t: NonNullable<ReturnType<typeof of>>) => number | undefined,
+  ) =>
+    (["employees", "workers"] as const)
+      .map(
+        (w, index) =>
+          `<tr>${index === 0 ? `<td rowspan="2">${escapeHtml(parameter)}</td>` : ""}<td>${
+            w === "employees" ? "Employees" : "Workers"
+          }</td>${years
+            .map((y) => {
+              const t = of(y, w);
+              return `<td class="num">${count(t ? value(t) : undefined)}</td>`;
+            })
+            .join("")}</tr>`,
+      )
+      .join("");
+  return `<table><thead><tr><th>Safety incident / number</th><th>Category</th>${yearHeads(
+    years,
+  )}</tr></thead><tbody>${
+    line("Lost Time Injury Frequency Rate (LTIFR) (per one million person-hours worked)", (t) =>
+      t.personHours > 0 ? (t.lostTimeInjuries / t.personHours) * 1_000_000 : undefined,
+    ) +
+    line("Total recordable work-related injuries", (t) => t.recordableInjuries) +
+    line("No. of fatalities", (t) => t.fatalities) +
+    line(
+      "High consequence work-related injury or ill-health (excluding fatalities)",
+      (t) => t.highConsequenceInjuries,
+    )
+  }</tbody></table>`;
+}
+
 const SEBI_TABLES: Partial<Record<string, (years: Year[], code: string) => string>> = {
+  "P3-E11": safetyTable,
+  "P6-E4": dischargeTable,
   "P6-E7": ghgTable,
   "P6-E9": wasteTable,
   "P6-L2": scope3Table,

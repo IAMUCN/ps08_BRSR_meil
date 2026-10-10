@@ -31,7 +31,7 @@ export default async function BrsrMappingPage({ searchParams }: PageProps<"/admi
     <div className="max-w-7xl space-y-4">
       <PageHeader
         title="BRSR Mapping"
-        description="Which ESG metrics feed which BRSR indicators, and how ready each indicator is. Only the questions answered from measured data are listed; the written ones are on BRSR Disclosures."
+        description="Which ESG metrics feed which BRSR indicators, and how ready each indicator is. Each section shows the questions answered from records, then the written ones that are typed on BRSR Disclosures."
       />
       <nav aria-label="BRSR views" className="flex gap-1 border-b">
         {[
