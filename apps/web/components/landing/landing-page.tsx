@@ -13,14 +13,12 @@ import { WhatIsBrsrSection } from "@/components/landing/what-is-brsr-section";
 import { FaqSection } from "@/components/landing/faq-section";
 import { InfrastructureSection } from "@/components/landing/infrastructure-section";
 import { CtaFooterSection } from "@/components/landing/cta-footer-section";
-import { AgentationToolbar } from "@/components/landing/agentation-toolbar";
 import { MotionProvider } from "@/components/landing/motion-provider";
 
 export function LandingPage() {
   return (
     <MotionProvider>
       <div className="landing-page bg-white text-slate-900 font-sans min-h-screen">
-        <AgentationToolbar />
         <LandingNavbar />
         <main>
           <HeroSection />

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Lora } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { CustomCursor } from "@/components/ui/custom-cursor";
+import { AgentationToolbar } from "@/components/landing/agentation-toolbar";
 import "./globals.css";
 
 const inter = Inter({
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <CustomCursor />
         {children}
         <Toaster />
+        <AgentationToolbar />
       </body>
     </html>
   );

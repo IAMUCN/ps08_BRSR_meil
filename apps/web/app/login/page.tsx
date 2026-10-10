@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AuthCard, AuthNotice } from "@/components/auth/auth-card";
+import { AuthNotice } from "@/components/auth/auth-card";
+import { AuthSlider } from "@/components/auth/auth-slider";
 import { isLoginReason, LOGIN_NOTICES } from "@/lib/auth/messages";
 import { postLoginPath, safeNextPath } from "@/lib/auth/redirects";
 import { getSessionContext } from "@/lib/auth/session";
@@ -20,18 +20,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const notice = reason ? LOGIN_NOTICES[reason] : null;
 
   return (
-    <AuthCard title="Sign in">
-      {notice ? <AuthNotice tone={notice.tone}>{notice.message}</AuthNotice> : null}
-      <LoginForm next={next} />
-      <p className="mt-4 text-sm leading-5">
-        <Link
-          href="/forgot-password"
-          draggable={false}
-          className="font-medium text-primary underline-offset-4 hover:underline"
-        >
-          Forgot password?
-        </Link>
-      </p>
-    </AuthCard>
+    <AuthSlider
+      notice={notice ? <AuthNotice tone={notice.tone}>{notice.message}</AuthNotice> : null}
+      signIn={<LoginForm next={next} />}
+    />
   );
 }
