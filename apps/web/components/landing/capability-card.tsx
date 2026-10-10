@@ -170,8 +170,19 @@ const ROTATION_INTERVAL_MS = 2800;
 const CARD_HEIGHT = 196;
 const OFFSET_Y = [0, 100, 128, 150]; // px from the front card's centre, by distance (3 = parked, hidden)
 const OFFSET_X = [0, 12, 27, 27]; // % of card width
-const OPACITY = [1, 0.7, 0.5]; // content opacity by distance from the front card
-const BLUR = [0, 3, 5]; // px, so receding cards read as depth, not as competing text
+// Level 1 (front) is solid. Level 2 is frosted glass: crisp itself, it blurs whatever sits behind it.
+// Level 3 sits behind the glass at half opacity.
+const LEVEL_OPACITY = [1, 1, 0.5];
+const GLASS_ALPHA = [1, 0.7, 1];
+const GLASS_BLUR = [0, 8, 0]; // px, backdrop blur
+// Level 3 is sharp only where level 2 does not cover it (a 52px strip plus the right 15%);
+// everywhere else it is blurred, so level 2 reads as glass. The polygons share a vertex count so they animate.
+const CLIP = {
+  top: "polygon(0 0, 100% 0, 100% 100%, 85% 100%, 85% 52px, 0 52px)",
+  bottom: "polygon(0 calc(100% - 52px), 85% calc(100% - 52px), 85% 0, 100% 0, 100% 100%, 0 100%)",
+  fullTop: "polygon(0 0, 100% 0, 100% 100%, 85% 100%, 85% 100%, 0 100%)",
+  fullBottom: "polygon(0 0, 85% 0, 85% 0, 100% 0, 100% 100%, 0 100%)",
+};
 const SHADOWS = [
   "shadow-[10px_14px_22px_-10px_rgba(15,23,42,0.28)]",
   "shadow-[8px_10px_16px_-8px_rgba(15,23,42,0.2)]",
@@ -218,6 +229,38 @@ export function HeroCapabilityCard() {
         const slot = Math.min(absDiff, 3);
         const y = Math.sign(diff) * OFFSET_Y[slot];
         const Icon = item.icon;
+        const body = (
+          <div className="flex h-full flex-col justify-between p-5">
+            <div className="flex items-start gap-3.5">
+              <div
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${item.accentColor}`}
+              >
+                <Icon className="h-5 w-5 stroke-[2]" />
+              </div>
+              <div className="min-w-0">
+                <span
+                  className={`mb-1 inline-block rounded-full border px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] ${item.tagColor}`}
+                >
+                  {item.category}
+                </span>
+                <h2 className="text-lg font-bold leading-snug tracking-tight text-slate-900">
+                  {item.title}
+                </h2>
+              </div>
+            </div>
+
+            <p className="text-sm leading-relaxed text-slate-600">{item.description}</p>
+
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-slate-50/90 px-3 py-2 text-xs">
+              <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                {item.metricLabel}
+              </span>
+              <span className="truncate text-right font-bold text-slate-800">
+                {item.metricValue}
+              </span>
+            </div>
+          </div>
+        );
 
         return (
           <div
@@ -230,11 +273,15 @@ export function HeroCapabilityCard() {
               marginTop: -CARD_HEIGHT / 2,
               transform: `translate(${OFFSET_X[slot]}%, ${y}px)`,
               zIndex: 30 - absDiff * 10,
-              opacity: absDiff > 2 ? 0 : 1, // the card stays opaque so layers behind never show through
+              opacity: absDiff > 2 ? 0 : LEVEL_OPACITY[absDiff],
+              backgroundColor: `rgba(255,255,255,${GLASS_ALPHA[Math.min(absDiff, 2)]})`,
+              backdropFilter: `blur(${GLASS_BLUR[Math.min(absDiff, 2)]}px)`,
+              WebkitBackdropFilter: `blur(${GLASS_BLUR[Math.min(absDiff, 2)]}px)`,
               pointerEvents: absDiff > 2 ? "none" : "auto",
-              transition: "transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease",
+              transition:
+                "transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease, background-color 0.7s ease, backdrop-filter 0.7s ease",
             }}
-            className={`absolute overflow-hidden rounded-2xl border border-slate-200/90 bg-white ${SHADOWS[Math.min(absDiff, 2)]}`}
+            className={`absolute overflow-hidden rounded-2xl border border-slate-200/90 ${SHADOWS[Math.min(absDiff, 2)]}`}
           >
             {diff !== 0 && absDiff <= 2 && (
               <button
@@ -245,42 +292,25 @@ export function HeroCapabilityCard() {
               />
             )}
 
-            <div
-              aria-hidden={diff !== 0}
-              className="flex h-full flex-col justify-between p-5"
-              style={{
-                opacity: OPACITY[Math.min(absDiff, 2)],
-                filter: `blur(${BLUR[Math.min(absDiff, 2)]}px)`,
-                transition: "filter 0.7s ease, opacity 0.5s ease",
-              }}
-            >
-              <div className="flex items-start gap-3.5">
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${item.accentColor}`}
-                >
-                  <Icon className="h-5 w-5 stroke-[2]" />
+            <div className="relative h-full" aria-hidden={diff !== 0}>
+              {absDiff === 2 && (
+                <div aria-hidden className="absolute inset-0" style={{ filter: "blur(5px)" }}>
+                  {body}
                 </div>
-                <div className="min-w-0">
-                  <span
-                    className={`mb-1 inline-block rounded-full border px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] ${item.tagColor}`}
-                  >
-                    {item.category}
-                  </span>
-                  <h2 className="text-lg font-bold leading-snug tracking-tight text-slate-900">
-                    {item.title}
-                  </h2>
-                </div>
-              </div>
-
-              <p className="text-sm leading-relaxed text-slate-600">{item.description}</p>
-
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-slate-50/90 px-3 py-2 text-xs">
-                <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  {item.metricLabel}
-                </span>
-                <span className="truncate text-right font-bold text-slate-800">
-                  {item.metricValue}
-                </span>
+              )}
+              <div
+                className="absolute inset-0"
+                style={{
+                  clipPath:
+                    absDiff === 2
+                      ? CLIP[diff < 0 ? "top" : "bottom"]
+                      : diff > 0
+                        ? CLIP.fullBottom
+                        : CLIP.fullTop,
+                  transition: "clip-path 0.7s ease",
+                }}
+              >
+                {body}
               </div>
             </div>
           </div>
