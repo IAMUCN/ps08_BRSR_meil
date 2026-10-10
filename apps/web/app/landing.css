@@ -95,3 +95,29 @@ body:has(.landing-page) {
 .delay-300 { animation-delay: 300ms; }
 .delay-400 { animation-delay: 400ms; }
 .delay-500 { animation-delay: 500ms; }
+
+.capability-deck-container {
+  --step-y: 34px;
+  --step-x: 22px;
+  --base-top: 68px;
+  --card-h: 350px;
+}
+
+@media (max-width: 640px) {
+  .capability-deck-container {
+    --step-y: 28px;
+    --step-x: 16px;
+    --base-top: 56px;
+    --card-h: 335px;
+  }
+}
+
+.infrastructure-cards-container {
+  --card-text-bottom: 28px;
+}
+
+@media (max-width: 640px) {
+  .infrastructure-cards-container {
+    --card-text-bottom: 22px;
+  }
+}

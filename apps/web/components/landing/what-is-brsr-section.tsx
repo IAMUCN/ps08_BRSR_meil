@@ -8,18 +8,21 @@ export function WhatIsBrsrSection() {
         
         {/* Left Column */}
         <div className="lg:col-span-6 space-y-6">
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-950 tracking-tight">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#313490]/10 text-[#313490] text-xs font-bold uppercase tracking-wider">
+            SEBI Regulatory Framework
+          </div>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#333333] tracking-tight">
             What is BRSR?
           </h2>
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-lg">
-            The Business Responsibility and Sustainability Reporting framework provides a standardized structure for companies to disclose their environmental, social and governance performance.
+            The Business Responsibility and Sustainability Reporting (BRSR) framework establishes standardized disclosures across 9 core principles. TraceESG aligns MEIL&apos;s multi-tier project operations directly with statutory SEBI indicators.
           </p>
           <div>
             <Link
               href="#brsr"
-              className="inline-flex items-center text-base font-bold text-[#e11d48] hover:text-[#be123c] transition-colors gap-1.5"
+              className="inline-flex items-center text-base font-bold text-[#E91029] hover:text-[#E91029]/80 transition-colors gap-1.5"
             >
-              Learn More About BRSR <ArrowRight className="w-4 h-4" />
+              Explore SEBI BRSR Principles <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>

@@ -273,3 +273,47 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Custom Cursor styles - enabled sitewide via html.custom-cursor-enabled */
+html.custom-cursor-enabled,
+html.custom-cursor-enabled body,
+html.custom-cursor-enabled *,
+html.custom-cursor-enabled *::before,
+html.custom-cursor-enabled *::after,
+html.custom-cursor-enabled a,
+html.custom-cursor-enabled button,
+html.custom-cursor-enabled [role="button"],
+html.custom-cursor-enabled input,
+html.custom-cursor-enabled textarea,
+html.custom-cursor-enabled select,
+html.custom-cursor-enabled label,
+html.custom-cursor-enabled summary,
+html.custom-cursor-enabled *:hover,
+html.custom-cursor-enabled *:active,
+html.custom-cursor-enabled *:focus,
+html.custom-cursor-enabled a:hover,
+html.custom-cursor-enabled a:active,
+html.custom-cursor-enabled a:focus,
+html.custom-cursor-enabled button:hover,
+html.custom-cursor-enabled button:active,
+html.custom-cursor-enabled button:focus {
+  cursor: none !important;
+}
+
+/* Prevent browser from spawning OS drag / hand cursor when clicking and holding links or buttons */
+html.custom-cursor-enabled a,
+html.custom-cursor-enabled button,
+html.custom-cursor-enabled [role="button"],
+html.custom-cursor-enabled img {
+  -webkit-user-drag: none !important;
+  user-drag: none !important;
+  user-select: none;
+}
+
+/* Escape hatch if any specific component explicitly requires native OS cursor */
+[data-native-cursor="true"],
+[data-native-cursor="true"] *,
+[data-native-cursor="true"] *::before,
+[data-native-cursor="true"] *::after {
+  cursor: auto !important;
+}

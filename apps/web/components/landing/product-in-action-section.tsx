@@ -7,11 +7,14 @@ export function ProductInActionSection() {
         
         {/* Section Heading */}
         <div className="text-center mb-14">
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-950 tracking-tight">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#313490]/10 text-[#313490] text-xs font-bold uppercase tracking-wider mb-2">
+            Human-in-the-Loop Verification
+          </div>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#333333] tracking-tight">
             Product in Action
           </h2>
           <p className="text-base sm:text-lg text-slate-600 mt-2">
-            See how a document becomes verified ESG data.
+            See how operational site bills transform into verified, audit-ready ESG data.
           </p>
         </div>
 
@@ -28,7 +31,7 @@ export function ProductInActionSection() {
             </div>
 
             <nav className="space-y-1 text-xs font-semibold flex-1">
-              <a href="#" className="flex items-center gap-3 px-3 py-2.5 bg-blue-600 text-white rounded-xl shadow-xs">
+              <a href="#" className="flex items-center gap-3 px-3 py-2.5 bg-[#313490] text-white rounded-xl shadow-xs">
                 <LayoutDashboard className="w-4 h-4" />
                 Dashboard
               </a>
@@ -69,10 +72,10 @@ export function ProductInActionSection() {
             <div className="h-12 bg-white border-b border-slate-200 px-6 flex items-center justify-between">
               <span className="text-sm font-bold text-slate-800">Document View</span>
               <div className="flex items-center gap-2 text-slate-400">
-                <button className="p-1 hover:text-slate-600"><ArrowLeft className="w-4 h-4" /></button>
-                <button className="p-1 hover:text-slate-600"><ArrowRight className="w-4 h-4" /></button>
+                <button aria-label="Previous page" className="p-1 hover:text-slate-600 transition-colors"><ArrowLeft className="w-4 h-4" /></button>
+                <button aria-label="Next page" className="p-1 hover:text-slate-600 transition-colors"><ArrowRight className="w-4 h-4" /></button>
                 <span className="w-px h-3.5 bg-slate-200 mx-1" />
-                <button className="p-1 hover:text-slate-600"><Maximize2 className="w-3.5 h-3.5" /></button>
+                <button aria-label="Fullscreen preview" className="p-1 hover:text-slate-600 transition-colors"><Maximize2 className="w-3.5 h-3.5" /></button>
               </div>
             </div>
 
@@ -86,12 +89,12 @@ export function ProductInActionSection() {
                 <div className="w-full max-w-[420px] bg-white rounded-xl shadow-sm border border-slate-200/90 p-6 space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded bg-[#ca2851] text-white flex items-center justify-center text-[10px] font-bold">
+                      <div className="w-6 h-6 rounded bg-[#E91029] text-white flex items-center justify-center text-[10px] font-bold">
                         B
                       </div>
                       <span className="font-extrabold text-sm text-slate-900 tracking-tight">Bharat Bijli</span>
                     </div>
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase">HT Consumer Bill</span>
+                    <span className="text-[10px] font-semibold text-slate-600 uppercase">HT Consumer Bill</span>
                   </div>
 
                   {/* Bill Details */}
@@ -120,7 +123,7 @@ export function ProductInActionSection() {
 
                 {/* 4 Page Thumbnails underneath document */}
                 <div className="flex items-center gap-3 mt-4">
-                  <div className="w-9 h-12 bg-white rounded border-2 border-blue-600 shadow-xs flex items-center justify-center text-[9px] font-bold text-blue-600">1</div>
+                  <div className="w-9 h-12 bg-white rounded border-2 border-[#313490] shadow-xs flex items-center justify-center text-[9px] font-bold text-[#313490]">1</div>
                   <div className="w-9 h-12 bg-white rounded border border-slate-200 shadow-xs flex items-center justify-center text-[9px] text-slate-400">2</div>
                   <div className="w-9 h-12 bg-white rounded border border-slate-200 shadow-xs flex items-center justify-center text-[9px] text-slate-400">3</div>
                   <div className="w-9 h-12 bg-white rounded border border-slate-200 shadow-xs flex items-center justify-center text-[9px] text-slate-400">4</div>
@@ -161,7 +164,7 @@ export function ProductInActionSection() {
                     {/* Field 5: Confidence */}
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-xs text-slate-500">Confidence</span>
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 text-xs font-bold">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         94%
                       </div>
@@ -171,7 +174,7 @@ export function ProductInActionSection() {
 
                 {/* Bottom Action Button */}
                 <div className="pt-6">
-                  <button className="w-full py-3 px-4 bg-[#1e40af] hover:bg-[#1d4ed8] text-white font-bold text-sm rounded-xl shadow-md transition-colors flex items-center justify-center gap-2">
+                  <button className="w-full py-3 px-4 bg-[#313490] hover:bg-[#313490]/90 text-white font-bold text-sm rounded-xl shadow-md transition-colors flex items-center justify-center gap-2">
                     Verify & Confirm
                   </button>
                 </div>

@@ -19,7 +19,31 @@ export function LandingPage() {
       <AgentationToolbar />
       <LandingNavbar />
       <main>
+        {/* 1. Hero: Core Thesis & Interactive Capability Roll */}
         <HeroSection />
+
+        {/* 2. Enterprise Context: MEIL 5 Heavy Infrastructure Verticals (Dams, Highways, Energy, Manufacturing, Hydrocarbons) */}
+        <InfrastructureSection />
+
+        {/* 3. Regulatory Alignment & Evidence-First Architecture */}
+        <WhatIsBrsrSection />
+
+        {/* 4. Core System Pillars & Invariants */}
+        <TrustBadgesSection />
+
+        {/* 5. Evidence-to-BRSR Digital Thread Pipeline */}
+        <ProcessStepsSection />
+
+        {/* 6. Product in Action: Split-Pane Human Verification Interface */}
+        <ProductInActionSection />
+
+        {/* 7. Multi-Tier Governance: 6 Contributor Roles */}
+        <ContributorsSection />
+
+        {/* 8. Executive Monitoring: BRSR Readiness & Scope Consolidation */}
+        <PerformanceSection />
+
+        {/* Previous ordering preserved in comments for reference:
         <WhatIsBrsrSection />
         <TrustBadgesSection />
         <ProcessStepsSection />
@@ -27,6 +51,7 @@ export function LandingPage() {
         <PerformanceSection />
         <ContributorsSection />
         <InfrastructureSection />
+        */}
       </main>
       <CtaFooterSection />
     </div>

@@ -4,23 +4,23 @@ import { useState, useEffect, useRef } from 'react';
 
 const categories = [
   {
-    name: "Irrigation",
+    name: "IRRIGATION",
     image: "/landing/infrastructure-water.jpg",
   },
   {
-    name: "Transport",
+    name: "TRANSPORT",
     image: "/landing/infrastructure-transport.jpg",
   },
   {
-    name: "Power & Energy",
+    name: "POWER & ENERGY",
     image: "/landing/infrastructure-power.jpg",
   },
   {
-    name: "Manufacturing",
+    name: "MANUFACTURING",
     image: "/landing/infrastructure-manufacturing.jpg",
   },
   {
-    name: "Oil, Gas & Hydrocarbons",
+    name: "OIL, HYDROCARBONS",
     image: "/landing/infrastructure-oil-gas.jpg",
   },
 ];
@@ -77,7 +77,7 @@ export function InfrastructureSection() {
   }, []);
 
   return (
-    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+    <section id="infrastructure" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
       <div className="max-w-7xl mx-auto">
         
         {/* Section Heading */}
@@ -93,7 +93,10 @@ export function InfrastructureSection() {
         {/* 5 Infrastructure Cards in Expanding Flexbox Accordion with decreased spacing */}
         <div
           ref={cardsContainerRef}
-          className="flex items-stretch gap-1.5 sm:gap-2 h-[400px] sm:h-[460px] max-w-6xl mx-auto w-full"
+          className="infrastructure-cards-container flex items-stretch gap-1.5 sm:gap-2 h-[400px] sm:h-[460px] max-w-6xl mx-auto w-full"
+          style={{
+            ['--card-text-bottom' as string]: '28px',
+          }}
         >
           {categories.map((cat, idx) => {
             const isActive = activeIndex === idx;
@@ -113,28 +116,24 @@ export function InfrastructureSection() {
                   backgroundPosition: "center",
                 }}
               >
-                {/* Subtle dark gradient overlay concentrated at the bottom for text legibility */}
+                {/* Subtle bottom gradient: Appears only when the card opens for text legibility */}
                 <div
-                  className={`absolute inset-0 pointer-events-none transition-colors duration-700 ${
-                    isActive
-                      ? "bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent"
-                      : "bg-gradient-to-t from-slate-950/85 via-slate-950/50 to-slate-950/20"
+                  className={`absolute bottom-0 left-0 right-0 h-32 sm:h-36 pointer-events-none transition-opacity duration-700 bg-gradient-to-t from-slate-950/80 via-slate-950/35 to-transparent ${
+                    isActive ? "opacity-100" : "opacity-0"
                   }`}
                 />
-
-                {/* Animated Text Container: Vertical written top-to-bottom at bottom of closed card, unrolls ACW to bottom-left when open */}
                 <div
                   className="absolute z-10 pointer-events-none whitespace-nowrap"
                   style={{
-                    bottom: isActive ? "28px" : "110px",
-                    left: isActive ? "28px" : "50%",
-                    transform: isActive ? "translate(0, 0) rotate(0deg)" : "translate(-50%, 50%) rotate(90deg)",
-                    transformOrigin: "center center",
+                    bottom: "var(--card-text-bottom, 28px)",
+                    left: isActive ? "28px" : "calc(50% + 7px)",
+                    transform: isActive ? "rotate(0deg) translate(0, 0)" : "rotate(90deg) translate(-100%, 0)",
+                    transformOrigin: "0 0",
                     transition:
-                      "bottom 0.85s cubic-bezier(0.16, 1, 0.3, 1), left 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.85s cubic-bezier(0.16, 1, 0.3, 1)",
+                      "left 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.85s cubic-bezier(0.16, 1, 0.3, 1)",
                   }}
                 >
-                  <span className="inline-block font-bold text-white text-xs sm:text-sm lg:text-base tracking-wider uppercase drop-shadow-md select-none">
+                  <span className="inline-block font-bold text-white text-xs sm:text-sm lg:text-base tracking-wider uppercase drop-shadow-[0_2px_6px_rgba(0,0,0,0.85)] select-none leading-none">
                     {cat.name}
                   </span>
                 </div>
@@ -143,19 +142,16 @@ export function InfrastructureSection() {
           })}
         </div>
 
-        {/* Interactive Indicator Pills */}
-        <div className="flex items-center justify-center gap-2 mt-6">
-          {categories.map((_, idx) => (
+        {/* Mobile Pagination Indicator Dots */}
+        <div className="sm:hidden flex items-center justify-center gap-2 mt-4">
+          {categories.map((cat, idx) => (
             <button
               key={idx}
-              type="button"
               onClick={() => setActiveIndex(idx)}
-              aria-label={`Go to slide ${idx + 1}`}
-              className={`h-1.5 rounded-full transition-all duration-500 cursor-pointer ${
-                activeIndex === idx
-                  ? "w-8 bg-slate-900"
-                  : "w-2 bg-slate-300 hover:bg-slate-400"
+              className={`h-2 rounded-full transition-all duration-300 ${
+                activeIndex === idx ? "w-6 bg-[#313490]" : "w-2 bg-slate-300"
               }`}
+              aria-label={`Select ${cat.name}`}
             />
           ))}
         </div>

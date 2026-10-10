@@ -14,10 +14,8 @@ import {
   TrendingUp,
   ShieldAlert,
   HardHat,
-  ChevronLeft,
-  ChevronRight,
-  Pause,
-  Play,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 
 export interface CapabilityItem {
@@ -28,7 +26,7 @@ export interface CapabilityItem {
   metricLabel: string;
   metricValue: string;
   icon: typeof FileCheck2;
-  accentColor: string; // for icon badge
+  accentColor: string;
   tagColor: string;
 }
 
@@ -167,40 +165,30 @@ export const CAPABILITIES: CapabilityItem[] = [
   },
 ];
 
-const ROTATION_INTERVAL_MS = 3000;
-const TRANSITION_DURATION_MS = 450;
+const ROTATION_INTERVAL_MS = 3800;
 
 export function HeroCapabilityCard() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const lastWheelTime = useRef<number>(0);
+
+  const total = CAPABILITIES.length;
 
   const goToNext = useCallback(() => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentIndex((prev) => (prev + 1) % CAPABILITIES.length);
-      setIsTransitioning(false);
-    }, TRANSITION_DURATION_MS);
-  }, []);
+    setCurrentIndex((prev) => (prev + 1) % total);
+  }, [total]);
 
   const goToPrev = useCallback(() => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentIndex((prev) => (prev - 1 + CAPABILITIES.length) % CAPABILITIES.length);
-      setIsTransitioning(false);
-    }, TRANSITION_DURATION_MS);
-  }, []);
+    setCurrentIndex((prev) => (prev - 1 + total) % total);
+  }, [total]);
 
   const jumpTo = useCallback((index: number) => {
-    if (index === currentIndex) return;
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentIndex(index);
-      setIsTransitioning(false);
-    }, TRANSITION_DURATION_MS);
-  }, [currentIndex]);
+    setCurrentIndex((index % total + total) % total);
+  }, [total]);
 
+  // Autoplay effect
   useEffect(() => {
     if (isPaused) {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -216,141 +204,210 @@ export function HeroCapabilityCard() {
     };
   }, [isPaused, goToNext]);
 
-  const current = CAPABILITIES[currentIndex];
-  const IconComponent = current.icon;
+  // Wheel handling: allow rolling when cursor is over the stack
+  const handleWheel = (e: React.WheelEvent) => {
+    if (Math.abs(e.deltaY) < 18) return;
+    const now = Date.now();
+    if (now - lastWheelTime.current < 400) return;
+    lastWheelTime.current = now;
+    if (e.deltaY > 0) {
+      goToNext();
+    } else {
+      goToPrev();
+    }
+  };
+
+  // Touch swipe handling
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY.current === null) return;
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchEndY - touchStartY.current;
+    if (Math.abs(deltaY) > 35) {
+      if (deltaY < 0) {
+        goToNext();
+      } else {
+        goToPrev();
+      }
+    }
+    touchStartY.current = null;
+  };
+
+  // Shortest circular difference between item index and currentIndex
+  const getDiff = (idx: number): number => {
+    let diff = (idx - currentIndex) % total;
+    if (diff > total / 2) diff -= total;
+    if (diff < -total / 2) diff += total;
+    return diff;
+  };
+
+  // Shadow classes matching the tiered depth in reference image
+  const getCardShadow = (diff: number) => {
+    if (diff === 0) {
+      return 'shadow-[-6px_14px_32px_rgba(15,23,42,0.12),-1px_4px_12px_rgba(15,23,42,0.06),0_0_0_1px_rgba(226,232,240,0.9)]';
+    }
+    if (Math.abs(diff) === 1) {
+      return 'shadow-[-4px_8px_20px_rgba(15,23,42,0.08),-1px_2px_6px_rgba(15,23,42,0.04),0_0_0_1px_rgba(226,232,240,0.7)]';
+    }
+    if (Math.abs(diff) === 2) {
+      return 'shadow-[-3px_4px_10px_rgba(15,23,42,0.05),0_0_0_1px_rgba(226,232,240,0.6)]';
+    }
+    return 'shadow-none';
+  };
 
   return (
     <div
-      className="relative w-full max-w-[480px] mx-auto select-none"
+      className="capability-deck-container relative w-full max-w-[480px] sm:max-w-[500px] h-[465px] sm:h-[490px] mx-auto select-none"
+      style={{
+        ['--step-y' as string]: '34px',
+        ['--step-x' as string]: '22px',
+        ['--base-top' as string]: '68px',
+        ['--card-h' as string]: '350px',
+      }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
-      {/* Very soft atmospheric background glow behind the card */}
-      <div className="absolute -inset-4 rounded-3xl bg-gradient-to-tr from-blue-100/60 via-sky-50/50 to-indigo-50/40 blur-2xl -z-10 pointer-events-none" />
+      {/* Soft atmospheric background glow behind the card stack */}
+      <div className="absolute top-1/2 -translate-y-1/2 -left-8 -right-4 h-[420px] rounded-full bg-gradient-to-tr from-blue-100/50 via-sky-50/40 to-indigo-50/30 blur-3xl -z-10 pointer-events-none" />
 
-      {/* Main Capability Showcase Card */}
-      <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-200/60 p-6 sm:p-7 overflow-hidden transition-all duration-300 hover:shadow-2xl hover:border-slate-300">
-        
-        {/* Subtle decorative top border accent line */}
-        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
+      {/* Layered Card Stack (Rolling Rolodex / Tiered Deck) */}
+      <div className="relative w-full h-full">
+        {CAPABILITIES.map((item, idx) => {
+          const diff = getDiff(idx);
+          const absDiff = Math.abs(diff);
+          const isVisible = absDiff <= 2;
+          const isNearby = absDiff <= 3;
+          const IconComponent = item.icon;
 
-        {/* Card Header: Category & Live Indicator */}
-        <div className="flex items-center justify-between gap-2 pb-4 mb-5 border-b border-slate-100">
-          <span
-            className={`inline-flex items-center text-[10px] font-bold tracking-[0.14em] uppercase px-3 py-1 rounded-full border ${current.tagColor} transition-colors duration-300`}
-          >
-            {current.category}
-          </span>
+          // Compute stack layering properties using responsive CSS variables
+          const cardStyle: React.CSSProperties = {
+            top: `calc(var(--base-top) + ${diff} * var(--step-y))`,
+            width: `calc(100% - ${absDiff} * var(--step-x))`,
+            height: 'var(--card-h)',
+            zIndex: diff === 0 ? 30 : absDiff === 1 ? 20 : absDiff === 2 ? 10 : 0,
+            opacity: absDiff > 2 ? 0 : 1,
+            pointerEvents: isVisible ? 'auto' : 'none',
+            transition:
+              'top 0.65s cubic-bezier(0.16, 1, 0.3, 1), width 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease, box-shadow 0.65s ease',
+          };
 
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200/60 text-[10px] font-medium text-slate-500">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            <span className="hidden xs:inline">Core Capability</span>
-          </div>
-        </div>
+          if (!isNearby) {
+            // Keep completely off-screen cards unmounted from the active rendering pipeline
+            return null;
+          }
 
-        {/* Dynamic Card Content Area with Upward Slide & Fade */}
-        <div
-          className={`transition-all ease-out duration-[450ms] ${
-            isTransitioning
-              ? 'opacity-0 -translate-y-2.5 scale-[0.99]'
-              : 'opacity-100 translate-y-0 scale-100'
-          }`}
-        >
-          {/* Icon & Title */}
-          <div className="flex items-start gap-4 mb-4">
+          return (
             <div
-              className={`w-12 h-12 rounded-xl border flex items-center justify-center flex-shrink-0 shadow-xs transition-colors duration-300 ${current.accentColor}`}
+              key={item.id}
+              style={cardStyle}
+              className={`absolute right-0 rounded-2xl sm:rounded-3xl bg-white border border-slate-200/90 overflow-hidden select-none ${getCardShadow(
+                diff
+              )}`}
             >
-              <IconComponent className="w-6 h-6 stroke-[2]" />
-            </div>
+              {/* TOP PEEK TAB (Visible when card is peeking above active card: diff === -1 or -2) */}
+              {diff < 0 && (
+                <div
+                  onClick={() => jumpTo(idx)}
+                  className="h-[34px] px-3.5 sm:px-4 flex items-center justify-between text-xs cursor-pointer hover:bg-slate-50 transition-colors group/tab"
+                  title={`Roll to ${item.title}`}
+                >
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <span className="text-[10px] font-bold tracking-wider uppercase text-slate-500 group-hover/tab:text-slate-800 transition-colors truncate">
+                      {item.category}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500 group-hover/tab:text-blue-600 transition-colors shrink-0">
+                    <span className="hidden sm:inline text-slate-500 font-semibold truncate max-w-[130px]">
+                      {item.title}
+                    </span>
+                    <ChevronUp className="w-3.5 h-3.5 text-slate-500 group-hover/tab:-translate-y-0.5 transition-transform" />
+                  </div>
+                </div>
+              )}
 
-            <div className="pt-0.5">
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
-                {current.title}
-              </h3>
-            </div>
-          </div>
+              {/* BOTTOM PEEK TAB (Visible when card is peeking below active card: diff === 1 or 2) */}
+              {diff > 0 && (
+                <div
+                  onClick={() => jumpTo(idx)}
+                  className="absolute bottom-0 left-0 right-0 h-[34px] px-3.5 sm:px-4 flex items-center justify-between text-xs cursor-pointer hover:bg-slate-50 transition-colors group/tab border-t border-slate-100"
+                  title={`Roll to ${item.title}`}
+                >
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <span className="text-[10px] font-bold text-slate-600 group-hover/tab:text-slate-900 transition-colors truncate">
+                      {item.title}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500 group-hover/tab:text-blue-600 transition-colors shrink-0">
+                    <span className="hidden sm:inline text-slate-500">{item.metricLabel}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-500 group-hover/tab:translate-y-0.5 transition-transform" />
+                  </div>
+                </div>
+              )}
 
-          {/* Description */}
-          <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-6 min-h-[44px]">
-            {current.description}
-          </p>
-
-          {/* Technical Metric / Spec Footer */}
-          <div className="bg-slate-50/90 border border-slate-200/70 rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs">
-            <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">
-              {current.metricLabel}
-            </span>
-            <span className="font-bold text-slate-800 text-right truncate">
-              {current.metricValue}
-            </span>
-          </div>
-        </div>
-
-        {/* Progress & Pagination Controls Bar */}
-        <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          
-          {/* Index Counter */}
-          <div className="flex items-center gap-2 font-mono text-xs font-semibold text-slate-500">
-            <span className="text-slate-900 font-bold text-sm">{current.id}</span>
-            <span className="text-slate-300">/</span>
-            <span className="text-slate-400">12</span>
-          </div>
-
-          {/* Minimal 12 Progression Indicators */}
-          <div className="hidden sm:flex items-center gap-1">
-            {CAPABILITIES.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => jumpTo(idx)}
-                aria-label={`Jump to capability ${idx + 1}`}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx === currentIndex
-                    ? 'w-5 bg-blue-600'
-                    : 'w-1.5 bg-slate-200 hover:bg-slate-300'
+              {/* ACTIVE CARD FULL BODY (Rendered prominently when diff === 0) */}
+              <div
+                className={`p-6 sm:p-7 flex flex-col justify-between h-full transition-opacity duration-300 ${
+                  diff === 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
                 }`}
-              />
-            ))}
-          </div>
+              >
+                <div>
+                  {/* Category Pill & Live Core Capability Badge */}
+                  <div className="flex items-center justify-between gap-2 pb-3 mb-4 border-b border-slate-100">
+                    <span
+                      className={`inline-flex items-center text-[10px] font-bold tracking-[0.14em] uppercase px-3 py-1 rounded-full border ${item.tagColor}`}
+                    >
+                      {item.category}
+                    </span>
 
-          {/* Play/Pause & Arrow Navigation */}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setIsPaused((prev) => !prev)}
-              aria-label={isPaused ? 'Resume autoplay' : 'Pause autoplay'}
-              className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors"
-              title={isPaused ? 'Resume auto-cycle' : 'Pause auto-cycle'}
-            >
-              {isPaused ? <Play className="w-3.5 h-3.5 ml-0.5 fill-current" /> : <Pause className="w-3.5 h-3.5" />}
-            </button>
-            <button
-              onClick={goToPrev}
-              aria-label="Previous capability"
-              className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={goToNext}
-              aria-label="Next capability"
-              className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200/60 text-[10px] font-medium text-slate-500">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                      </span>
+                      <span className="hidden xs:inline">Core Capability</span>
+                    </div>
+                  </div>
 
-        </div>
+                  {/* Icon & Title */}
+                  <div className="flex items-start gap-4 mb-3">
+                    <div
+                      className={`w-12 h-12 rounded-xl border flex items-center justify-center flex-shrink-0 shadow-xs ${item.accentColor}`}
+                    >
+                      <IconComponent className="w-6 h-6 stroke-[2]" />
+                    </div>
 
-      </div>
+                    <div className="pt-0.5">
+                      <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
+                        {item.title}
+                      </h2>
+                    </div>
+                  </div>
 
-      {/* Bottom Subtext */}
-      <div className="mt-3 text-center">
-        <span className="text-[11px] font-medium text-slate-400">
-          TraceESG Core Platform Architecture · Automated live capability rotation
-        </span>
+                  {/* Description */}
+                  <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-4 min-h-[44px]">
+                    {item.description}
+                  </p>
+
+                  {/* Technical Metric / Spec Box */}
+                  <div className="bg-slate-50/90 border border-slate-200/70 rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs">
+                    <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">
+                      {item.metricLabel}
+                    </span>
+                    <span className="font-bold text-slate-800 text-right truncate">
+                      {item.metricValue}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

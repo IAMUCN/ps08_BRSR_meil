@@ -3,34 +3,34 @@ import { FileCheck, UserCheck, Calculator, Building2, ClipboardCheck } from "luc
 export function TrustBadgesSection() {
   const badges = [
     {
-      icon: <FileCheck className="w-6 h-6 text-blue-600" />,
-      iconBg: "bg-blue-100/70 border border-blue-200/50",
+      icon: <FileCheck className="w-6 h-6 text-[#313490]" />,
+      iconBg: "bg-[#313490]/10 border border-[#313490]/20",
       title: "Evidence-first",
-      description: "Every number is linked to a source document.",
+      description: "Every reported number is backed by a verifiable source document.",
     },
     {
-      icon: <UserCheck className="w-6 h-6 text-blue-600" />,
-      iconBg: "bg-blue-100/70 border border-blue-200/50",
+      icon: <UserCheck className="w-6 h-6 text-[#313490]" />,
+      iconBg: "bg-[#313490]/10 border border-[#313490]/20",
       title: "Human-verified",
-      description: "AI extracts, people confirm.",
+      description: "AI assists with extraction; domain teams verify and confirm.",
     },
     {
       icon: <Calculator className="w-6 h-6 text-amber-600" />,
       iconBg: "bg-amber-100/70 border border-amber-200/50",
       title: "Deterministic",
-      description: "Regulatory calculations using standard factors.",
+      description: "Regulatory math using versioned CEA and IPCC emission factors.",
     },
     {
       icon: <Building2 className="w-6 h-6 text-emerald-600" />,
       iconBg: "bg-emerald-100/70 border border-emerald-200/50",
       title: "Enterprise scale",
-      description: "From projects to corporate reporting.",
+      description: "Hierarchical roll-up across 28 subsidiaries and 300+ project sites.",
     },
     {
-      icon: <ClipboardCheck className="w-6 h-6 text-red-600" />,
-      iconBg: "bg-red-100/70 border border-red-200/50",
+      icon: <ClipboardCheck className="w-6 h-6 text-[#E91029]" />,
+      iconBg: "bg-[#E91029]/10 border border-[#E91029]/20",
       title: "BRSR-ready",
-      description: "Mapped to relevant BRSR indicators.",
+      description: "Mapped directly to SEBI Core and Leadership indicator tables.",
     },
   ];
 

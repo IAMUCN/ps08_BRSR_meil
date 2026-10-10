@@ -35,15 +35,15 @@ export function CtaFooterSection() {
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center px-6 py-3.5 text-sm sm:text-base font-bold text-white bg-[#e11d48] rounded-lg hover:bg-[#be123c] transition-all shadow-md gap-2"
+                className="inline-flex items-center justify-center px-6 py-3.5 text-sm sm:text-base font-bold text-white bg-[#E91029] rounded-lg hover:bg-[#d00e24] transition-all shadow-md gap-2"
               >
                 Request a Demo <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center px-6 py-3.5 text-sm sm:text-base font-bold text-slate-800 bg-white/95 hover:bg-white rounded-lg transition-all shadow-md gap-2 border border-white"
+                className="inline-flex items-center justify-center px-6 py-3.5 text-sm sm:text-base font-bold text-[#333333] bg-white/95 hover:bg-white rounded-lg transition-all shadow-md gap-2 border border-white"
               >
-                <Target className="w-4 h-4 text-blue-600" />
+                <Target className="w-4 h-4 text-[#313490]" />
                 Contact Us
               </Link>
             </div>
@@ -52,12 +52,12 @@ export function CtaFooterSection() {
         </div>
 
         {/* Minimal Copyright Bar */}
-        <div className="mt-12 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-4">
+        <div className="mt-12 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
           <p>© {new Date().getFullYear()} TraceESG by MEIL. All rights reserved.</p>
           <div className="flex gap-6">
-            <a href="#" className="hover:text-slate-600 transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-slate-600 transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-slate-600 transition-colors">Contact</a>
+            <a href="#" className="hover:text-slate-800 transition-colors">Privacy Policy</a>
+            <a href="#" className="hover:text-slate-800 transition-colors">Terms of Service</a>
+            <a href="#" className="hover:text-slate-800 transition-colors">Contact</a>
           </div>
         </div>
 
