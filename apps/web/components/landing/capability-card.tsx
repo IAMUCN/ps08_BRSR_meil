@@ -169,11 +169,12 @@ export const CAPABILITIES: CapabilityItem[] = [
 
 const ROTATION_INTERVAL_MS = 2800;
 
-// The cards sit on a wheel whose right edge is a straight line: every card is flush right,
-// while the left edges curve away like an arc. Only the five nearest cards are visible.
-const WHEEL_RADIUS = 220;
-const STEP_ANGLE = 0.42; // radians between neighbouring cards
-const BASE_HEIGHT = 176;
+// Five layers: the front card sits left and centred, the two neighbours on each side sit behind it
+// and slide right as they recede, fading away from the front. Same-width cards, flush layout.
+const CARD_HEIGHT = 196;
+const OFFSET_Y = [0, 100, 128, 150]; // px from the front card's centre, by distance (3 = parked, hidden)
+const OFFSET_X = [0, 12, 27, 27]; // % of card width
+const FADE = [1, 0.55, 0.2]; // opacity at the far edge of a receding card
 const SHADOWS = [
   "shadow-[-6px_14px_32px_rgba(15,23,42,0.12),0_0_0_1px_rgba(226,232,240,0.9)]",
   "shadow-[-4px_8px_20px_rgba(15,23,42,0.08),0_0_0_1px_rgba(226,232,240,0.7)]",
@@ -194,7 +195,7 @@ export function HeroCapabilityCard() {
     return () => clearInterval(id);
   }, [isPaused, total]);
 
-  // Shortest circular distance from the active card, so the wheel loops forever.
+  // Shortest circular distance from the front card, so the stack loops forever.
   const getDiff = (idx: number): number => {
     let diff = (idx - currentIndex) % total;
     if (diff > total / 2) diff -= total;
@@ -207,7 +208,7 @@ export function HeroCapabilityCard() {
       role="region"
       aria-roledescription="carousel"
       aria-label="Platform capabilities"
-      className="relative mx-auto h-[450px] w-full max-w-[420px] select-none"
+      className="relative h-[460px] w-full max-w-[540px] select-none"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}
@@ -218,27 +219,33 @@ export function HeroCapabilityCard() {
       {CAPABILITIES.map((item, idx) => {
         const diff = getDiff(idx);
         const absDiff = Math.abs(diff);
-        const slot = Math.max(-3, Math.min(3, diff)); // cards beyond the arc wait invisibly at its ends
-        const theta = slot * STEP_ANGLE;
-        const height = BASE_HEIGHT * Math.cos(theta);
-        const centerY = WHEEL_RADIUS * Math.sin(theta);
-        const inset = WHEEL_RADIUS * (1 - Math.cos(theta));
+        const slot = Math.min(absDiff, 3);
+        const y = Math.sign(diff) * OFFSET_Y[slot];
         const Icon = item.icon;
+        // Fade toward the outer edge: top of upper cards, bottom of lower cards.
+        const fade =
+          diff === 0 || absDiff > 2
+            ? undefined
+            : `linear-gradient(to ${diff < 0 ? "bottom" : "top"}, rgba(0,0,0,${FADE[absDiff]}), #000 75%)`;
 
         return (
           <div
             key={item.id}
             style={{
-              top: `calc(50% + ${centerY - height / 2}px)`,
-              width: `calc(100% - ${inset}px)`,
-              height,
+              top: "50%",
+              left: 0,
+              width: "calc(100% / 1.27)",
+              height: CARD_HEIGHT,
+              marginTop: -CARD_HEIGHT / 2,
+              transform: `translate(${OFFSET_X[slot]}%, ${y}px)`,
               zIndex: 30 - absDiff * 10,
-              opacity: absDiff > 2 ? 0 : absDiff === 2 ? 0.85 : 1,
+              opacity: absDiff > 2 ? 0 : 1,
               pointerEvents: absDiff > 2 ? "none" : "auto",
-              transition:
-                "top 0.7s cubic-bezier(0.16, 1, 0.3, 1), width 0.7s cubic-bezier(0.16, 1, 0.3, 1), height 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease",
+              maskImage: fade,
+              WebkitMaskImage: fade,
+              transition: "transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease",
             }}
-            className={`absolute right-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white ${SHADOWS[Math.min(absDiff, 2)]}`}
+            className={`absolute overflow-hidden rounded-2xl border border-slate-200/90 bg-white ${SHADOWS[Math.min(absDiff, 2)]}`}
           >
             {diff < 0 && absDiff <= 2 && (
               <button
