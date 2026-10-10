@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useSyncExternalStore } from "react";
 import { Pointer, usePointer, type CursorMode } from "@/registry/magicui/pointer";
 
 /**
@@ -229,11 +229,12 @@ export function CursorRenderer() {
  * - Disabled on touch/coarse devices and respects prefers-reduced-motion.
  */
 export function CustomCursor({ className }: { className?: string }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // False on the server and during hydration, true afterwards, without a setState-in-effect.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   if (!mounted) return null;
 

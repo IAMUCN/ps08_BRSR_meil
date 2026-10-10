@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect -- vendored Magic UI component */
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
