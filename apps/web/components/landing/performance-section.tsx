@@ -1,32 +1,26 @@
 import { ArrowUp } from "lucide-react";
+import { NumberTicker } from "@/components/ui/number-ticker";
+import { SectionHeading } from "@/components/landing/section-heading";
 
 export function PerformanceSection() {
   return (
-    <section id="performance" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+    <section id="reporting" className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50/70">
       <div className="max-w-7xl mx-auto">
-        
-        {/* Section Heading */}
-        <div className="text-center mb-14">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#313490]/10 text-[#313490] text-xs font-bold uppercase tracking-wider mb-2">
-            Executive Oversight
-          </div>
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#333333] tracking-tight">
-            ESG Performance at a Glance
-          </h2>
-          <p className="text-base sm:text-lg text-slate-600 mt-2">
-            Consolidated GHG emissions and reporting readiness across MEIL&apos;s organizational hierarchy.
-          </p>
-        </div>
+        <SectionHeading eyebrow="Control tower" title="Reporting readiness at a glance">
+          Consolidated emissions and readiness across your organization hierarchy. Sample data
+          shown.
+        </SectionHeading>
 
         {/* 3 Dashboard Metric Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          
           {/* Card 1: Emissions Trend */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm flex flex-col justify-between h-[340px]">
             <div>
-              <h3 className="text-base font-bold text-slate-900">Emissions Trend</h3>
+              <h3 className="text-base font-bold text-slate-900">
+                Emissions Trend <span className="font-normal text-slate-500">(sample)</span>
+              </h3>
             </div>
-            
+
             <div className="relative flex-1 flex items-end pt-6 pb-2">
               {/* Y Axis */}
               <div className="flex flex-col justify-between h-full pr-3 text-[10px] font-semibold text-slate-500">
@@ -35,14 +29,42 @@ export function PerformanceSection() {
                 <span>50</span>
                 <span>30</span>
               </div>
-              
+
               {/* Line Graph with Nodes */}
               <div className="relative flex-1 h-full flex flex-col justify-end">
-                <svg className="w-full h-full overflow-visible" viewBox="0 0 240 100" preserveAspectRatio="none">
+                <svg
+                  className="w-full h-full overflow-visible"
+                  viewBox="0 0 240 100"
+                  preserveAspectRatio="none"
+                >
                   {/* Subtle Grid Lines */}
-                  <line x1="0" y1="10" x2="240" y2="10" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                  <line x1="0" y1="40" x2="240" y2="40" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
-                  <line x1="0" y1="70" x2="240" y2="70" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                  <line
+                    x1="0"
+                    y1="10"
+                    x2="240"
+                    y2="10"
+                    stroke="#f1f5f9"
+                    strokeWidth="1"
+                    strokeDasharray="3 3"
+                  />
+                  <line
+                    x1="0"
+                    y1="40"
+                    x2="240"
+                    y2="40"
+                    stroke="#f1f5f9"
+                    strokeWidth="1"
+                    strokeDasharray="3 3"
+                  />
+                  <line
+                    x1="0"
+                    y1="70"
+                    x2="240"
+                    y2="70"
+                    stroke="#f1f5f9"
+                    strokeWidth="1"
+                    strokeDasharray="3 3"
+                  />
 
                   {/* Trend Line */}
                   <path
@@ -78,9 +100,12 @@ export function PerformanceSection() {
           {/* Card 2: Scope Composition */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm flex flex-col justify-between h-[340px]">
             <div>
-              <h3 className="text-base font-bold text-slate-900">Scope Composition</h3>
+              <h3 className="text-base font-bold text-slate-900">
+                Scope Composition{" "}
+                <span className="font-normal text-slate-500">(sample, tCO₂e)</span>
+              </h3>
             </div>
-            
+
             <div className="space-y-6 flex-1 flex flex-col justify-center">
               {/* Scope 1 */}
               <div>
@@ -89,7 +114,7 @@ export function PerformanceSection() {
                   <span className="text-slate-900">32,400</span>
                 </div>
                 <div className="w-full h-4 bg-slate-100 rounded-md overflow-hidden">
-                  <div className="h-full bg-[#313490] rounded-md" style={{ width: '42%' }} />
+                  <div className="h-full bg-[#313490] rounded-md" style={{ width: "42%" }} />
                 </div>
               </div>
 
@@ -100,18 +125,18 @@ export function PerformanceSection() {
                   <span className="text-slate-900">56,210</span>
                 </div>
                 <div className="w-full h-4 bg-slate-100 rounded-md overflow-hidden">
-                  <div className="h-full bg-[#E91029] rounded-md" style={{ width: '75%' }} />
+                  <div className="h-full bg-[#E91029] rounded-md" style={{ width: "75%" }} />
                 </div>
               </div>
 
               {/* Scope 3 */}
               <div>
                 <div className="flex justify-between items-center text-xs font-bold mb-2">
-                  <span className="text-slate-700">Scope 3 (Supply Chain)</span>
+                  <span className="text-slate-700">Scope 3 (Value chain)</span>
                   <span className="text-slate-900">34,810</span>
                 </div>
                 <div className="w-full h-4 bg-slate-100 rounded-md overflow-hidden">
-                  <div className="h-full bg-[#333333] rounded-md" style={{ width: '48%' }} />
+                  <div className="h-full bg-[#333333] rounded-md" style={{ width: "48%" }} />
                 </div>
               </div>
             </div>
@@ -120,7 +145,9 @@ export function PerformanceSection() {
           {/* Card 3: BRSR Readiness */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm flex flex-col justify-between items-center h-[340px]">
             <div className="w-full text-left">
-              <h3 className="text-base font-bold text-slate-900">BRSR Readiness</h3>
+              <h3 className="text-base font-bold text-slate-900">
+                BRSR Readiness <span className="font-normal text-slate-500">(sample)</span>
+              </h3>
             </div>
 
             {/* Circular Gauge */}
@@ -149,7 +176,9 @@ export function PerformanceSection() {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-4xl font-black text-slate-950 tracking-tight">78%</span>
+                <span className="text-4xl font-black text-slate-950 tracking-tight">
+                  <NumberTicker value={78} />%
+                </span>
                 <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-600 mt-0.5">
                   <ArrowUp className="w-3.5 h-3.5 stroke-[3]" /> 12%
                 </span>
@@ -157,12 +186,13 @@ export function PerformanceSection() {
             </div>
 
             <div className="text-xs font-medium text-slate-600">
-              Audit-ready indicators completed
+              Indicators with approved evidence (sample)
             </div>
           </div>
-
         </div>
-
+        <p className="mt-6 text-center text-xs text-slate-500">
+          Readiness is an internal management indicator, not an official regulatory score.
+        </p>
       </div>
     </section>
   );

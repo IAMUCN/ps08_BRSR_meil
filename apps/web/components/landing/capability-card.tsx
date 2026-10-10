@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   FileCheck2,
   Sparkles,
@@ -16,7 +16,7 @@ import {
   HardHat,
   ChevronUp,
   ChevronDown,
-} from 'lucide-react';
+} from "lucide-react";
 
 export interface CapabilityItem {
   id: string;
@@ -32,136 +32,136 @@ export interface CapabilityItem {
 
 export const CAPABILITIES: CapabilityItem[] = [
   {
-    id: '01',
-    category: 'TRACEABILITY & AUDIT',
-    title: 'Evidence-First Reporting',
-    description: 'Every reported value is linked to its source.',
-    metricLabel: 'Lineage Integrity',
-    metricValue: '100% Linked to Source PDF',
+    id: "01",
+    category: "TRACEABILITY & AUDIT",
+    title: "Evidence-First Reporting",
+    description: "Every reported value is linked to its source.",
+    metricLabel: "Lineage Integrity",
+    metricValue: "100% Linked to Source PDF",
     icon: FileCheck2,
-    accentColor: 'text-blue-600 bg-blue-50 border-blue-100',
-    tagColor: 'text-blue-700 bg-blue-50/80 border-blue-200/60',
+    accentColor: "text-blue-600 bg-blue-50 border-blue-100",
+    tagColor: "text-blue-700 bg-blue-50/80 border-blue-200/60",
   },
   {
-    id: '02',
-    category: 'INTELLIGENT OCR',
-    title: 'AI-Powered Extraction',
-    description: 'Extract ESG data from operational documents.',
-    metricLabel: 'Document Parser',
-    metricValue: 'Electricity, Fuel, Travel & Waste',
+    id: "02",
+    category: "INTELLIGENT OCR",
+    title: "AI-Powered Extraction",
+    description: "Extract ESG data from operational documents.",
+    metricLabel: "Document Parser",
+    metricValue: "Electricity, Fuel, Travel & Waste",
     icon: Sparkles,
-    accentColor: 'text-sky-600 bg-sky-50 border-sky-100',
-    tagColor: 'text-sky-700 bg-sky-50/80 border-sky-200/60',
+    accentColor: "text-sky-600 bg-sky-50 border-sky-100",
+    tagColor: "text-sky-700 bg-sky-50/80 border-sky-200/60",
   },
   {
-    id: '03',
-    category: 'VERIFICATION',
-    title: 'Human-Verified Data',
-    description: 'AI assists. People confirm.',
-    metricLabel: 'Validation Gate',
-    metricValue: 'Dual-Step Human Confirmation',
+    id: "03",
+    category: "VERIFICATION",
+    title: "Human-Verified Data",
+    description: "AI assists. People confirm.",
+    metricLabel: "Validation Gate",
+    metricValue: "Verify, then approve",
     icon: UserCheck,
-    accentColor: 'text-emerald-600 bg-emerald-50 border-emerald-100',
-    tagColor: 'text-emerald-700 bg-emerald-50/80 border-emerald-200/60',
+    accentColor: "text-emerald-600 bg-emerald-50 border-emerald-100",
+    tagColor: "text-emerald-700 bg-emerald-50/80 border-emerald-200/60",
   },
   {
-    id: '04',
-    category: 'CALCULATION ENGINE',
-    title: 'Deterministic Calculations',
-    description: 'Consistent calculations using controlled factors.',
-    metricLabel: 'Standards Basis',
-    metricValue: 'CEA CO₂ & IPCC Emission Factors',
+    id: "04",
+    category: "CALCULATION ENGINE",
+    title: "Deterministic Calculations",
+    description: "Consistent calculations using controlled factors.",
+    metricLabel: "Standards Basis",
+    metricValue: "Versioned conversion factors",
     icon: Calculator,
-    accentColor: 'text-indigo-600 bg-indigo-50 border-indigo-100',
-    tagColor: 'text-indigo-700 bg-indigo-50/80 border-indigo-200/60',
+    accentColor: "text-indigo-600 bg-indigo-50 border-indigo-100",
+    tagColor: "text-indigo-700 bg-indigo-50/80 border-indigo-200/60",
   },
   {
-    id: '05',
-    category: 'GHG ACCOUNTING',
-    title: 'Scope 1, 2 & 3',
-    description: 'Track and classify emissions across operations.',
-    metricLabel: 'Coverage',
-    metricValue: 'Direct, Grid & Value-Chain Footprint',
+    id: "05",
+    category: "GHG ACCOUNTING",
+    title: "Scope 1, 2 & 3",
+    description: "Track and classify emissions across operations.",
+    metricLabel: "Coverage",
+    metricValue: "Direct, Grid & Value-Chain Footprint",
     icon: Layers,
-    accentColor: 'text-amber-600 bg-amber-50 border-amber-100',
-    tagColor: 'text-amber-700 bg-amber-50/80 border-amber-200/60',
+    accentColor: "text-amber-600 bg-amber-50 border-amber-100",
+    tagColor: "text-amber-700 bg-amber-50/80 border-amber-200/60",
   },
   {
-    id: '06',
-    category: 'REGULATORY COMPLIANCE',
-    title: 'BRSR Mapping',
-    description: 'Connect ESG data to relevant BRSR indicators.',
-    metricLabel: 'Framework',
-    metricValue: 'SEBI BRSR Core & Principle 6',
+    id: "06",
+    category: "REGULATORY COMPLIANCE",
+    title: "BRSR Mapping",
+    description: "Connect ESG data to relevant BRSR indicators.",
+    metricLabel: "Framework",
+    metricValue: "Mapped to BRSR indicators",
     icon: CheckCircle2,
-    accentColor: 'text-emerald-600 bg-emerald-50 border-emerald-100',
-    tagColor: 'text-emerald-700 bg-emerald-50/80 border-emerald-200/60',
+    accentColor: "text-emerald-600 bg-emerald-50 border-emerald-100",
+    tagColor: "text-emerald-700 bg-emerald-50/80 border-emerald-200/60",
   },
   {
-    id: '07',
-    category: 'ORGANIZATION HIERARCHY',
-    title: 'Multi-Entity Management',
-    description: 'Manage subsidiaries, projects and business units.',
-    metricLabel: 'Structure',
-    metricValue: 'Group, Division & Site-Level Rollup',
+    id: "07",
+    category: "ORGANIZATION HIERARCHY",
+    title: "Multi-Entity Management",
+    description: "Manage subsidiaries, projects and business units.",
+    metricLabel: "Structure",
+    metricValue: "Group, Division & Site-Level Rollup",
     icon: Network,
-    accentColor: 'text-slate-700 bg-slate-100 border-slate-200',
-    tagColor: 'text-slate-700 bg-slate-100/90 border-slate-200',
+    accentColor: "text-slate-700 bg-slate-100 border-slate-200",
+    tagColor: "text-slate-700 bg-slate-100/90 border-slate-200",
   },
   {
-    id: '08',
-    category: 'DATA REPOSITORY',
-    title: 'Centralized ESG Data',
-    description: 'Consolidate sustainability information across the organization.',
-    metricLabel: 'Architecture',
-    metricValue: 'Single Authoritative Data Store',
+    id: "08",
+    category: "DATA REPOSITORY",
+    title: "Centralized ESG Data",
+    description: "Consolidate sustainability information across the organization.",
+    metricLabel: "Architecture",
+    metricValue: "Single Authoritative Data Store",
     icon: Database,
-    accentColor: 'text-blue-600 bg-blue-50 border-blue-100',
-    tagColor: 'text-blue-700 bg-blue-50/80 border-blue-200/60',
+    accentColor: "text-blue-600 bg-blue-50 border-blue-100",
+    tagColor: "text-blue-700 bg-blue-50/80 border-blue-200/60",
   },
   {
-    id: '09',
-    category: 'GOVERNANCE',
-    title: 'Complete Audit Trail',
-    description: 'Trace reported numbers back to their evidence.',
-    metricLabel: 'Audit Readiness',
-    metricValue: 'Immutable Timestamped Records',
+    id: "09",
+    category: "GOVERNANCE",
+    title: "Complete Audit Trail",
+    description: "Trace reported numbers back to their evidence.",
+    metricLabel: "Audit Readiness",
+    metricValue: "Immutable Timestamped Records",
     icon: History,
-    accentColor: 'text-slate-700 bg-slate-100 border-slate-200',
-    tagColor: 'text-slate-700 bg-slate-100/90 border-slate-200',
+    accentColor: "text-slate-700 bg-slate-100 border-slate-200",
+    tagColor: "text-slate-700 bg-slate-100/90 border-slate-200",
   },
   {
-    id: '10',
-    category: 'READINESS ASSESSMENT',
-    title: 'BRSR Readiness',
-    description: 'Identify reporting gaps before deadlines.',
-    metricLabel: 'Status Monitor',
-    metricValue: 'Continuous Metric Completeness Check',
+    id: "10",
+    category: "READINESS ASSESSMENT",
+    title: "BRSR Readiness",
+    description: "Identify reporting gaps before deadlines.",
+    metricLabel: "Status Monitor",
+    metricValue: "Continuous Metric Completeness Check",
     icon: TrendingUp,
-    accentColor: 'text-emerald-600 bg-emerald-50 border-emerald-100',
-    tagColor: 'text-emerald-700 bg-emerald-50/80 border-emerald-200/60',
+    accentColor: "text-emerald-600 bg-emerald-50 border-emerald-100",
+    tagColor: "text-emerald-700 bg-emerald-50/80 border-emerald-200/60",
   },
   {
-    id: '11',
-    category: 'SECURITY & ACCESS',
-    title: 'Role-Based Access',
-    description: 'Give every team the access they need.',
-    metricLabel: 'Access Model',
-    metricValue: 'Row-Level Security & Node Scoping',
+    id: "11",
+    category: "SECURITY & ACCESS",
+    title: "Role-Based Access",
+    description: "Give every team the access they need.",
+    metricLabel: "Access Model",
+    metricValue: "Row-Level Security & Node Scoping",
     icon: ShieldAlert,
-    accentColor: 'text-blue-600 bg-blue-50 border-blue-100',
-    tagColor: 'text-blue-700 bg-blue-50/80 border-blue-200/60',
+    accentColor: "text-blue-600 bg-blue-50 border-blue-100",
+    tagColor: "text-blue-700 bg-blue-50/80 border-blue-200/60",
   },
   {
-    id: '12',
-    category: 'INFRASTRUCTURE SCALE',
-    title: 'Enterprise Scale',
-    description: 'Built for complex infrastructure organizations.',
-    metricLabel: 'Enterprise Capacity',
-    metricValue: 'Portfolio-Wide Deployment for MEIL',
+    id: "12",
+    category: "INFRASTRUCTURE SCALE",
+    title: "Enterprise Scale",
+    description: "Built for complex infrastructure organizations.",
+    metricLabel: "Enterprise Capacity",
+    metricValue: "Portfolio-Wide Deployment for MEIL",
     icon: HardHat,
-    accentColor: 'text-amber-700 bg-amber-50 border-amber-200',
-    tagColor: 'text-amber-800 bg-amber-50/80 border-amber-200/60',
+    accentColor: "text-amber-700 bg-amber-50 border-amber-200",
+    tagColor: "text-amber-800 bg-amber-50/80 border-amber-200/60",
   },
 ];
 
@@ -184,9 +184,12 @@ export function HeroCapabilityCard() {
     setCurrentIndex((prev) => (prev - 1 + total) % total);
   }, [total]);
 
-  const jumpTo = useCallback((index: number) => {
-    setCurrentIndex((index % total + total) % total);
-  }, [total]);
+  const jumpTo = useCallback(
+    (index: number) => {
+      setCurrentIndex(((index % total) + total) % total);
+    },
+    [total],
+  );
 
   // Autoplay effect
   useEffect(() => {
@@ -247,25 +250,25 @@ export function HeroCapabilityCard() {
   // Shadow classes matching the tiered depth in reference image
   const getCardShadow = (diff: number) => {
     if (diff === 0) {
-      return 'shadow-[-6px_14px_32px_rgba(15,23,42,0.12),-1px_4px_12px_rgba(15,23,42,0.06),0_0_0_1px_rgba(226,232,240,0.9)]';
+      return "shadow-[-6px_14px_32px_rgba(15,23,42,0.12),-1px_4px_12px_rgba(15,23,42,0.06),0_0_0_1px_rgba(226,232,240,0.9)]";
     }
     if (Math.abs(diff) === 1) {
-      return 'shadow-[-4px_8px_20px_rgba(15,23,42,0.08),-1px_2px_6px_rgba(15,23,42,0.04),0_0_0_1px_rgba(226,232,240,0.7)]';
+      return "shadow-[-4px_8px_20px_rgba(15,23,42,0.08),-1px_2px_6px_rgba(15,23,42,0.04),0_0_0_1px_rgba(226,232,240,0.7)]";
     }
     if (Math.abs(diff) === 2) {
-      return 'shadow-[-3px_4px_10px_rgba(15,23,42,0.05),0_0_0_1px_rgba(226,232,240,0.6)]';
+      return "shadow-[-3px_4px_10px_rgba(15,23,42,0.05),0_0_0_1px_rgba(226,232,240,0.6)]";
     }
-    return 'shadow-none';
+    return "shadow-none";
   };
 
   return (
     <div
       className="capability-deck-container relative w-full max-w-[480px] sm:max-w-[500px] h-[465px] sm:h-[490px] mx-auto select-none"
       style={{
-        ['--step-y' as string]: '34px',
-        ['--step-x' as string]: '22px',
-        ['--base-top' as string]: '68px',
-        ['--card-h' as string]: '350px',
+        ["--step-y" as string]: "34px",
+        ["--step-x" as string]: "22px",
+        ["--base-top" as string]: "68px",
+        ["--card-h" as string]: "350px",
       }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -289,12 +292,12 @@ export function HeroCapabilityCard() {
           const cardStyle: React.CSSProperties = {
             top: `calc(var(--base-top) + ${diff} * var(--step-y))`,
             width: `calc(100% - ${absDiff} * var(--step-x))`,
-            height: 'var(--card-h)',
+            height: "var(--card-h)",
             zIndex: diff === 0 ? 30 : absDiff === 1 ? 20 : absDiff === 2 ? 10 : 0,
             opacity: absDiff > 2 ? 0 : 1,
-            pointerEvents: isVisible ? 'auto' : 'none',
+            pointerEvents: isVisible ? "auto" : "none",
             transition:
-              'top 0.65s cubic-bezier(0.16, 1, 0.3, 1), width 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease, box-shadow 0.65s ease',
+              "top 0.65s cubic-bezier(0.16, 1, 0.3, 1), width 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease, box-shadow 0.65s ease",
           };
 
           if (!isNearby) {
@@ -307,7 +310,7 @@ export function HeroCapabilityCard() {
               key={item.id}
               style={cardStyle}
               className={`absolute right-0 rounded-2xl sm:rounded-3xl bg-white border border-slate-200/90 overflow-hidden select-none ${getCardShadow(
-                diff
+                diff,
               )}`}
             >
               {/* TOP PEEK TAB (Visible when card is peeking above active card: diff === -1 or -2) */}
@@ -353,7 +356,7 @@ export function HeroCapabilityCard() {
               {/* ACTIVE CARD FULL BODY (Rendered prominently when diff === 0) */}
               <div
                 className={`p-6 sm:p-7 flex flex-col justify-between h-full transition-opacity duration-300 ${
-                  diff === 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  diff === 0 ? "opacity-100" : "opacity-0 pointer-events-none"
                 }`}
               >
                 <div>

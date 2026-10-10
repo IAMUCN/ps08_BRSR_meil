@@ -14,7 +14,7 @@ body:has(.landing-page) {
 }
 
 .font-display {
-  font-family: var(--font-heading-serif), Georgia, 'Times New Roman', serif;
+  font-family: var(--font-heading-serif), Georgia, "Times New Roman", serif;
 }
 
 @keyframes fadeInUp {
@@ -62,7 +62,8 @@ body:has(.landing-page) {
 }
 
 @keyframes floatSlow {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -90,11 +91,21 @@ body:has(.landing-page) {
   animation: floatSlow 4s ease-in-out infinite;
 }
 
-.delay-100 { animation-delay: 100ms; }
-.delay-200 { animation-delay: 200ms; }
-.delay-300 { animation-delay: 300ms; }
-.delay-400 { animation-delay: 400ms; }
-.delay-500 { animation-delay: 500ms; }
+.delay-100 {
+  animation-delay: 100ms;
+}
+.delay-200 {
+  animation-delay: 200ms;
+}
+.delay-300 {
+  animation-delay: 300ms;
+}
+.delay-400 {
+  animation-delay: 400ms;
+}
+.delay-500 {
+  animation-delay: 500ms;
+}
 
 .capability-deck-container {
   --step-y: 34px;
@@ -120,4 +131,8 @@ body:has(.landing-page) {
   .infrastructure-cards-container {
     --card-text-bottom: 22px;
   }
+}
+
+.landing-page section[id] {
+  scroll-margin-top: 5rem;
 }

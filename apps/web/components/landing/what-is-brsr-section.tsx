@@ -1,72 +1,51 @@
-import { Leaf, Users, Shield, ArrowRight } from "lucide-react";
-import Link from "next/link";
+import { Leaf, Users, Shield } from "lucide-react";
+import { BlurFade } from "@/components/ui/blur-fade";
+import { SectionHeading } from "@/components/landing/section-heading";
+
+const PILLARS = [
+  {
+    icon: Leaf,
+    title: "Environmental",
+    text: "Energy, emissions, water, waste",
+    tone: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  },
+  {
+    icon: Users,
+    title: "Social",
+    text: "Workforce, communities, health and safety",
+    tone: "bg-amber-50 text-amber-700 ring-amber-100",
+  },
+  {
+    icon: Shield,
+    title: "Governance",
+    text: "Policies, ethics, responsible conduct",
+    tone: "bg-indigo-50 text-indigo-700 ring-indigo-100",
+  },
+];
 
 export function WhatIsBrsrSection() {
   return (
-    <section id="brsr" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-        
-        {/* Left Column */}
-        <div className="lg:col-span-6 space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#313490]/10 text-[#313490] text-xs font-bold uppercase tracking-wider">
-            SEBI Regulatory Framework
-          </div>
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#333333] tracking-tight">
-            What is BRSR?
-          </h2>
-          <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-lg">
-            The Business Responsibility and Sustainability Reporting (BRSR) framework establishes standardized disclosures across 9 core principles. TraceESG aligns MEIL&apos;s multi-tier project operations directly with statutory SEBI indicators.
-          </p>
-          <div>
-            <Link
-              href="#brsr"
-              className="inline-flex items-center text-base font-bold text-[#E91029] hover:text-[#E91029]/80 transition-colors gap-1.5"
-            >
-              Explore SEBI BRSR Principles <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
+    <section id="brsr" className="bg-slate-50/70 px-4 py-20 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl">
+        <SectionHeading eyebrow="Aligned to BRSR" title="Built around SEBI's BRSR framework">
+          BRSR is a mapping layer in TraceESG, not hard-coded questions. When reporting requirements
+          change, the mapping changes, not the application.
+        </SectionHeading>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {PILLARS.map(({ icon: Icon, title, text, tone }, i) => (
+            <BlurFade inView key={title} delay={i * 0.06}>
+              <div className="h-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-xs">
+                <span
+                  className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ring-1 ${tone}`}
+                >
+                  <Icon className="h-6 w-6" />
+                </span>
+                <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+                <p className="mt-1 text-sm text-slate-600">{text}</p>
+              </div>
+            </BlurFade>
+          ))}
         </div>
-
-        {/* Right Column: Encapsulated Card with 3 Pillars */}
-        <div className="lg:col-span-6">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm flex flex-col gap-6">
-            
-            {/* Environmental */}
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 shadow-xs border border-emerald-100">
-                <Leaf className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Environmental</h3>
-                <p className="text-sm text-slate-500 mt-0.5">Climate, energy, emissions, water, waste</p>
-              </div>
-            </div>
-
-            {/* Social */}
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 shadow-xs border border-amber-100">
-                <Users className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Social</h3>
-                <p className="text-sm text-slate-500 mt-0.5">People, communities, health & safety</p>
-              </div>
-            </div>
-
-            {/* Governance */}
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center flex-shrink-0 shadow-xs border border-indigo-100">
-                <Shield className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Governance</h3>
-                <p className="text-sm text-slate-500 mt-0.5">Policies, ethics, responsible conduct</p>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
       </div>
     </section>
   );

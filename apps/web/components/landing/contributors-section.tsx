@@ -1,70 +1,60 @@
-import { User, Compass, Users2, ShieldCheck, Handshake, FileBarChart } from "lucide-react";
+import { HardHat, Droplets, Users2, Landmark, Handshake, FileBarChart } from "lucide-react";
+import { BlurFade } from "@/components/ui/blur-fade";
+import { SectionHeading } from "@/components/landing/section-heading";
 
-const roles = [
+const ROLES = [
   {
     title: "Project Manager",
-    icon: User,
+    icon: HardHat,
+    text: "Fuel and electricity evidence for assigned projects.",
   },
   {
-    title: "EHS /\nEnvironment",
-    icon: Compass,
+    title: "EHS / Environment",
+    icon: Droplets,
+    text: "Water, waste, emissions and safety records.",
+  },
+  { title: "HR", icon: Users2, text: "Workforce, turnover and training documents." },
+  {
+    title: "Finance / CSR",
+    icon: Landmark,
+    text: "CSR spend, beneficiaries, fines and penalties.",
   },
   {
-    title: "HR\nWorkforce",
-    icon: Users2,
-  },
-  {
-    title: "Finance\nCSR",
-    icon: ShieldCheck,
-  },
-  {
-    title: "Procurement\nSuppliers",
+    title: "Procurement",
     icon: Handshake,
+    text: "Vendor classification and local sourcing evidence.",
   },
   {
-    title: "Corporate ESG\nReporting",
+    title: "Corporate ESG",
     icon: FileBarChart,
+    text: "Cross-entity review and reporting readiness.",
   },
 ];
 
 export function ContributorsSection() {
   return (
-    <section id="governance" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
-      <div className="max-w-7xl mx-auto">
-        
-        {/* Section Heading */}
-        <div className="text-center mb-14">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#313490]/10 text-[#313490] text-xs font-bold uppercase tracking-wider mb-2">
-            Multi-Tier Governance
-          </div>
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-[#333333] tracking-tight">
-            Built for Every Contributor
-          </h2>
-          <p className="text-base sm:text-lg text-slate-600 mt-2">
-            Tailored document collection for operational roles across MEIL&apos;s 28 subsidiaries and projects.
-          </p>
-        </div>
+    <section id="roles" className="bg-slate-50/70 px-4 py-20 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <SectionHeading eyebrow="Roles and access" title="Each team sees only what it owns">
+          Access follows role and organizational scope, so a project user never sees another
+          project&apos;s data.
+        </SectionHeading>
 
-        {/* 6 Role Cards in a Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 max-w-6xl mx-auto">
-          {roles.map((role, idx) => {
-            const Icon = role.icon;
-            return (
-              <div
-                key={idx}
-                className="bg-[#f0f9ff]/70 border border-sky-100 rounded-2xl p-6 flex flex-col items-center text-center shadow-xs hover:shadow-md hover:bg-white hover:border-[#313490]/30 transition-all group h-[170px] justify-between"
-              >
-                <div className="w-12 h-12 rounded-xl bg-white border border-sky-200/60 shadow-xs flex items-center justify-center text-[#313490] group-hover:scale-105 transition-transform">
-                  <Icon className="w-6 h-6 stroke-[2]" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {ROLES.map(({ title, icon: Icon, text }, i) => (
+            <BlurFade inView key={title} delay={i * 0.05}>
+              <div className="flex h-full items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-all hover:border-[#313490]/30 hover:shadow-md">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#313490]/[0.08] text-[#313490]">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">{text}</p>
                 </div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug whitespace-pre-line">
-                  {role.title}
-                </h3>
               </div>
-            );
-          })}
+            </BlurFade>
+          ))}
         </div>
-
       </div>
     </section>
   );

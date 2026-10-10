@@ -1,68 +1,76 @@
-import Link from 'next/link';
-import { Play } from 'lucide-react';
-import { HeroCapabilityCard } from '@/components/landing/capability-card';
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { HeroCapabilityCard } from "@/components/landing/capability-card";
+import { BlurFade } from "@/components/ui/blur-fade";
+import { DEMO_HREF } from "@/components/landing/links";
 
 export function HeroSection() {
   return (
-    <section className="relative pt-12 pb-20 lg:pt-16 lg:pb-28 overflow-hidden bg-white">
-      {/* Premium corporate background atmosphere: subtle radial blue mesh */}
-      <div className="absolute top-0 right-0 w-[65%] h-[95%] bg-[radial-gradient(ellipse_at_top_right,rgba(219,234,254,0.5),rgba(240,249,255,0.3)_40%,rgba(255,255,255,0)_75%)] pointer-events-none -z-10" />
-      <div className="absolute -top-24 left-1/3 w-[500px] h-[500px] bg-sky-50/40 rounded-full blur-3xl pointer-events-none -z-10" />
+    <section className="relative overflow-hidden bg-white pb-20 pt-14 lg:pb-28 lg:pt-20">
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-10 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:22px_22px] [mask-image:radial-gradient(ellipse_at_top_right,black,transparent_70%)]"
+      />
+      <div className="pointer-events-none absolute -top-32 right-0 -z-10 h-[480px] w-[480px] rounded-full bg-[#313490]/[0.06] blur-3xl" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-          
-          {/* Left Hero Content */}
-          <div className="lg:col-span-6 flex flex-col items-start">
-            
-            {/* Eyebrow */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#313490]/10 border border-[#313490]/20 mb-5 shadow-2xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#313490]" />
-              <span className="text-[11px] sm:text-xs font-bold tracking-[0.16em] text-[#313490] uppercase">
-                ONE PLATFORM. EVERY DOCUMENT. REAL IMPACT.
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid items-center gap-14 lg:grid-cols-12 lg:gap-8">
+          <div className="flex flex-col items-start lg:col-span-6">
+            <BlurFade>
+              <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#313490]/15 bg-[#313490]/[0.06] px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#313490]">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Evidence-first ESG &amp; BRSR reporting
               </span>
-            </div>
-            
-            {/* Dominant Editorial Serif Headline */}
-            <h1 className="font-display text-5xl sm:text-6xl lg:text-[72px] font-bold text-[#333333] tracking-tight leading-[1.08] mb-6">
-              From Real<br />
-              Documents<br />
-              to Real Impact.
-            </h1>
-            
-            {/* Supporting Copy */}
-            <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-xl mb-8 font-normal">
-              TraceESG uses AI and human verification to convert operational documents into accurate ESG data and BRSR-ready reports for MEIL&apos;s infrastructure enterprise.
-            </p>
-            
-            {/* CTA Buttons */}
-            <div className="flex flex-wrap items-center gap-4 mb-8">
-              <Link 
-                href="/login" 
-                draggable={false}
-                className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-white bg-[#E91029] rounded-xl hover:bg-[#E91029]/90 transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
-              >
-                Get Started
-              </Link>
-              <Link 
-                href="#how-it-works"
-                draggable={false}
-                className="inline-flex items-center justify-center px-7 py-3.5 text-base font-bold text-[#313490] bg-white border-2 border-[#313490] rounded-xl hover:bg-[#313490]/5 transition-all gap-2.5 shadow-2xs hover:shadow-xs"
-              >
-                <div className="w-5 h-5 rounded-full bg-[#313490] flex items-center justify-center text-white">
-                  <Play className="w-2.5 h-2.5 fill-white ml-0.5" />
-                </div>
-                See How It Works
-              </Link>
-            </div>
+            </BlurFade>
 
+            <BlurFade delay={0.08}>
+              <h1 className="font-display mb-6 text-5xl font-bold leading-[1.08] tracking-tight text-slate-900 sm:text-6xl lg:text-[64px]">
+                Every reported number has a <span className="text-[#313490]">source.</span>
+              </h1>
+            </BlurFade>
+
+            <BlurFade delay={0.16}>
+              <p className="mb-8 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
+                TraceESG turns the bills and records your project teams already hold into verified,
+                auditable BRSR data, with a drill-down from any figure back to the original
+                document.
+              </p>
+            </BlurFade>
+
+            <BlurFade delay={0.24}>
+              <div className="mb-8 flex flex-wrap items-center gap-3">
+                <a
+                  href={DEMO_HREF}
+                  draggable={false}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#E91029] px-7 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#d00e24] hover:shadow-md"
+                >
+                  Request a demo <ArrowRight className="h-4 w-4" />
+                </a>
+                <Link
+                  href="#how-it-works"
+                  draggable={false}
+                  className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-7 py-3.5 text-base font-semibold text-slate-800 transition-colors hover:border-[#313490] hover:text-[#313490]"
+                >
+                  See how it works
+                </Link>
+              </div>
+            </BlurFade>
+
+            <BlurFade delay={0.32}>
+              <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500">
+                <li>OCR assists, people verify</li>
+                <li>Calculations are deterministic</li>
+                <li>Every edit is audited</li>
+              </ul>
+            </BlurFade>
           </div>
 
-          {/* Right Hero Content: Live Product Capability Showcase */}
-          <div className="lg:col-span-6 relative flex justify-center lg:justify-end">
+          <BlurFade
+            delay={0.2}
+            className="relative flex justify-center lg:col-span-6 lg:justify-end"
+          >
             <HeroCapabilityCard />
-          </div>
-
+          </BlurFade>
         </div>
       </div>
     </section>

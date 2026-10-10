@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
 
 const categories = [
   {
@@ -72,21 +72,21 @@ export function InfrastructureSection() {
       }
     };
 
-    cardsEl.addEventListener('wheel', handleWheel, { passive: false });
-    return () => cardsEl.removeEventListener('wheel', handleWheel);
+    cardsEl.addEventListener("wheel", handleWheel, { passive: false });
+    return () => cardsEl.removeEventListener("wheel", handleWheel);
   }, []);
 
   return (
     <section id="infrastructure" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
       <div className="max-w-7xl mx-auto">
-        
         {/* Section Heading */}
         <div className="text-center mb-14">
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-950 tracking-tight">
             Built for a More Sustainable Infrastructure Future
           </h2>
           <p className="text-base sm:text-lg text-slate-600 mt-2 max-w-3xl mx-auto leading-relaxed">
-            From dams and highways to power, manufacturing and energy systems — TraceESG supports MEIL&apos;s diverse portfolio with a unified ESG data platform.
+            From dams and highways to power, manufacturing and energy systems — TraceESG supports
+            MEIL&apos;s diverse portfolio with a unified ESG data platform.
           </p>
         </div>
 
@@ -95,7 +95,7 @@ export function InfrastructureSection() {
           ref={cardsContainerRef}
           className="infrastructure-cards-container flex items-stretch gap-1.5 sm:gap-2 h-[400px] sm:h-[460px] max-w-6xl mx-auto w-full"
           style={{
-            ['--card-text-bottom' as string]: '28px',
+            ["--card-text-bottom" as string]: "28px",
           }}
         >
           {categories.map((cat, idx) => {
@@ -127,7 +127,9 @@ export function InfrastructureSection() {
                   style={{
                     bottom: "var(--card-text-bottom, 28px)",
                     left: isActive ? "28px" : "calc(50% + 7px)",
-                    transform: isActive ? "rotate(0deg) translate(0, 0)" : "rotate(90deg) translate(-100%, 0)",
+                    transform: isActive
+                      ? "rotate(0deg) translate(0, 0)"
+                      : "rotate(90deg) translate(-100%, 0)",
                     transformOrigin: "0 0",
                     transition:
                       "left 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.85s cubic-bezier(0.16, 1, 0.3, 1)",
@@ -155,7 +157,6 @@ export function InfrastructureSection() {
             />
           ))}
         </div>
-
       </div>
     </section>
   );

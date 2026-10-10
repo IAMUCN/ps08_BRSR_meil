@@ -4,31 +4,18 @@ import React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Dock, DockItem } from "@/registry/magicui/dock";
-
-const NAV_ITEMS = [
-  { href: "#infrastructure", label: "Infrastructure" },
-  { href: "#brsr", label: "BRSR" },
-  { href: "#how-it-works", label: "How It Works" },
-  { href: "#product", label: "Product" },
-  { href: "#governance", label: "Governance" },
-  { href: "#performance", label: "Performance" },
-];
+import { NAV_ITEMS } from "@/components/landing/links";
 
 export function NavbarDock({ className }: { className?: string }) {
   return (
     <div className={cn("flex items-center justify-center", className)}>
-      <Dock
-        variant="bare"
-        direction="middle"
-        className="gap-6 sm:gap-7 lg:gap-8"
-        iconDistance={140}
-      >
+      <Dock variant="bare" direction="middle" className="gap-8" iconDistance={120}>
         {NAV_ITEMS.map((item) => (
-          <DockItem key={item.label} distance={140} maxScale={1.18}>
+          <DockItem key={item.label} distance={120} maxScale={1.06}>
             <Link
               href={item.href}
               draggable={false}
-              className="text-sm font-medium text-slate-700 hover:text-[#313490] transition-colors whitespace-nowrap block select-none"
+              className="block select-none whitespace-nowrap text-sm font-medium text-slate-600 transition-colors hover:text-[#313490]"
             >
               {item.label}
             </Link>

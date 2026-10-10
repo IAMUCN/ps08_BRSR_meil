@@ -1,57 +1,35 @@
 import { FileCheck, UserCheck, Calculator, Building2, ClipboardCheck } from "lucide-react";
+import { BlurFade } from "@/components/ui/blur-fade";
+
+const BADGES = [
+  { icon: FileCheck, title: "Evidence-first", text: "Every number links to a source document." },
+  { icon: UserCheck, title: "Human-verified", text: "AI extracts. Your team confirms." },
+  { icon: Calculator, title: "Deterministic", text: "Versioned factors, reproducible results." },
+  { icon: Building2, title: "Built to scale", text: "Roll-up across your whole hierarchy." },
+  { icon: ClipboardCheck, title: "BRSR-ready", text: "Metrics map to BRSR indicators." },
+];
 
 export function TrustBadgesSection() {
-  const badges = [
-    {
-      icon: <FileCheck className="w-6 h-6 text-[#313490]" />,
-      iconBg: "bg-[#313490]/10 border border-[#313490]/20",
-      title: "Evidence-first",
-      description: "Every reported number is backed by a verifiable source document.",
-    },
-    {
-      icon: <UserCheck className="w-6 h-6 text-[#313490]" />,
-      iconBg: "bg-[#313490]/10 border border-[#313490]/20",
-      title: "Human-verified",
-      description: "AI assists with extraction; domain teams verify and confirm.",
-    },
-    {
-      icon: <Calculator className="w-6 h-6 text-amber-600" />,
-      iconBg: "bg-amber-100/70 border border-amber-200/50",
-      title: "Deterministic",
-      description: "Regulatory math using versioned CEA and IPCC emission factors.",
-    },
-    {
-      icon: <Building2 className="w-6 h-6 text-emerald-600" />,
-      iconBg: "bg-emerald-100/70 border border-emerald-200/50",
-      title: "Enterprise scale",
-      description: "Hierarchical roll-up across 28 subsidiaries and 300+ project sites.",
-    },
-    {
-      icon: <ClipboardCheck className="w-6 h-6 text-[#E91029]" />,
-      iconBg: "bg-[#E91029]/10 border border-[#E91029]/20",
-      title: "BRSR-ready",
-      description: "Mapped directly to SEBI Core and Leadership indicator tables.",
-    },
-  ];
-
   return (
-    <section className="pb-20 px-4 sm:px-6 lg:px-8 bg-white">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {badges.map((badge, index) => (
-            <div
-              key={index}
-              className="bg-[#f0f9ff]/70 border border-sky-100/90 rounded-2xl p-5 flex flex-col items-center text-center shadow-xs hover:shadow-md hover:bg-sky-50 transition-all group"
-            >
-              <div className={`w-12 h-12 rounded-xl ${badge.iconBg} flex items-center justify-center mb-3 group-hover:scale-105 transition-transform`}>
-                {badge.icon}
-              </div>
-              <h3 className="text-sm font-bold text-slate-900">{badge.title}</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">{badge.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+    <section
+      aria-label="Principles"
+      className="border-y border-slate-200/70 bg-slate-50/70 px-4 py-10 sm:px-6 lg:px-8"
+    >
+      <ul className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+        {BADGES.map(({ icon: Icon, title, text }, i) => (
+          <li key={title}>
+            <BlurFade inView delay={i * 0.06} className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#313490] shadow-xs ring-1 ring-slate-200">
+                <Icon className="h-[18px] w-[18px]" />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-slate-900">{title}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">{text}</span>
+              </span>
+            </BlurFade>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
