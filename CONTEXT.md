@@ -133,10 +133,15 @@ _Last updated: 2026-10-11._
 - **Committed and pushed on `feature` (2026-10-10, owner's page feedback, A31; `5b3188c`):** Organization page — the add forms open in the side
   panel from two buttons, the unit and its expected submissions are one tile, and the ticks are written by a
   Save button (Clear all unticks). Typecheck, lint, format pass; **not viewed in a browser**.
-- **ESG data analyst chatbot (2026-10-11, owner's request), UNCOMMITTED on branch `feature-chat-analyst`**
+- **ESG data analyst chatbot (2026-10-11, owner's request), committed on branch `feature-chat-analyst`
+  (`67700f8`), not pushed to GitHub, no pull request yet**
   (cut from `main` at `9b0f2b8`; `feature` had nothing `main` lacked). Overview `CHATBOT.md`, decisions
   `.grill/chat-analyst-decisions.md`, D34, A32, `UI_NOTES.md`. Migration `0042` (role `chat_reader`, two
-  conversation tables) is **on local only, NOT on hosted**. New files: `apps/web/lib/chat/*`,
+  conversation tables, permission `chat.use`) was **pushed to hosted on 2026-10-11** (owner's go-ahead) and
+  checked there: 42 migrations, `chat_reader` exists without a login and with no privilege but SELECT, cannot
+  read users, the audit log, documents, OCR fields or conversations, the two tables have RLS and no browser
+  grants, all 8 roles hold `chat.use`, the 11 records and 4 org units untouched. **`chat_reader` has no
+  password on hosted yet**, so the chatbot is still off there. New files: `apps/web/lib/chat/*`,
   `lib/trpc/routers/chat.ts`, `components/chat/*`, `tests/chat.test.ts`,
   `supabase/tests/database/chat_analyst.test.sql`; touched: `top-bar.tsx` (one line), `rate-limit.ts`,
   `root.ts`, `.env.example`, `seed.sql`, `phase2_smoke.test.sql`. No new dependency. Availability is the
@@ -161,9 +166,9 @@ _Last updated: 2026-10-11._
 
 | Question | Notes |
 |---|---|
-| Chatbot on hosted | Needs the owner's go-ahead to push migration `0042`; then the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
+| Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
 | NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
-| Commit the chatbot and open its pull request | Branch `feature-chat-analyst`, uncommitted. The pull request must say that the feature role built UI (`UI_NOTES.md`). |
+| Push the chatbot branch and open its pull request | Branch `feature-chat-analyst`, committed (`67700f8`), not pushed; `gh` is not installed. The pull request must say that the feature role built UI (`UI_NOTES.md`). |
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
 | Hosted demo setup | The owner chose hosted for the demo (2026-10-08). Waiting on: (1) go-ahead to replace the hosted worker container with the `rules-12` image; (2) a second Admin invited from Admin → Users for the agent — the provisioning script refuses a second Admin by design and the owner's password must not be reset; (3) the owner's review of the factor table in `.grill/audit-2-decisions.md`. |

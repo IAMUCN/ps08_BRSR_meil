@@ -93,7 +93,8 @@ alter role chat_reader login password '<a long random password>';
 ```
 
 Then `CHAT_DATABASE_URL=postgresql://chat_reader:<password>@<host>:<port>/postgres`. On Supabase's pooler the
-user name is `chat_reader.<project-ref>`; **this has not been tried on the hosted project yet**. Locally,
+user name is `chat_reader.<project-ref>`; **this has not been tried on the hosted project yet** (migration `0042` is there since 2026-10-11; the role
+has no password until the owner sets one). Locally,
 `supabase/seed.sql` sets the password `chat_reader_local` on `pnpm db:reset`
 (`postgresql://chat_reader:chat_reader_local@127.0.0.1:55322/postgres`); on a database that was not reset
 since `0042`, run the `alter role` once by hand.
