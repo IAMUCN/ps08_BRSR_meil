@@ -19,21 +19,24 @@ export function HeroSection() {
             <BlurFade>
               <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#313490]/15 bg-[#313490]/[0.06] px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#313490]">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Evidence-first ESG &amp; BRSR reporting
+                One platform. Every document. Real impact.
               </span>
             </BlurFade>
 
             <BlurFade delay={0.08}>
-              <h1 className="font-display mb-6 text-5xl font-bold leading-[1.08] tracking-tight text-slate-900 sm:text-6xl lg:text-[64px]">
-                Every reported number has a <span className="text-[#313490]">source.</span>
+              <h1 className="font-display mb-6 text-5xl font-bold leading-[1.08] tracking-tight text-slate-900 sm:text-6xl lg:text-[72px]">
+                From Real
+                <br />
+                Documents
+                <br />
+                to Real Impact.
               </h1>
             </BlurFade>
 
             <BlurFade delay={0.16}>
               <p className="mb-8 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
-                TraceESG turns the bills and records your project teams already hold into verified,
-                auditable BRSR data, with a drill-down from any figure back to the original
-                document.
+                TraceESG uses AI and human verification to convert operational documents into
+                accurate ESG data and BRSR-ready reports for MEIL&apos;s infrastructure enterprise.
               </p>
             </BlurFade>
 

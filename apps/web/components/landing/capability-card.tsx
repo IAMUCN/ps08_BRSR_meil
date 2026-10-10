@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   FileCheck2,
   Sparkles,
@@ -16,6 +16,8 @@ import {
   HardHat,
   ChevronUp,
   ChevronDown,
+  Pause,
+  Play,
 } from "lucide-react";
 
 export interface CapabilityItem {
@@ -165,81 +167,34 @@ export const CAPABILITIES: CapabilityItem[] = [
   },
 ];
 
-const ROTATION_INTERVAL_MS = 3800;
+const ROTATION_INTERVAL_MS = 2800;
+
+// The cards sit on a wheel whose right edge is a straight line: every card is flush right,
+// while the left edges curve away like an arc. Only the five nearest cards are visible.
+const WHEEL_RADIUS = 220;
+const STEP_ANGLE = 0.42; // radians between neighbouring cards
+const BASE_HEIGHT = 176;
+const SHADOWS = [
+  "shadow-[-6px_14px_32px_rgba(15,23,42,0.12),0_0_0_1px_rgba(226,232,240,0.9)]",
+  "shadow-[-4px_8px_20px_rgba(15,23,42,0.08),0_0_0_1px_rgba(226,232,240,0.7)]",
+  "shadow-[-3px_4px_10px_rgba(15,23,42,0.05),0_0_0_1px_rgba(226,232,240,0.6)]",
+];
 
 export function HeroCapabilityCard() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const lastWheelTime = useRef<number>(0);
-
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
+  const isPaused = hovered || focused || userPaused;
   const total = CAPABILITIES.length;
 
-  const goToNext = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % total);
-  }, [total]);
-
-  const goToPrev = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + total) % total);
-  }, [total]);
-
-  const jumpTo = useCallback(
-    (index: number) => {
-      setCurrentIndex(((index % total) + total) % total);
-    },
-    [total],
-  );
-
-  // Autoplay effect
   useEffect(() => {
-    if (isPaused) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
+    if (isPaused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const id = setInterval(() => setCurrentIndex((i) => (i + 1) % total), ROTATION_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [isPaused, total]);
 
-    timerRef.current = setInterval(() => {
-      goToNext();
-    }, ROTATION_INTERVAL_MS);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isPaused, goToNext]);
-
-  // Wheel handling: allow rolling when cursor is over the stack
-  const handleWheel = (e: React.WheelEvent) => {
-    if (Math.abs(e.deltaY) < 18) return;
-    const now = Date.now();
-    if (now - lastWheelTime.current < 400) return;
-    lastWheelTime.current = now;
-    if (e.deltaY > 0) {
-      goToNext();
-    } else {
-      goToPrev();
-    }
-  };
-
-  // Touch swipe handling
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartY.current === null) return;
-    const touchEndY = e.changedTouches[0].clientY;
-    const deltaY = touchEndY - touchStartY.current;
-    if (Math.abs(deltaY) > 35) {
-      if (deltaY < 0) {
-        goToNext();
-      } else {
-        goToPrev();
-      }
-    }
-    touchStartY.current = null;
-  };
-
-  // Shortest circular difference between item index and currentIndex
+  // Shortest circular distance from the active card, so the wheel loops forever.
   const getDiff = (idx: number): number => {
     let diff = (idx - currentIndex) % total;
     if (diff > total / 2) diff -= total;
@@ -247,171 +202,119 @@ export function HeroCapabilityCard() {
     return diff;
   };
 
-  // Shadow classes matching the tiered depth in reference image
-  const getCardShadow = (diff: number) => {
-    if (diff === 0) {
-      return "shadow-[-6px_14px_32px_rgba(15,23,42,0.12),-1px_4px_12px_rgba(15,23,42,0.06),0_0_0_1px_rgba(226,232,240,0.9)]";
-    }
-    if (Math.abs(diff) === 1) {
-      return "shadow-[-4px_8px_20px_rgba(15,23,42,0.08),-1px_2px_6px_rgba(15,23,42,0.04),0_0_0_1px_rgba(226,232,240,0.7)]";
-    }
-    if (Math.abs(diff) === 2) {
-      return "shadow-[-3px_4px_10px_rgba(15,23,42,0.05),0_0_0_1px_rgba(226,232,240,0.6)]";
-    }
-    return "shadow-none";
-  };
-
   return (
     <div
-      className="capability-deck-container relative w-full max-w-[480px] sm:max-w-[500px] h-[465px] sm:h-[490px] mx-auto select-none"
-      style={{
-        ["--step-y" as string]: "34px",
-        ["--step-x" as string]: "22px",
-        ["--base-top" as string]: "68px",
-        ["--card-h" as string]: "350px",
-      }}
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="Platform capabilities"
+      className="relative mx-auto h-[450px] w-full max-w-[420px] select-none"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
     >
-      {/* Soft atmospheric background glow behind the card stack */}
-      <div className="absolute top-1/2 -translate-y-1/2 -left-8 -right-4 h-[420px] rounded-full bg-gradient-to-tr from-blue-100/50 via-sky-50/40 to-indigo-50/30 blur-3xl -z-10 pointer-events-none" />
+      <div className="pointer-events-none absolute -left-8 -right-4 top-1/2 -z-10 h-[380px] -translate-y-1/2 rounded-full bg-gradient-to-tr from-indigo-100/50 via-sky-50/40 to-transparent blur-3xl" />
 
-      {/* Layered Card Stack (Rolling Rolodex / Tiered Deck) */}
-      <div className="relative w-full h-full">
-        {CAPABILITIES.map((item, idx) => {
-          const diff = getDiff(idx);
-          const absDiff = Math.abs(diff);
-          const isVisible = absDiff <= 2;
-          const isNearby = absDiff <= 3;
-          const IconComponent = item.icon;
+      {CAPABILITIES.map((item, idx) => {
+        const diff = getDiff(idx);
+        const absDiff = Math.abs(diff);
+        const slot = Math.max(-3, Math.min(3, diff)); // cards beyond the arc wait invisibly at its ends
+        const theta = slot * STEP_ANGLE;
+        const height = BASE_HEIGHT * Math.cos(theta);
+        const centerY = WHEEL_RADIUS * Math.sin(theta);
+        const inset = WHEEL_RADIUS * (1 - Math.cos(theta));
+        const Icon = item.icon;
 
-          // Compute stack layering properties using responsive CSS variables
-          const cardStyle: React.CSSProperties = {
-            top: `calc(var(--base-top) + ${diff} * var(--step-y))`,
-            width: `calc(100% - ${absDiff} * var(--step-x))`,
-            height: "var(--card-h)",
-            zIndex: diff === 0 ? 30 : absDiff === 1 ? 20 : absDiff === 2 ? 10 : 0,
-            opacity: absDiff > 2 ? 0 : 1,
-            pointerEvents: isVisible ? "auto" : "none",
-            transition:
-              "top 0.65s cubic-bezier(0.16, 1, 0.3, 1), width 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease, box-shadow 0.65s ease",
-          };
-
-          if (!isNearby) {
-            // Keep completely off-screen cards unmounted from the active rendering pipeline
-            return null;
-          }
-
-          return (
-            <div
-              key={item.id}
-              style={cardStyle}
-              className={`absolute right-0 rounded-2xl sm:rounded-3xl bg-white border border-slate-200/90 overflow-hidden select-none ${getCardShadow(
-                diff,
-              )}`}
-            >
-              {/* TOP PEEK TAB (Visible when card is peeking above active card: diff === -1 or -2) */}
-              {diff < 0 && (
-                <div
-                  onClick={() => jumpTo(idx)}
-                  className="h-[34px] px-3.5 sm:px-4 flex items-center justify-between text-xs cursor-pointer hover:bg-slate-50 transition-colors group/tab"
-                  title={`Roll to ${item.title}`}
-                >
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <span className="text-[10px] font-bold tracking-wider uppercase text-slate-500 group-hover/tab:text-slate-800 transition-colors truncate">
-                      {item.category}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500 group-hover/tab:text-blue-600 transition-colors shrink-0">
-                    <span className="hidden sm:inline text-slate-500 font-semibold truncate max-w-[130px]">
-                      {item.title}
-                    </span>
-                    <ChevronUp className="w-3.5 h-3.5 text-slate-500 group-hover/tab:-translate-y-0.5 transition-transform" />
-                  </div>
-                </div>
-              )}
-
-              {/* BOTTOM PEEK TAB (Visible when card is peeking below active card: diff === 1 or 2) */}
-              {diff > 0 && (
-                <div
-                  onClick={() => jumpTo(idx)}
-                  className="absolute bottom-0 left-0 right-0 h-[34px] px-3.5 sm:px-4 flex items-center justify-between text-xs cursor-pointer hover:bg-slate-50 transition-colors group/tab border-t border-slate-100"
-                  title={`Roll to ${item.title}`}
-                >
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <span className="text-[10px] font-bold text-slate-600 group-hover/tab:text-slate-900 transition-colors truncate">
-                      {item.title}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500 group-hover/tab:text-blue-600 transition-colors shrink-0">
-                    <span className="hidden sm:inline text-slate-500">{item.metricLabel}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-500 group-hover/tab:translate-y-0.5 transition-transform" />
-                  </div>
-                </div>
-              )}
-
-              {/* ACTIVE CARD FULL BODY (Rendered prominently when diff === 0) */}
-              <div
-                className={`p-6 sm:p-7 flex flex-col justify-between h-full transition-opacity duration-300 ${
-                  diff === 0 ? "opacity-100" : "opacity-0 pointer-events-none"
-                }`}
+        return (
+          <div
+            key={item.id}
+            style={{
+              top: `calc(50% + ${centerY - height / 2}px)`,
+              width: `calc(100% - ${inset}px)`,
+              height,
+              zIndex: 30 - absDiff * 10,
+              opacity: absDiff > 2 ? 0 : absDiff === 2 ? 0.85 : 1,
+              pointerEvents: absDiff > 2 ? "none" : "auto",
+              transition:
+                "top 0.7s cubic-bezier(0.16, 1, 0.3, 1), width 0.7s cubic-bezier(0.16, 1, 0.3, 1), height 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease",
+            }}
+            className={`absolute right-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white ${SHADOWS[Math.min(absDiff, 2)]}`}
+          >
+            {diff < 0 && absDiff <= 2 && (
+              <button
+                type="button"
+                onClick={() => setCurrentIndex(idx)}
+                aria-label={`Show ${item.title}`}
+                className="flex h-[34px] w-full cursor-pointer items-center justify-between px-4 text-left transition-colors hover:bg-slate-50"
               >
-                <div>
-                  {/* Category Pill & Live Core Capability Badge */}
-                  <div className="flex items-center justify-between gap-2 pb-3 mb-4 border-b border-slate-100">
-                    <span
-                      className={`inline-flex items-center text-[10px] font-bold tracking-[0.14em] uppercase px-3 py-1 rounded-full border ${item.tagColor}`}
-                    >
-                      {item.category}
-                    </span>
+                <span className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  {item.category}
+                </span>
+                <ChevronUp className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+              </button>
+            )}
 
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200/60 text-[10px] font-medium text-slate-500">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                      </span>
-                      <span className="hidden xs:inline">Core Capability</span>
-                    </div>
-                  </div>
+            {diff > 0 && absDiff <= 2 && (
+              <button
+                type="button"
+                onClick={() => setCurrentIndex(idx)}
+                aria-label={`Show ${item.title}`}
+                className="absolute inset-x-0 bottom-0 flex h-[34px] cursor-pointer items-center justify-between border-t border-slate-100 px-4 text-left transition-colors hover:bg-slate-50"
+              >
+                <span className="truncate text-[11px] font-semibold text-slate-600">
+                  {item.title}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+              </button>
+            )}
 
-                  {/* Icon & Title */}
-                  <div className="flex items-start gap-4 mb-3">
-                    <div
-                      className={`w-12 h-12 rounded-xl border flex items-center justify-center flex-shrink-0 shadow-xs ${item.accentColor}`}
-                    >
-                      <IconComponent className="w-6 h-6 stroke-[2]" />
-                    </div>
-
-                    <div className="pt-0.5">
-                      <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
-                        {item.title}
-                      </h2>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-4 min-h-[44px]">
-                    {item.description}
-                  </p>
-
-                  {/* Technical Metric / Spec Box */}
-                  <div className="bg-slate-50/90 border border-slate-200/70 rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs">
-                    <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">
-                      {item.metricLabel}
-                    </span>
-                    <span className="font-bold text-slate-800 text-right truncate">
-                      {item.metricValue}
-                    </span>
-                  </div>
+            <div
+              aria-hidden={diff !== 0}
+              className={`flex h-full flex-col justify-between p-5 transition-opacity duration-300 ${
+                diff === 0 ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+            >
+              <div className="flex items-start gap-3.5">
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${item.accentColor}`}
+                >
+                  <Icon className="h-5 w-5 stroke-[2]" />
+                </div>
+                <div className="min-w-0">
+                  <span
+                    className={`mb-1 inline-block rounded-full border px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] ${item.tagColor}`}
+                  >
+                    {item.category}
+                  </span>
+                  <h2 className="text-lg font-bold leading-snug tracking-tight text-slate-900">
+                    {item.title}
+                  </h2>
                 </div>
               </div>
+
+              <p className="text-sm leading-relaxed text-slate-600">{item.description}</p>
+
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-slate-50/90 px-3 py-2 text-xs">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  {item.metricLabel}
+                </span>
+                <span className="truncate text-right font-bold text-slate-800">
+                  {item.metricValue}
+                </span>
+              </div>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
+
+      <button
+        type="button"
+        onClick={() => setUserPaused((v) => !v)}
+        aria-label={userPaused ? "Resume rotation" : "Pause rotation"}
+        className="absolute bottom-0 left-0 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-xs transition-colors hover:text-[#313490]"
+      >
+        {userPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+      </button>
     </div>
   );
 }
