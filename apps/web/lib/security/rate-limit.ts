@@ -17,6 +17,8 @@ export type RateLimits = {
   otp_requests_per_address: number;
   otp_window_minutes: number;
   otp_max_attempts: number;
+  chat_messages_per_user: number;
+  chat_window_minutes: number;
 };
 
 const DEFAULTS: RateLimits = {
@@ -29,6 +31,8 @@ const DEFAULTS: RateLimits = {
   otp_requests_per_address: 20,
   otp_window_minutes: 60,
   otp_max_attempts: 5,
+  chat_messages_per_user: 20,
+  chat_window_minutes: 10,
 };
 
 export async function rateLimits(): Promise<RateLimits> {

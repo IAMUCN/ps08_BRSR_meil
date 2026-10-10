@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-09 — Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
+_Last updated: 2026-10-11 — the ESG data analyst chatbot is built on branch `feature-chat-analyst` (uncommitted; migration `0042` on local only). Before that: Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
 merged); the second audit's follow-up work (migrations `0038`–`0039`, fuller report with SDG tags, 28 sourced factors on local) is committed locally, not
 pushed; migrations `0038`–`0039` are on hosted (2026-10-09), the factors and demo data are not; Phase 21 (deployment) comes after, hosting to be decided by the owner._
 
@@ -40,8 +40,8 @@ Big rules that shape everything:
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D33) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A30) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D34) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A32) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `ASSURANCE.md` | How the system supports assurance on BRSR Core KPIs: controls, KPI-by-KPI status, an assurer's walkthrough |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
@@ -83,6 +83,7 @@ may run in parallel with Phases 3–5.
 | — | Audit fixes P2 (calculation guard, audit context and order, security headers, evidence fingerprint, hierarchy levels, several evidence files) and P3 | Done, on branch `feature` | `23e1925` |
 | — | Second audit follow-up: remaining activities, air emissions, fuller SEBI report tables, sourced factors on local (migration `0038`) | Done locally, committed, **not pushed, not on hosted** | — |
 | — | Full BRSR format in the report: 146 questions, typed disclosures, all 17 SDGs (migration `0040`); owner's page feedback | Done, **uncommitted**; `0040` on hosted | — |
+| — | ESG data analyst chatbot: read-only tools, NVIDIA NIM, saved conversations (migration `0042`) | Done, **uncommitted** on `feature-chat-analyst`; `0042` not on hosted | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -683,7 +684,29 @@ the Control Tower shows KPI trends across financial years; Admins can send remin
 Reports has Past reports and a full-year Evidence list (A29). Checks: web unit 98/98, lint, typecheck, format.
 Not run: end-to-end, a browser view. The three-plant demonstration data is the owner's to build.
 
+**ESG data analyst chatbot (2026-10-11).** Decisions: `.grill/chat-analyst-decisions.md`; overview:
+`CHATBOT.md`. The owner asked for a chatbot that answers questions about the ESG data a person may see.
+- **A language model words the answer; the application supplies every figure.** The model (NVIDIA NIM, or
+  any OpenAI-style endpoint) may ask for eight approved read-only tools — totals, comparison, trend, ranking,
+  completeness, calculation explanation, and two lists. Each resolves org units only inside the person's
+  scope, read from the database for that question, and computes with the consolidation rules.
+- **Migration `0042`** (D34): a database role `chat_reader` that can select a named list of tables and
+  nothing else, two server-only tables for saved conversations (private, 90 days, deletable), and the
+  permission `chat.use`, held by every existing role and changed per role on Roles & Permissions.
+- **Screen** (A32): an _Ask_ button in the top bar and a floating button, opening a side panel with the
+  wording, figures, tables and charts drawn by the app. Built by the feature session at the owner's request;
+  `UI_NOTES.md` tells the ui role what was touched.
+- **Models:** `NVIDIA_NIM_MODEL` is a list tried in order; six models on the owner's account pass a
+  tool-calling probe. One audit entry per question, without its text. 20 questions per person per 10 minutes.
+- Checks: web unit 124/124 (26 new), database 249/249 (24 new), lint, typecheck, format, production build;
+  the tool's totals against `consolidateNodes` and raw SQL, 39/39; a real-browser pass in Edge on the built
+  app with the real model and the local database, 28/28; the browser bundle searched for the key. **Not
+  run:** the end-to-end suite; the rate limit and the 90-day removal; the Special and Dark themes and the
+  docked panel; anything on the hosted project.
+
 ## 4. What comes next
+
+**Chatbot, to finish:** commit and open a pull request from `feature-chat-analyst`; with the owner's go-ahead push migration `0042` to hosted, set a password for `chat_reader` there and try its connection through the pooler; set the four variables for the owner's dev server. Review NVIDIA's terms before real MEIL figures go through the free endpoints.
 
 **Before Phase 21:** run the end-to-end suite and click
 through BRSR Disclosures. Make the hosted project ready for the demo (the owner chose hosted). In order: push the

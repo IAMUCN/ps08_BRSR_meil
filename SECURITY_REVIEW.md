@@ -106,3 +106,32 @@ chat while the hosted project was being set up. Rotate it in the Supabase dashbo
 
 Third-party penetration testing, CAPTCHA on sign-in, and a web application firewall. Moving from synthetic
 to real MEIL documents is allowed from this phase and needs the owner's data, not code.
+
+## Addendum 2026-10-11 — ESG data analyst (chatbot)
+
+A language model now chooses which lookups run for a question. Overview: `CHATBOT.md`; decisions:
+`.grill/chat-analyst-decisions.md`.
+
+**New exposure:** each question, up to 10 earlier messages and the lookup results (org unit names, period and
+metric names, summed figures, factors and their sources) are sent to NVIDIA's hosted inference service. This
+is the first data other than email to leave Supabase and the web host. Accepted by the owner for now; a model
+served inside the network is a configuration change (`NVIDIA_NIM_BASE_URL`).
+
+| Risk | Control | Checked by |
+|---|---|---|
+| The model is talked into reading another project | Org units resolve only inside the scope read from the database for this question; an out-of-scope unit reads as non-existent; both sides of a comparison are resolved before either is read | `tests/chat.test.ts` |
+| The model asks for SQL, code or a tool that does not exist | A fixed list of eight tools; strict argument schemas; queries are fixed text with bound ids | `tests/chat.test.ts` |
+| Anything in the chat path writes | Tools only read; the database role holds `SELECT` only and its transactions are read-only | `chat_analyst.test.sql`; an update tried through the chat connection was refused (25006) |
+| People, documents or the audit trail reach the model | The role cannot read those tables or the columns naming a person | `chat_analyst.test.sql` |
+| Instructions hidden in data or in earlier messages | Tool results and history are data to the model; no tool acts on text; scope does not come from history | `tests/chat.test.ts` |
+| Access removed after a conversation | Scope is read per question; earlier answers about a unit now out of scope are withheld and not sent as context | Reading of `routers/chat.ts`; tool-level test |
+| The key reaches the browser | Read only in server code; the built browser bundle was searched for the key, the variable names, the provider address and the prompt: none found | Build of 2026-10-11 |
+| Provider errors leak account details | The provider's text is never shown or logged; fixed messages | `tests/chat.test.ts` |
+| Markup from the model | Wording rendered as text; tables and charts from a validated schema | Browser check: no markup elements in answers |
+| Abuse and cost | 20 questions per person per 10 minutes (`org_settings.rate_limits`), 6 lookups, 60 seconds, bounded sizes | `tests/chat.test.ts` (limits); the rate limit itself was not exercised |
+| A wrong figure in the wording | Figures in tables and charts never come from the model; wording that names a figure not in the data gets a visible warning (a heuristic) | `tests/chat.test.ts` |
+
+**Accepted or open:** NVIDIA's terms and limits for the free endpoints have not been reviewed; `chat_reader`
+can call functions that `PUBLIC` may execute (none writes, and its transactions are read-only); the rule that
+hides earlier answers has no automated test at the router level; expired conversations are removed when the
+chat is next opened, not on a schedule.

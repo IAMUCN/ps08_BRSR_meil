@@ -154,6 +154,13 @@ Root commands:
 | `pnpm format` / `pnpm format:check` | Prettier write / check for `apps/web` | `corepack pnpm --filter web format:check` |
 | `pnpm build` | Production build of `apps/web` | `corepack pnpm --filter web build` |
 
+### ESG data analyst (chatbot)
+
+A read-only assistant behind the _Ask_ button; see [`CHATBOT.md`](CHATBOT.md) for how it works, what it
+sends to the AI service and how to test it. It is off until `NVIDIA_NIM_API_KEY`, `NVIDIA_NIM_MODEL` and
+`CHAT_DATABASE_URL` are set in `apps/web/.env.local`. Locally, after `pnpm db:reset`:
+`CHAT_DATABASE_URL=postgresql://chat_reader:chat_reader_local@127.0.0.1:55322/postgres`.
+
 ## Database (`supabase/`)
 
 The schema from `05_BACKEND_SCHEMA.md` lives in `supabase/migrations/` (applied in numeric order).

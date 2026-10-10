@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-10-10._
+_Last updated: 2026-10-11._
 
 ---
 
@@ -133,18 +133,37 @@ _Last updated: 2026-10-10._
 - **Committed and pushed on `feature` (2026-10-10, owner's page feedback, A31; `5b3188c`):** Organization page — the add forms open in the side
   panel from two buttons, the unit and its expected submissions are one tile, and the ticks are written by a
   Save button (Clear all unticks). Typecheck, lint, format pass; **not viewed in a browser**.
+- **ESG data analyst chatbot (2026-10-11, owner's request), UNCOMMITTED on branch `feature-chat-analyst`**
+  (cut from `main` at `9b0f2b8`; `feature` had nothing `main` lacked). Overview `CHATBOT.md`, decisions
+  `.grill/chat-analyst-decisions.md`, D34, A32, `UI_NOTES.md`. Migration `0042` (role `chat_reader`, two
+  conversation tables) is **on local only, NOT on hosted**. New files: `apps/web/lib/chat/*`,
+  `lib/trpc/routers/chat.ts`, `components/chat/*`, `tests/chat.test.ts`,
+  `supabase/tests/database/chat_analyst.test.sql`; touched: `top-bar.tsx` (one line), `rate-limit.ts`,
+  `root.ts`, `.env.example`, `seed.sql`, `phase2_smoke.test.sql`. No new dependency. Availability is the
+  permission `chat.use` (17 permissions now; every existing role holds it; added to `0042` after the browser
+  pass, so the permission gate itself was checked by database tests only). Checked: web unit
+  124/124, database 249/249, lint, typecheck, format, production build, totals against `consolidateNodes`
+  39/39, a real-browser pass in Edge on the built app with the real model 28/28. **Not run:** the end-to-end
+  suite, the rate limit, the 90-day removal, the other two themes, the docked panel, anything on hosted. One
+  small change (figures in the wording regrouped the Indian way) was made after the build and the browser
+  pass; unit tests, lint, typecheck and format were re-run after it, the build and the browser pass were not.
+  The owner's dev server has the NVIDIA key but no `CHAT_DATABASE_URL`, so the chatbot is off there and the
+  top bar is unchanged. A local user `chat.pm@traceesg.test` (Project Manager, Project X) was created for
+  the browser check; its password was not kept.
 - **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
   org unit, one open period `AUG26`, three users at the group. Needs, in order: a second Admin invited
   by the owner for the agent (see §2); then the factor script and an org tree.
-- **Uncommitted, not from the feature sessions:** `apps/web/app/layout.tsx`, `apps/web/package.json` and
-  `pnpm-lock.yaml` changed at 18:17–18:21 on 2026-10-07 (a development-only `agentation` widget). It fails `pnpm format:check` (`app/layout.tsx`). Left out of
-  every commit; ask the owner.
+- **The `agentation` widget is committed now** (it is in `apps/web/package.json` on `main`; the working tree was
+  clean at the start of the 2026-10-11 session and `pnpm format:check` passes).
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
+| Chatbot on hosted | Needs the owner's go-ahead to push migration `0042`; then the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
+| NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
+| Commit the chatbot and open its pull request | Branch `feature-chat-analyst`, uncommitted. The pull request must say that the feature role built UI (`UI_NOTES.md`). |
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
 | Hosted demo setup | The owner chose hosted for the demo (2026-10-08). Waiting on: (1) go-ahead to replace the hosted worker container with the `rules-12` image; (2) a second Admin invited from Admin → Users for the agent — the provisioning script refuses a second Admin by design and the owner's password must not be reset; (3) the owner's review of the factor table in `.grill/audit-2-decisions.md`. |
@@ -160,7 +179,7 @@ _Last updated: 2026-10-10._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D34** and **A32**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D35** and **A33**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -285,6 +304,23 @@ _Last updated: 2026-10-10._
   `@/` and `server-only`) runs `buildSnapshot` and `renderReportHtml` against the local database read-only.
 - **The repository's SEBI Annexure I is the 2021 format;** the L&T FY2025-26 report follows the one in
   force. Take question numbers and wording from the L&T report.
+- **A branch called `feature` exists, so `feature/<topic>` cannot be created** (git cannot hold both); use
+  `feature-<topic>`.
+- **A shell heredoc eats backslashes**: a regular expression written through one lost every `\d` and `\*`
+  (twice). Put code with backslashes in a file with the file tool, or edit in place.
+- **Local auth without the full stack:** `npx supabase stop`, then `npx supabase start -x
+  studio,imgproxy,mailpit,realtime,storage-api,edge-runtime,logflare,vector,postgres-meta,supavisor` starts
+  the database, auth and the gateway only (about 1.6 GB stayed free beside the dev server). With that, a
+  production build into `NEXT_DIST_DIR=.next-e2e` and `next start -p 3100` gave a real browser check.
+- **`chat_reader` has no password after `npx supabase migration up`** (the seed sets it only on a reset):
+  `alter role chat_reader login password 'chat_reader_local'` once on the local database.
+- **NVIDIA's model list includes models the account cannot call** (they answer 404 "not found for account"),
+  and one key does not switch models by itself. Probe a model with a tool call before adding it to
+  `NVIDIA_NIM_MODEL`.
+- **pgTAP cannot be called while acting as a role without access to the `extensions` schema:** run the
+  statement inside a helper that switches role and returns the error code (`chat_analyst.test.sql`).
+- **The schema smoke test lists every public table:** a migration that adds one must add it to
+  `phase2_smoke.test.sql`.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands
