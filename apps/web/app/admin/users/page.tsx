@@ -8,10 +8,12 @@ export const metadata: Metadata = { title: "Users · TraceESG" };
 
 export default async function UsersPage() {
   const [session, caller] = await Promise.all([requireAdminSession(), api()]);
-  const [users, matrix, nodes] = await Promise.all([
+  const [users, matrix, nodes, bulkImportOptions, levels] = await Promise.all([
     caller.users.list(),
     caller.roles.matrix(),
     caller.organization.tree(),
+    caller.users.bulkImportOptions(),
+    caller.organization.levels(),
   ]);
 
   return (
@@ -25,6 +27,8 @@ export default async function UsersPage() {
         users={users}
         roles={matrix.roles.map((r) => ({ id: r.id, code: r.code, name: r.name }))}
         nodes={nodes}
+        levels={levels}
+        bulkImportOptions={bulkImportOptions}
       />
     </div>
   );

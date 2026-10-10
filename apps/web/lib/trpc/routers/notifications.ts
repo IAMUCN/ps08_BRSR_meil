@@ -15,6 +15,10 @@ export const NOTIFICATION_TYPES = {
   approval_needed: "Approval needed",
   approved: "Approved",
   calculation_blocked: "Calculation blocked",
+  report_ready: "Report ready",
+  report_failed: "Report failed",
+  deadline_approaching: "Deadline approaching",
+  submission_reminder: "Submission reminder",
 } as const;
 
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;
@@ -51,6 +55,21 @@ export const notificationsRouter = router({
     .query(async ({ ctx, input }) => {
       const sql = db();
       const userId = ctx.session.userId;
+      // PRD §32 "approaching deadline": there is no scheduler, so the reminder is written the first time
+      // the user's bell loads within three days of an open period's closing date — once per period.
+      await sql`
+        insert into public.notifications
+          (user_id, type, title, message, related_entity_type, related_entity_id, deep_link_path)
+        select ${userId}, 'deadline_approaching', 'Submission deadline approaching',
+               p.label || ' closes for submissions on ' || to_char(p.submission_closes_on, 'DD Mon YYYY') || '.',
+               'reporting_period', p.id, ${ctx.session.isAdmin ? "/admin/submissions" : "/app/upload"}
+        from public.reporting_periods p
+        where p.status = 'open'
+          and p.submission_closes_on between current_date and current_date + 3
+          and not exists (
+            select 1 from public.notifications n
+            where n.user_id = ${userId} and n.type = 'deadline_approaching'
+              and n.related_entity_id = p.id)`;
       const [rows, [unread]] = await Promise.all([
         sql<Row[]>`
           select id, type, title, message, deep_link_path, is_read, created_at

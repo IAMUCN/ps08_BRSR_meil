@@ -1,5 +1,7 @@
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 
 /** UI brief §15.2: short explanation plus the next action, 48px line icon, never a bare "No data". */
 export function EmptyState({
@@ -7,11 +9,14 @@ export function EmptyState({
   title,
   message,
   action,
+  link,
 }: {
   icon: LucideIcon;
   title: string;
   message: string;
   action?: ReactNode;
+  /** The usual next action: a page to go to. */
+  link?: { href: string; label: string };
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
@@ -19,6 +24,11 @@ export function EmptyState({
       <h1 className="text-xl leading-7 font-semibold">{title}</h1>
       <p className="max-w-sm text-sm leading-5 text-muted-foreground">{message}</p>
       {action}
+      {link ? (
+        <Button asChild variant="outline">
+          <Link href={link.href}>{link.label}</Link>
+        </Button>
+      ) : null}
     </div>
   );
 }

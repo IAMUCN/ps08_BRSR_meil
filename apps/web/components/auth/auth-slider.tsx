@@ -2,121 +2,29 @@
 
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useState, type FormEvent, type ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState, type ReactNode } from "react";
+import { ForgotPasswordForm } from "@/app/forgot-password/forgot-password-form";
 import { ShineBorder } from "@/components/ui/shine-border";
 
 type Mode = "signin" | "forgot";
-type Step = "email" | "otp" | "password" | "done";
 
-// ponytail: the forgot-password steps are front-end only (no OTP is sent or checked). Wire them to the
-// backend later; the working reset path today is the emailed link at /forgot-password.
 function ForgotPanel({ onBack }: { onBack: () => void }) {
-  const [step, setStep] = useState<Step>("email");
-
-  const next = (to: Step) => (e: FormEvent) => {
-    e.preventDefault();
-    setStep(to);
-  };
-
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-2xl font-semibold">Reset password</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {step === "email" && "Enter your account email and we'll send a 6-digit code."}
-          {step === "otp" && "Enter the 6-digit code from your email."}
-          {step === "password" && "Choose a new password (12+ characters)."}
-          {step === "done" && "Your password is ready to use."}
+          Enter your account email and we&apos;ll send a 6-digit code to choose a new password.
         </p>
       </div>
-
-      {step === "email" && (
-        <form onSubmit={next("otp")} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="reset-email">Email</Label>
-            <Input id="reset-email" type="email" autoComplete="email" required />
-          </div>
-          <Button type="submit" className="w-full">
-            Send code
-          </Button>
-        </form>
-      )}
-
-      {step === "otp" && (
-        <form onSubmit={next("password")} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="otp">Verification code</Label>
-            <Input
-              id="otp"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              required
-              className="text-center font-mono text-lg tracking-[0.5em]"
-            />
-          </div>
-          <Button type="submit" className="w-full">
-            Verify code
-          </Button>
-        </form>
-      )}
-
-      {step === "password" && (
-        <form onSubmit={next("done")} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="new-password">New password</Label>
-            <Input
-              id="new-password"
-              type="password"
-              autoComplete="new-password"
-              minLength={12}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm password</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              autoComplete="new-password"
-              minLength={12}
-              required
-            />
-          </div>
-          <Button type="submit" className="w-full">
-            Save password
-          </Button>
-        </form>
-      )}
-
-      {step === "done" && (
-        <Button type="button" className="w-full" onClick={onBack}>
-          Back to sign in
-        </Button>
-      )}
-
-      <p className="rounded-sm border bg-muted px-3 py-2 text-xs leading-5 text-muted-foreground">
-        Preview only: code delivery isn&apos;t connected yet. Until then, use the emailed reset link
-        from{" "}
-        <a href="/forgot-password" className="font-medium text-primary hover:underline">
-          Forgot password
-        </a>
-        .
-      </p>
-
-      {step !== "done" && (
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline md:hidden"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back to sign in
-        </button>
-      )}
+      <ForgotPasswordForm />
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline md:hidden"
+      >
+        <ArrowLeft className="h-4 w-4" /> Back to sign in
+      </button>
     </div>
   );
 }
@@ -127,7 +35,7 @@ export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: Rea
   const forgot = mode === "forgot";
 
   const panel =
-    "absolute inset-y-0 left-0 flex w-full flex-col justify-center p-6 transition-all duration-500 ease-in-out md:w-1/2 md:p-10";
+    "absolute inset-y-0 left-0 flex w-full flex-col justify-center overflow-y-auto p-6 transition-all duration-500 ease-in-out md:w-1/2 md:p-10";
 
   return (
     <div className="flex flex-1 flex-col bg-slate-50 [--background:#fff] [--border:#e2e8f0] [--card:#fff] [--input:#cbd5e1] [--muted:#f1f5f9] [--primary:#313490] [--ring:#313490]">
@@ -144,7 +52,7 @@ export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: Rea
       </header>
       <main className="flex flex-1 items-start justify-center p-4 pb-12 sm:p-6 md:items-center">
         <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl border bg-card shadow-lg">
-          <div className="relative min-h-[600px] w-full text-card-foreground md:min-h-[540px]">
+          <div className="relative min-h-[640px] w-full text-card-foreground md:min-h-[600px]">
             {/* Sign-in panel */}
             <div
               inert={forgot}
@@ -179,7 +87,7 @@ export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: Rea
                   : "pointer-events-none opacity-0 md:translate-x-0"
               }`}
             >
-              <ForgotPanel onBack={() => setMode("signin")} />
+              {forgot && <ForgotPanel onBack={() => setMode("signin")} />}
             </div>
 
             {/* Sliding overlay (desktop) */}

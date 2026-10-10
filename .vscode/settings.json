@@ -1,0 +1,9 @@
+{
+  "remote.autoForwardPorts": false,
+  "remote.portsAttributes": {
+    "3000": {
+      "onAutoForward": "ignore",
+      "elevateIfNeeded": false
+    }
+  }
+}

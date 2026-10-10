@@ -1,40 +1,45 @@
 // Organization tree rules (.grill/phase-4-admin-foundation-decisions.md). Pure — unit-testable.
 
-export const ORG_UNIT_TYPES = [
-  "group",
-  "subsidiary",
-  "business_unit",
-  "region",
-  "project",
-  "site",
-  "department",
-] as const;
+// The levels themselves are configuration (migration 0037, `org_levels`): every rule takes the level list
+// the server loaded, in order. Nothing here knows a level's name except the root.
 
-export type OrgUnitType = (typeof ORG_UNIT_TYPES)[number];
+/** One hierarchy level, as configured. A child's level must come after its parent's. */
+export type OrgLevel = { code: string; label: string; order: number };
 
-export const ORG_UNIT_TYPE_LABELS: Record<OrgUnitType, string> = {
-  group: "Group",
-  subsidiary: "Subsidiary / Entity",
-  business_unit: "Business Unit / Division",
-  region: "Region",
-  project: "Project",
-  site: "Site",
-  department: "Department",
-};
+/** A level's code. Whatever is configured — not a fixed list. */
+export type OrgUnitType = string;
 
-export function isOrgUnitType(value: unknown): value is OrgUnitType {
-  return typeof value === "string" && (ORG_UNIT_TYPES as readonly string[]).includes(value);
+/** The one level the app knows by name: the root, where the Admin role lives. */
+export const ROOT_LEVEL = "group";
+
+const orderOf = (levels: readonly OrgLevel[], code: string) =>
+  levels.find((l) => l.code === code)?.order;
+
+/** How a level reads on screen; its code if the level is unknown. */
+export const levelLabel = (levels: readonly OrgLevel[], code: string) =>
+  levels.find((l) => l.code === code)?.label ?? code;
+
+/** Skip levels, never invert: a child's level must come strictly later than its parent's. */
+export function canBeChildOf(
+  levels: readonly OrgLevel[],
+  parentType: OrgUnitType,
+  childType: OrgUnitType,
+): boolean {
+  const parent = orderOf(levels, parentType);
+  const child = orderOf(levels, childType);
+  if (childType === ROOT_LEVEL || parent === undefined || child === undefined) return false;
+  return child > parent;
 }
 
-/** Skip levels, never invert: a child's type must come strictly later than its parent's. */
-export function canBeChildOf(parentType: OrgUnitType, childType: OrgUnitType): boolean {
-  if (childType === "group") return false;
-  return ORG_UNIT_TYPES.indexOf(childType) > ORG_UNIT_TYPES.indexOf(parentType);
-}
-
-/** Child types allowed under a parent, in reference order. */
-export function allowedChildTypes(parentType: OrgUnitType): OrgUnitType[] {
-  return ORG_UNIT_TYPES.filter((type) => canBeChildOf(parentType, type));
+/** Levels allowed under a parent, in hierarchy order. */
+export function allowedChildTypes(
+  levels: readonly OrgLevel[],
+  parentType: OrgUnitType,
+): OrgUnitType[] {
+  return [...levels]
+    .sort((x, y) => x.order - y.order)
+    .filter((level) => canBeChildOf(levels, parentType, level.code))
+    .map((level) => level.code);
 }
 
 export type OrgNode = {
@@ -73,6 +78,7 @@ export function checkMove(
   nodeId: string,
   newParentId: string,
   nodes: readonly OrgNode[],
+  levels: readonly OrgLevel[],
 ): MoveCheck {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const node = byId.get(nodeId);
@@ -83,10 +89,29 @@ export function checkMove(
   if (descendantIds(nodeId, nodes).includes(newParentId)) {
     return { ok: false, reason: "A node cannot be moved under its own descendant." };
   }
-  if (!canBeChildOf(newParent.unitType, node.unitType)) {
+  if (!canBeChildOf(levels, newParent.unitType, node.unitType)) {
     return { ok: false, reason: "That parent's level must come before this node's level." };
   }
   return { ok: true };
+}
+
+/**
+ * Non-frozen nodes reachable for a bulk action: each of the given nodes plus its descendants.
+ * Used to scope a permission holder's bulk-import target to their own assignments (or, for an Admin,
+ * called with every active node id).
+ */
+export function reachableNodeIds(
+  nodes: readonly OrgNode[],
+  fromNodeIds: readonly string[],
+): string[] {
+  const ids = new Set<string>();
+  for (const nodeId of fromNodeIds) {
+    if (!nodes.some((n) => n.id === nodeId)) continue;
+    for (const id of [nodeId, ...descendantIds(nodeId, nodes)]) {
+      if (!isFrozen(id, nodes)) ids.add(id);
+    }
+  }
+  return [...ids];
 }
 
 /** Frozen-but-readable: a node is frozen if it or any ancestor is inactive. */

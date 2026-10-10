@@ -15,6 +15,9 @@ export type CalculationTrace = {
   resultValue: number;
   resultUnit: string;
   scopeName: string | null;
+  /** Multi-input formulas (percentage, subtract): each verified input and the formula in words. */
+  inputs: { label: string; value: number; unit: string }[];
+  formula: string | null;
   engineVersion: string;
   calculatedAt: string;
 };

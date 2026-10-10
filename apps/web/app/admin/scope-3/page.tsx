@@ -1,4 +1,4 @@
-import { Factory } from "lucide-react";
+import { Link2 } from "lucide-react";
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
@@ -32,9 +32,10 @@ export default async function ScopeThreePage({ searchParams }: PageProps<"/admin
         />
       ) : (
         <EmptyState
-          icon={Factory}
+          icon={Link2}
           title="Nothing to total yet"
           message="Scope 3 figures appear once a reporting period exists and records in an enabled category have been calculated."
+          link={{ href: "/admin/submissions", label: "See what has been submitted" }}
         />
       )}
     </div>

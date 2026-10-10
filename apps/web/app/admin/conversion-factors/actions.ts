@@ -15,6 +15,7 @@ type VersionValues = {
   effectiveFrom: string;
   effectiveTo?: string | null;
   notes?: string;
+  gases?: string;
 };
 
 export async function createFactorAction(
@@ -36,6 +37,18 @@ export async function setFactorVersionStatusAction(input: {
   status: "active" | "retired";
 }) {
   const result = await runAction((api) => api.factors.setStatus(input));
+  if (result.ok) revalidatePath("/admin/conversion-factors");
+  return result;
+}
+
+export async function renameFactorAction(input: { factorId: string; name: string }) {
+  const result = await runAction((api) => api.factors.rename(input));
+  if (result.ok) revalidatePath("/admin/conversion-factors");
+  return result;
+}
+
+export async function setFactorGasesAction(input: { versionId: string; gases: string | null }) {
+  const result = await runAction((api) => api.factors.setGases(input));
   if (result.ok) revalidatePath("/admin/conversion-factors");
   return result;
 }

@@ -1,102 +1,143 @@
-# Graph Report - ps08_BRSR_meil  (2026-10-07)
+# Graph Report - BRSR_MEIL  (2026-10-09)
 
 ## Corpus Check
-- 256 files · ~446,902 words
+- 398 files · ~275,243 words
 - Verdict: corpus is large enough that graph structure adds value.
+- Unclassified: 13 file(s) not represented in the graph (top: (none) 8, .example 2, .toml 2)
 
 ## Summary
-- 1924 nodes · 3496 edges · 178 communities (122 shown, 49 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 47 edges (avg confidence: 0.91)
+- 2181 nodes · 5697 edges · 159 communities (116 shown, 39 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 90 edges (avg confidence: 0.87)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a8cd3b88`
+- Built from commit: `e74b7214`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- runAction
-- createSupabaseServerClient
-- verification.ts
-- WorkerHarnessTest
-- trpc/server.ts
-- writeAudit
+- VerifyWorkspace
+- admin-rules.test.ts
+- samples.py
 - processor.py
-- notification-bell.tsx
-- documents.ts
-- __main__.py
-- factors-manager.tsx
-- [documentId]/page.tsx
-- db
-- root.ts
+- validation-queue-table.tsx
 - organization.ts
-- SEBI BRSR Reporting Format (Annexure 1)
-- forgot-password-form.tsx
-- components.json
-- session.ts
-- scripts
-- extract_fields
-- PS-08 ESG/BRSR Reporting Portal
-- compilerOptions
-- fields.py
-- scope-dashboard.tsx
-- web/package.json
-- db.py
-- periods-manager.tsx
-- reporting-periods.ts
-- dependencies
-- roles-manager.tsx
-- Product Requirements Document (PRD)
-- Technical Requirements Document (TRD)
-- Phase 10 Scope 1 Decisions
-- Phase 5 Document Ingestion Decisions
-- ocr-jobs-table.tsx
-- TraceESG Evidence-First ESG Platform
-- app/app/page.tsx
-- button.tsx
-- scripts
-- provision-user.ts
-- shared-types/package.json
-- App Flow Deviations Document
-- landing-page.tsx
-- users.ts
-- TraceESG Project README
-- TraceESG Project Context and Progress
-- devDependencies
-- compilerOptions
-- Evidence-First Data Collection Model
-- fields_needing_attention
-- web/app/layout.tsx
-- TraceESG Target Personas and Roles
-- Phase 2B OCR Worker Decisions
-- Phase 4 Admin Foundation Decisions
+- pdf.ts
 - Phase 6 OCR Integration Decisions
-- Phase 8 Validation Engine Decisions
-- Phase 7 OCR Verification Decisions
-- 2. Phase-by-Phase Plan
+- react
+- organization/actions.ts
+- root.ts
+- top-bar.tsx
+- records.ts
+- requireAdminSession
+- writeAudit
+- session.ts
+- brsr.ts
+- extract_fields
+- db.py
+- split_pages
+- fields.py
+- ocr.ts
+- lucide-react
+- app/submissions/page.tsx
+- ValidationQueueTable
+- SEBI BRSR Reporting Format (Annexure 1)
+- forgot-password/actions.ts
+- dependencies
+- setup
+- verification.ts
+- createSupabaseServerClient
+- scope-dashboard.tsx
+- brsr-mapping/page.tsx
+- components.json
+- trpc/server.ts
+- login/page.tsx
+- scripts
+- records-explorer.tsx
+- web/package.json
+- compilerOptions
+- test_extraction.py
+- verify-workspace.tsx
+- approvals.ts
+- sql
+- scenario-f-activities.mjs
+- lib.mjs
+- FactorsManager
+- provision-user.ts
+- GitHub Actions CI Pipeline
+- reporting-periods/actions.ts
+- reporting-periods.ts
+- scripts
+- App Flow Deviation Registry
+- html.ts
+- scenario-d-report.mjs
+- shared-types/package.json
+- Phase 4 Admin Foundation Decisions
+- ocr-jobs-table.tsx
+- roles/actions.ts
+- Backend Schema Deviation Registry
+- xlsx.ts
+- devDependencies
+- Shared Password Policy Module
+- Immutable Report Snapshot Lineage
+- brsr-mapping/actions.ts
+- employee-bulk-import.tsx
+- compilerOptions
+- Scope 3 Active Categories
+- PART I — STRUCTURED KT CONTEXT
+- TraceESG Implementation Progress Tracker
+- authorization.mjs
+- Session
+- scenario-a-scope1.mjs
+- TraceESG Evidence-First ESG Platform
+- Metric-Specific Consolidation Rules
+- [trpc]/route.ts
+- Phase 18 Security Review Audit
+- DISCOM Electricity Extraction Rules
+- admin/page.tsx
+- Evidence-First Data Collection Model
+- Row-Level Import Transactions
+- BRSR Readiness Tree Drill-Down
+- App-Level Rate Limiting
+- admin/loading.tsx
+- db
+- run.mjs
+- TraceESG Target Personas and Roles
 - BRSR Core Framework
-- Configurable Multi-Entity Organization Hierarchy
+- Phase 1 Project Setup Decisions
+- runAction
+- A23: Multi-Bill PDF OCR Propose and Split Flow
+- TraceESG Architecture and Overview
 - Graphify Knowledge Graph Rule
+- Configurable Multi-Entity Organization Hierarchy
 - Three Themes Shared UX Structure Decision
-- esg_record_documents Many-to-Many Join Table
-- organization/page.tsx
+- audit-trail/page.tsx
 - Eight Core Product Principles
 - Evidence-to-BRSR Digital Thread
 - Deterministic TypeScript Calculation Engine
 - Postgres-Backed Document Job Queue
-- conversion_factors and conversion_factor_versions Tables
+- esg_record_documents Many-to-Many Join Table
+- Responsive Collapsible Sidebar
+- OCR Worker Runtime Dependencies
 - extraction/__init__.py
 - Next.js 16 Agent Rules
 - eslint.config.mjs
 - postcss.config.mjs
 - .prettierrc.json
+- Feature and UI Dual Role Development Protocol
 - Corporate ESG Approval Queue Flow
 - OCR Extraction Verification Flow
 - Scope 1 2 3 Iconography and Color Hierarchy
 - Accessible Status Color Token System
 - BRSR Mapping Tables (brsr_sections, brsr_indicators, brsr_metric_mappings)
+- conversion_factors and conversion_factor_versions Tables
+- Immutable Append-Only Lifecycle Tables
 - Two-Track A/B Build Architecture
 - Pragmatic Testing Rigor Strategy
+- Corporate ESG Approval Route
+- Operational Traps and Guardrails
+- pnpm Monorepo Workspace Configuration
+- Project Open Items and Blockers
 - Modular Scope 3 Incremental Strategy
 - Validation Queue and Anomaly Review Flow
 - Auto-Assumed Reporting Period Decision
@@ -107,109 +148,53 @@
 - Dependency-Verified Parallelism Decision
 - India Region Data Residency Decision
 - Single TypeScript Application Runtime Decision
+- Split Hosting Vercel and Render Decision
 - Supabase Managed Platform Decision
 - Per-User Theme Preference Decision
 - Tailwind CSS and shadcn/ui Implementation Vehicle Decision
 - Hierarchical Multi-Level Consolidation Engine
-- Deviation D12: Metric Field Requirements Seeded Early
-- Deviation D13: org_settings.updated_by Nullable for Seed
-- Deviation D4: Server-Created Notifications & Client Read Update
-- Deviation D7: updated_at Trigger Coverage Hardening
-- Deviation D8: Seed Data Placement & Scope
-- 45. Demo Scenario
-- UI/UX Design Brief
-- 51. Final System Summary
-- 2.2 Admin
-- Backend Schema Document
-- org-manager.tsx
-- totals.ts
-- 30. Approval Workflow
-- top-bar.tsx
-- 1. Project Objective
-- 4. Flows
-- 6. Color System
-- 48. Key Differentiator
-- 2.3 Non-Admin User (`/app/*`)
-- 11. Component Library
-- 6. ESG Configuration Tables
-- Grill: 02_TRD.md technology stack and architecture decisions
-- 42. Data Quality Model
-- units.ts
-- Grill: Phase 11 — Scope 2
-- Grill: Phase 12 — Scope 3 foundation
-- Grill: 03_APP_FLOW.md UX/navigation decisions
-- Grill: 05_BACKEND_SCHEMA.md structural decisions
-- Grill: 06_IMPLEMENTATION_PLAN.md structure decisions
-- Grill: 04_UI_UX_DESIGN_BRIEF.md design-system decisions
-- validation-queue-table.tsx
-- Application Flow Document (App Flow)
-- 5. Core User Journeys
-- 12. Core Feature Components
-- 13. Dashboard & Data Components
-- 3. Identity & Access Tables
-- 9. ESG Records & Lifecycle Tables
-- 15. System States
-- 10. Calculations & Conversion Factors
-- 16. Authentication & Authorization Model
-- 20. Optional: API Resource Mapping, Query Patterns, Transactions, Concurrency
-- 8. Documents & OCR Tables
-- 15. Scope 1
-- 9. Data Submission Model
-- 2. Complete Page Inventory
-- 11. BRSR Tables
-- 19. Triggers/Events
-- 22. Evidence-First Record Structure
-- 38. Api / Backend Concept
-- 9. Role And Permission Matrix
-- 14. Notifications & Settings
-- 22. Submission/Approval Status.
-- 25. Conversion Factor Engine
-- 27. Unit Normalization
-- 44. Practical Hackathon Implementation Strategy
-- 4. User Access Model
-- next.config.ts
-- cn
-- next
-- pdfjs-dist
-- radix-ui
-- react
-- react-dom
-- shadcn
-- 12. Ocr Design Principles
-- 14. Common Esg Data Model
-- 14. Project Roadmap
-- 16. Scope 2
-- 18. Hr Module
-- 19. Ehs / Environment Module
-- 20. Procurement Module
-- 32. Admin Report Drill-Down
-- 43. Mvp Priority
-- 8. User Dashboard
-- roles.ts
+- documents.ts
+- edge-cases.mjs
+- UploadForm
+- confirm-dialog.tsx
+- auth-card.tsx
+- Grill: Closing the second audit (2026-10-08)
+- Audit fixes — work queue
+- LevelsCard
+- ApprovalQueue
+- Grill: Audit fixes P0-1 to P0-3 (factors, SEBI-format report, 2023 indicator codes)
+- Grill: Audit fixes P2
+- audit-view.tsx
+- Grill: Audit fixes P1 (Scope 1 and 3 activities, travel by mode, hierarchy in the database)
+- Agentation
+- page-feedback-2026-10-09-decisions.md
+- instrumentation.ts
+- Grill: Audit fixes P3
+- generateReportAction
 
 ## God Nodes (most connected - your core abstractions)
-1. `PS-08 ESG/BRSR Reporting Portal` - 112 edges
-2. `runAction()` - 51 edges
-3. `Technical Requirements Document (TRD)` - 45 edges
-4. `Product Requirements Document (PRD)` - 43 edges
-5. `api()` - 42 edges
-6. `db()` - 34 edges
-7. `requireAdminSession()` - 30 edges
-8. `Button()` - 29 edges
-9. `writeAudit()` - 28 edges
-10. `45. Demo Scenario` - 25 edges
+1. `runAction()` - 84 edges
+2. `db()` - 71 edges
+3. `lucide-react` - 66 edges
+4. `api()` - 58 edges
+5. `react` - 55 edges
+6. `Button()` - 45 edges
+7. `server-only` - 45 edges
+8. `writeAudit()` - 43 edges
+9. `requireAdminSession()` - 42 edges
+10. `extract_fields()` - 37 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Deviation D1: Server-Only Lifecycle Writes` --semantically_similar_to--> `Immutable Append-Only Lifecycle Tables`  [INFERRED] [semantically similar]
-  supabase/SCHEMA_DEVIATIONS.md → ps_documents/implementation_docs/05_BACKEND_SCHEMA.md
-- `Deviation A12 Scope 1 Dashboard and Evidence Drilldown` --references--> `Phase 10 Scope 1 Decisions`  [EXTRACTED]
-  apps/web/APP_FLOW_DEVIATIONS.md → .grill/phase-10-scope-1-decisions.md
-- `TraceESG Project Context and Progress` --references--> `Phase 10 Scope 1 Decisions`  [INFERRED]
-  PROGRESS.md → .grill/phase-10-scope-1-decisions.md
-- `TraceESG Project Context and Progress` --references--> `Phase 9 Calculation Engine Decisions`  [INFERRED]
-  PROGRESS.md → .grill/phase-9-calculation-engine-decisions.md
-- `TraceESG Project Context and Progress` --references--> `Phase 2 Database Decisions`  [INFERRED]
-  PROGRESS.md → .grill/phase-2-database-decisions.md
+- `System Edge Case Test Matrix` --conceptually_related_to--> `Phase 18 Security Review Audit`  [INFERRED]
+  QA_CHECKLIST.md → SECURITY_REVIEW.md
+- `TraceESG Core Architecture Principles` --rationale_for--> `D1: Server-Only Lifecycle Writes`  [INFERRED]
+  PROGRESS.md → supabase/SCHEMA_DEVIATIONS.md
+- `Feature and UI Dual Role Development Protocol` --conceptually_related_to--> `Phase-by-Phase Development Protocol`  [INFERRED]
+  CLAUDE.md → PROGRESS.md
+- `Pull Request Validation Gates` --references--> `GitHub Actions CI Pipeline`  [INFERRED]
+  CLAUDE.md → .github/workflows/ci.yml
+- `CI Database Migration and pgTAP Job` --references--> `Local Supabase and Migration Workflow`  [INFERRED]
+  .github/workflows/ci.yml → README.md
 
 ## Import Cycles
 - None detected.
@@ -219,521 +204,502 @@
 - **SEBI BRSR Regulatory Architecture and Governance** — ps_documents_provided_docs_business_responsibility_and_sustainability_reporting_by_listed_entitiesannexure1_p_sebi_brsr_format_circular, ps_documents_provided_docs_business_responsibility_and_sustainability_reporting_by_listed_entitiesannexure2_p_sebi_brsr_guidance_note, ps_documents_provided_docs_brsr_faqs_25012025_brsr_applicability_top_1000, ps_documents_provided_docs_background_material_on_sustainability_business_responsibility_sustainability_reporting_brsr_revised_edition_2024_ngrbc_nine_principles [EXTRACTED 1.00]
 - **Evidence-to-BRSR Digital Thread Pipeline** — ps_documents_implementation_docs_master_approach_evidence_first_pipeline, ps_documents_implementation_docs_05_backend_schema_canonical_esg_records, ps_documents_implementation_docs_01_prd_evidence_to_brsr_digital_thread, ps_documents_implementation_docs_02_trd_evidence_lineage_traceability [EXTRACTED 1.00]
 - **Human-in-the-Loop OCR Extraction and Verification Flow** — _grill_phase_2b_ocr_worker_decisions_deterministic_extraction, _grill_phase_6_ocr_integration_decisions_worker_notification_dispatch, _grill_phase_7_ocr_verification_decisions_verification_guard_rail [EXTRACTED 1.00]
+- **Multi-Bill PDF Ingestion and Split Architecture** — context_multi_bill_pdf_support, apps_web_app_flow_deviations_a23_multi_bill_pdf_split, supabase_schema_deviations_d24_multi_bill_bundle_schema [EXTRACTED 1.00]
 - **Multi-Level Hierarchical Authorization Model** — ps_documents_implementation_docs_01_prd_configurable_org_hierarchy, ps_documents_implementation_docs_02_trd_rls_authorization_architecture, ps_documents_implementation_docs_05_backend_schema_user_org_assignments_table, ps_documents_implementation_docs__grill_backend_schema_decisions_hierarchical_org_scope_inheritance [EXTRACTED 1.00]
-- **Two-Track Decoupled OCR Architecture** — ps_documents_implementation_docs__grill_implementation_plan_decisions_two_track_implementation_structure, ps_documents_implementation_docs__grill_trd_tech_stack_self_hosted_paddleocr_decision, ps_documents_implementation_docs_02_trd_postgres_job_queue, render_traceesg_ocr_worker [EXTRACTED 1.00]
+- **Two-Track Decoupled OCR Architecture** — ps_documents_implementation_docs__grill_implementation_plan_decisions_two_track_implementation_structure, ps_documents_implementation_docs__grill_trd_tech_stack_self_hosted_paddleocr_decision, ps_documents_implementation_docs_02_trd_postgres_job_queue [EXTRACTED 1.00]
+- **Authentication and Identity Defense-in-Depth** — _grill_phase_3_auth_decisions_three_layer_deactivation, _grill_password_policy_decisions_password_policy_enforcement, _grill_phase_18_audit_security_decisions_app_level_rate_limiting, _grill_bulk_import_decisions_otp_password_reset [INFERRED 0.85]
+- **BRSR Evidence to Report Lineage Pipeline** — _grill_phase_13_role_modules_decisions_single_document_derived_metrics, _grill_phase_14_brsr_mapping_decisions_brsr_readiness_tree, _grill_phase_15_consolidation_decisions_metric_type_consolidation_rules, _grill_phase_17_reporting_decisions_report_snapshot_lineage [INFERRED 0.85]
+- **CI Pipeline and End-to-End Test Suite Verification** — _github_workflows_ci_ci_pipeline, qa_checklist_critical_e2e_scenarios, readme_test_suites [INFERRED 0.85]
 - **Corporate Sustainability Disclosure and Implementation** — ps_documents_provided_docs_l_t_brsr_report_fy2025_26_lnt_corporate_brsr_report, ps_documents_provided_docs_l_t_brsr_report_fy2025_26_lnt_energy_and_ghg_emissions_profile, ps_documents_provided_docs_business_responsibility_and_sustainability_reporting_by_listed_entitiesannexure2_p_ghg_emissions_calculation_guidance, ps_documents_provided_docs_business_responsibility_and_sustainability_report_corporate_esg_roadmap_readiness [INFERRED 0.85]
-- **Evidence Ingestion to Scope Lineage Pipeline** — _grill_phase_5_document_ingestion_decisions_bytes_first_upload, _grill_phase_7_ocr_verification_decisions_verification_guard_rail, _grill_phase_8_validation_engine_decisions_six_validation_categories, _grill_phase_9_calculation_engine_decisions_deterministic_calculation, _grill_phase_10_scope_1_decisions_evidence_lineage_drilldown [INFERRED 0.95]
-- **Server-Only Transactional Security Architecture** — _grill_phase_2_database_decisions_server_only_lifecycle_writes, _grill_phase_3_auth_decisions_postgres_js_transactions, _grill_phase_3_auth_decisions_data_access_layer_session, _grill_phase_4_admin_foundation_decisions_three_lockout_guards [INFERRED 0.95]
+- **Multi-Bill and OCR Ingestion Pipeline** — _grill_multi_bill_pdf_decisions_bundle_document_model, _grill_multi_bill_pdf_decisions_bundle_proposal_classification, _grill_ocr_real_bills_decisions_discom_electricity_rules, _grill_ocr_real_bills_decisions_water_withdrawal_rule [INFERRED 0.85]
+- **Server-Side Write Boundary and Privilege Hardening** — progress_core_architecture_rules, security_review_append_only_audit_log_trigger, supabase_schema_deviations_d1_server_only_lifecycle_writes, supabase_schema_deviations_d6_privilege_hardening [INFERRED 0.95]
+- **Server-Only Transactional Security Architecture** — _grill_phase_2_database_decisions_server_only_lifecycle_writes, _grill_phase_4_admin_foundation_decisions_three_lockout_guards [INFERRED 0.95]
 
-## Communities (178 total, 49 thin omitted)
+## Communities (159 total, 39 thin omitted)
 
-### Community 0 - "runAction"
-Cohesion: 0.22
-Nodes (18): addAssignmentAction(), deactivateUserAction(), inviteUserAction(), reactivateUserAction(), resendInviteAction(), revokeAssignmentAction(), InviteSheet(), onSubmit() (+10 more)
+### Community 0 - "VerifyWorkspace"
+Cohesion: 0.38
+Nodes (8): checkInvoiceDuplicatesAction(), confirmManualEntryAction(), confirmVerificationAction(), rejectDocumentAction(), revalidateWorkspace(), setDocumentTypeAction(), VerifyWorkspace(), saveDocumentType()
 
-### Community 1 - "createSupabaseServerClient"
+### Community 1 - "admin-rules.test.ts"
+Cohesion: 0.15
+Nodes (18): setPassword(), SetPasswordState, AUTH_MESSAGES, PASSWORD_MIN_LENGTH, PASSWORD_RULES, passwordMeetsPolicy(), passwordPolicyMessage(), PasswordRule (+10 more)
+
+### Community 2 - "samples.py"
+Cohesion: 0.09
+Nodes (43): main(), make(), Write one synthetic PDF of several different bills, one page each, to test…, main(), Write a synthetic fuel invoice or electricity bill PDF with a fresh number, for…, WorkerHarnessTest, all_samples(), blank_png() (+35 more)
+
+### Community 3 - "processor.py"
 Cohesion: 0.07
-Nodes (37): ALLOWED_TYPES, GET(), FORWARDED_REASONS, GET(), requestPasswordReset(), ResetRequestState, ForgotPasswordForm(), metadata (+29 more)
+Nodes (42): main(), Download the pinned PaddleOCR model weights from the Hugging Face Hub into…, Phase 2B standalone harness: seed documents + jobs directly (SQL + Storage),…, _load_dotenv(), load_settings(), Path, Worker settings from the environment (02_TRD.md §33). Values come from the…, Minimal KEY=VALUE loader; real environment variables always win. (+34 more)
 
-### Community 2 - "verification.ts"
-Cohesion: 0.05
-Nodes (75): checkInvoiceDuplicatesAction(), confirmManualEntryAction(), confirmVerificationAction(), rejectDocumentAction(), revalidateWorkspace(), setDocumentTypeAction(), OUTCOME_ICON, Result (+67 more)
-
-### Community 3 - "WorkerHarnessTest"
+### Community 4 - "validation-queue-table.tsx"
 Cohesion: 0.11
-Nodes (30): main(), Write a synthetic fuel invoice or electricity bill PDF with a fresh number, for…, WorkerHarnessTest, all_samples(), blank_png(), corrupted_pdf(), diesel_invoice_pdf(), _diesel_simple() (+22 more)
+Nodes (28): Editing, Pending, STATUS, reportedRecordAction(), ReportView(), openRecord(), Selected, valueText() (+20 more)
 
-### Community 4 - "trpc/server.ts"
+### Community 5 - "organization.ts"
 Cohesion: 0.11
-Nodes (32): AdminApprovalQueuePage(), metadata, ConversionFactorsPage(), metadata, AdminProfilePage(), metadata, metadata, ReportingPeriodsPage() (+24 more)
+Nodes (38): pgErrorCode(), accountCreatedEmailHtml(), loadLevels(), allowedChildTypes(), canBeChildOf(), checkMove(), descendantIds(), isFrozen() (+30 more)
 
-### Community 5 - "writeAudit"
+### Community 6 - "pdf.ts"
+Cohesion: 0.33
+Nodes (3): renderPdf(), puppeteer-core, @sparticuz/chromium
+
+### Community 7 - "Phase 6 OCR Integration Decisions"
+Cohesion: 0.04
+Nodes (48): Phase 10 Scope 1 Decisions, Evidence Lineage Drilldown Architecture, Scope 1 Fuel Metrics Configuration, Approved-Only Headline Consolidation, Zero Placeholder Factor Policy, Strict Unit Grouping Rule, Phase 2 Database Decisions, Permission Catalogue and RBAC Model (+40 more)
+
+### Community 8 - "react"
 Cohesion: 0.11
-Nodes (26): submitForApproval(), AuditEvent, jsonOrNull(), writeAudit(), CalculationOutcome, ENGINE_VERSION, RecordRow, runCalculation() (+18 more)
+Nodes (33): ActivityType, FactorSheet(), STATUS, SubmitInput, Impact, Result, RoleOption, STATUS (+25 more)
 
-### Community 6 - "processor.py"
+### Community 9 - "organization/actions.ts"
+Cohesion: 0.24
+Nodes (14): createOrgUnitAction(), moveOrgUnitAction(), orgExpectationsAction(), orgUnitImpactAction(), setExpectationAction(), setOrgUnitStatusAction(), updateOrgUnitAction(), ExpectationsCard() (+6 more)
+
+### Community 10 - "root.ts"
+Cohesion: 0.11
+Nodes (28): Context, permissionProcedure(), protectedProcedure, router, t, AuditEvent, auditRouter, filters (+20 more)
+
+### Community 11 - "top-bar.tsx"
+Cohesion: 0.08
+Nodes (31): ADMIN_NAV, AdminLayout(), APP_NAV, WorkspaceLayout(), TraceESG App Icon, inter, jetbrainsMono, metadata (+23 more)
+
+### Community 12 - "records.ts"
+Cohesion: 0.13
+Nodes (27): fraction, readiness, READINESS_COMPONENTS, ReadinessKey, count(), expectationsFrom(), MissingSubmission, missingSubmissions() (+19 more)
+
+### Community 13 - "requireAdminSession"
 Cohesion: 0.12
-Nodes (26): Phase 2B standalone harness: seed documents + jobs directly (SQL + Storage),…, Worker settings from the environment (02_TRD.md §33). Values come from the…, Settings, Transient failure: back to pending for another attempt., requeue_job(), LostClaim, PermanentError, Failure classes (.grill/phase-2b-ocr-worker-decisions.md — failure handling). (+18 more)
+Nodes (21): AdminApprovalQueuePage(), metadata, ConversionFactorsPage(), metadata, metadata, OrganizationPage(), AdminProfilePage(), metadata (+13 more)
 
-### Community 7 - "notification-bell.tsx"
-Cohesion: 0.18
-Nodes (14): MarkAllReadButton(), ICONS, NotificationRow(), open(), relative, relativeTime(), NotificationBell(), Popover() (+6 more)
+### Community 14 - "writeAudit"
+Cohesion: 0.19
+Nodes (13): submitForApproval(), AuditEvent, jsonOrNull(), requestContext(), writeAudit(), globalForDb, Tx, QueueResult (+5 more)
 
-### Community 8 - "documents.ts"
-Cohesion: 0.07
-Nodes (49): GET(), completeUploadAction(), FileTarget, prepareUploadAction(), DropZone(), Phase, putFile(), sha256Hex() (+41 more)
+### Community 15 - "session.ts"
+Cohesion: 0.09
+Nodes (26): ApprovalsPage(), metadata, FILTERS, metadata, NotificationsPage(), metadata, OrgUnitsBulkImportPage(), WorkspaceProfilePage() (+18 more)
 
-### Community 9 - "__main__.py"
-Cohesion: 0.10
-Nodes (20): main(), Download the pinned PaddleOCR model weights from the Hugging Face Hub into…, _load_dotenv(), load_settings(), Path, Minimal KEY=VALUE loader; real environment variables always win., capture(), JsonFormatter (+12 more)
+### Community 16 - "brsr.ts"
+Cohesion: 0.14
+Nodes (15): indicatorStatus, STATUS_LABEL, BrsrIndicator, BrsrMapping, brsrRouter, BrsrSection, bySection(), catalogue() (+7 more)
 
-### Community 10 - "factors-manager.tsx"
-Cohesion: 0.17
-Nodes (13): addFactorVersionAction(), createFactorAction(), setFactorVersionStatusAction(), VersionValues, ActivityType, current(), FactorSheet(), FactorsManager() (+5 more)
+### Community 17 - "extract_fields"
+Cohesion: 0.21
+Nodes (7): DiscomThermalBillTest, ExtractFieldsTest, line(), values(), extract_fields(), FieldSpec, One `metric_field_requirements` row.
 
-### Community 11 - "[documentId]/page.tsx"
-Cohesion: 0.13
-Nodes (21): metadata, OcrMonitoringPage(), formatDateTime(), metadata, MySubmissionsPage(), formatDateTime(), metadata, StatePanel() (+13 more)
+### Community 18 - "db.py"
+Cohesion: 0.15
+Nodes (28): _audit(), BundleType, claim_job(), ClaimedJob, complete_bundle_job(), complete_job(), _confidence_threshold(), connect() (+20 more)
 
-### Community 12 - "db"
+### Community 19 - "split_pages"
 Cohesion: 0.16
-Nodes (18): CalculationTraceView(), loadCalculations(), Sql, CalculationState, CalculationTrace, formatQuantity(), db(), ApprovalRow (+10 more)
+Nodes (13): lines(), page(), ProposeMetricTest, Splitting a multi-bill PDF into proposed bills (no OCR engine, no database)., spans(), SplitPagesTest, BundlePart, propose_metric() (+5 more)
 
-### Community 13 - "root.ts"
-Cohesion: 0.13
-Nodes (23): handler(), adminProcedure, Context, createCallerFactory, createTRPCContext(), protectedProcedure, router, t (+15 more)
+### Community 20 - "fields.py"
+Cohesion: 0.15
+Nodes (24): _below_neighbor(), _date_on_same_row(), _find_labeled(), _find_reading_period(), _find_unit_near(), _find_utility(), _height(), _label_match() (+16 more)
 
-### Community 14 - "organization.ts"
+### Community 21 - "ocr.ts"
+Cohesion: 0.27
+Nodes (9): adminProcedure, fieldStats(), iso(), OcrFieldRow, OcrJobRow, ocrRouter, pendingSince(), Sql (+1 more)
+
+### Community 22 - "lucide-react"
 Cohesion: 0.16
-Nodes (21): RoleScopeFields(), pgErrorCode(), UploadAssignment, UploadCategory, uploadTargets(), allowedChildTypes(), canBeChildOf(), checkMove() (+13 more)
+Nodes (18): MarkAllReadButton(), ContextPicker(), pct(), ReadinessInfo(), ICONS, NotificationRow(), open(), relative (+10 more)
 
-### Community 15 - "SEBI BRSR Reporting Format (Annexure 1)"
+### Community 23 - "app/submissions/page.tsx"
+Cohesion: 0.15
+Nodes (18): formatDate(), metadata, UserDashboardPage(), formatDateTime(), metadata, MySubmissionsPage(), SubmissionRow(), SubmissionRowProps (+10 more)
+
+### Community 24 - "ValidationQueueTable"
+Cohesion: 0.40
+Nodes (5): reviewRecordAction(), formatDateTime(), problemTypes(), ValidationQueueTable(), decide()
+
+### Community 25 - "SEBI BRSR Reporting Format (Annexure 1)"
 Cohesion: 0.08
 Nodes (25): ICAI Sustainability Reporting Standards Board Guidance, ISSB Global Sustainability Baseline Alignment, National Guidelines on Responsible Business Conduct (NGRBC) 9 Principles, UN Sustainable Development Goals (SDGs) Mapping, BRSR Applicability for Top 1000 Listed Entities, High Value Debt Listed Entities (HVD) Applicability, BRSR vs BRR Paradigm Shift, Evolution of ESG Reporting in India (+17 more)
 
-### Community 16 - "forgot-password-form.tsx"
-Cohesion: 0.22
-Nodes (11): initialState, initialState, ProfileView(), onChangePassword(), onSaveName(), Input(), Label(), AUTH_MESSAGES (+3 more)
+### Community 26 - "forgot-password/actions.ts"
+Cohesion: 0.17
+Nodes (24): requestPasswordReset(), ResetRequestState, verifyOtpAndSetPassword(), VerifyOtpState, VerifyOtpForm(), signIn(), signInSchema, SignInState (+16 more)
 
-### Community 17 - "components.json"
-Cohesion: 0.09
-Nodes (21): aliases, components, hooks, lib, ui, utils, iconLibrary, menuAccent (+13 more)
+### Community 27 - "dependencies"
+Cohesion: 0.08
+Nodes (25): dependencies, class-variance-authority, cn, exceljs, lucide-react, next, nodemailer, pdf-lib (+17 more)
 
-### Community 18 - "session.ts"
-Cohesion: 0.18
-Nodes (12): ApprovalsPage(), metadata, WorkspaceProfilePage(), metadata, UploadPage(), AssignmentRow, DeniedReason, requireActiveSession() (+4 more)
+### Community 28 - "setup"
+Cohesion: 0.48
+Nodes (7): authAdmin(), ensureAdmin(), ensureInvited(), newPassword(), setPassword(), setup(), userId()
 
-### Community 19 - "scripts"
-Cohesion: 0.10
-Nodes (20): devDependencies, supabase, engines, node, name, packageManager, private, scripts (+12 more)
+### Community 29 - "verification.ts"
+Cohesion: 0.05
+Nodes (76): confidenceLabel(), FieldRow(), activeFormula(), activityKeyFor(), CalculationOutcome, ENGINE_VERSION, RecordRow, runCalculation() (+68 more)
 
-### Community 20 - "extract_fields"
-Cohesion: 0.24
-Nodes (10): ClassifyTest, ExtractFieldsTest, line(), Pure extraction/classification rules — no PaddleOCR needed (runs in CI)., values(), classify(), extract_fields(), FieldSpec (+2 more)
+### Community 30 - "createSupabaseServerClient"
+Cohesion: 0.13
+Nodes (16): ALLOWED_TYPES, GET(), FORWARDED_REASONS, GET(), metadata, ResetPasswordPage(), SetPasswordForm(), signOutAction() (+8 more)
 
-### Community 21 - "PS-08 ESG/BRSR Reporting Portal"
-Cohesion: 0.02
-Nodes (86): 10. Document Upload Workflow, 10. Esg Record Creation., 10. Modular Scope 3 Architecture., 10. Ui/Ux Specification, 11. Api-First Backend., 11. Ocr Verification Screen, 11. Security Design, 11. Validation Engine. (+78 more)
-
-### Community 22 - "compilerOptions"
-Cohesion: 0.07
-Nodes (29): compilerOptions, allowImportingTsExtensions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib (+21 more)
-
-### Community 23 - "fields.py"
-Cohesion: 0.22
-Nodes (17): _below_neighbor(), _find_labeled(), _find_unit_near(), _height(), _label_match(), _normalize(), _percent(), Find configured fields in OCR text lines. A field that can't be found is… (+9 more)
-
-### Community 24 - "scope-dashboard.tsx"
+### Community 31 - "scope-dashboard.tsx"
 Cohesion: 0.33
 Nodes (11): ActivityTable(), APPROVAL, approvedOf(), BranchBars(), BranchTable(), CategoryTable(), RecordTable(), TrendBars() (+3 more)
 
-### Community 25 - "web/package.json"
-Cohesion: 0.40
-Nodes (4): name, private, type, version
+### Community 32 - "brsr-mapping/page.tsx"
+Cohesion: 0.15
+Nodes (13): BrsrMappingPage(), metadata, metadata, ScopeOnePage(), metadata, ScopeTwoPage(), metadata, ScopeThreePage() (+5 more)
 
-### Community 26 - "db.py"
-Cohesion: 0.25
-Nodes (17): _audit(), claim_job(), ClaimedJob, complete_job(), _confidence_threshold(), connect(), fail_job(), _finish_job() (+9 more)
+### Community 33 - "components.json"
+Cohesion: 0.09
+Nodes (21): aliases, components, hooks, lib, ui, utils, iconLibrary, menuAccent (+13 more)
 
-### Community 27 - "periods-manager.tsx"
-Cohesion: 0.18
-Nodes (15): createPeriodAction(), transitionPeriodAction(), updatePeriodWindowAction(), CreatePeriodSheet(), onSubmit(), formatDate(), Pending, PeriodsManager() (+7 more)
+### Community 34 - "trpc/server.ts"
+Cohesion: 0.17
+Nodes (17): metadata, OcrMonitoringPage(), metadata, ReportsPage(), STATUS, when(), metadata, ReportDetailPage() (+9 more)
 
-### Community 28 - "reporting-periods.ts"
-Cohesion: 0.23
-Nodes (11): checkPeriodDates(), checkTransition(), PeriodDates, PeriodStatus, TransitionCheck, badRequest(), isoDate, optionalIsoDate (+3 more)
+### Community 35 - "login/page.tsx"
+Cohesion: 0.21
+Nodes (15): LoginForm(), LoginPage(), metadata, RootPage(), isLoginReason(), LOGIN_NOTICES, LoginReason, ADMIN_ROLE (+7 more)
 
-### Community 29 - "dependencies"
+### Community 36 - "scripts"
 Cohesion: 0.10
-Nodes (21): dependencies, class-variance-authority, lucide-react, postgres, server-only, sonner, @supabase/ssr, @supabase/supabase-js (+13 more)
+Nodes (20): devDependencies, supabase, engines, node, name, packageManager, private, scripts (+12 more)
 
-### Community 30 - "roles-manager.tsx"
-Cohesion: 0.15
-Nodes (13): createRoleAction(), deleteRoleAction(), setRolePermissionsAction(), CreateRoleSheet(), onSubmit(), Result, RolePermissions(), onSubmit() (+5 more)
+### Community 37 - "records-explorer.tsx"
+Cohesion: 0.20
+Nodes (12): csvCell(), ExplorerParams, exportCsv(), RecordsTable(), STATUS_LABELS, valueOf(), StageBadge(), StatusTone (+4 more)
 
-### Community 31 - "Product Requirements Document (PRD)"
-Cohesion: 0.04
-Nodes (46): 10. User Roles, 11. Organizational Model, 12. Core Product Principles, 13. Functional Requirements, 14. Feature List, 15. Detailed Feature Descriptions, 16. Core User Stories, 17. Admin User Stories (+38 more)
+### Community 38 - "web/package.json"
+Cohesion: 0.10
+Nodes (20): typescript, name, private, type, version, class-variance-authority, eslint, eslint-config-next (+12 more)
 
-### Community 32 - "Technical Requirements Document (TRD)"
-Cohesion: 0.04
-Nodes (45): 10. OCR/Document Intelligence Technology, 11. Background Job/Queue Strategy, 12. Hosting/Deployment, 13. Third-Party Services/APIs, 14. Key Libraries, 15. State/Data-Fetching Strategy, 16. Validation Technology, 17. PDF/Report Generation Approach (+37 more)
+### Community 39 - "compilerOptions"
+Cohesion: 0.10
+Nodes (19): compilerOptions, allowImportingTsExtensions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib (+11 more)
 
-### Community 33 - "Phase 10 Scope 1 Decisions"
-Cohesion: 0.15
-Nodes (13): Phase 10 Scope 1 Decisions, Evidence Lineage Drilldown Architecture, Scope 1 Fuel Metrics Configuration, Approved-Only Headline Consolidation, Zero Placeholder Factor Policy, Strict Unit Grouping Rule, Phase 9 Calculation Engine Decisions, Deterministic Calculation and Trace Storage (+5 more)
-
-### Community 34 - "Phase 5 Document Ingestion Decisions"
-Cohesion: 0.15
-Nodes (13): Phase 2 Database Decisions, Permission Catalogue and RBAC Model, Server-Issued Uploads Architecture, Server-Only Configuration Writes Architecture, Server-Only Lifecycle Writes Architecture, Narrow User Display Names View, Server-Side Postgres.js Transaction Architecture, Bytes-First Upload Architecture (+5 more)
-
-### Community 35 - "ocr-jobs-table.tsx"
-Cohesion: 0.23
-Nodes (13): ocrJobFieldsAction(), retryOcrJobAction(), Band, formatDateTime(), JobDrawer(), load(), OcrJobsTable(), percent() (+5 more)
-
-### Community 36 - "TraceESG Evidence-First ESG Platform"
-Cohesion: 0.17
-Nodes (13): TraceESG Evidence-First ESG Platform, TRD Core Architecture Principles, TraceESG Recommended Technology Stack, Admin Control Tower Command Center, Single Organization Tree No Tenant ID Decision, Split Hosting Vercel and Render Decision, PS-08 Master System Blueprint v1.0, Dr. P. Ravi Reddy (MEIL Director) Video Briefing (+5 more)
-
-### Community 37 - "app/app/page.tsx"
-Cohesion: 0.15
-Nodes (12): AdminDashboardPage(), ISSUES, KpiCard, metadata, PIPELINE_KPIS, SCOPE_KPIS, formatDate(), metadata (+4 more)
-
-### Community 38 - "button.tsx"
-Cohesion: 0.12
-Nodes (18): ApprovalQueue(), decide(), recalculate(), formatDateTime(), DocumentViewer(), PdfDocument, PdfLoadingTask, ZOOM_STEPS (+10 more)
-
-### Community 39 - "scripts"
-Cohesion: 0.17
-Nodes (12): scripts, build, calculate-pending, dev, format, format:check, lint, provision-user (+4 more)
-
-### Community 40 - "provision-user.ts"
+### Community 40 - "test_extraction.py"
 Cohesion: 0.18
-Nodes (11): activeAdminExistsQuery, assignedByEmail, displayName, email, fail(), orgCode, requireEnv(), roleCode (+3 more)
+Nodes (10): ClassifyTest, FieldsNeedingAttentionTest, Pure extraction/classification rules — no PaddleOCR needed (runs in CI)., classify(), ExtractedField, fields_needing_attention(), _find_implied_unit(), kWh for a consumption read under a "units …" label when the bill prints no unit. (+2 more)
 
-### Community 41 - "shared-types/package.json"
+### Community 41 - "verify-workspace.tsx"
+Cohesion: 0.14
+Nodes (15): formatDateTime(), metadata, StatePanel(), PdfDocument, PdfLoadingTask, ZOOM_STEPS, OUTCOME_ICON, Result (+7 more)
+
+### Community 42 - "approvals.ts"
+Cohesion: 0.09
+Nodes (28): ActiveSession, loadCalculations(), loadCalculationsById(), Sql, traces(), CalculationState, ActivityTotal, gapOf() (+20 more)
+
+### Community 43 - "sql"
+Cohesion: 0.33
+Nodes (11): prepare(), auditCount(), ensureFactors(), metricId(), one(), openPeriodId(), orgId(), roleId() (+3 more)
+
+### Community 44 - "scenario-f-activities.mjs"
+Cohesion: 0.12
+Nodes (19): ACCOUNTS, close(), currentCalculation(), recordOf(), runWorker(), runWorkerOnce(), sample(), validationResults() (+11 more)
+
+### Community 45 - "lib.mjs"
+Cohesion: 0.12
+Nodes (18): bundleFile, APP, check(), env, finish(), HERE, rejected(), REPO (+10 more)
+
+### Community 46 - "FactorsManager"
+Cohesion: 0.22
+Nodes (12): addFactorVersionAction(), createFactorAction(), renameFactorAction(), setFactorGasesAction(), setFactorVersionStatusAction(), VersionValues, current(), FactorsManager() (+4 more)
+
+### Community 47 - "provision-user.ts"
+Cohesion: 0.17
+Nodes (14): activeAdminUserIds(), assignedByEmail, displayName, email, existing, fail(), orFail(), orgCode (+6 more)
+
+### Community 48 - "GitHub Actions CI Pipeline"
+Cohesion: 0.20
+Nodes (10): GitHub Actions CI Pipeline, CI Database Migration and pgTAP Job, CI OCR Worker Ruff and Unit Tests Job, CI Web Job, Pull Request Validation Gates, Hardware Memory and Port Constraints, Local Supabase and Migration Workflow, OCR Worker Python and Model Architecture (+2 more)
+
+### Community 49 - "reporting-periods/actions.ts"
+Cohesion: 0.24
+Nodes (10): createPeriodAction(), transitionPeriodAction(), updatePeriodWindowAction(), CreatePeriodSheet(), onSubmit(), formatDate(), PeriodsManager(), transition() (+2 more)
+
+### Community 50 - "reporting-periods.ts"
+Cohesion: 0.21
+Nodes (12): checkPeriodDates(), checkTransition(), PeriodDates, PeriodStatus, TransitionCheck, badRequest(), isoDate, optionalIsoDate (+4 more)
+
+### Community 51 - "scripts"
+Cohesion: 0.15
+Nodes (13): scripts, build, calculate-pending, dev, format, format:check, lint, provision-user (+5 more)
+
+### Community 52 - "App Flow Deviation Registry"
+Cohesion: 0.18
+Nodes (12): A10: Approval Step Pulled Forward to Phase 8, A11: Missing Factor Queue Blocking Behavior, A17: Control Tower Consistent Predicate Drilldown, A19: WCAG AA Color Contrast Adjustments, A1: Corporate ESG Approvals Route Split, A20: In-Browser XLSX Bulk Import Workflow, A3: Next.js Proxy vs Data Access Layer Separation, A8: OCR Verify Extraction Guards and Manual Exceptions (+4 more)
+
+### Community 53 - "html.ts"
+Cohesion: 0.05
+Nodes (86): reportInputsAction(), saveReportInputsAction(), ReportInputsForm(), changeYear(), submit(), key(), normalize(), Normalized (+78 more)
+
+### Community 54 - "scenario-d-report.mjs"
+Cohesion: 0.13
+Nodes (8): diesel, inputs, liveScope1, pdf, reported, scenarios, started, wasteTotal
+
+### Community 55 - "shared-types/package.json"
 Cohesion: 0.17
 Nodes (11): devDependencies, typescript, typescript, main, name, private, scripts, typecheck (+3 more)
 
-### Community 42 - "App Flow Deviations Document"
-Cohesion: 0.20
-Nodes (11): Admin-Provisioned Accounts Model, Corporate ESG Approval Route Resolution, Data Access Layer Session Guard, Phase 3 Auth Decisions, First Admin Provisioning Script, Deviation A12 Scope 1 Dashboard and Evidence Drilldown, Deviation A1 Corporate ESG Approvals Route, Deviation A2 Auth Confirm and Set Password Routes (+3 more)
-
-### Community 43 - "landing-page.tsx"
-Cohesion: 0.07
-Nodes (24): Agentation, AgentationToolbar(), CAPABILITIES, CapabilityItem, HeroCapabilityCard(), ContributorsSection(), roles, CtaFooterSection() (+16 more)
-
-### Community 44 - "users.ts"
-Cohesion: 0.28
-Nodes (11): assertAdminRemovalAllowed(), assertAssignable(), badRequest(), loadNodes(), userManage, UserRow, usersRouter, UserStatus (+3 more)
-
-### Community 45 - "TraceESG Project README"
-Cohesion: 0.20
-Nodes (10): CI OCR Worker Job, CI Web Job, CI Workflow, OCR Worker Runtime Dependencies, OCR Worker Dev Dependencies, pnpm Monorepo Workspace Configuration, Account Provisioning and Role Management Guide, Local Development and Environment Setup (+2 more)
-
-### Community 46 - "TraceESG Project Context and Progress"
-Cohesion: 0.20
-Nodes (10): Corepack Pinned pnpm Decision, Phase 1 Project Setup Decisions, PaddleOCR Python 3.12 Worker Runtime, Next.js 16 and Tailwind v4 Stack Selection, Three-Theme Data-Theme Architecture, Project Root Agent Brief, TraceESG Core Architecture Principles, TraceESG Implementation Phase Tracker (+2 more)
-
-### Community 47 - "devDependencies"
-Cohesion: 0.10
-Nodes (21): devDependencies, agentation, eslint, eslint-config-next, prettier, tailwindcss, @tailwindcss/postcss, @types/node (+13 more)
-
-### Community 48 - "compilerOptions"
+### Community 56 - "Phase 4 Admin Foundation Decisions"
 Cohesion: 0.18
-Nodes (10): compilerOptions, isolatedModules, module, moduleResolution, noEmit, skipLibCheck, strict, target (+2 more)
+Nodes (11): Clean-State Test Provisioning, Curated E2E Regression Suite, pgTAP Database CI Integration, Synthetic Document Testing Principle, Three-Layer Account Deactivation, Phase 4 Admin Foundation Decisions, Frozen Deactivated Organization Node Policy, Guidance Submission Windows Schema Deviation (+3 more)
 
-### Community 49 - "Evidence-First Data Collection Model"
-Cohesion: 0.20
-Nodes (10): Evidence-First Data Collection Model, Evidence Document Upload Journey, Defensibility-First UI/UX Philosophy, Canonical esg_records Table, Immutable Append-Only Lifecycle Tables, 21-Phase Sequential and Parallel Roadmap, Async OCR Non-Blocking UX Decision, Master Audit Trail and Traceability Framework (+2 more)
+### Community 57 - "ocr-jobs-table.tsx"
+Cohesion: 0.36
+Nodes (9): ocrJobFieldsAction(), retryOcrJobAction(), Band, formatDateTime(), JobDrawer(), load(), OcrJobsTable(), percent() (+1 more)
 
-### Community 50 - "fields_needing_attention"
-Cohesion: 0.50
-Nodes (4): FieldsNeedingAttentionTest, ExtractedField, fields_needing_attention(), Found fields below the confidence threshold plus required fields that weren't…
-
-### Community 51 - "web/app/layout.tsx"
-Cohesion: 0.25
-Nodes (6): TraceESG App Icon, inter, jetbrainsMono, lora, metadata, Toaster()
-
-### Community 52 - "TraceESG Target Personas and Roles"
-Cohesion: 0.25
-Nodes (8): TraceESG Target Personas and Roles, Route Namespace Model (/admin and /app), user_org_assignments Table, Master Seven Role Access Model, Deviation D5: Narrow user_display_names Public View, Deviation D9: Inactive Users Have No Data Access, TraceESG Account Invitation Email Template, TraceESG Password Reset Email Template
-
-### Community 53 - "Phase 2B OCR Worker Decisions"
-Cohesion: 0.29
-Nodes (7): Phase 2B OCR Worker Decisions, Deterministic OCR Extraction Engine, OCR Job Failure and Retry Policy, CPU-Friendly Mobile Model Selection, Synthetic Document Test Generation, Worker Transactional Write Scope, Six PRD Validation Categories Engine
-
-### Community 54 - "Phase 4 Admin Foundation Decisions"
-Cohesion: 0.29
-Nodes (7): Three-Layer Deactivation Enforcement, Phase 4 Admin Foundation Decisions, Frozen Deactivated Organization Node Policy, Guidance Submission Windows Schema Deviation, Organization Tree Ordering Constraints, Root-Only Admin Role Assignment Rule, Admin Lockout Protection Guards
-
-### Community 55 - "Phase 6 OCR Integration Decisions"
-Cohesion: 0.29
-Nodes (7): Admin OCR Job Retry Policy, Phase 6 OCR Integration Decisions, My Submissions Status Workflow Tabs, Configurable OCR Confidence Threshold (80%), Short-Polling UI Update Architecture, Pending-Job Worker Health Monitor, Worker Transactional Notification Dispatch
-
-### Community 56 - "Phase 8 Validation Engine Decisions"
-Cohesion: 0.29
-Nodes (7): Admin Validation Queue and Drawer, Historical Median Anomaly Check, Approval Step Pulled Forward into Phase 8, Phase 8 Validation Engine Decisions, Returned Record Correction Workflow, Deviation A10 Approval Pulled Forward into Phase 8, Deviation A9 Validation in Confirm Transaction
-
-### Community 57 - "Phase 7 OCR Verification Decisions"
+### Community 58 - "roles/actions.ts"
 Cohesion: 0.33
-Nodes (6): Metric Activity Field and Unit Derivation, Phase 7 OCR Verification Decisions, Manual Exception Storage and Justification Flow, Authenticated PDF.js Evidence Streaming Route, Failed Document Re-upload Replacement Flow, Server-Enforced Verification Guard Rail
+Nodes (8): createRoleAction(), deleteRoleAction(), setRolePermissionsAction(), CreateRoleSheet(), onSubmit(), RolePermissions(), onSubmit(), run()
 
-### Community 58 - "2. Phase-by-Phase Plan"
-Cohesion: 0.06
-Nodes (33): 0. AI Coding Agent Rules, 1.1 File & Folder Organization, 1. How This Plan Is Structured, 2. Phase-by-Phase Plan, 3. Milestones, 4. Critical End-to-End Test (executed progressively, per phase above — not deferred to the end), 5. Testing Strategy Summary, 6. Edge Cases — Mapped to Owning Phase (+25 more)
+### Community 59 - "Backend Schema Deviation Registry"
+Cohesion: 0.20
+Nodes (11): A18: Report Snapshot and Evidence Breadcrumb Drilldown, D11: OCR Worker Restricted Direct DB Writes, D14: Percentage Formula Type Addition, D16: Configurable Submission Expectations Table, D17: Financial Year Reporting Support in Report Runs, D18: Result vs Activity Quantity Reporting in BRSR, D22: Hashed 6-Digit Password Reset OTPs, D4: Scoped Client Write on Notifications is_read (+3 more)
 
-### Community 59 - "BRSR Core Framework"
+### Community 60 - "xlsx.ts"
+Cohesion: 0.25
+Nodes (9): downloadEmployeeTemplate(), downloadOrgUnitTemplate(), downloadWorkbook(), EMPLOYEE_HEADERS, ORG_UNIT_HEADERS, sheetWithReference(), triggerDownload(), exceljs (+1 more)
+
+### Community 61 - "devDependencies"
+Cohesion: 0.17
+Nodes (12): devDependencies, agentation, eslint, eslint-config-next, prettier, tailwindcss, @tailwindcss/postcss, @types/node (+4 more)
+
+### Community 62 - "Shared Password Policy Module"
+Cohesion: 0.20
+Nodes (10): Brevo SMTP Delivery, Bulk Default Password Generator, OTP Password Reset Flow, Default Password Policy Guarantee, Universal Password Policy Enforcement, Shared Password Policy Module, Password Strength Meter Component, Supabase Auth Password Config (+2 more)
+
+### Community 63 - "Immutable Report Snapshot Lineage"
+Cohesion: 0.20
+Nodes (10): CSR Section A Mapping, SEBI BRSR Annexure I Catalogue, Headless Chromium PDF Generation, Mandatory BRSR Indicator Enforcement, Immutable Report Snapshot Lineage, Report Value Type Mapping, Append-Only Audit Log Trigger, Record Lifecycle Audit Trail (+2 more)
+
+### Community 64 - "brsr-mapping/actions.ts"
+Cohesion: 0.38
+Nodes (6): removeMappingAction(), saveMappingAction(), MappingSheet(), submit(), MappingTable(), remove()
+
+### Community 65 - "employee-bulk-import.tsx"
+Cohesion: 0.18
+Nodes (13): ActionResult, EmployeeBulkImport(), onDownloadResults(), onFile(), Option, ParsedRow, OrgUnitBulkImport(), onDownloadResults() (+5 more)
+
+### Community 66 - "compilerOptions"
+Cohesion: 0.20
+Nodes (9): compilerOptions, isolatedModules, module, moduleResolution, noEmit, skipLibCheck, strict, target (+1 more)
+
+### Community 67 - "Scope 3 Active Categories"
+Cohesion: 0.22
+Nodes (9): Admin Scope 2 Dashboard Page, Scope Dashboard Activity Breakdown, Category Role Ownership Model, Scope 3 Active Categories, Recursive Scope Rollup Query, Spend-Based Business Travel, Weight-Based Operational Waste, Consolidation Query API (+1 more)
+
+### Community 68 - "PART I — STRUCTURED KT CONTEXT"
+Cohesion: 0.07
+Nodes (26): 10. Data Model Design Expectations, 11. Data Volume, Frequency and Financial-Year Handling, 12. AI Position in the Solution, 13. Reporting Requirements, 14. Travel / Scope 3 Clarification from Q&A, 15. UI/UX, Validation and Evaluation Expectations, 16. Evaluation Data and Staging, 17. Real-World Adoption Context Mentioned by Industry (+18 more)
+
+### Community 69 - "TraceESG Implementation Progress Tracker"
+Cohesion: 0.25
+Nodes (9): A6: Pre-Validation and Server-Issued Uploads, Claude Agent Working Brief, TraceESG Live Working State, TraceESG Core Architecture Principles, Phase 21 Deployment Readiness Plan, 20-Phase Implementation Matrix, TraceESG Implementation Progress Tracker, D2: Server-Only Configuration Writes (+1 more)
+
+### Community 70 - "authorization.mjs"
+Cohesion: 0.16
+Nodes (12): adminOnly, anon, ensureUnit(), farPm, goneSession, token, uploads, ok() (+4 more)
+
+### Community 72 - "scenario-a-scope1.mjs"
+Cohesion: 0.17
+Nodes (9): before, bytes, invoice, monitored, personal, row, subsidiary, supporting (+1 more)
+
+### Community 73 - "TraceESG Evidence-First ESG Platform"
+Cohesion: 0.25
+Nodes (9): TraceESG Evidence-First ESG Platform, TRD Core Architecture Principles, TraceESG Recommended Technology Stack, Admin Control Tower Command Center, Single Organization Tree No Tenant ID Decision, PS-08 Master System Blueprint v1.0, Dr. P. Ravi Reddy (MEIL Director) Video Briefing, MEIL Conglomerate Operational Scale & Complexity (+1 more)
+
+### Community 74 - "Metric-Specific Consolidation Rules"
+Cohesion: 0.32
+Nodes (8): Water Consumption to Withdrawal Mapping, Configurable Not-Greater-Than Validation, Percentage Formula Type, Role-Specific Non-Emission Metrics, Single-Document Derived Metrics, Subtract Formula Type, Indian Financial Year Consolidation Boundary, Metric-Specific Consolidation Rules
+
+### Community 75 - "[trpc]/route.ts"
+Cohesion: 0.43
+Nodes (5): handler(), sameOriginRequest(), createTRPCContext(), AppRouter, req()
+
+### Community 76 - "Phase 18 Security Review Audit"
+Cohesion: 0.36
+Nodes (8): F2 Append-Only Database Audit Log Trigger, F3 tRPC Mutation Origin CSRF Verification, Phase 18 Security Review Audit, F1 Per-Account and Per-IP Sign-in Throttling, F8 Supabase Auth Per-IP Deployment Action, F4 Document Upload Rate Limiting, F7 Two-Hour Signed Upload URL Accepted Risk, D19: Rate Limit Table and Append-Only Audit Trigger
+
+### Community 77 - "DISCOM Electricity Extraction Rules"
+Cohesion: 0.29
+Nodes (7): Bundle Proposal Classification Engine, Split Review Screen, DISCOM Electricity Extraction Rules, DISCOM Utility Name Matching, Implied kWh Unit Rule, Renewable Electricity Metric, Zero Conversion Factor Allowance
+
+### Community 78 - "admin/page.tsx"
+Cohesion: 0.11
+Nodes (21): DataExplorerPage(), metadata, AdminDashboardPage(), Card, metadata, metadata, QUEUE, SubmissionMonitoringPage() (+13 more)
+
+### Community 79 - "Evidence-First Data Collection Model"
+Cohesion: 0.29
+Nodes (7): Evidence-First Data Collection Model, Evidence Document Upload Journey, Defensibility-First UI/UX Philosophy, Canonical esg_records Table, 21-Phase Sequential and Parallel Roadmap, Async OCR Non-Blocking UX Decision, Master Evidence-First Pipeline Blueprint
+
+### Community 80 - "Row-Level Import Transactions"
+Cohesion: 0.33
+Nodes (6): Bulk Import Permissions, Client-Side XLSX Parsing, Row-Level Import Transactions, Bundle Document Model, Bundle Upload Guardrails, Server-Side PDF Page Cutting
+
+### Community 81 - "BRSR Readiness Tree Drill-Down"
+Cohesion: 0.33
+Nodes (6): BRSR Readiness Tree Drill-Down, Mapping Applicability Flag, BRSR Readiness Composite Score, Completion Pipeline KPIs, Submission Expectations Model, URL-Driven Filter Context
+
+### Community 82 - "App-Level Rate Limiting"
+Cohesion: 0.40
+Nodes (6): App-Level Rate Limiting, tRPC Origin CSRF Protection, User-Stored Theme Preference, WCAG Contrast Token Adjustments, Theme-2 Corporate Default Selection, TopBar Theme Toggle Component
+
+### Community 84 - "db"
+Cohesion: 0.10
+Nodes (36): GET(), consolidate(), Consolidated, financialYearLabel(), financialYearOf(), financialYearRange(), InputRow, MetricInfo (+28 more)
+
+### Community 85 - "run.mjs"
+Cohesion: 0.33
+Nodes (4): ALL, HERE, problems, results
+
+### Community 86 - "TraceESG Target Personas and Roles"
+Cohesion: 0.33
+Nodes (6): TraceESG Target Personas and Roles, Route Namespace Model (/admin and /app), user_org_assignments Table, Master Seven Role Access Model, TraceESG Account Invitation Email Template, TraceESG Password Reset Email Template
+
+### Community 87 - "BRSR Core Framework"
 Cohesion: 0.33
 Nodes (6): BRSR Comprehensive, Lite and Core Architecture, ICAI Standards on Sustainability Assurance (SSA 3000), BRSR Core Framework, Reasonable Assurance Mandate for BRSR Core, Value Chain Partners Disclosures, Corporate ESG Roadmap and Assurance Readiness
 
-### Community 60 - "Configurable Multi-Entity Organization Hierarchy"
+### Community 88 - "Phase 1 Project Setup Decisions"
 Cohesion: 0.40
-Nodes (5): Configurable Multi-Entity Organization Hierarchy, Postgres RLS Database-Layer Authorization, org_units Recursive Hierarchy Table, Master Seven Level Organizational Model, Deviation D6: Database Privilege Hardening (Revoke DML)
+Nodes (5): Corepack Pinned pnpm Decision, Phase 1 Project Setup Decisions, PaddleOCR Python 3.12 Worker Runtime, Next.js 16 and Tailwind v4 Stack Selection, Three-Theme Data-Theme Architecture
 
-### Community 61 - "Graphify Knowledge Graph Rule"
+### Community 89 - "runAction"
+Cohesion: 0.32
+Nodes (13): addAssignmentAction(), deactivateUserAction(), deleteUserAction(), inviteUserAction(), reactivateUserAction(), resendInviteAction(), revokeAssignmentAction(), InviteSheet() (+5 more)
+
+### Community 90 - "A23: Multi-Bill PDF OCR Propose and Split Flow"
+Cohesion: 0.50
+Nodes (5): A23: Multi-Bill PDF OCR Propose and Split Flow, DISCOM Bill and Water OCR Rules Context, Multi-Bill PDF Document Handling Context, Out-of-Sequence Completed Features Status, D24: Multi-Bill PDF Bundle and Split Schema
+
+### Community 91 - "TraceESG Architecture and Overview"
+Cohesion: 0.25
+Nodes (9): A22: Password Policy and Live Strength Meter, Critical E2E Scenarios (A-E), System Edge Case Test Matrix, QA Identifier and Offline Recovery Findings, Phase 20 Quality Assurance Checklist, TraceESG Architecture and Overview, User Provisioning and Access Security, Monorepo Workspace Structure (+1 more)
+
+### Community 92 - "Graphify Knowledge Graph Rule"
 Cohesion: 0.50
 Nodes (4): Graphify Query and Traversal Rule, Graphify Knowledge Graph Rule, Graphify AST Update Rule, Graphify Workflow
 
-### Community 62 - "Three Themes Shared UX Structure Decision"
+### Community 93 - "Configurable Multi-Entity Organization Hierarchy"
+Cohesion: 0.50
+Nodes (4): Configurable Multi-Entity Organization Hierarchy, Postgres RLS Database-Layer Authorization, org_units Recursive Hierarchy Table, Master Seven Level Organizational Model
+
+### Community 94 - "Three Themes Shared UX Structure Decision"
 Cohesion: 0.50
 Nodes (4): Theme 1: Marple Warm Modern ESG, Theme 2: MEIL Corporate / Official, Theme 3: Dark Enterprise / Premium ESG, Three Themes Shared UX Structure Decision
 
-### Community 63 - "esg_record_documents Many-to-Many Join Table"
-Cohesion: 0.50
-Nodes (4): esg_record_documents Many-to-Many Join Table, Standardized Storage Path Conventions, Documents to ESG Records Many-to-Many Decision, Deviation D3: Server-Issued Signed Uploads (Bytes First)
+### Community 95 - "audit-trail/page.tsx"
+Cohesion: 0.31
+Nodes (7): AuditFilters(), AuditTrailPage(), date(), metadata, one(), Params, uuid()
 
-### Community 64 - "organization/page.tsx"
-Cohesion: 0.40
-Nodes (5): OrgManager(), renderNode(), select(), metadata, OrganizationPage()
-
-### Community 65 - "Eight Core Product Principles"
+### Community 96 - "Eight Core Product Principles"
 Cohesion: 0.67
 Nodes (3): Eight Core Product Principles, 15 AI Coding Agent Rules, No Manual Form Entry Architectural Rule
 
-### Community 66 - "Evidence-to-BRSR Digital Thread"
+### Community 97 - "Evidence-to-BRSR Digital Thread"
 Cohesion: 0.67
 Nodes (3): Evidence-to-BRSR Digital Thread, Structural Evidence Lineage Traceability, Report Generation and Evidence Drilldown Flow
 
-### Community 67 - "Deterministic TypeScript Calculation Engine"
+### Community 98 - "Deterministic TypeScript Calculation Engine"
 Cohesion: 0.67
 Nodes (3): Deterministic TypeScript Calculation Engine, TypeScript Calculation Engine Colocation Decision, Standard Carbon Equivalent Conversion Metric Need
 
-### Community 68 - "Postgres-Backed Document Job Queue"
+### Community 99 - "Postgres-Backed Document Job Queue"
 Cohesion: 0.67
 Nodes (3): Postgres-Backed Document Job Queue, OCR Pipeline Tables (ocr_jobs, ocr_extractions, ocr_fields), Self-Hosted PaddleOCR Decision
 
-### Community 69 - "conversion_factors and conversion_factor_versions Tables"
+### Community 100 - "esg_record_documents Many-to-Many Join Table"
 Cohesion: 0.67
-Nodes (3): conversion_factors and conversion_factor_versions Tables, Two-Table Conversion Factor Versioning Decision, Deviation D2: Server-Only Configuration Writes
+Nodes (3): esg_record_documents Many-to-Many Join Table, Standardized Storage Path Conventions, Documents to ESG Records Many-to-Many Decision
 
-### Community 105 - "45. Demo Scenario"
-Cohesion: 0.08
-Nodes (25): 45. Demo Scenario, Hr, Meil, Step 1:, Step 10:, Step 11:, Step 12:, Step 13: (+17 more)
+### Community 141 - "documents.ts"
+Cohesion: 0.05
+Nodes (68): OrgManager(), renderNode(), select(), RoleScopeFields(), GET(), confirmBundleAction(), EvidenceFiles(), add() (+60 more)
 
-### Community 106 - "UI/UX Design Brief"
-Cohesion: 0.10
-Nodes (19): 0. Decisions This Document Makes (read first), 10. Iconography, 14. Notifications, 16. Responsive Behavior & Mobile Considerations, 17. Accessibility, 18. UI Consistency Rules, 19. Key Screens — Admin, 1. Design Philosophy (+11 more)
-
-### Community 107 - "51. Final System Summary"
-Cohesion: 0.10
-Nodes (20): 51. Final System Summary, Admin, Admin, Brsr Mapping, Calculation Engine, Confirm       Edit, Consolidation, Control Tower (+12 more)
-
-### Community 108 - "2.2 Admin"
-Cohesion: 0.11
-Nodes (18): 2.2 Admin, Admin Dashboard (Control Tower), Approval Queue, Audit Trail, BRSR Mapping, Conversion Factors, ESG Data Explorer, OCR Monitoring (+10 more)
-
-### Community 109 - "Backend Schema Document"
-Cohesion: 0.11
-Nodes (17): 12.1 `audit_logs`, 12. Audit Table, 13.1 `report_runs`, 13. Reports, 15. File Storage Model, 17. Sensitive Data Classification & Protection, 18. Indexes Summary, 1. Objective, Inherited Decisions, and Conventions (+9 more)
-
-### Community 110 - "org-manager.tsx"
-Cohesion: 0.32
-Nodes (12): createOrgUnitAction(), moveOrgUnitAction(), orgUnitImpactAction(), setOrgUnitStatusAction(), updateOrgUnitAction(), Impact, NodeDetail(), onAddChild() (+4 more)
-
-### Community 111 - "totals.ts"
+### Community 142 - "edge-cases.mjs"
 Cohesion: 0.22
-Nodes (10): ActivityTotal, ScopeBranch, scopeBreakdown, ScopeCategory, ScopeRecord, scopeTree(), Sql, TotalRow (+2 more)
+Nodes (5): again, locked, staleSession(), truncated, unreadablePdf()
 
-### Community 112 - "30. Approval Workflow"
-Cohesion: 0.14
-Nodes (14): 30. Approval Workflow, Approved, Document_Uploaded, Draft, Flagged_For_Review, Included_In_Report, Incomplete, Ocr_Completed (+6 more)
-
-### Community 113 - "top-bar.tsx"
-Cohesion: 0.24
-Nodes (9): ADMIN_NAV, AdminLayout(), APP_NAV, WorkspaceLayout(), ICONS, NavIcon, NavItem, Sidebar() (+1 more)
-
-### Community 114 - "1. Project Objective"
-Cohesion: 0.15
-Nodes (13): 1. Project Objective, Admin Control, Bill / Source Document, Brsr Mapping, Consolidation, Esg Calculation, Extracted Data, Important Product Decision: (+5 more)
-
-### Community 115 - "4. Flows"
-Cohesion: 0.17
-Nodes (12): 4.10 Report Generation Flow, 4.11 Evidence-to-BRSR Pipeline (overall reference diagram), 4.1 Auth Flow, 4.2 Logout Flow, 4.3 Session Expiration Flow, 4.4 Unauthorized Access Flow, 4.5 OCR Failure Flow, 4.6 Low-Confidence OCR Flow (+4 more)
-
-### Community 116 - "6. Color System"
-Cohesion: 0.17
-Nodes (12): 6.10 Accessibility & Contrast Usage Rules for This Palette, 6.11 Scope 1/2/3 Visual Differentiation, 6.1 Core Surface & Text Tokens, 6.2 Layout Region Tokens, 6.3 Dashboard / KPI Tokens, 6.4 ESG Overview & BRSR Section Tokens, 6.5 Forms, Buttons & Inputs, 6.6 Tables (+4 more)
-
-### Community 117 - "48. Key Differentiator"
-Cohesion: 0.18
-Nodes (11): 48. Key Differentiator, Brsr, Calculation, Data -> Report, Evidence, Evidence-First Esg Reporting, Ocr, Report (+3 more)
-
-### Community 118 - "2.3 Non-Admin User (`/app/*`)"
+### Community 143 - "UploadForm"
 Cohesion: 0.22
-Nodes (9): 2.3 Non-Admin User (`/app/*`), My Organization/Project, My Submissions, Notifications, Profile, Submission History, Upload Document, User Dashboard (+1 more)
+Nodes (13): completeBundleUploadAction(), completeUploadAction(), discardBundleAction(), FileTarget, prepareBundleUploadAction(), prepareUploadAction(), DiscardBundle(), putFile() (+5 more)
 
-### Community 119 - "11. Component Library"
-Cohesion: 0.25
-Nodes (8): 11.1 Buttons, 11.2 Inputs / Controls, 11.3 Tables, 11.4 Cards, 11.5 Modals, 11.6 Drawers, 11.7 Badges / Status, 11. Component Library
+### Community 144 - "confirm-dialog.tsx"
+Cohesion: 0.16
+Nodes (9): RouteError(), subscribe(), Dialog(), DialogContent(), DialogDescription(), DialogFooter(), DialogHeader(), DialogTitle() (+1 more)
 
-### Community 120 - "6. ESG Configuration Tables"
-Cohesion: 0.25
-Nodes (8): 6.1 `esg_categories`, 6.2 `esg_metrics`, 6.3 `metric_field_requirements`, 6.4 `document_types`, 6.5 `document_type_metric_mappings`, 6.6 `validation_rules`, 6.7 `calculation_formulas`, 6. ESG Configuration Tables
+### Community 145 - "auth-card.tsx"
+Cohesion: 0.29
+Nodes (5): ForgotPasswordForm(), metadata, AuthCard(), AuthNotice(), noticeTone
 
-### Community 121 - "Grill: 02_TRD.md technology stack and architecture decisions"
-Cohesion: 0.25
-Nodes (7): Constraints, Grill: 02_TRD.md technology stack and architecture decisions, Intent, Key decisions, Open questions, Out of scope, Surfaced assumptions
+### Community 146 - "Grill: Closing the second audit (2026-10-08)"
+Cohesion: 0.29
+Nodes (6): Factors entered on the local database, Grill: Closing the second audit (2026-10-08), Migration `0038` and the code with it, Not built, and why, SDG tags on the report (owner's request, 2026-10-09), What the owner decided (asked 2026-10-08)
 
-### Community 122 - "42. Data Quality Model"
-Cohesion: 0.25
-Nodes (8): 42. Data Quality Model, Approved, Complete, Flagged, Incomplete, Rejected, Validated, Verified
+### Community 148 - "Audit fixes — work queue"
+Cohesion: 0.22
+Nodes (8): Audit fixes — work queue, Checks for any fix here, Needs the owner before starting, Not code — still open from earlier (see `PROGRESS.md` §5), P0 — must fix, P1 — should fix, P2 — nice to have, P3
 
-### Community 123 - "units.ts"
+### Community 149 - "LevelsCard"
 Cohesion: 0.48
-Nodes (5): key(), normalize(), Normalized, sameQuantity(), UNITS
+Nodes (7): addLevelAction(), removeLevelAction(), renameLevelAction(), LevelsCard(), add(), rename(), run()
 
-### Community 124 - "Grill: Phase 11 — Scope 2"
+### Community 151 - "ApprovalQueue"
+Cohesion: 0.43
+Nodes (6): ApprovalQueue(), decide(), recalculate(), formatDateTime(), decideApprovalAction(), recalculateAction()
+
+### Community 152 - "Grill: Audit fixes P0-1 to P0-3 (factors, SEBI-format report, 2023 indicator codes)"
+Cohesion: 0.25
+Nodes (7): Entered on the local database, 2026-10-07 (owner's go-ahead in chat), Grill: Audit fixes P0-1 to P0-3 (factors, SEBI-format report, 2023 indicator codes), Out of scope / follow-ups, P0-1 — Factor values: approved by the owner on 2026-10-07; entry on hosted still to do, P0-2 — The report prints SEBI's tables, P0-3 — Indicator codes follow SEBI's July-2023 BRSR format (migration `0033`, D25), What the owner decided (asked 2026-10-07)
+
+### Community 153 - "Grill: Audit fixes P2"
 Cohesion: 0.29
-Nodes (6): Constraints, Grill: Phase 11 — Scope 2, Intent, Key decisions, Out of scope, Surfaced assumptions
+Nodes (6): Done, Done on the owner's instruction ("do the remaining P2 items", 2026-10-07), Grill: Audit fixes P2, Hierarchy levels are configuration (migration `0037`, D29, A25), Open items recorded, Several evidence files per record (no migration; A25)
 
-### Community 125 - "Grill: Phase 12 — Scope 3 foundation"
-Cohesion: 0.29
-Nodes (6): Constraints, Grill: Phase 12 — Scope 3 foundation, Intent, Key decisions, Out of scope, Surfaced assumptions
+### Community 154 - "audit-view.tsx"
+Cohesion: 0.53
+Nodes (5): AuditFilterValues, AuditTable(), csvCell(), exportCsv(), pretty()
 
-### Community 126 - "Grill: 03_APP_FLOW.md UX/navigation decisions"
-Cohesion: 0.29
-Nodes (6): Constraints, Grill: 03_APP_FLOW.md UX/navigation decisions, Intent, Key decisions, Out of scope, Surfaced assumptions
-
-### Community 127 - "Grill: 05_BACKEND_SCHEMA.md structural decisions"
-Cohesion: 0.29
-Nodes (6): Constraints, Grill: 05_BACKEND_SCHEMA.md structural decisions, Intent, Key decisions, Out of scope, Surfaced assumptions
-
-### Community 128 - "Grill: 06_IMPLEMENTATION_PLAN.md structure decisions"
-Cohesion: 0.29
-Nodes (6): Constraints, Grill: 06_IMPLEMENTATION_PLAN.md structure decisions, Intent, Key decisions, Out of scope, Surfaced assumptions
-
-### Community 129 - "Grill: 04_UI_UX_DESIGN_BRIEF.md design-system decisions"
-Cohesion: 0.29
-Nodes (6): Constraints, Grill: 04_UI_UX_DESIGN_BRIEF.md design-system decisions, Intent, Key decisions, Out of scope, Surfaced assumptions
-
-### Community 130 - "validation-queue-table.tsx"
-Cohesion: 0.31
-Nodes (7): reviewRecordAction(), formatDateTime(), problemTypes(), ValidationQueueTable(), decide(), ConfirmDialog(), NativeSelect()
-
-### Community 131 - "Application Flow Document (App Flow)"
+### Community 155 - "Grill: Audit fixes P1 (Scope 1 and 3 activities, travel by mode, hierarchy in the database)"
 Cohesion: 0.33
-Nodes (5): 0. UX Decisions This Document Makes (read first), 1. Application Model & Navigation Shell, 3. Global States (apply across pages, not repeated per-page above), Application Flow Document (App Flow), PS-08 — Evidence-First ESG/BRSR Reporting Platform (TraceESG)
+Nodes (5): Factor values for the new activities: proposed 2026-10-07, awaiting the owner's approval, Grill: Audit fixes P1 (Scope 1 and 3 activities, travel by mode, hierarchy in the database), Key decisions, Not done / follow-ups, What the owner decided (asked 2026-10-07)
 
-### Community 132 - "5. Core User Journeys"
-Cohesion: 0.33
-Nodes (6): 5. Core User Journeys, Journey 1 — Project Manager uploads a diesel invoice and obtains a Scope 1 calculation, Journey 2 — Project Manager uploads an electricity bill and obtains a Scope 2 calculation, Journey 3 — HR uploads workforce evidence and verifies extracted information, Journey 4 — Admin monitors project submissions and generates a consolidated BRSR/ESG report, Journey 5 — Admin drills down from a reported value to the original supporting document
-
-### Community 133 - "12. Core Feature Components"
-Cohesion: 0.33
-Nodes (6): 12.1 Upload Component, 12.2 OCR Verification Component — *critical, detailed spec*, 12.3 Evidence/Document Viewer, 12.4 Validation Result Component, 12.5 Approval Component, 12. Core Feature Components
-
-### Community 134 - "13. Dashboard & Data Components"
-Cohesion: 0.33
-Nodes (6): 13.1 Dashboard KPI Cards — exact recommended set, 13.2 Charts, 13.3 Filters, 13.4 Search, 13.5 Drill-down Navigation, 13. Dashboard & Data Components
-
-### Community 135 - "3. Identity & Access Tables"
-Cohesion: 0.33
-Nodes (6): 3.1 `users` (application profile, extends `auth.users`), 3.2 `roles`, 3.3 `permissions`, 3.4 `role_permissions`, 3.5 `user_org_assignments`, 3. Identity & Access Tables
-
-### Community 136 - "9. ESG Records & Lifecycle Tables"
-Cohesion: 0.33
-Nodes (6): 9.1 `esg_records` — the canonical record, 9.2 `esg_record_documents`, 9.3 `verifications`, 9.4 `validation_results`, 9.5 `approvals`, 9. ESG Records & Lifecycle Tables
-
-### Community 137 - "15. System States"
+### Community 156 - "Agentation"
 Cohesion: 0.40
-Nodes (5): 15.1 Loading States, 15.2 Empty States, 15.3 Error States, 15.4 Confirmation States, 15. System States
+Nodes (4): Agentation, Frontend Usage, MCP Server & Tools, Setup & Verification
 
-### Community 138 - "10. Calculations & Conversion Factors"
-Cohesion: 0.40
-Nodes (5): 10.1 `conversion_factors`, 10.2 `conversion_factor_versions`, 10.3 `calculations`, 10.4 `calculation_inputs`, 10. Calculations & Conversion Factors
-
-### Community 139 - "16. Authentication & Authorization Model"
-Cohesion: 0.40
-Nodes (5): 16.1 Authentication, 16.2 Authorization architecture, 16.3 Representative RLS Policies, 16.4 Non-RLS server-side rules, 16. Authentication & Authorization Model
-
-### Community 140 - "20. Optional: API Resource Mapping, Query Patterns, Transactions, Concurrency"
-Cohesion: 0.40
-Nodes (5): 20.1 API resource mapping (tRPC procedure groups → tables, per `02_TRD.md` §22), 20.2 Example query pattern — Journey 5 drill-down, 20.3 Transaction boundaries, 20.4 Concurrency considerations, 20. Optional: API Resource Mapping, Query Patterns, Transactions, Concurrency
-
-### Community 141 - "8. Documents & OCR Tables"
-Cohesion: 0.40
-Nodes (5): 8.1 `documents`, 8.2 `ocr_jobs`, 8.3 `ocr_extractions`, 8.4 `ocr_fields`, 8. Documents & OCR Tables
-
-### Community 142 - "15. Scope 1"
-Cohesion: 0.40
-Nodes (5): 15. Scope 1, - Cng., - Lng., - Lpg., Ocr
-
-### Community 143 - "9. Data Submission Model"
-Cohesion: 0.40
-Nodes (5): 9. Data Submission Model, - Jpg/Jpeg., - Pdf., - Png., Upload Document
-
-### Community 144 - "2. Complete Page Inventory"
+### Community 159 - "instrumentation.ts"
 Cohesion: 0.50
-Nodes (4): 2.1 Public, 2. Complete Page Inventory, Forgot/Reset Password, Login
+Nodes (3): onRequestError(), register(), @sentry/nextjs
 
-### Community 145 - "11. BRSR Tables"
+### Community 160 - "Grill: Audit fixes P3"
 Cohesion: 0.50
-Nodes (4): 11.1 `brsr_sections`, 11.2 `brsr_indicators`, 11.3 `brsr_metric_mappings`, 11. BRSR Tables
+Nodes (3): Grill: Audit fixes P3, Key decisions, Not done
 
-### Community 146 - "19. Triggers/Events"
-Cohesion: 0.50
-Nodes (4): 19.1 `updated_at` maintenance, 19.2 What is deliberately **not** a trigger, 19.3 The one exception: conversion factor immutability guard, 19. Triggers/Events
-
-### Community 147 - "22. Evidence-First Record Structure"
-Cohesion: 0.50
-Nodes (4): 22. Evidence-First Record Structure, 2,500 L, 2,500 L, Passed
-
-### Community 148 - "38. Api / Backend Concept"
-Cohesion: 0.50
-Nodes (4): 38. Api / Backend Concept, Brsr:, Esg:, Ocr:
-
-### Community 149 - "9. Role And Permission Matrix"
-Cohesion: 0.50
-Nodes (4): 9. Role And Permission Matrix, - Ehs., - Esg., - Hr.
-
-### Community 150 - "14. Notifications & Settings"
-Cohesion: 0.67
-Nodes (3): 14.1 `notifications`, 14.2 `org_settings`, 14. Notifications & Settings
-
-### Community 151 - "22. Submission/Approval Status."
-Cohesion: 0.67
-Nodes (3): 22. Submission/Approval Status., P1 - SHOULD HAVE, P2 - FUTURE
-
-### Community 152 - "25. Conversion Factor Engine"
-Cohesion: 0.67
-Nodes (3): 25. Conversion Factor Engine, - Cng., - Lpg.
-
-### Community 153 - "27. Unit Normalization"
-Cohesion: 0.67
-Nodes (3): 27. Unit Normalization, 2.5 Kl, 2.5 Kl -> 2,500 L
-
-### Community 154 - "44. Practical Hackathon Implementation Strategy"
-Cohesion: 0.67
-Nodes (3): 44. Practical Hackathon Implementation Strategy, - Hr., Ocr
-
-### Community 155 - "4. User Access Model"
-Cohesion: 0.67
-Nodes (3): 4. User Access Model, A. Admin Dashboard, B. Non-Admin / Role-Based User Dashboard
-
-### Community 177 - "roles.ts"
-Cohesion: 0.40
-Nodes (5): permissionProcedure(), badRequest(), roleManage, RoleMatrix, rolesRouter
+### Community 161 - "generateReportAction"
+Cohesion: 1.00
+Nodes (3): generateReportAction(), ReportForm(), submit()
 
 ## Knowledge Gaps
-- **877 isolated node(s):** `printWidth`, `metadata`, `VersionValues`, `STATUS`, `ActivityType` (+872 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1044 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **49 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **586 isolated node(s):** `printWidth`, `metadata`, `AuditFilterValues`, `metadata`, `Params` (+581 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 818 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **39 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `PS-08 ESG/BRSR Reporting Portal` connect `PS-08 ESG/BRSR Reporting Portal` to `15. Scope 1`, `9. Data Submission Model`, `22. Evidence-First Record Structure`, `38. Api / Backend Concept`, `9. Role And Permission Matrix`, `22. Submission/Approval Status.`, `25. Conversion Factor Engine`, `27. Unit Normalization`, `44. Practical Hackathon Implementation Strategy`, `4. User Access Model`, `12. Ocr Design Principles`, `14. Common Esg Data Model`, `14. Project Roadmap`, `16. Scope 2`, `18. Hr Module`, `19. Ehs / Environment Module`, `20. Procurement Module`, `32. Admin Report Drill-Down`, `43. Mvp Priority`, `8. User Dashboard`, `45. Demo Scenario`, `51. Final System Summary`, `30. Approval Workflow`, `1. Project Objective`, `48. Key Differentiator`, `42. Data Quality Model`?**
-  _High betweenness centrality (0.013) - this node is a cross-community bridge._
-- **Why does `Button()` connect `button.tsx` to `runAction`, `createSupabaseServerClient`, `validation-queue-table.tsx`, `ocr-jobs-table.tsx`, `verification.ts`, `app/app/page.tsx`, `notification-bell.tsx`, `documents.ts`, `factors-manager.tsx`, `[documentId]/page.tsx`, `org-manager.tsx`, `forgot-password-form.tsx`, `top-bar.tsx`, `scope-dashboard.tsx`, `periods-manager.tsx`, `roles-manager.tsx`?**
-  _High betweenness centrality (0.008) - this node is a cross-community bridge._
-- **Why does `runAction()` connect `runAction` to `validation-queue-table.tsx`, `ocr-jobs-table.tsx`, `verification.ts`, `trpc/server.ts`, `button.tsx`, `notification-bell.tsx`, `documents.ts`, `factors-manager.tsx`, `org-manager.tsx`, `forgot-password-form.tsx`, `periods-manager.tsx`, `roles-manager.tsx`?**
-  _High betweenness centrality (0.006) - this node is a cross-community bridge._
-- **What connects `printWidth`, `metadata`, `VersionValues` to the rest of the system?**
-  _877 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `createSupabaseServerClient` be split into smaller, more focused modules?**
-  _Cohesion score 0.07402031930333818 - nodes in this community are weakly interconnected._
-- **Should `verification.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.054212454212454214 - nodes in this community are weakly interconnected._
-- **Should `WorkerHarnessTest` be split into smaller, more focused modules?**
-  _Cohesion score 0.10938775510204081 - nodes in this community are weakly interconnected._
+- **Why does `postgres` connect `writeAudit` to `verification.ts`, `lib.mjs`, `documents.ts`, `web/package.json`?**
+  _High betweenness centrality (0.056) - this node is a cross-community bridge._
+- **Why does `server-only` connect `root.ts` to `trpc/server.ts`, `organization.ts`, `pdf.ts`, `web/package.json`, `approvals.ts`, `records.ts`, `documents.ts`, `writeAudit`, `session.ts`, `brsr.ts`, `reporting-periods.ts`, `db`, `html.ts`, `ocr.ts`, `forgot-password/actions.ts`, `verification.ts`, `createSupabaseServerClient`?**
+  _High betweenness centrality (0.045) - this node is a cross-community bridge._
+- **Why does `lucide-react` connect `lucide-react` to `brsr-mapping/page.tsx`, `employee-bulk-import.tsx`, `trpc/server.ts`, `validation-queue-table.tsx`, `records-explorer.tsx`, `web/package.json`, `react`, `verify-workspace.tsx`, `top-bar.tsx`, `requireAdminSession`, `admin/page.tsx`, `session.ts`, `documents.ts`, `confirm-dialog.tsx`, `app/submissions/page.tsx`, `ocr-jobs-table.tsx`, `audit-view.tsx`, `scope-dashboard.tsx`?**
+  _High betweenness centrality (0.044) - this node is a cross-community bridge._
+- **What connects `printWidth`, `metadata`, `AuditFilterValues` to the rest of the system?**
+  _586 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `samples.py` be split into smaller, more focused modules?**
+  _Cohesion score 0.09126984126984126 - nodes in this community are weakly interconnected._
+- **Should `processor.py` be split into smaller, more focused modules?**
+  _Cohesion score 0.07142857142857142 - nodes in this community are weakly interconnected._
+- **Should `validation-queue-table.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.1125886524822695 - nodes in this community are weakly interconnected._

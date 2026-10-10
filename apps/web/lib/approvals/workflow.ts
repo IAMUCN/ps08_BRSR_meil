@@ -1,4 +1,5 @@
 import "server-only";
+import { writeAudit } from "../audit.ts";
 import { runCalculation } from "../calculation/engine.ts";
 import type { Tx } from "../db.ts";
 
@@ -29,6 +30,13 @@ export async function submitForApproval(tx: Tx, recordId: string): Promise<void>
     update public.esg_records set approval_status = 'review_pending' where id = ${recordId}`;
   await tx`
     insert into public.approvals (esg_record_id, action, decided_by) values (${recordId}, 'submitted', null)`;
+  await writeAudit(tx, {
+    eventType: "approval.submitted",
+    entityType: "esg_record",
+    entityId: recordId,
+    userId: null, // entering the queue is a system step (after validation or an Admin's accept)
+    newValue: { approval_status: "review_pending" },
+  });
 
   // Corporate ESG (non-Admin approvers) whose scope covers the record see it at /app/approvals (A1);
   // when nobody below Admin can approve it, Admins are told instead.

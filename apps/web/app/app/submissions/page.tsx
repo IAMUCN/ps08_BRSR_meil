@@ -16,6 +16,7 @@ import {
   submissionTab,
 } from "@/lib/ocr/rules";
 import { api } from "@/lib/trpc/server";
+import { SubmissionRow } from "./submission-row";
 
 export const metadata: Metadata = { title: "My Submissions · TraceESG" };
 
@@ -33,10 +34,13 @@ function formatDateTime(iso: string) {
 // OCR processing is a status badge here, never a wait screen (§0.1).
 export default async function MySubmissionsPage({ searchParams }: PageProps<"/app/submissions">) {
   const [session, params, caller] = await Promise.all([requireAppSession(), searchParams, api()]);
-  const rows = await caller.ocr.submissions();
   const canUpload = session.permissions.includes("document.upload");
+  const [rows, bundles] = await Promise.all([
+    caller.ocr.submissions(),
+    canUpload ? caller.bundles.pending() : [],
+  ]);
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && bundles.length === 0) {
     return (
       <EmptyState
         icon={FileStack}
@@ -68,7 +72,10 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
   return (
     <div className="max-w-7xl">
       <AutoRefresh
-        active={rows.some((r) => r.jobStatus === "pending" || r.jobStatus === "processing")}
+        active={
+          rows.some((r) => r.jobStatus === "pending" || r.jobStatus === "processing") ||
+          bundles.some((b) => b.status === "processing")
+        }
       />
       <PageHeader
         title="My Submissions"
@@ -84,6 +91,43 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
           ) : null
         }
       />
+
+      {bundles.length > 0 ? (
+        <section aria-labelledby="bundles-heading" className="mb-6">
+          <h2 id="bundles-heading" className="text-base leading-6 font-semibold">
+            PDFs with several bills
+          </h2>
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">
+            Nothing from these is recorded until you check how the PDF is split.
+          </p>
+          <ul className="mt-2 divide-y rounded-md border bg-card">
+            {bundles.map((b) => (
+              <li key={b.documentId}>
+                <Link
+                  href={`/app/upload/split/${b.documentId}`}
+                  className="flex flex-wrap items-center justify-between gap-3 px-3 py-3 text-sm hover:bg-table-row-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  <span>
+                    <span className="font-medium text-primary-text">{b.fileName}</span>
+                    <span className="text-muted-foreground"> · {formatDateTime(b.uploadedAt)}</span>
+                  </span>
+                  <StatusBadge
+                    tone={
+                      b.status === "ready" ? "warning" : b.status === "failed" ? "error" : "neutral"
+                    }
+                  >
+                    {b.status === "ready"
+                      ? "Check the split"
+                      : b.status === "failed"
+                        ? "Couldn't be read"
+                        : "Reading"}
+                  </StatusBadge>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <nav aria-label="Submission status" className="mb-4 overflow-x-auto">
         <ul className="inline-flex gap-1 rounded-md border bg-surface p-1">
@@ -105,7 +149,7 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
                   <span
                     className={cn(
                       "rounded-sm px-1.5 text-xs leading-5 tabular-nums",
-                      active ? "bg-primary-foreground/20" : "bg-muted",
+                      active ? "bg-primary-foreground text-primary" : "bg-muted",
                     )}
                   >
                     {counts.get(t.key) ?? 0}
@@ -160,15 +204,15 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
                           ? attentionLabel(row.attention)
                           : null;
                 return (
-                  <tr
+                  <SubmissionRow
                     key={row.id}
-                    className="border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
+                    href={row.documentId ? `/app/verify/${row.documentId}` : null}
                   >
                     <td className="px-3 py-3 font-medium">
                       {row.documentId ? (
                         <Link
                           href={`/app/verify/${row.documentId}`}
-                          className="text-primary underline-offset-4 hover:underline"
+                          className="text-primary-text underline-offset-4 hover:underline"
                         >
                           {row.fileName}
                         </Link>
@@ -202,7 +246,7 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
                         </p>
                       ) : null}
                     </td>
-                  </tr>
+                  </SubmissionRow>
                 );
               })
             )}

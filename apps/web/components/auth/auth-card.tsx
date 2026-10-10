@@ -13,7 +13,7 @@ export function AuthCard({
   return (
     <main className="flex flex-1 items-center justify-center p-6">
       <div className="w-full max-w-sm rounded-md border bg-card p-6 text-card-foreground">
-        <p className="text-sm font-semibold text-primary">TraceESG</p>
+        <p className="text-sm font-semibold text-primary-text">TraceESG</p>
         <h1 className="mt-1 text-2xl leading-8 font-semibold">{title}</h1>
         {description ? (
           <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>

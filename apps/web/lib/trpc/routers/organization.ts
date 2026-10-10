@@ -2,18 +2,33 @@ import "server-only";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import type { ActiveSession } from "@/lib/auth/session";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
 import {
   canBeChildOf,
   checkMove,
   descendantIds,
   isFrozen,
-  ORG_UNIT_TYPES,
+  reachableNodeIds,
+  ROOT_LEVEL,
+  type OrgLevel,
   type OrgNode,
 } from "@/lib/org/rules";
-import { permissionProcedure, router } from "@/lib/trpc/init";
+import { loadLevels } from "@/lib/org/levels";
+import { permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 
 const orgManage = permissionProcedure("org.manage");
+const orgBulkImport = permissionProcedure("org.bulk_import");
+
+export type OrgExpectation = {
+  metricId: string;
+  metricName: string;
+  categoryName: string;
+  /** "Scope 1", "Scope 2", "Scope 3", or null for activities outside the three scopes. */
+  scopeName: string | null;
+  frequency: string;
+  expected: boolean;
+};
 
 export type OrgUnitRow = OrgNode & { name: string; code: string | null; activeAssignments: number };
 
@@ -24,6 +39,10 @@ const codeSchema = z
   .max(50)
   .regex(/^[A-Za-z0-9-_]*$/, "Code may contain letters, numbers, hyphens and underscores only.")
   .transform((value) => (value === "" ? null : value));
+
+/** A configured level code; whether it exists and fits under the parent is checked against `org_levels`. */
+const levelCode = z.string().trim().min(1).max(40);
+const levelLabelSchema = z.string().trim().min(2, "Give the level a name.").max(60);
 
 function badRequest(message: string): never {
   throw new TRPCError({ code: "BAD_REQUEST", message });
@@ -61,6 +80,104 @@ async function subtreeImpact(nodeId: string, nodes: OrgNode[]) {
 }
 
 export const organizationRouter = router({
+  /**
+   * The configured hierarchy levels, in order (migration 0037; PRD §11: a level is configuration). Any
+   * signed-in user may read them — they are the labels of the tree everyone already sees.
+   */
+  levels: protectedProcedure.query((): Promise<OrgLevel[]> => loadLevels(db())),
+
+  /** A new level, placed directly after an existing one. Nothing moves: existing units keep their levels. */
+  addLevel: orgManage
+    .input(z.object({ label: levelLabelSchema, afterCode: levelCode }))
+    .mutation(async ({ ctx, input }) => {
+      // The code is derived from the name once and never changes; the label can be renamed later.
+      const code = input.label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+      if (!/^[a-z][a-z0-9_]{1,39}$/.test(code)) {
+        badRequest(
+          "A level name must start with a letter and have at least two letters or digits.",
+        );
+      }
+      return db().begin(async (tx) => {
+        await tx`select pg_advisory_xact_lock(hashtext('org_units_tree'))`;
+        const levels = await loadLevels(tx);
+        const at = levels.findIndex((l) => l.code === input.afterCode);
+        if (at < 0) badRequest("Choose the level this one comes after.");
+        if (
+          levels.some((l) => l.code === code || l.label.toLowerCase() === input.label.toLowerCase())
+        ) {
+          badRequest("A level with that name already exists.");
+        }
+        const next = levels[at + 1];
+        const order = next ? (levels[at].order + next.order) / 2 : levels[at].order + 10;
+        const [created] = await tx<{ id: string }[]>`
+          insert into public.org_levels (code, label, sort_order)
+          values (${code}, ${input.label}, ${order}) returning id`;
+        await writeAudit(tx, {
+          eventType: "org_level.created",
+          entityType: "org_level",
+          entityId: created.id,
+          userId: ctx.session.userId,
+          newValue: { code, label: input.label, after: input.afterCode },
+        });
+        return { code };
+      });
+    }),
+
+  renameLevel: orgManage
+    .input(z.object({ code: levelCode, label: levelLabelSchema }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const [level] = await tx<{ id: string; label: string }[]>`
+          select id, label from public.org_levels where code = ${input.code} for update`;
+        if (!level) badRequest("Level not found.");
+        if (
+          (await loadLevels(tx)).some(
+            (l) => l.code !== input.code && l.label.toLowerCase() === input.label.toLowerCase(),
+          )
+        ) {
+          badRequest("Another level already has that name.");
+        }
+        await tx`update public.org_levels set label = ${input.label} where code = ${input.code}`;
+        await writeAudit(tx, {
+          eventType: "org_level.renamed",
+          entityType: "org_level",
+          entityId: level.id,
+          userId: ctx.session.userId,
+          oldValue: { label: level.label },
+          newValue: { label: input.label },
+        });
+      });
+    }),
+
+  /** Only a level no org unit uses can go — including deactivated and removed units, whose history stays. */
+  removeLevel: orgManage.input(z.object({ code: levelCode })).mutation(async ({ ctx, input }) => {
+    await db().begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(hashtext('org_units_tree'))`;
+      const [level] = await tx<{ id: string; label: string; used: number }[]>`
+        select l.id, l.label,
+               (select count(*)::int from public.org_units o where o.unit_type = l.code) as used
+        from public.org_levels l where l.code = ${input.code}`;
+      if (!level) badRequest("Level not found.");
+      if (input.code === ROOT_LEVEL) badRequest("The root level cannot be removed.");
+      if (level.used > 0) {
+        badRequest(
+          `${level.used} org unit${level.used === 1 ? " is" : "s are"} at this level — it cannot be removed.`,
+        );
+      }
+      await tx`delete from public.org_levels where code = ${input.code}`;
+      await writeAudit(tx, {
+        eventType: "org_level.removed",
+        entityType: "org_level",
+        entityId: level.id,
+        userId: ctx.session.userId,
+        oldValue: { code: input.code, label: level.label },
+      });
+    });
+  }),
+
   tree: orgManage.query(async (): Promise<OrgUnitRow[]> => {
     const rows = await db()<
       {
@@ -108,7 +225,7 @@ export const organizationRouter = router({
     .input(
       z.object({
         parentId: z.uuid(),
-        unitType: z.enum(ORG_UNIT_TYPES),
+        unitType: levelCode,
         name: nameSchema,
         code: codeSchema,
       }),
@@ -122,7 +239,7 @@ export const organizationRouter = router({
           if (isFrozen(parent.id, nodes)) {
             badRequest("That node is inactive (or under an inactive node) — reactivate it first.");
           }
-          if (!canBeChildOf(parent.unitType, input.unitType)) {
+          if (!canBeChildOf(await loadLevels(tx), parent.unitType, input.unitType)) {
             badRequest("That level can't be placed under the selected parent.");
           }
           const [created] = await tx<{ id: string }[]>`
@@ -182,7 +299,7 @@ export const organizationRouter = router({
       await db().begin(async (tx) => {
         const nodes = await loadTreeForUpdate(tx);
         const node = nodes.find((n) => n.id === input.id);
-        const check = checkMove(input.id, input.newParentId, nodes);
+        const check = checkMove(input.id, input.newParentId, nodes, await loadLevels(tx));
         if (!check.ok) badRequest(check.reason);
         if (node!.parentId === input.newParentId)
           badRequest("The node is already under that parent.");
@@ -226,4 +343,197 @@ export const organizationRouter = router({
       });
       return null;
     }),
+
+  /** Which metrics this node must submit each period (Control Tower denominators, D16). */
+  expectations: orgManage
+    .input(z.object({ orgUnitId: z.uuid() }))
+    .query(async ({ input }): Promise<OrgExpectation[]> => {
+      const rows = await db()<
+        {
+          id: string;
+          name: string;
+          category_name: string;
+          scope_name: string | null;
+          frequency: string;
+          expected: boolean;
+        }[]
+      >`
+        -- A Scope 3 activity sits under its category, whose parent is Scope 3: group by the scope itself
+        -- and show the category beneath it.
+        select m.id, m.name, case when ps.id is null then c.name else s.name end as category_name,
+               coalesce(ps.name, s.name) as scope_name, m.frequency::text,
+               exists (select 1 from public.submission_expectations e
+                        where e.org_unit_id = ${input.orgUnitId} and e.metric_id = m.id) as expected
+        from public.esg_metrics m join public.esg_categories c on c.id = m.category_id
+        left join public.scopes s on s.id = m.scope_id
+        left join public.scopes ps on ps.id = s.parent_scope_id
+        where m.deleted_at is null
+        order by coalesce(ps.code, s.code) nulls last, 3, m.name`;
+      return rows.map((r) => ({
+        metricId: r.id,
+        metricName: r.name,
+        categoryName: r.category_name,
+        scopeName: r.scope_name,
+        frequency: r.frequency,
+        expected: r.expected,
+      }));
+    }),
+
+  setExpectation: orgManage
+    .input(z.object({ orgUnitId: z.uuid(), metricId: z.uuid(), expected: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const [unit] = await tx<{ id: string }[]>`
+          select id from public.org_units where id = ${input.orgUnitId} and deleted_at is null`;
+        if (!unit) badRequest("Node not found.");
+        const changed = input.expected
+          ? await tx`
+              insert into public.submission_expectations (org_unit_id, metric_id, created_by)
+              values (${input.orgUnitId}, ${input.metricId}, ${ctx.session.userId})
+              on conflict (org_unit_id, metric_id) do nothing returning id`
+          : await tx`
+              delete from public.submission_expectations
+              where org_unit_id = ${input.orgUnitId} and metric_id = ${input.metricId} returning id`;
+        if (changed.length === 0) return;
+        await writeAudit(tx, {
+          eventType: input.expected ? "expectation.added" : "expectation.removed",
+          entityType: "org_unit",
+          entityId: input.orgUnitId,
+          userId: ctx.session.userId,
+          newValue: { metric_id: input.metricId, expected: input.expected },
+        });
+      });
+      return null;
+    }),
+
+  bulkImportOptions: orgBulkImport.query(async ({ ctx }) => {
+    const rows = await db()<
+      {
+        id: string;
+        parent_id: string | null;
+        unit_type: string;
+        status: string;
+        name: string;
+        code: string | null;
+      }[]
+    >`
+      select id, parent_id, unit_type, status, name, code from public.org_units
+      where deleted_at is null`;
+    const nodes: OrgNode[] = rows.map((r) => ({
+      id: r.id,
+      parentId: r.parent_id,
+      unitType: r.unit_type as OrgNode["unitType"],
+      status: r.status as OrgNode["status"],
+    }));
+    const reachable = new Set(
+      ctx.session.isAdmin
+        ? nodes.filter((n) => !isFrozen(n.id, nodes)).map((n) => n.id)
+        : reachableNodeIds(
+            nodes,
+            ctx.session.assignments.map((a) => a.orgUnitId),
+          ),
+    );
+    return rows
+      .filter((r) => reachable.has(r.id))
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        code: r.code,
+        unitType: r.unit_type as OrgNode["unitType"],
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }),
+
+  bulkImport: orgBulkImport
+    .input(
+      z.object({
+        parentId: z.uuid(),
+        rows: z
+          .array(z.object({ unitType: levelCode, name: nameSchema, code: codeSchema }))
+          .min(1, "The sheet has no rows.")
+          .max(500, "Import at most 500 rows at a time."),
+      }),
+    )
+    .mutation(async ({ ctx, input }): Promise<{ results: OrgBulkImportRowResult[] }> => {
+      const results: OrgBulkImportRowResult[] = [];
+      for (const [index, row] of input.rows.entries()) {
+        // Sheet row 1 is the header, so the first data row is row 2.
+        results.push(await importOneOrgUnit(ctx.session, input.parentId, row, index + 2));
+      }
+      return { results };
+    }),
 });
+
+type OrgBulkImportRow = {
+  unitType: string;
+  name: string;
+  code: string | null;
+};
+
+export type OrgBulkImportRowResult =
+  | { row: number; ok: true; id: string; name: string }
+  | { row: number; ok: false; name: string; error: string };
+
+/** One row of a bulk org-unit import, isolated so one bad row can't take down the rest of the batch. */
+async function importOneOrgUnit(
+  session: ActiveSession,
+  parentId: string,
+  row: OrgBulkImportRow,
+  rowNum: number,
+): Promise<OrgBulkImportRowResult> {
+  try {
+    return await db().begin(async (tx) => {
+      const nodes = await loadTreeForUpdate(tx);
+      const parent = nodes.find((n) => n.id === parentId);
+      if (!parent)
+        return { row: rowNum, ok: false as const, name: row.name, error: "Parent node not found." };
+      if (isFrozen(parent.id, nodes)) {
+        return {
+          row: rowNum,
+          ok: false as const,
+          name: row.name,
+          error: "That node is inactive (or under an inactive node).",
+        };
+      }
+      if (
+        !session.isAdmin &&
+        !reachableNodeIds(
+          nodes,
+          session.assignments.map((a) => a.orgUnitId),
+        ).includes(parent.id)
+      ) {
+        return { row: rowNum, ok: false as const, name: row.name, error: "Outside your scope." };
+      }
+      if (!canBeChildOf(await loadLevels(tx), parent.unitType, row.unitType)) {
+        return {
+          row: rowNum,
+          ok: false as const,
+          name: row.name,
+          error: "That level can't be placed under the selected parent.",
+        };
+      }
+      const [created] = await tx<{ id: string }[]>`
+        insert into public.org_units (parent_id, unit_type, name, code)
+        values (${parent.id}, ${row.unitType}, ${row.name}, ${row.code})
+        returning id`;
+      await writeAudit(tx, {
+        eventType: "org_unit.bulk_imported",
+        entityType: "org_unit",
+        entityId: created.id,
+        userId: session.userId,
+        newValue: { parent_id: parent.id, unit_type: row.unitType, name: row.name, code: row.code },
+      });
+      return { row: rowNum, ok: true as const, id: created.id, name: row.name };
+    });
+  } catch (error) {
+    if (pgErrorCode(error) === "23505") {
+      return {
+        row: rowNum,
+        ok: false,
+        name: row.name,
+        error: "That code is already used by another node.",
+      };
+    }
+    throw error;
+  }
+}

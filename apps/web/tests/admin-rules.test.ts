@@ -6,10 +6,25 @@ import {
   checkMove,
   descendantIds,
   isFrozen,
+  reachableNodeIds,
+  type OrgLevel,
   type OrgNode,
 } from "../lib/org/rules.ts";
+import { PASSWORD_RULES } from "../lib/auth/password-policy.ts";
 import { checkPeriodDates, checkTransition } from "../lib/periods/rules.ts";
-import { checkAdminRemoval, checkRoleAtNode } from "../lib/users/rules.ts";
+import { checkAdminRemoval, checkRoleAtNode, generateDefaultPassword } from "../lib/users/rules.ts";
+
+// The seeded levels (migration 0037) plus one an Admin added between Region and Project.
+const LEVELS: OrgLevel[] = [
+  { code: "group", label: "Group", order: 10 },
+  { code: "subsidiary", label: "Subsidiary / Entity", order: 20 },
+  { code: "business_unit", label: "Business Unit / Division", order: 30 },
+  { code: "region", label: "Region", order: 40 },
+  { code: "package", label: "Package", order: 45 },
+  { code: "project", label: "Project", order: 50 },
+  { code: "site", label: "Site", order: 60 },
+  { code: "department", label: "Department", order: 70 },
+];
 
 const tree: OrgNode[] = [
   { id: "meil", parentId: null, unitType: "group", status: "active" },
@@ -22,13 +37,32 @@ const tree: OrgNode[] = [
 ];
 
 test("org ordering: skip levels, never invert, no second group", () => {
-  assert.equal(canBeChildOf("subsidiary", "project"), true, "skipping BU and Region is allowed");
-  assert.equal(canBeChildOf("project", "department"), true);
-  assert.equal(canBeChildOf("project", "subsidiary"), false, "inversion rejected");
-  assert.equal(canBeChildOf("project", "project"), false, "same level rejected");
-  assert.equal(canBeChildOf("group", "group"), false, "no second group");
-  assert.deepEqual(allowedChildTypes("site"), ["department"]);
-  assert.deepEqual(allowedChildTypes("department"), []);
+  assert.equal(
+    canBeChildOf(LEVELS, "subsidiary", "project"),
+    true,
+    "skipping BU and Region is allowed",
+  );
+  assert.equal(canBeChildOf(LEVELS, "project", "department"), true);
+  assert.equal(canBeChildOf(LEVELS, "project", "subsidiary"), false, "inversion rejected");
+  assert.equal(canBeChildOf(LEVELS, "project", "project"), false, "same level rejected");
+  assert.equal(canBeChildOf(LEVELS, "group", "group"), false, "no second group");
+  assert.deepEqual(allowedChildTypes(LEVELS, "site"), ["department"]);
+  assert.deepEqual(allowedChildTypes(LEVELS, "department"), []);
+  // Levels are configuration: one added later takes its place by position, with no code change.
+  assert.equal(canBeChildOf(LEVELS, "region", "package"), true);
+  assert.equal(canBeChildOf(LEVELS, "package", "project"), true);
+  assert.equal(canBeChildOf(LEVELS, "project", "package"), false);
+  assert.equal(
+    canBeChildOf(LEVELS, "project", "no_such_level"),
+    false,
+    "an unknown level fits nowhere",
+  );
+  assert.deepEqual(allowedChildTypes(LEVELS, "region"), [
+    "package",
+    "project",
+    "site",
+    "department",
+  ]);
 });
 
 test("org descendants and freezing", () => {
@@ -39,16 +73,20 @@ test("org descendants and freezing", () => {
 });
 
 test("org moves: cycles, root, ordering", () => {
-  assert.deepEqual(checkMove("prj-x", "sub-b", tree), { ok: true });
-  assert.equal(checkMove("meil", "sub-a", tree).ok, false, "root cannot move");
-  assert.equal(checkMove("sub-a", "dept-1", tree).ok, false, "cannot move under own descendant");
-  assert.equal(checkMove("prj-x", "prj-x", tree).ok, false, "cannot be own parent");
+  assert.deepEqual(checkMove("prj-x", "sub-b", tree, LEVELS), { ok: true });
+  assert.equal(checkMove("meil", "sub-a", tree, LEVELS).ok, false, "root cannot move");
   assert.equal(
-    checkMove("sub-a", "prj-y", tree).ok,
+    checkMove("sub-a", "dept-1", tree, LEVELS).ok,
+    false,
+    "cannot move under own descendant",
+  );
+  assert.equal(checkMove("prj-x", "prj-x", tree, LEVELS).ok, false, "cannot be own parent");
+  assert.equal(
+    checkMove("sub-a", "prj-y", tree, LEVELS).ok,
     false,
     "subsidiary under project is an inversion",
   );
-  assert.equal(checkMove("missing", "meil", tree).ok, false);
+  assert.equal(checkMove("missing", "meil", tree, LEVELS).ok, false);
 });
 
 test("period transitions", () => {
@@ -112,6 +150,50 @@ test("period dates and submission window", () => {
       submissionClosesOn: "2026-11-01",
     }).ok,
     false,
+  );
+});
+
+test("bulk import: reachable nodes and default passwords", () => {
+  assert.deepEqual(
+    new Set(reachableNodeIds(tree, ["sub-a"])),
+    new Set(["sub-a", "prj-x", "site-1", "dept-1"]),
+    "a node's own subtree, itself included",
+  );
+  assert.deepEqual(
+    reachableNodeIds(tree, ["sub-b"]),
+    [],
+    "an inactive assignment node contributes nothing",
+  );
+  assert.deepEqual(reachableNodeIds(tree, ["missing"]), []);
+  assert.deepEqual(
+    new Set(reachableNodeIds(tree, ["sub-a", "prj-x"])),
+    new Set(["sub-a", "prj-x", "site-1", "dept-1"]),
+    "overlapping assignments de-duplicate",
+  );
+
+  assert.equal(
+    generateDefaultPassword("Ravi Kumar", "EMP1042", () => 0),
+    "Ravi@EMP1042",
+    "already 12 characters — no padding needed",
+  );
+  assert.equal(
+    generateDefaultPassword("ravi", "1", () => 0),
+    "Ravi@1000000",
+  );
+  assert.equal(
+    generateDefaultPassword("  ", "42", () => 0.9),
+    "User@4299999",
+    "an unusable name falls back to a fixed token",
+  );
+  assert.ok(generateDefaultPassword("A", "1").length >= 12, "always meets the 12-char minimum");
+  assert.equal(
+    generateDefaultPassword("A", "EMP", () => 0),
+    "A@EMPx700000",
+    "fills in a missing lowercase letter and digit when the name/id alone don't supply one",
+  );
+  assert.ok(
+    PASSWORD_RULES.every((rule) => rule.test(generateDefaultPassword("A", "EMP"))),
+    "the generated password always satisfies every policy rule, not just length",
   );
 });
 

@@ -4,7 +4,7 @@
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–7 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
+> **Status:** Phases 1–20 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
 > database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
 > users and assignments, roles and permissions, reporting periods, profile), document upload, the OCR
 > worker (Phase 2B) and its integration (Phase 6), OCR verification (Phase 7: document viewer beside the
@@ -15,8 +15,19 @@ original evidence.
 > traces, Conversion Factor Management), Scope 1 (Phase 10: diesel, petrol, CNG and LPG as configuration,
 > the Scope 1 dashboard with drill-down to the original invoice), Scope 2 (Phase 11: grid and renewable
 > electricity on the same framework) and the Scope 3 foundation (Phase 12: categories as configuration,
-> waste and business travel live). Calculation and reporting are not implemented yet; Admin
-> dashboard KPIs remain labeled development placeholders. See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
+> waste and business travel live) and the role-specific modules (Phase 13: HR headcount by gender and
+> training coverage, EHS water consumption, Procurement MSME share, Finance/CSR expenditure and fines — with
+> `percentage` and `subtract` formulas derived from verified counts) and BRSR mapping (Phase 14: indicators
+> from SEBI's BRSR format, `/admin/brsr-mapping` with a readiness tree down to the original document) and
+> consolidation (Phase 15: roll-up views over the org tree, `consolidation.query` by period or financial
+> year) and the Admin Control Tower (Phase 16: real KPIs and issue panel, Submission Monitoring, ESG Data
+> Explorer, configurable expected submissions) and reporting (Phase 17: BRSR reports by period or financial
+> year rendered to PDF, with every value drilling down to its original document) and audit and security
+> hardening (Phase 18: the Audit Trail page, an append-only audit log, sign-in and upload rate limits, CSRF
+> protection on tRPC — see [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) and UI polish (Phase 19: the per-user
+> theme switcher on Profile, WCAG AA contrast in all three themes, the tablet icon-rail sidebar, loading
+> skeletons and error/not-found states) and testing (Phase 20: a committed end-to-end suite, database tests in
+> CI and [`QA_CHECKLIST.md`](QA_CHECKLIST.md)). See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
 
 ## Repository layout
 
@@ -117,11 +128,23 @@ Notes:
   every version records who entered it and the source it came from.
 - **Evidence storage:** migration `0012` creates the private `evidence` bucket (50 MB, PDF/JPG/PNG). Set
   `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence` in `apps/web/.env.local`. Files are never publicly readable;
-  uploads use short-lived signed URLs issued by the server.
+  uploads use single-use signed upload URLs issued by the server (Supabase's fixed two-hour lifetime).
+- **The audit log is append-only** (migration `0027`): triggers refuse UPDATE, DELETE and TRUNCATE for
+  every role, including the server's. Admins read it at `/admin/audit-trail`.
+- **Report PDFs** (Phase 17): migration `0025` creates the private `reports` bucket. Set
+  `SUPABASE_STORAGE_BUCKET_REPORTS=reports`, and locally `CHROMIUM_EXECUTABLE_PATH` to an installed
+  Chromium-family browser (e.g. `C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe`); in
+  production leave it unset and `@sparticuz/chromium` supplies the browser. Generation runs after the
+  request (Next.js `after()`); a run stuck for 10 minutes is marked failed.
 
 ## Accounts and sign-in
 
-- **No self sign-up.** Accounts are provisioned by an Admin only. Passwords need at least 12 characters.
+- **No self sign-up.** Accounts are provisioned by an Admin only. Passwords need at least 12 characters,
+  an uppercase and a lowercase letter, a number and a special character (`lib/auth/password-policy.ts`).
+- **Rate limits** (Phase 18, `org_settings.rate_limits`): 5 failed sign-ins per account and 50 per client
+  address per 15 minutes; 60 uploads per user per 10 minutes. Locally, clear the counters with
+  `delete from public.rate_limit_events;` if a test run locks an account. On the hosted project, raise
+  Supabase Auth's per-IP sign-in limit (it only sees the app server's address — `SECURITY_REVIEW.md` F8).
 - **First Admin / local development users** are created with the provisioning script, which sends an
   invite email (the user sets their own password — no password is ever passed on the command line):
 
@@ -242,15 +265,23 @@ Notes:
 - Logs are JSON lines on stdout; errors go to Sentry when `SENTRY_DSN` is set.
 - PaddlePaddle 3.3.1's oneDNN (MKLDNN) path fails on these models, so it is disabled; the detector input is
   capped at 1600 px to bound memory and CPU time (about 10 s per A4 page on a laptop CPU).
+- **A PDF with several bills** (`documents.is_bundle`, migration `0032`): the worker reads every page (up to 20)
+  and stores a *proposed* split — which pages are one bill, what each is, the activity when it can tell — and
+  notifies the uploader; it creates no record. The uploader confirms or edits it on `/app/upload/split/…`, and each
+  kept bill is then cut out as its own PDF and recorded like a single upload. A worker newer than the database
+  fails every job, so push the migration before replacing a hosted worker container.
+  `scripts/make_sample_bundle.py --kinds electricity,diesel,water --out bundle.pdf` writes a test bundle.
 - Test documents are generated synthetically at test time (`tests/samples.py`) — no real MEIL documents
   until Phase 18. For a manual upload, `.venv/Scripts/python scripts/make_sample_invoice.py --out x.pdf`
   writes a diesel invoice with a unique invoice number (`--invoice` to choose one, `--kind electricity`,
-  `--kind waste` or `--kind travel` for the other document types).
+  `--kind waste` or `--kind travel` for the other document types; `--kind workforce`, `training`, `water`,
+  `procurement`, `csr` or `penalty` for the Phase 13 modules — the workforce statement's "Men" count is
+  deliberately smudged so OCR reads it below the confidence threshold).
 - When a job finishes, the worker notifies the uploader in the same transaction (`verification_needed`,
   `low_confidence` when a found field is below `org_settings.ocr_confidence_threshold` — seeded at 80 — or a
   required field is missing, or `ocr_failed` with the reason).
 
-### Deployment (Docker / Render)
+### Deployment (Docker)
 
 `apps/ocr-worker/Dockerfile` builds the worker with the model weights baked in (downloaded at build time,
 never at runtime). It holds no secrets; configure it through environment variables only.
@@ -264,9 +295,9 @@ docker run --rm --env-file apps/ocr-worker/.env.docker traceesg-ocr-worker pytho
 For a container talking to local Supabase use `http://host.docker.internal:55321` and
 `postgresql://postgres:postgres@host.docker.internal:55322/postgres`.
 
-`render.yaml` (repository root) is a Render Blueprint: an always-on **background worker** (Singapore,
-`standard` plan — 2 GB RAM; free tiers sleep). Applying it in the Render dashboard asks for each secret —
-enter them there, never in the repository:
+The worker's host is not chosen yet. It needs an always-on **background process** (no web port, about 2 GB RAM,
+no sleeping tier). `render.yaml` (repository root) is kept only as a reference for those settings — Render is
+not used. Whatever the host, set these there, never in the repository:
 
 | Variable | Value |
 |---|---|
@@ -277,12 +308,36 @@ enter them there, never in the repository:
 
 Push the database migrations to the same Supabase project first (`supabase link` → `supabase db push`).
 
+## Testing
+
+| Suite | Command | Needs |
+|---|---|---|
+| Web unit tests | `pnpm test` | nothing |
+| Database (pgTAP: schema, RLS, grants, triggers) | `pnpm db:test` | local Supabase |
+| OCR extraction rules | `python -m unittest discover -s tests/unit -t .` (in `apps/ocr-worker`) | nothing |
+| OCR integration harness | `python -m unittest discover -s tests/integration -t .` (in `apps/ocr-worker`) | local Supabase, models |
+| End to end | `pnpm --filter web test:e2e` (or name scripts: `… test:e2e authorization`) | see below |
+
+**End-to-end suite** (`apps/web/tests/e2e/`): the plan's critical Scenarios A–D (diesel, electricity, HR with a
+low-confidence field, the consolidated report down to each original document), Scenario E (one PDF of several
+bills, split and recorded separately), authorization boundaries
+through the app and straight at the database API, and the edge cases — real sessions, real procedures, real
+uploads and the real OCR worker, synthetic documents only. It needs local Supabase, the app running
+(`pnpm --filter web build && pnpm --filter web start`), the worker image
+(`docker build -t traceesg-ocr-worker apps/ocr-worker`, or `E2E_WORKER=local` to use the venv) and the worker's
+venv for generating documents. `E2E_ENV_FILE=<file>` points it (and the worker it starts) at a local-only env file when
+`.env.local` names a hosted project. It provisions its own `e2e.*@traceesg.test` accounts with fresh random
+passwords each run and enters clearly labelled synthetic conversion factors only where none exist; it refuses
+to run unless `DATABASE_URL` is local. It runs on a freshly reset database or an existing one.
+
+Manual checks and their results are recorded in [`QA_CHECKLIST.md`](QA_CHECKLIST.md).
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and push to `main`:
-lint, typecheck, unit tests and format check for the web app, and Ruff plus the extraction unit tests for
-the OCR worker. Database tests
-(`pnpm db:test`) run locally only for now. There is no deploy step yet.
+lint, typecheck, unit tests and format check for the web app; the database tests against a fresh local
+Supabase (every migration and the seed applied, then `pnpm db:test`); and Ruff plus the extraction unit tests
+for the OCR worker. The end-to-end suite and the OCR harness run locally. There is no deploy step yet.
 
 ## Secrets
 

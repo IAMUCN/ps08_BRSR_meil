@@ -17,8 +17,12 @@ select tables_are('public', array[
   'conversion_factors', 'conversion_factor_versions', 'documents', 'ocr_jobs', 'ocr_extractions',
   'ocr_fields', 'esg_records', 'esg_record_documents', 'verifications', 'validation_results',
   'approvals', 'calculations', 'calculation_inputs', 'brsr_sections', 'brsr_indicators',
-  'brsr_metric_mappings', 'audit_logs', 'report_runs', 'notifications', 'org_settings'
-], 'public schema has exactly the 35 tables from 05_BACKEND_SCHEMA.md');
+  'brsr_disclosures',
+  'brsr_metric_mappings', 'audit_logs', 'report_runs', 'notifications', 'org_settings',
+  -- Added by documented deviations (supabase/SCHEMA_DEVIATIONS.md D16, D19, D22, D24, D29), not by drift.
+  'rate_limit_events', 'submission_expectations', 'password_reset_otps', 'document_bundle_parts',
+  'org_levels'
+], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(
   (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -54,9 +58,9 @@ select ok(not has_column_privilege('authenticated', 'public.user_display_names',
 ------------------------------------------------------------------------------------------------
 
 select is((select count(*)::int from public.roles where is_system_role), 7, '7 system roles');
-select is((select count(*)::int from public.permissions), 14, '14 permissions');
+select is((select count(*)::int from public.permissions), 16, '16 permissions');
 select is((select count(*)::int from public.role_permissions rp join public.roles r on r.id = rp.role_id
-           where r.code = 'admin'), 14, 'admin holds every permission');
+           where r.code = 'admin'), 16, 'admin holds every permission');
 select set_eq(
   $$select p.code from public.role_permissions rp join public.roles r on r.id = rp.role_id
     join public.permissions p on p.id = rp.permission_id where r.code = 'corporate_esg'$$,

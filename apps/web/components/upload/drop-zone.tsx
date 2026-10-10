@@ -17,6 +17,7 @@ export function DropZone({
   hint,
   error,
   progress,
+  stage,
   onCancel,
   disabled,
 }: {
@@ -27,7 +28,10 @@ export function DropZone({
   error: string | null;
   /** 0–100 while the file is transferring; null otherwise. */
   progress: number | null;
-  onCancel: () => void;
+  /** What is happening when the file is not transferring (checking it, saving); replaces the percentage. */
+  stage?: string;
+  /** Absent when the upload can no longer be cancelled. */
+  onCancel?: () => void;
   disabled: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -59,7 +63,16 @@ export function DropZone({
         )}
       >
         {uploading ? (
-          <div className="w-full max-w-sm space-y-3" aria-live="polite">
+          <div className="w-full max-w-sm space-y-4" aria-live="polite">
+            <div className="relative mx-auto flex size-16 items-center justify-center">
+              <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
+              <span className="absolute inset-1 rounded-full bg-primary/10" />
+              <Upload
+                className="relative size-7 animate-bounce text-primary-text"
+                strokeWidth={2}
+                aria-hidden
+              />
+            </div>
             <p className="flex items-center justify-center gap-2 text-sm font-medium">
               <FileText className="size-4 shrink-0" aria-hidden />
               <span className="truncate">{file?.name}</span>
@@ -70,19 +83,33 @@ export function DropZone({
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={progress}
-              className="h-2 w-full overflow-hidden rounded-sm bg-primary/15"
+              className="h-3 w-full overflow-hidden rounded-full bg-primary/15"
             >
               <div
-                className="h-full bg-primary transition-[width]"
-                style={{ width: `${progress}%` }}
+                className={cn(
+                  "upload-stripes h-full rounded-full bg-primary transition-[width] duration-300",
+                  stage && "animate-pulse",
+                )}
+                style={{ width: `${stage ? 100 : progress}%` }}
               />
             </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Uploading… {progress}%</span>
-              <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-                <X aria-hidden />
-                Cancel
-              </Button>
+            <div className="flex min-h-8 items-center justify-between text-xs text-muted-foreground">
+              <span>
+                {stage ?? (
+                  <>
+                    Uploading…{" "}
+                    <span className="text-base font-semibold text-foreground tabular-nums">
+                      {progress}%
+                    </span>
+                  </>
+                )}
+              </span>
+              {onCancel ? (
+                <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+                  <X aria-hidden />
+                  Cancel
+                </Button>
+              ) : null}
             </div>
           </div>
         ) : (

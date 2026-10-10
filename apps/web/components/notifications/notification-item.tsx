@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileSearch,
+  FileText,
   FileX,
   RotateCcw,
   ShieldAlert,
@@ -19,14 +20,16 @@ import type { NotificationItem } from "@/lib/trpc/routers/notifications";
 
 // UI brief §14: an icon per type; icons never carry meaning alone (the title says it too).
 const ICONS: Record<string, { icon: LucideIcon; className: string }> = {
-  verification_needed: { icon: FileSearch, className: "text-primary" },
+  verification_needed: { icon: FileSearch, className: "text-primary-text" },
   low_confidence: { icon: AlertTriangle, className: "text-status-warning" },
   ocr_failed: { icon: FileX, className: "text-status-error" },
   returned: { icon: RotateCcw, className: "text-status-error" },
   validation_review: { icon: ShieldAlert, className: "text-status-warning" },
-  approval_needed: { icon: ClipboardCheck, className: "text-primary" },
+  approval_needed: { icon: ClipboardCheck, className: "text-primary-text" },
   approved: { icon: CheckCircle2, className: "text-status-success" },
   calculation_blocked: { icon: Calculator, className: "text-status-warning" },
+  report_ready: { icon: FileText, className: "text-status-success" },
+  report_failed: { icon: FileX, className: "text-status-error" },
 };
 
 const relative = new Intl.RelativeTimeFormat("en-IN", { numeric: "auto" });
@@ -87,7 +90,8 @@ export function NotificationRow({
         <span className="block text-sm leading-5 break-words text-muted-foreground">
           {item.message}
         </span>
-        <span className="block text-xs leading-4 text-muted-foreground">
+        {/* "5 seconds ago" is a different string by the time the browser hydrates: expected, not an error. */}
+        <span className="block text-xs leading-4 text-muted-foreground" suppressHydrationWarning>
           {relativeTime(item.createdAt)}
         </span>
       </span>

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Lora } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { CustomCursor } from "@/components/ui/custom-cursor";
-import { AgentationToolbar } from "@/components/landing/agentation-toolbar";
+import { DEFAULT_THEME, THEME_BOOT_SCRIPT } from "@/lib/theme";
+import { Agentation } from "agentation";
 import "./globals.css";
 
 const inter = Inter({
@@ -28,17 +29,23 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // Theme 1 is the default (UI brief §4); per-user switching is wired in Phase 19.
+    // Theme 1 is the default (UI brief §4); the boot script applies the user's own before first paint, so
+    // the attribute legitimately differs from the server's on hydration.
     <html
       lang="en"
-      data-theme="theme-1"
+      data-theme={DEFAULT_THEME}
+      suppressHydrationWarning
       className={`${inter.variable} ${jetbrainsMono.variable} ${lora.variable} h-full antialiased custom-cursor-enabled`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
+        <CustomCursor />
         <CustomCursor />
         {children}
         <Toaster />
-        <AgentationToolbar />
+        {process.env.NODE_ENV === "development" && <Agentation endpoint="http://localhost:4747" />}
       </body>
     </html>
   );

@@ -205,6 +205,267 @@ field keys named in the plan, so the OCR worker reads *which* fields to extract 
 migration runs before any user exists, so a not-null `updated_by` made seeding impossible. Decision:
 `.grill/phase-6-ocr-integration-decisions.md`.
 
+## D14 — `percentage` formula type (migration `0020`)
+
+**Schema says (§6.7):** `formula_type enum(direct_multiply, subtract, custom)`, `custom` reserved.
+
+**Implemented:** a fourth value, `percentage` — part ÷ whole × 100, with
+`formula_definition = {"part": "<field_key>", "whole": "<field_key>"}`. `subtract` is implemented as
+specified (`{"inputs": ["withdrawal", "discharge"]}`); `custom` is still never evaluated.
+
+**Why:** BRSR HR and procurement indicators are shares (% women, % trained, MSME share of spend) that
+HR and Procurement must not calculate themselves (Master Approach §18). A named type keeps each formula
+reviewable instead of turning `custom` into an expression language. Decision:
+`.grill/phase-13-role-modules-decisions.md`.
+
+## D15 — `brsr_metric_mappings.is_applicable` (migration `0022`)
+
+**Schema says (§11.3):** `id`, `esg_metric_id`, `brsr_indicator_id`, `mapping_notes`.
+
+**Implemented:** plus `is_applicable boolean not null default true`.
+
+**Why:** `03_APP_FLOW.md` §2.2 BRSR Mapping lists "mark a mapping's applicability" as a primary action, and
+the schema has nowhere to store it. Switching a mapping off keeps its history and notes; the readiness tree
+ignores it. Decision: `.grill/phase-14-brsr-mapping-decisions.md`.
+
+## D16 — `submission_expectations` (migration `0024`)
+
+**Schema says:** nothing — no table records which submissions are expected.
+
+**Implemented:** `submission_expectations (id, org_unit_id, metric_id, created_by, created_at)`, unique per
+org unit and metric; RLS read like the org unit, server-only writes. `org_settings.brsr_readiness_weights`
+holds the BRSR Readiness % weights.
+
+**Why:** UI brief §13.1's Submission Completion % ("of expected submissions this period"), the Scope 1/2/3
+Completion % cards and the "projects with missing submissions" issue all need a denominator, and deriving
+it from history would never report a project that has not submitted at all. Decision:
+`.grill/phase-16-control-tower-decisions.md`.
+
+## D17 — `report_runs` covers a period or a financial year (migration `0025`)
+
+**Schema says (§13.1):** `reporting_period_id uuid not null`.
+
+**Implemented:** `reporting_period_id` is nullable and `financial_year integer` (the April–March year by its
+starting calendar year) sits beside it; a check constraint requires exactly one. A private `reports`
+storage bucket holds the rendered PDFs.
+
+**Why:** BRSR is an annual disclosure, and the owner chose reports by period or financial year; a year is
+many monthly periods, which one foreign key can't express. Decision:
+`.grill/phase-17-reporting-decisions.md`.
+
+## D18 — `brsr_metric_mappings.reported_value` (migration `0026`)
+
+**Schema says (§11.3):** a mapping links a metric to an indicator, nothing about which of the metric's values
+the indicator reports.
+
+**Implemented:** `reported_value text not null default 'result'`, `'result'` or `'activity'`: the calculated
+result (emissions, water consumed, a percentage) or the verified quantity. The waste → P6-E8 mapping reports
+the quantity; its emissions go to P6-L4.
+
+**Why:** found while checking the first generated report (Phase 17): P6-E8 asks for waste in metric tonnes,
+but reporting every metric's calculated result printed the waste's emissions there. Decision:
+`.grill/phase-17-reporting-decisions.md`.
+
+## D19 — `rate_limit_events` and an append-only trigger on `audit_logs` (migration `0027`)
+
+**Schema says:** nothing about rate limiting; `audit_logs` is "append-only" (§12.1) without saying how.
+
+**Implemented:** `rate_limit_events (id, bucket, created_at)` — one row per counted attempt in a hashed
+bucket (failed sign-ins per account and per client address, upload preparations per user); server-only.
+Triggers on `audit_logs` refuse UPDATE, DELETE and TRUNCATE for every role. `audit_logs.created_at` defaults
+to `clock_timestamp()` instead of `now()`, so the entries one transaction writes keep the order they happened.
+
+**Why:** the security review found sign-in throttling effectively global (Supabase sees the app server's one
+address) and the audit log protected only by grants. Decision: `.grill/phase-18-audit-security-decisions.md`;
+review: `SECURITY_REVIEW.md`.
+
+## D20 — `users.theme` (migration `0028`)
+
+**Schema says:** nothing; the UI brief (§4) and App Flow (Profile) say the chosen theme is "persisted
+per-user … synced to the profile record".
+
+**Implemented:** `users.theme text not null default 'theme-1'`, checked to `theme-1`/`theme-2`/`theme-3`.
+Readable by the user's own session like the rest of their row; changed only by the server
+(`profile.setTheme`, audited `user.theme_changed`).
+
+**Why:** so the choice follows the user to another device. Decision:
+`.grill/phase-19-ui-polish-decisions.md`.
+
+## D21 — `users.employee_id` and two bulk-import permissions (migration `0029`)
+
+**Schema says:** nothing — bulk import isn't in any implementation-plan phase; the owner requested it
+directly mid-session.
+
+**Implemented:** `users.employee_id text`, nullable, unique when present (partial unique index) — only the
+bulk-import path writes it, the single Admin "Invite user" form is untouched. Two new rows in
+`permissions`: `user.bulk_import` and `org.bulk_import`, following the existing permission-code gate
+pattern exactly (`permissionProcedure`), not a hard-coded role check. Admin gets both (migration `0009`'s
+"every permission" pattern, repeated for just these two since that cross join already ran); `hr` gets
+`user.bulk_import` by default; `org.bulk_import` starts unassigned, reassignable by an Admin from the
+existing Roles & Permissions matrix.
+
+**Why:** decision `.grill/bulk-import-decisions.md`.
+
+## D22 — `password_reset_otps` (migration `0030`)
+
+**Schema says:** nothing; Phase 3's auth decisions assumed Supabase Auth's own reset-link email, which only
+reaches the Supabase team on the hosted project — the same reason bulk-import passwords need Brevo instead
+of an invite link.
+
+**Implemented:** `password_reset_otps (id, user_id, code_hash, expires_at, consumed_at, attempts,
+created_at)` — server-only (RLS on, no policies, no browser grants), same shape as `rate_limit_events`
+(D19). A 6-digit code is hashed before storage, expires in 10 minutes, and is capped at 5 wrong guesses.
+
+**Why:** decision `.grill/bulk-import-decisions.md`. Replaces `resetPasswordForEmail`'s reset-link email for
+`/forgot-password` only; `/reset-password` (invite / first-password-set) is unaffected.
+
+## D23 — `users.theme` default changed to `theme-2` (migration `0031`)
+
+**Schema says:** nothing (see D20).
+
+**Implemented:** the column's default moves from `theme-1` to `theme-2`; the constraint and the column
+itself are unchanged. Existing rows are left as they are — this only changes what a newly provisioned
+account gets before anyone chooses for themselves.
+
+**Why:** the owner asked for the "blue, red, white" theme (`theme-2`, labelled Corporate) to be the default,
+not the peach/coral one (`theme-1`). Decision: `.grill/theme-toggle-decisions.md`.
+
+## D24 — Multi-bill PDFs: `documents.is_bundle`, `documents.bundle_document_id`, `document_bundle_parts` (migration `0032`)
+
+**Schema says:** nothing — one document is one record's evidence; a PDF holding several bills isn't covered.
+Requested directly by the owner.
+
+**Implemented:** `documents.is_bundle` (default false) marks an uploaded multi-bill PDF, which is a document of
+its own with no record; `documents.bundle_document_id` points each bill cut from it back at it.
+`document_bundle_parts (id, bundle_document_id, part_number, page_from, page_to, proposed_document_type_id,
+proposed_metric_id, status, created_document_id)` holds the OCR's proposed split and, after the uploader confirms,
+the confirmed one (`proposed` / `created` / `skipped`). Server-only like `rate_limit_events` (RLS on, no policies,
+no browser grants). Each kept bill is an ordinary document, record and OCR job; nothing downstream changed.
+
+**Why:** the owner wants one upload to fill several bills separately; the person still confirms the split.
+Decision: `.grill/multi-bill-pdf-decisions.md`.
+
+## D25 — BRSR indicator codes renumbered to SEBI's July-2023 format (migration `0033`)
+
+**Schema says:** nothing about which edition of the BRSR format the indicator codes follow. Migration `0022`
+seeded them from the May-2021 format.
+
+**Implemented:** five rows of `brsr_indicators` are renumbered in place — `A-18`→`A-20`, `A-22`→`A-24`,
+`P6-E6`→`P6-E7`, `P6-E8`→`P6-E9`, `P6-L4`→`P6-L2` — with their descriptions. Ids, mappings and D18's
+`reported_value` are unchanged, so snapshots of earlier reports keep resolving. `0022` is not edited.
+
+**Why:** the final audit found the codes followed a superseded format (AUDIT_FIXES.md P0-3). Decision:
+`.grill/audit-p0-decisions.md`.
+
+**Differs from the SEBI PDF in the repository:** `ps_documents/provided_docs` holds SEBI's Annexure I in its
+May-2021 numbering (greenhouse gases Essential 6, waste Essential 8, Scope 3 Leadership 4), and that PDF is the
+one shared with the hackathon teams. The app follows the current numbering (7, 9, Leadership 2), as companies file
+today (L&T's FY 2025-26 report, same folder), and the report footer says "as updated in July 2023". The questions
+and tables are the same; only the numbers moved.
+
+## D26 — `org_settings` key `brsr_report_inputs`; report snapshot version 2 (no migration)
+
+**Schema says:** §13.1 `report_runs.snapshot_data` holds the reported values; nothing holds turnover, the PPP
+rate or an assurance statement.
+
+**Implemented:** an `org_settings` row with key `brsr_report_inputs`, value `{ "<FY start year>": { turnoverCr,
+pppRate, physicalOutput, physicalOutputUnit, assurance, methodologyNote } }`, written by the Admin procedure
+`reports.saveInputs` (audited as `report_inputs.updated`); the row does not exist until an Admin saves. The
+snapshot gains `previous` (the previous financial year's figures, without records), `inputs` (both years),
+`factors` (each conversion factor version the reported calculations used) and `orgUnitCount`; `version` is 2.
+Version-1 snapshots are still readable — the report page uses only fields both versions have.
+
+**Why:** SEBI's GHG, waste and Scope 3 tables need intensity per rupee of turnover, a PPP-adjusted intensity, a
+previous-year column and an assurance note (AUDIT_FIXES.md P0-2). Decision: `.grill/audit-p0-decisions.md`.
+
+## D27 — Hierarchy rules enforced by a trigger on `org_units` (migration `0034`)
+
+**Schema says:** §4.1 gives `org_units` a self-referencing `parent_id` and the check that only a group may be a
+root; the level ordering is described but not enforced.
+
+**Implemented:** trigger `trg_enforce_org_hierarchy` (before insert, or update of `parent_id` / `unit_type`): a
+child's `unit_type` must come strictly after its parent's in the enum's declared order, a group is never a child,
+and a node's level cannot be changed to one at or after a child's. Violations raise `23514`. This makes cycles
+impossible as well. Existing rows are not re-checked. The app's own checks (`lib/org/rules.ts`) are unchanged and
+still give the friendly messages.
+
+**Why:** the final audit inserted a project under a project, a subsidiary under a project and a cycle directly
+(AUDIT_FIXES.md P1). Decision: `.grill/audit-p1-decisions.md`.
+
+## D28 — Calculations append-only; `audit_logs` gains `ip_address`, `user_agent`, `session_id` (migration `0036`)
+
+**Schema says:** §10.3 calculations are append-only by convention ("never updated, a new row is written"); §12.1
+`audit_logs` has no column for where an action came from.
+
+**Implemented:** triggers on `calculations` and `calculation_inputs` refuse DELETE, TRUNCATE and every UPDATE
+except retiring a calculation (`is_current`), for every role. `audit_logs` gains three nullable text columns,
+written by `writeAudit` from the request when a person acted.
+
+**Why:** the final audit could delete a calculation directly and found approved records whose calculation rows
+were gone; and it asked for the address, session and browser on audit entries (AUDIT_FIXES.md P2). Decision:
+`.grill/audit-p2-decisions.md`.
+
+## D29 — `org_levels` table; `org_units.unit_type` is a level code, not an enum (migration `0037`)
+
+**Schema says:** §4.1 `org_units.unit_type` is the enum `org_unit_type` with seven fixed values.
+
+**Implemented:** table `org_levels (id, code, label, sort_order)`, seeded with the seven levels under the same
+codes; `org_units.unit_type` is `text` with a foreign key to `org_levels.code`; the enum type is dropped. A
+trigger on `org_levels` keeps a level's code and position fixed, keeps `group` as the root level and refuses a
+level before it. The hierarchy trigger of D27 compares positions from the table. Server-only: RLS on, no
+policies, no grants to browser roles.
+
+**Why:** PRD §11 says adding a hierarchy level is configuration; the final audit found it needed a migration
+and a code change (AUDIT_FIXES.md P2). Decision: `.grill/audit-p2-decisions.md`.
+
+## D30 — `conversion_factor_versions.gases`, `esg_metrics.emission_source`, evidence guard (migration `0038`)
+
+**Schema says:** §10.2 a factor version has a value, units, source and geography; §6.2 a metric has a scope; no
+rule in the database ties a verified record to a document.
+
+**Implemented:** `conversion_factor_versions.gases` (nullable text, up to 60 characters): the gases the value
+covers, as its source states. `esg_metrics.emission_source` (nullable; `combustion`, `process` or `fugitive`),
+set for every Scope 1 activity. A trigger on `esg_records` refuses the change to `user_verified` when the record
+has no row in `esg_record_documents`. The same migration adds activities and the `P6-E6` indicator as
+configuration (no schema change).
+
+**Why:** SEBI's greenhouse gas table asks for a break-up by gas "if available", and the KT session asks for
+stationary, mobile, process and fugitive emissions to be told apart; the second audit found six local records
+with no document. `gases` is not frozen by the factor-version guard (D-§19.3): it is a disclosure, not part of
+a calculation. Decision: `.grill/audit-2-decisions.md`.
+
+## D31 — `brsr_indicators.sdg_goals` (migration `0039`)
+
+**Schema says:** §11.2 an indicator has a code, question text and type.
+
+**Implemented:** `sdg_goals smallint[]`, not null, default empty, each value 1 to 17: the UN Sustainable
+Development Goals the indicator is tagged with. Seeded for the ten indicators.
+
+**Why:** the owner asked for SDG tags on the report (2026-10-09). The mapping is indicative, not SEBI's.
+Decision: `.grill/audit-2-decisions.md`.
+
+## D32 — The full BRSR format: question kinds and typed answers (migration `0040`)
+
+**Schema says:** §11.2 an indicator has a code, question text and type; values come from mapped metrics.
+
+**Implemented:** `brsr_indicators.answer_kind` (`data` or `statement`), `principle` (1 to 9), `part` (the
+sub-heading in Sections A and B) and `sort_order`; all 146 questions of SEBI's format seeded. A new table
+`brsr_disclosures` (question, financial year, answer, who and when; one row per question per year; server-only)
+holds the answers an Admin types.
+
+**Why:** the owner asked for a report like the L&T reference, which answers every question. Most questions are
+written statements with no source document. Decision: `.grill/full-brsr-report-decisions.md`.
+
+## D33 — A rate's scale in the percentage formula (migration `0041`)
+
+**Schema says:** §10.3 a `percentage` formula is part ÷ whole × 100.
+
+**Implemented:** the formula definition may carry `"scale"`; absent, it is 100. The lost time injury frequency
+rate uses 1,000,000. The result's unit is the metric's own when the scale is not 100.
+
+**Why:** safety incidents (BRSR P3-E11) are a rate per million person-hours; a new formula type would have
+repeated the percentage's roll-up rule. Decision: `.grill/safety-and-water-discharge-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

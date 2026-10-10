@@ -2,6 +2,7 @@ import "server-only";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import { activityKeyFor } from "@/lib/calculation/engine";
 import { loadCalculations } from "@/lib/calculation/lookup";
 import type { CalculationState } from "@/lib/calculation/trace";
 import type { ActiveSession } from "@/lib/auth/session";
@@ -327,7 +328,11 @@ export const verificationRouter = router({
         approvalStatus: row.approval_status,
       });
       // Results name "activity_value" for the metric's activity field; point them at the real field.
-      const activityKey = fields.find((f) => f.dataType === "number" && f.required)?.key ?? null;
+      const activity = activityFieldKeys(
+        fields,
+        row.metric_id ? await activityKeyFor(sql, row.metric_id) : null,
+      );
+      const activityKey = activity.ok ? activity.valueKey : null;
       const validationResults = results.map((r) => ({
         ruleType: r.rule_type,
         outcome: r.outcome,
@@ -498,7 +503,7 @@ export const verificationRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: "Some fields were not submitted." });
         }
 
-        const activity = activityFieldKeys(fields);
+        const activity = activityFieldKeys(fields, await activityKeyFor(tx, record.metric_id));
         if (!activity.ok) throw new TRPCError({ code: "BAD_REQUEST", message: activity.reason });
 
         const threshold = await confidenceThreshold(tx);
@@ -646,7 +651,7 @@ export const verificationRouter = router({
         const entries = Object.fromEntries(
           input.values.map((v) => [v.key, { value: v.value, acknowledged: true }]),
         );
-        const activity = activityFieldKeys(fields);
+        const activity = activityFieldKeys(fields, await activityKeyFor(tx, record.metric_id));
         if (!activity.ok) throw new TRPCError({ code: "BAD_REQUEST", message: activity.reason });
         const check = checkConfirm(fields, entries, null, { documentTypeSelected: true });
         if (check.blockedReason) {

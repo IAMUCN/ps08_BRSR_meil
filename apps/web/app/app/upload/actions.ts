@@ -21,3 +21,35 @@ export async function completeUploadAction(
 ) {
   return runAction((api) => api.documents.completeUpload(input));
 }
+
+// Multi-bill PDFs (lib/trpc/routers/bundles.ts).
+export async function prepareBundleUploadAction(input: {
+  orgUnitId: string;
+  fileSize: number;
+  sha256: string;
+  acknowledgeDuplicates: boolean;
+}) {
+  return runAction((api) => api.bundles.prepareUpload(input));
+}
+
+export async function completeBundleUploadAction(input: {
+  orgUnitId: string;
+  documentId: string;
+  reportingPeriodId: string;
+  fileName: string;
+  acknowledgeDuplicates: boolean;
+}) {
+  return runAction((api) => api.bundles.completeUpload(input));
+}
+
+export async function confirmBundleAction(input: {
+  documentId: string;
+  acknowledgeDuplicates: boolean;
+  parts: { pageFrom: number; pageTo: number; metricId: string | null; skip: boolean }[];
+}) {
+  return runAction((api) => api.bundles.confirm(input));
+}
+
+export async function discardBundleAction(input: { documentId: string }) {
+  return runAction((api) => api.bundles.discard(input));
+}

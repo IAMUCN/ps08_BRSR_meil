@@ -1,11 +1,12 @@
 "use client";
 
-import { Loader2, Search, UserPlus } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Search, UserPlus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmployeeBulkImport } from "@/components/bulk-import/employee-bulk-import";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -17,12 +18,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
-import { isFrozen, ORG_UNIT_TYPE_LABELS } from "@/lib/org/rules";
+import { isFrozen, levelLabel, type OrgLevel } from "@/lib/org/rules";
+import { bulkImportUsersAction } from "@/lib/bulk-import/actions";
 import type { OrgUnitRow } from "@/lib/trpc/routers/organization";
 import type { UserRow, UserStatus } from "@/lib/trpc/routers/users";
 import {
   addAssignmentAction,
   deactivateUserAction,
+  deleteUserAction,
   inviteUserAction,
   reactivateUserAction,
   resendInviteAction,
@@ -60,6 +63,7 @@ function RoleScopeFields({
   idPrefix,
   roles,
   nodes,
+  levels,
   roleId,
   orgUnitId,
   onRole,
@@ -68,6 +72,7 @@ function RoleScopeFields({
   idPrefix: string;
   roles: RoleOption[];
   nodes: OrgUnitRow[];
+  levels: OrgLevel[];
   roleId: string;
   orgUnitId: string;
   onRole: (id: string) => void;
@@ -112,7 +117,7 @@ function RoleScopeFields({
           <option value="">Select a node…</option>
           {assignable.map((node) => (
             <option key={node.id} value={node.id}>
-              {node.name} ({ORG_UNIT_TYPE_LABELS[node.unitType]})
+              {node.name} ({levelLabel(levels, node.unitType)})
             </option>
           ))}
         </NativeSelect>
@@ -131,16 +136,24 @@ export function UsersManager({
   users,
   roles,
   nodes,
+  levels,
+  bulkImportOptions,
 }: {
   currentUserId: string;
   users: UserRow[];
   roles: RoleOption[];
   nodes: OrgUnitRow[];
+  levels: OrgLevel[];
+  bulkImportOptions: {
+    roles: { code: string; name: string }[];
+    orgUnits: { code: string; name: string; unitType: string }[];
+  };
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [managedId, setManagedId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
@@ -190,17 +203,33 @@ export function UsersManager({
             <option value="deactivated">Deactivated</option>
           </NativeSelect>
         </div>
-        <Button className="ml-auto" onClick={() => setInviteOpen(true)}>
+        <Button variant="outline" className="ml-auto" onClick={() => setBulkOpen((open) => !open)}>
+          <Users aria-hidden />
+          Bulk import
+          {bulkOpen ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
+        </Button>
+        <Button onClick={() => setInviteOpen(true)}>
           <UserPlus aria-hidden />
           Invite user
         </Button>
       </div>
 
+      {bulkOpen ? (
+        <div className="mb-4">
+          <EmployeeBulkImport
+            roles={bulkImportOptions.roles}
+            orgUnits={bulkImportOptions.orgUnits}
+            importAction={bulkImportUsersAction}
+            onImported={() => router.refresh()}
+          />
+        </div>
+      ) : null}
+
       <div className="overflow-x-auto rounded-md border border-table-border">
         <table className="w-full border-collapse text-sm">
           <thead className="bg-table-header text-table-header-foreground">
             <tr>
-              {["Name", "Email", "Status", "Assignments", ""].map((heading, i) => (
+              {["Name", "Employee ID", "Email", "Status", "Assignments", ""].map((heading, i) => (
                 <th
                   key={i}
                   scope="col"
@@ -215,12 +244,12 @@ export function UsersManager({
             {filtered.length === 0 ? (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   className="bg-table-row px-3 py-8 text-center text-muted-foreground"
                 >
                   {users.length === 0
                     ? "No users yet — invite your first team member."
-                    : "No users match these filters."}
+                    : "No users match these filters — clear the search or filters to see everyone."}
                 </td>
               </tr>
             ) : (
@@ -230,6 +259,9 @@ export function UsersManager({
                   className="border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
                 >
                   <td className="px-3 py-3 font-medium">{user.displayName}</td>
+                  <td className="px-3 py-3 font-mono text-xs">
+                    {user.employeeId ?? <span className="text-muted-foreground">—</span>}
+                  </td>
                   <td className="px-3 py-3 font-mono text-xs">{user.email}</td>
                   <td className="px-3 py-3">
                     <StatusBadge tone={STATUS[user.status].tone}>
@@ -266,6 +298,7 @@ export function UsersManager({
         onOpenChange={setInviteOpen}
         roles={roles}
         nodes={nodes}
+        levels={levels}
         onDone={() => router.refresh()}
       />
       {managed ? (
@@ -275,6 +308,7 @@ export function UsersManager({
           currentUserId={currentUserId}
           roles={roles}
           nodes={nodes}
+          levels={levels}
           onClose={() => setManagedId(null)}
           onDone={() => router.refresh()}
         />
@@ -288,12 +322,14 @@ function InviteSheet({
   onOpenChange,
   roles,
   nodes,
+  levels,
   onDone,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   roles: RoleOption[];
   nodes: OrgUnitRow[];
+  levels: OrgLevel[];
   onDone: () => void;
 }) {
   const [email, setEmail] = useState("");
@@ -323,7 +359,8 @@ function InviteSheet({
         <SheetHeader>
           <SheetTitle>Invite user</SheetTitle>
           <SheetDescription>
-            They receive an email to set their own password (at least 12 characters).
+            They receive an email to set their own password (12+ characters, upper/lowercase, a
+            number and a special character).
           </SheetDescription>
         </SheetHeader>
         <form onSubmit={onSubmit} className="space-y-4 px-4">
@@ -347,6 +384,7 @@ function InviteSheet({
             />
           </div>
           <RoleScopeFields
+            levels={levels}
             idPrefix="invite"
             roles={roles}
             nodes={nodes}
@@ -370,6 +408,7 @@ function ManageSheet({
   currentUserId,
   roles,
   nodes,
+  levels,
   onClose,
   onDone,
 }: {
@@ -377,6 +416,7 @@ function ManageSheet({
   currentUserId: string;
   roles: RoleOption[];
   nodes: OrgUnitRow[];
+  levels: OrgLevel[];
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -385,6 +425,7 @@ function ManageSheet({
   const [orgUnitId, setOrgUnitId] = useState("");
   const [revokeId, setRevokeId] = useState<string | null>(null);
   const [statusOpen, setStatusOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const isSelf = user.id === currentUserId;
   const revoking = user.assignments.find((a) => a.id === revokeId);
   const deactivating = user.status !== "deactivated";
@@ -460,6 +501,7 @@ function ManageSheet({
             >
               <p className="text-sm font-medium">Add assignment</p>
               <RoleScopeFields
+                levels={levels}
                 idPrefix="assign"
                 roles={roles}
                 nodes={nodes}
@@ -488,13 +530,22 @@ function ManageSheet({
                 You can&apos;t deactivate your own account.
               </p>
             ) : (
-              <Button
-                variant={deactivating ? "destructive" : "outline"}
-                disabled={pending}
-                onClick={() => setStatusOpen(true)}
-              >
-                {deactivating ? "Deactivate user" : "Reactivate user"}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={deactivating ? "destructive" : "outline"}
+                  disabled={pending}
+                  onClick={() => setStatusOpen(true)}
+                >
+                  {deactivating ? "Deactivate user" : "Reactivate user"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={pending}
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  Delete
+                </Button>
+              </div>
             )}
           </section>
         </div>
@@ -545,6 +596,28 @@ function ManageSheet({
             {deactivating
               ? "They are signed out everywhere immediately and can no longer sign in or read any data. Their history is kept."
               : "They can sign in again with their existing password and regain their current assignments."}
+          </p>
+        </ConfirmDialog>
+
+        <ConfirmDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title={`Delete ${user.displayName}?`}
+          confirmLabel="Delete"
+          destructive
+          pending={pending}
+          onConfirm={() =>
+            run(
+              () => deleteUserAction({ userId: user.id }),
+              "User deleted",
+              () => setDeleteOpen(false),
+            )
+          }
+        >
+          <p>
+            This permanently removes their account and sign-in access — this can&apos;t be undone.
+            Only works if they have no data on record (submissions, approvals and similar); if they
+            do, deactivate them instead.
           </p>
         </ConfirmDialog>
       </SheetContent>

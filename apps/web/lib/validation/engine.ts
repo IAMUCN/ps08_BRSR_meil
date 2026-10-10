@@ -13,6 +13,7 @@ import {
   checkFormat,
   checkHistoryRatio,
   checkOrganizational,
+  checkNotGreaterThan,
   checkRange,
   outcomeOf,
   parseNumber,
@@ -21,6 +22,7 @@ import {
   type Severity,
   type Verdict,
 } from "./checks.ts";
+import { activityKeyFor } from "../calculation/engine.ts";
 import { activityFieldKeys } from "../verification/rules.ts";
 
 // The validation engine (06_IMPLEMENTATION_PLAN.md Phase 8). Called inside the Confirm transaction
@@ -84,6 +86,7 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
 
   const activity = activityFieldKeys(
     fields.map((f) => ({ key: f.key, dataType: f.data_type as never, required: f.required })),
+    await activityKeyFor(tx, record.metric_id),
   );
   const valueOf = (key: string | undefined): string | null => {
     if (!key) return null;
@@ -156,6 +159,12 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
           parseNumber(valueOf(def.field)),
           labelOf(def.field),
           def as { min?: number; min_exclusive?: number; max?: number },
+        );
+        break;
+      case "not_greater_than":
+        verdict = checkNotGreaterThan(
+          { label: labelOf(def.field), value: parseNumber(valueOf(def.field)) },
+          { label: labelOf(def.than as string), value: parseNumber(valueOf(def.than as string)) },
         );
         break;
       case "allowed_units":
@@ -255,9 +264,6 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
         approval_status = 'not_submitted',
         is_duplicate_flag = is_duplicate_flag or ${duplicateInvoice}
     where id = ${record.id}`;
-  // A clean pass goes straight to the approval queue (§4.9); flags wait for the Validation Queue first.
-  if (status === "validated") await submitForApproval(tx, record.id);
-
   const failures = results.filter((r) => r.outcome === "fail").map((r) => r.message);
   const flags = results.filter((r) => r.outcome === "flagged").map((r) => r.message);
   await writeAudit(tx, {
@@ -267,6 +273,9 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
     userId: null, // a system evaluation (Master Approach §31)
     newValue: { validation_status: status, failures, flags, rules_evaluated: results.length },
   });
+  // A clean pass goes straight to the approval queue (§4.9); flags wait for the Validation Queue first.
+  // After the entry above, so the audit trail reads in the order things happened: validated, then queued.
+  if (status === "validated") await submitForApproval(tx, record.id);
 
   // Notifications (.grill/phase-8-validation-engine-decisions.md): returns to the submitter, flags to Admins.
   const fileName = record.file_name ?? record.metric_name;

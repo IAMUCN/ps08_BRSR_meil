@@ -41,6 +41,7 @@ def _page(draw_body) -> Image.Image:
     return image
 
 
+SMUDGE_SEED = 5  # chosen so the smudged value still reads correctly, well below 80 %
 DEFAULT_INVOICE = "SMP-INV-2026-0042"
 
 
@@ -194,6 +195,138 @@ def waste_certificate_pdf(
 def travel_invoice_pdf(invoice: str = "TR-2026-0001", invoice_date: str = "12-Sep-2026") -> bytes:
     """A travel invoice billed to the company (Scope 3 business travel, spend-based)."""
     return _encode(_page(lambda draw: _travel(draw, invoice, invoice_date)), "PDF", resolution=150)
+
+
+def _statement(
+    org: str, heading: str, rows: list[tuple[str, str]], smudge: str | None = None
+) -> bytes:
+    """A labelled statement (Phase 13 role modules). The value of the row labelled `smudge` is
+    printed grey and speckled (fixed seed, so every run is identical): OCR still reads it, but with
+    low confidence — Journey 3's guard rail exercised on a genuinely weak field."""
+
+    def body(draw: ImageDraw.ImageDraw) -> None:
+        big, text = _font(40), _font(28)
+        draw.text((60, 110), f"{org} (fictitious)", fill="black", font=big)
+        draw.text((60, 170), heading, fill="black", font=big)
+        for i, (label, value) in enumerate(rows):
+            colour = (160, 160, 160) if label == smudge else "black"
+            draw.text((60, 280 + i * 60), label, fill="black", font=text)
+            draw.text((560, 280 + i * 60), value, fill=colour, font=text)
+
+    image = _page(body)
+    if smudge:
+        y = 280 + [label for label, _ in rows].index(smudge) * 60
+        box = (560, y, 720, y + 40)
+        region = np.array(image.crop(box))
+        region[np.random.default_rng(SMUDGE_SEED).random(region.shape[:2]) < 0.6] = 255
+        image.paste(Image.fromarray(region), box)
+    return _encode(image, "PDF", resolution=150)
+
+
+def workforce_statement_pdf(
+    date: str = "30-Sep-2026", total: str = "180", women: str = "42", men: str = "138"
+) -> bytes:
+    """A certified headcount statement; the Men count is smudged (read at low confidence)."""
+    rows = [
+        ("Statement Date:", date),
+        ("Total Employees:", total),
+        ("Women:", women),
+        ("Men:", men),
+        ("Certified by:", "HR Department"),
+    ]
+    return _statement("Sample HR Services", "HEADCOUNT STATEMENT", rows, smudge="Men:")
+
+
+def training_record_pdf(
+    period: str = "01-Sep-2026 to 30-Sep-2026", total: str = "180", trained: str = "150"
+) -> bytes:
+    rows = [
+        ("Training Period:", period),
+        ("Total Employees:", total),
+        ("Employees Trained:", trained),
+        ("Programme:", "Site safety induction"),
+    ]
+    return _statement("Sample HR Services", "TRAINING ATTENDANCE RECORD", rows)
+
+
+def safety_statement_pdf(
+    period: str = "01-Sep-2026 to 30-Sep-2026",
+    hours: str = "2,40,000",
+    lost_time: str = "1",
+    recordable: str = "3",
+    fatalities: str = "0",
+    high_consequence: str = "0",
+    workforce: str = "Workers (including contract workers)",
+) -> bytes:
+    """An EHS safety incident statement for one period and one category of workforce."""
+    rows = [
+        ("Statement Period:", period),
+        ("Workforce Category:", workforce),
+        ("Person-hours Worked:", hours),
+        ("Lost Time Injuries:", lost_time),
+        ("Recordable Injuries:", recordable),
+        ("Fatalities:", fatalities),
+        ("High Consequence Injuries:", high_consequence),
+    ]
+    return _statement("Sample EHS Department", "SAFETY INCIDENT STATEMENT", rows)
+
+
+def water_bill_pdf(
+    bill: str = "WB-2026-0001",
+    period: str = "01-Sep-2026 to 30-Sep-2026",
+    withdrawal: str = "1,250.00",
+    discharge: str = "400.00",
+) -> bytes:
+    rows = [
+        ("Bill No:", bill),
+        ("Billing Period:", period),
+        ("Water Source:", "Municipal supply"),
+        ("Water Withdrawn:", withdrawal),
+        ("Water Discharged:", discharge),
+        ("Unit of Measure:", "KL"),
+    ]
+    return _statement("Sample Water Board", "WATER SUPPLY BILL", rows)
+
+
+def procurement_statement_pdf(
+    period: str = "01-Sep-2026 to 30-Sep-2026",
+    total: str = "2,40,00,000",
+    msme: str = "60,00,000",
+) -> bytes:
+    rows = [
+        ("Statement Period:", period),
+        ("Total Procurement:", total),
+        ("Procured from MSMEs:", msme),
+        ("Currency:", "INR"),
+        ("Vendor count:", "46"),
+    ]
+    return _statement("Sample Procurement Cell", "PROCUREMENT SPEND STATEMENT", rows)
+
+
+def csr_payment_pdf(
+    reference: str = "CSR-2026-0001", date: str = "15-Sep-2026", amount: str = "5,00,000"
+) -> bytes:
+    rows = [
+        ("Payment Reference:", reference),
+        ("Payment Date:", date),
+        ("CSR Project:", "School sanitation drive"),
+        ("Amount Spent:", amount),
+        ("Currency:", "INR"),
+    ]
+    return _statement("Sample Foundation", "CSR PAYMENT ADVICE", rows)
+
+
+def penalty_order_pdf(
+    order: str = "PO-2026-0001", date: str = "18-Sep-2026", amount: str = "25,000"
+) -> bytes:
+    rows = [
+        ("Order No:", order),
+        ("Order Date:", date),
+        ("Authority:", "Sample Pollution Control Board"),
+        ("Penalty Amount:", amount),
+        ("Currency:", "INR"),
+    ]
+    return _statement("Sample Regulator", "PENALTY ORDER - FINE PAID", rows)
 
 
 def all_samples() -> list[Sample]:

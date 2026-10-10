@@ -1,5 +1,6 @@
 "use client";
 
+import { rowClick } from "@/components/ui/row-click";
 import { Calculator, CheckCircle2, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -106,13 +107,14 @@ export function ApprovalQueue({
             {rows.map((row) => (
               <tr
                 key={row.recordId}
-                className="border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
+                onClick={rowClick(() => setSelectedId(row.recordId))}
+                className="cursor-pointer border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
               >
                 <td className="px-3 py-3">
                   <button
                     type="button"
                     onClick={() => setSelectedId(row.recordId)}
-                    className="text-left font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="text-left font-medium text-primary-text underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     {row.fileName ?? "Record"}
                   </button>
@@ -154,9 +156,12 @@ export function ApprovalQueue({
                 </p>
                 <dl className="divide-y rounded-md border">
                   {selected.values.map((v) => (
-                    <div key={v.label} className="flex items-center gap-3 px-3 py-2 text-sm">
-                      <dt className="w-40 shrink-0 text-muted-foreground">{v.label}</dt>
-                      <dd className="font-mono break-words">{v.value ?? "—"}</dd>
+                    <div
+                      key={v.label}
+                      className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-baseline gap-3 px-3 py-2 text-sm"
+                    >
+                      <dt className="leading-5 text-muted-foreground">{v.label}</dt>
+                      <dd className="font-mono leading-5 break-words">{v.value ?? "—"}</dd>
                     </div>
                   ))}
                 </dl>

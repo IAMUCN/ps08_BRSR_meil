@@ -3,12 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import { passwordMeetsPolicy, passwordPolicyMessage } from "@/lib/auth/password-policy";
 import { db } from "@/lib/db";
 import { publicEnv } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { protectedProcedure, router } from "@/lib/trpc/init";
-
-const MIN_PASSWORD_LENGTH = 12;
+import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
+import { THEMES } from "@/lib/theme";
 
 function badRequest(message: string): never {
   throw new TRPCError({ code: "BAD_REQUEST", message });
@@ -32,6 +33,25 @@ export const profileRouter = router({
       return null;
     }),
 
+  /** UI brief §4: the theme is saved on the account so it follows the user to another device. */
+  setTheme: protectedProcedure
+    .input(z.object({ theme: z.enum(THEMES.map((t) => t.id)) }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.theme === ctx.session.theme) return null;
+      await db().begin(async (tx) => {
+        await tx`update public.users set theme = ${input.theme} where id = ${ctx.session.userId}`;
+        await writeAudit(tx, {
+          eventType: "user.theme_changed",
+          entityType: "user",
+          entityId: ctx.session.userId,
+          userId: ctx.session.userId,
+          oldValue: { theme: ctx.session.theme },
+          newValue: { theme: input.theme },
+        });
+      });
+      return null;
+    }),
+
   /** Requires the current password (.grill/phase-4-admin-foundation-decisions.md). */
   changePassword: protectedProcedure
     .input(
@@ -42,14 +62,22 @@ export const profileRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (input.newPassword.length < MIN_PASSWORD_LENGTH) {
-        badRequest(`New password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-      }
+      if (!passwordMeetsPolicy(input.newPassword))
+        badRequest(passwordPolicyMessage(input.newPassword));
       if (input.newPassword !== input.confirmPassword) badRequest("New passwords do not match.");
       if (input.newPassword === input.currentPassword) {
         badRequest("Choose a password different from your current one.");
       }
 
+      // The same per-account limit as sign-in: a signed-in session must not become a password oracle.
+      const limits = await rateLimits();
+      const account = bucket("login-account", ctx.session.email);
+      if (await exceeded(account, limits.login_failures_per_account, limits.login_window_minutes)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Too many incorrect attempts — wait 15 minutes and try again.",
+        });
+      }
       // Verify the current password on a throwaway client so the user's own session is untouched.
       const verifier = createClient(
         publicEnv.NEXT_PUBLIC_SUPABASE_URL,
@@ -61,6 +89,7 @@ export const profileRouter = router({
         password: input.currentPassword,
       });
       if (verifyError) {
+        if (verifyError.code === "invalid_credentials") await count(account);
         badRequest(
           verifyError.code === "invalid_credentials"
             ? "Current password is incorrect."
@@ -75,7 +104,7 @@ export const profileRouter = router({
       if (updateError) {
         badRequest(
           updateError.code === "weak_password"
-            ? `New password must be at least ${MIN_PASSWORD_LENGTH} characters.`
+            ? passwordPolicyMessage(input.newPassword)
             : "Your password could not be changed. Try again.",
         );
       }

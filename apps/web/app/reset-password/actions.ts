@@ -2,11 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { AUTH_MESSAGES } from "@/lib/auth/messages";
+import { passwordMeetsPolicy, passwordPolicyMessage } from "@/lib/auth/password-policy";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type SetPasswordState = { error: string | null };
-
-const MIN_PASSWORD_LENGTH = 12;
 
 export async function setPassword(
   _previous: SetPasswordState,
@@ -15,9 +14,7 @@ export async function setPassword(
   const password = String(formData.get("password") ?? "");
   const confirmation = String(formData.get("confirmPassword") ?? "");
 
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
-  }
+  if (!passwordMeetsPolicy(password)) return { error: passwordPolicyMessage(password) };
   if (password !== confirmation) return { error: "Passwords do not match." };
 
   const supabase = await createSupabaseServerClient();
@@ -26,12 +23,10 @@ export async function setPassword(
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?reason=link_invalid");
 
-  // Supabase Auth enforces the same 12-character minimum server-side (supabase/config.toml).
+  // Supabase Auth enforces the same length/complexity rules server-side (supabase/config.toml).
   const { error } = await supabase.auth.updateUser({ password });
   if (error) {
-    if (error.code === "weak_password") {
-      return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
-    }
+    if (error.code === "weak_password") return { error: passwordPolicyMessage(password) };
     if (error.code === "same_password") {
       return { error: "Choose a password different from your current one." };
     }

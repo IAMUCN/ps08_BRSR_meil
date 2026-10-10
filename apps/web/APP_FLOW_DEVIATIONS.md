@@ -257,3 +257,287 @@ Decisions: `.grill/phase-12-scope-3-decisions.md`.
   amount and almost never a distance. The OCR extractor learned the extra label spellings (certificate
   number, disposal date, treatment route, mode) and the weight and currency units; `EXTRACTOR_VERSION` is
   now `rules-2`.
+
+## A15 — Phase 13 role-specific modules
+
+Decisions: `.grill/phase-13-role-modules-decisions.md`.
+
+- **Journey 3's category is "Workforce" and its activity "Employees by gender"** rather than "Employee
+  Headcount": the metric a headcount statement feeds is the gender share BRSR asks for, and the category
+  name covers training records too.
+- **The calculation trace lists every input of a multi-input formula** (e.g. Total employees 180 count,
+  Women 42 count, Women ÷ Total employees × 100 → 23.33 %) instead of "Verified value → Normalised → Factor",
+  which has no meaning for a percentage. Same component, same places (verify summary, approval drawer,
+  scope drill-down).
+- **No module dashboards yet.** HR, EHS, Procurement and Finance/CSR results appear on the verify summary
+  and in the approval queue; Master Approach §44 step 19's per-project module view belongs to the Control
+  Tower (Phase 16).
+- **CSR expenditure and fines are recorded, not calculated**: they reach the approval queue with no trace
+  and Approve is available, because no calculation is required for them.
+
+## A16 — Phase 14 BRSR mapping
+
+Decisions: `.grill/phase-14-brsr-mapping-decisions.md`.
+
+- **The readiness tree is a "Readiness" tab on `/admin/brsr-mapping`**, beside the "Mappings" tab, for a
+  chosen period and the whole organisation. The App Flow has no separate readiness route; the Control
+  Tower's Readiness % card (Phase 16) will link here.
+- **Status rule:** Complete when every applicable mapped metric has an approved record in the period,
+  Partial when some do, Missing evidence when none do. Records awaiting approval are listed but don't count.
+- **Applicability is a flag on the mapping** (schema deviation D15), switched in the edit sheet; a mapping
+  marked not applicable stays listed and is ignored by readiness.
+- **The indicator catalogue is seeded configuration**, not edited on this page — the page maintains
+  metric-to-indicator mappings, which is what the App Flow's primary actions describe.
+- The tree's record level opens a drawer with the calculation trace and the original document, the same
+  drawer the scope dashboards use.
+
+## A17 — Phase 16 Admin Control Tower
+
+Decisions: `.grill/phase-16-control-tower-decisions.md`.
+
+- **Every issue row and most KPI cards land on Submission Monitoring**, filtered to exactly the records the
+  number counted (same SQL predicate for the count and the list), with a link on to the owning queue (OCR
+  Monitoring, Validation Queue, Approval Queue) for action. The queues themselves have no org/period
+  filters, so linking straight to them would show a different set than the number said. Scope cards open
+  the scope dashboards and BRSR Readiness the readiness tab, both carrying the context.
+- **The org/period context switcher sits in the Control Tower header**, not the global top bar, and is
+  carried in the URL into Submission Monitoring and the Data Explorer. Other admin pages keep their own
+  pickers.
+- **Expected submissions are edited on the Organization page's node panel** ("Expected submissions"),
+  which the App Flow doesn't list — the denominator of the completion KPIs had to live somewhere, and it is
+  a property of the node.
+- **Submission Monitoring's "role" filter is the role that owns the metric's category**, not the
+  submitter's role assignment, and "export filtered list" is a CSV built from the rows on screen (newest
+  500).
+- **A new status filter, "Not yet passed validation"**, is the exact gap behind Validation Completion %.
+- The shared record detail (Submission Monitoring, Data Explorer) shows extracted values, validation,
+  calculation, the document and the record's audit trail; acting on the record stays in its queue.
+- The BRSR Readiness card's "i" opens a popover listing each component, its value and weight, and says it
+  is an internal indicator, not an official score.
+
+## A18 — Phase 17 Reporting
+
+Decisions: `.grill/phase-17-reporting-decisions.md`.
+
+- **One report type, BRSR**, covering an org node and either one period or an April–March financial year
+  (the App Flow's "format" parameter is not offered); approved records only, with the number left out for
+  awaiting approval stated on the report.
+- **"Report ready" navigates only on request**: generation is non-blocking, the Reports page refreshes while a
+  run is in progress and the Admin is notified with a link to Report Detail, rather than being moved there.
+- **The drill-down opens in a side panel** with the path as a breadcrumb (value → indicator → metric →
+  calculation → verified activity data → original document) and shows the exact calculation the report used,
+  saying so when the record has been recalculated since.
+- **A mapping says which value it reports** (Mappings tab, schema deviation D18): the calculated result or the
+  verified quantity — P6-E8 reports the waste quantity, P6-L4 its emissions.
+- Comparing against a prior period's report (App Flow secondary action) is not built.
+
+## A19 — Phase 19 UI polish and responsive behavior
+
+Decisions: `.grill/phase-19-ui-polish-decisions.md`.
+
+- **Colour tokens that failed WCAG AA for their role were adjusted** (UI brief §17 over §6's supplied values,
+  owner's decision). Each moved to the nearest passing shade of the same hue; the supplied colours keep their
+  brand uses (sidebar, header, primary buttons, badges). Ratios are the worst case across the backgrounds the
+  token is used on:
+
+  | Theme | Token (role)                                  | Supplied         | Now                              | Needs |
+  | ----- | --------------------------------------------- | ---------------- | -------------------------------- | ----- |
+  | 1     | status-success (text)                         | `#1E8E5A` 3.33:1 | `#19764B` 4.52:1                 | 4.5:1 |
+  | 1     | status-warning (text)                         | `#B8860B` 2.62:1 | `#846008` 4.62:1                 | 4.5:1 |
+  | 1     | status-error (text)                           | `#D92D20` 3.89:1 | `#C5291D` 4.55:1                 | 4.5:1 |
+  | 1     | link text, BRSR heading, KPI title            | `#CA2851` 4.29:1 | `#C4274F` 4.50:1                 | 4.5:1 |
+  | 1     | input border                                  | `#FFE3B3` 1.18:1 | `#9E8D6F` 3.07:1                 | 3:1   |
+  | 1     | scope-2                                       | `#FF6766` 2.84:1 | `#F76463` 3.02:1                 | 3:1   |
+  | 1     | scope-3                                       | `#FFB173` 1.78:1 | `#C28757` 3.04:1                 | 3:1   |
+  | 2     | status colours                                | as Theme 1       | as Theme 1 (e.g. warning 5.26:1) | 4.5:1 |
+  | 2     | sidebar active, important button (white text) | `#EF102D` 4.39:1 | `#EA102C` 4.56:1                 | 4.5:1 |
+  | 2     | input border                                  | `#DDDDDD` 1.25:1 | `#8D8D8D` 3.04:1                 | 3:1   |
+  | 3     | muted text, KPI title                         | `#76757A` 2.26:1 | `#ADACAF` 4.56:1                 | 4.5:1 |
+  | 3     | link text (new `--primary-text`)              | `#550916` 1.01:1 | `#C2A6AB` 4.58:1                 | 4.5:1 |
+  | 3     | status-success                                | `#1E8E5A` 2.49:1 | `#76BA9A` 4.54:1                 | 4.5:1 |
+  | 3     | status-warning                                | `#B8860B` 3.17:1 | `#CCA84F` 4.56:1                 | 4.5:1 |
+  | 3     | status-error                                  | `#D92D20` 2.13:1 | `#EC948D` 4.51:1                 | 4.5:1 |
+  | 3     | focus ring                                    | `#550916` 1.01:1 | `#A88288` 3.05:1                 | 3:1   |
+  | 3     | input border                                  | `#5E5453` 1.98:1 | `#797170` 3.05:1                 | 3:1   |
+  | 3     | scope-2                                       | `#550916` 1.01:1 | `#96666F` 3.06:1                 | 3:1   |
+  | 3     | scope-3                                       | `#5E5453` 1.98:1 | `#797170` 3.05:1                 | 3:1   |
+
+  Consequences: §6.9's status colours are no longer one shared set (the two light themes share one, Theme 3
+  has its own), and a new `--primary-text` token carries primary-coloured text and icons, because Theme 3's
+  burgundy works as a button fill but not as text.
+
+- **The theme is saved on the account** (`users.theme`, schema deviation D20) with a localStorage copy that a
+  tiny script applies before first paint; the signed-in shell then re-applies the account's value. The
+  switcher is labelled Warm / Corporate / Dark rather than Theme 1 / 2 / 3.
+- **The top bar now uses the §6.2 header tokens** (raspberry in Theme 1) instead of the card surface.
+- **Below 1280px the sidebar is an icon rail** with a toggle that opens it over the page (Escape or a click
+  outside closes it). The brief's "expandable on hover/click" is click only; phones get the same rail.
+- **Profile's "Save" (display name) is an outline button**, so "Change password" is the one primary action
+  (§18 rule 1).
+- **Scope 1/2/3 use the §6.11 icons** (flame, zap, link-2) in the sidebar and on their dashboards.
+- **An unknown or malformed id in a URL** (a report, a record's audit history) shows "Page not found", not
+  the server-error message.
+- **An action on an expired session** (App Flow §3, §4.3) goes to sign-in with "Your session expired" and
+  back to the same page afterwards; the proxy no longer redirects Server Action requests itself.
+
+## A20 — Bulk import (employees, org units)
+
+Decisions: `.grill/bulk-import-decisions.md`. Not in any implementation-plan phase — requested directly by
+the owner mid-session.
+
+- **Two new pages under `/app`**, permission-gated rather than role-gated: `/app/users/bulk-import`
+  (`user.bulk_import`) and `/app/org-units/bulk-import` (`org.bulk_import`), appearing in the sidebar only
+  for whoever an Admin has granted the permission to (same pattern as A1's Approvals item). Both also embed
+  inline on their Admin equivalents (`/admin/users`, `/admin/organization`'s node panel) — an Admin always
+  has both permissions, no separate Admin-only screen was built.
+- **A downloadable `.xlsx` template** for each: Employee ID / Name / Email / Role / Organization Scope, and
+  Code / Name / Type for org units, each with a second "Valid codes" reference sheet (no dropdown
+  validation — SheetJS's free `xlsx` package can't write that).
+- **Results, not a redirect**: each row's outcome (created/failed, and for employees whether its password
+  email actually sent) shows in a table on the same page, downloadable as CSV.
+
+## A21 — Theme switcher moved to the top bar; default changed
+
+Decisions: `.grill/theme-toggle-decisions.md`.
+
+- **The theme switcher moved from Profile to the top bar** (a compact 3-swatch toggle, `components/shell/
+theme-toggle.tsx`), present in both the `/app` and `/admin` shells. Profile's "Appearance" section is
+  removed.
+- **The default theme changed from Warm (`theme-1`) to Corporate (`theme-2`)** — schema deviation D23.
+  Labels changed accordingly: Corporate is now marked "Default", Warm is relabelled "Special", Dark is
+  unchanged. A19's "labelled Warm / Corporate / Dark" note still holds for the names; only which one is
+  the default, and where the picker lives, changed.
+
+## A22 — Password composition rules + live strength meter
+
+Decisions: `.grill/password-policy-decisions.md`. Supersedes Phase 3's "12 characters, no composition
+rules" (NIST SP 800-63B) — the owner explicitly asked for composition rules and a live meter.
+
+- **Every password-entry screen** (`/reset-password`, `/forgot-password`'s OTP step, Profile's
+  change-password form) now shows a live strength bar plus a checklist of the 5 rules
+  (`lib/auth/password-policy.ts`: 12+ characters, uppercase, lowercase, number, special character), each
+  turning green with a check as it's met. The server re-checks the same rules on every setter — the meter
+  can never be more lenient than what actually saves.
+- **The bulk-import default-password generator was hardened to match**: a one-letter name or an
+  all-letters employee ID could otherwise produce a password missing a required character class.
+
+## A23 — A PDF with several bills
+
+Decisions: `.grill/multi-bill-pdf-decisions.md`. Not in any implementation-plan phase — requested directly by the
+owner.
+
+- **Upload Document** opens with a choice: _One bill_ (unchanged) or _A PDF with several bills_. The second hides the
+  activity picker, accepts PDF only (up to 20 pages) and, after upload, goes to the new split page.
+- **`/app/upload/split/[documentId]`** is a new screen (an addition to App Flow §2.3, which has one document per
+  upload). While the OCR reads the PDF it says so and refreshes itself; then it shows the PDF beside the proposed
+  bills — pages, what each looks like, the activity — which the uploader can edit, leave out, remove or add to, with
+  the rules checked as they type. _Record N bills_ creates one record per kept bill and goes to My Submissions;
+  possible duplicates must be acknowledged. Afterwards the page lists the recorded bills with links to verify them.
+- A bill the uploader's role may not record (water for a Project Manager) is shown, said to be left out, and not
+  offered in the activity list. The notification "PDF ready to split" deep-links to the page.
+
+## A24 — Reports: SEBI-format tables and the yearly inputs form
+
+Decisions: `.grill/audit-p0-decisions.md` (audit fixes P0-2 and P0-3).
+
+- **The BRSR report PDF** prints greenhouse gas emissions, waste and Scope 3 as the July-2023 SEBI tables: current
+  and previous financial year, metric tonnes, intensity rows and the assurance note, followed by a methodology,
+  boundary and factor-source section. Indicator codes follow the July-2023 numbering (`A-20`, `P6-E7`, …).
+- **Admin → Reports** gains a collapsed section, _Turnover, PPP rate and assurance for the report_: one set of
+  values per financial year, saved with an outline button (the page keeps one primary button). An addition to
+  App Flow §2.2, which has only the parameter form. Built plainly by the feature role
+  (`app/admin/reports/report-inputs-form.tsx`); the ui role may restyle it.
+- Anything not entered prints as "Not provided"; a single-period report shows no annual intensity.
+
+## A25 — Hierarchy levels section; evidence files list
+
+Decisions: `.grill/audit-p2-decisions.md` (audit fixes P2).
+
+- **Admin → Organization** gains a collapsed section, _Hierarchy levels_: the levels in order, each renameable,
+  removable when no org unit uses it, and a form to add a level after an existing one. An addition to App Flow
+  §2.2 (Organization), which treats the levels as fixed. Every screen that names a level reads the configured name.
+- **Verify Extraction and the record drawer** gain an _Evidence files_ list: the original document and any
+  supporting files, each opening in a new tab, and an _Add a supporting file_ button for whoever could have
+  uploaded the record, until it is approved or rejected. An addition to App Flow §2.3, which has one document per
+  record on screen.
+- Both are plain sections built by the feature role (`app/admin/organization/levels-card.tsx`,
+  `components/records/evidence-files.tsx`); the ui role may restyle them. Outline buttons only — each page keeps
+  one primary button.
+
+## A26 — Factor screen: gases covered and rename; fuller report tables
+
+Decisions: `.grill/audit-2-decisions.md` (second audit).
+
+- **Admin → Conversion Factors:** the add / new-version sheet gains an optional _Gases covered_ field; the version
+  history shows it and lets an Admin set it on an existing version; each factor has a _Rename_ button. The two
+  edits use the browser's own prompt — one line of text each. Built plainly by the feature role; the ui role
+  may replace the prompts with a dialog.
+- **The BRSR report** gains: a break-up by gas under each scope total, a _Scope 1 by emission source_ table,
+  SEBI's full waste table (categories A to H, recovered and disposed by operation), a _Consolidation by org
+  unit_ table, and a line saying which days of the financial year the report covers when it is not the whole
+  year. Additions to App Flow §2.2 (Reports), which describes the report only as "BRSR format".
+- **Notifications:** a _Deadline approaching_ notice within three days of an open period's closing date.
+
+## A27 — Upload stays on Upload; My Submissions lists PDFs waiting for their split
+
+Decisions: `.grill/page-feedback-2026-10-09-decisions.md` (owner's page feedback).
+
+- **App Flow §2.3 (Upload Document)** sends the user to My Submissions → Processing after an upload. The owner
+  uploads several bills in a row, so the form now stays, shows a "received" notice with a link, and keeps the
+  project and activity. Replacing a failed document still returns to My Submissions.
+- **My Submissions** gains a section above the tabs for multi-bill PDFs whose split is not confirmed; each row
+  opens its split screen. The whole of a submission row is clickable.
+- **Profile** links to the emailed-code password reset under Change password.
+- The upload progress display is more animated (UI brief §12.1 asks for a progress bar, filename and cancel —
+  all kept).
+
+## A28 — BRSR Disclosures screen; the report prints the whole format
+
+Decisions: `.grill/full-brsr-report-decisions.md`.
+
+- **New Admin screen, BRSR Disclosures** (`/admin/disclosures`, in the sidebar after BRSR Mapping): every
+  question of SEBI's format by section, with a text box per question for one financial year. Not in App Flow
+  §2.2. Built plainly by the feature role (native `details` sections, one Save per question); the ui role may
+  restyle it.
+- **Typed entry, for written statements only.** The Master Approach keeps normal users to uploads; this screen
+  is for an Admin and for answers that have no source document.
+- **The BRSR report** prints all of Sections A, B and C in SEBI's order and all 17 SDGs. Report Detail keeps
+  listing only the measured indicators (the drill-down is for values).
+
+## A29 — Reports history and evidence pages, KPI trends, reminders, mapping page sections
+
+Decisions: `.grill/page-feedback-2026-10-09-decisions.md`, `.grill/grand-finale-deliverables-decisions.md`.
+
+- **Reports** gains two buttons and two pages not in App Flow §2.2: _Past reports_ (`/admin/reports/history`)
+  and _Evidence for the financial year_ (`/admin/reports/evidence`). The Reports page lists the latest five
+  runs and warns how many written disclosures are unanswered.
+- **Control Tower** gains a _KPI trends by financial year_ card below the issue panel.
+- **Submission Monitoring**, missing-submissions view, gains a _Send reminders_ button.
+- **BRSR Mapping** always shows Sections A, B and C, Section C grouped by principle, and lists each section's
+  written questions with their answered state.
+- **Organization:** expected submissions are grouped under Scope 1, 2, 3 and Other disclosures.
+- **Sidebar:** Roles & Permissions before Users. All built plainly by the feature role; the ui role may restyle.
+
+## A30 — Side panels dock on wide screens; Organization page in three columns
+
+Decision: `.grill/page-feedback-2026-10-09-decisions.md` (owner's page feedback).
+
+- **Every side panel** (record drawer, approval and validation drawers, the add / edit sheets — all built on
+  `components/ui/sheet.tsx`): on a screen 1900px wide or more, a right-hand panel docks into the empty space
+  beside the page, below the top bar, with no backdrop, and the page stays usable. An _Expand_ button opens it
+  full size over the page; _Dock_ returns it. On narrower screens panels open over the page as the UI brief
+  (§11) describes. The panel is non-modal in both views, so focus is not trapped inside the full-size view.
+- **Organization** is three columns on wide screens: the tree (kept in view while scrolling), the selected
+  unit, and the cards for adding units under it. "Child node" is worded as "unit under {name}"; the expected
+  submissions card names the unit it applies to.
+
+## A31 — Organization: add forms in a side panel; expected submissions saved with a button
+
+Decision: `.grill/page-feedback-2026-10-09-decisions.md` (owner's page feedback, 2026-10-10). Replaces the
+three-column layout in A30.
+
+- **Adding units:** two buttons above the page, _Add a unit_ and _Add from a spreadsheet_; the form opens in
+  the side panel (docked on wide screens, where the page makes room for it) and is not shown otherwise.
+- **One tile for the selected unit:** its name and code, then its expected submissions.
+- **Expected submissions** are no longer written tick by tick: _Save expected submissions_ writes the changed
+  ticks, _Clear all_ unticks every box (still needs Save), and the number of unsaved changes is shown.

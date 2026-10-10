@@ -1,4 +1,4 @@
-import { Factory } from "lucide-react";
+import { Flame } from "lucide-react";
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
@@ -32,9 +32,10 @@ export default async function ScopeOnePage({ searchParams }: PageProps<"/admin/s
         />
       ) : (
         <EmptyState
-          icon={Factory}
+          icon={Flame}
           title="Nothing to total yet"
           message="Scope 1 figures appear once a reporting period exists and records have been calculated."
+          link={{ href: "/admin/submissions", label: "See what has been submitted" }}
         />
       )}
     </div>

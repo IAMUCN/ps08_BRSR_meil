@@ -73,16 +73,9 @@ class WorkerHarnessTest(unittest.TestCase):
             (docs,),
         ).fetchall()
         records = [r["esg_record_id"] for r in rows if r["esg_record_id"]]
+        # The audit log is append-only (migration 0027): the harness's entries stay, as a real
+        # run's would.
         with conn.transaction():
-            conn.execute(
-                """
-                delete from public.audit_logs where entity_id = any(%(docs)s) or entity_id in (
-                  select f.id from public.ocr_fields f
-                  join public.ocr_extractions e on e.id = f.ocr_extraction_id
-                  where e.document_id = any(%(docs)s))
-                """,
-                {"docs": docs},
-            )
             conn.execute(
                 """
                 delete from public.ocr_fields where ocr_extraction_id in (

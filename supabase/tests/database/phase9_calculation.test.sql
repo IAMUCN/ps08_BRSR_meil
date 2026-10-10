@@ -3,7 +3,12 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(7);
+select plan(13);
+
+-- Its own user, so the test also passes on a fresh database (CI), where nobody has been provisioned yet.
+insert into auth.users (id, email) values ('00000009-0000-4000-8000-0000000000aa', 'phase09@fixture.test');
+insert into public.users (id, display_name, email)
+values ('00000009-0000-4000-8000-0000000000aa', 'Phase 09 fixture', 'phase09@fixture.test');
 
 select is(
   (select count(*)::int from public.esg_metrics m
@@ -13,10 +18,11 @@ select is(
   0,
   'every calculable metric has an active formula');
 
-select results_eq(
-  $$select distinct formula_type::text from public.calculation_formulas$$,
-  array['direct_multiply'],
-  'seeded formulas use the formula type the engine implements');
+-- Phase 13 added subtract and percentage; `custom` is reserved and never evaluated.
+select is(
+  (select count(*)::int from public.calculation_formulas where formula_type = 'custom'),
+  0,
+  'seeded formulas only use formula types the engine implements');
 
 -- Factor values are never seeded by a migration: every version that exists was entered by a person and
 -- carries the source they verified it against (PRD §20/§40).
@@ -78,6 +84,25 @@ select throws_ok(
     select record_id, 1, 'L', 1, 'L', 1, 'kgCO2e', 'calc-test' from ids$$,
   '23505', null,
   'a record can only have one current calculation');
+
+-- Migration 0036: stored calculations are append-only, for every role.
+select throws_ok(
+  $$delete from public.calculations where esg_record_id = (select record_id from ids)$$,
+  '42501', null, 'a stored calculation cannot be deleted');
+select throws_ok(
+  $$update public.calculations set result_value = 1 where esg_record_id = (select record_id from ids)$$,
+  '42501', null, 'nor can its result be changed');
+select throws_ok($$truncate public.calculations cascade$$, '42501', null, 'nor the table emptied');
+select lives_ok(
+  $$update public.calculations set is_current = false where esg_record_id = (select record_id from ids)$$,
+  'retiring a calculation when a newer one replaces it is the one change allowed');
+insert into public.calculation_inputs (calculation_id, input_key, input_value, input_unit)
+select c.id, 'quantity', 100, 'L' from public.calculations c, ids where c.esg_record_id = ids.record_id;
+select throws_ok(
+  $$delete from public.calculation_inputs
+     where calculation_id in (select c.id from public.calculations c, ids where c.esg_record_id = ids.record_id)$$,
+  '42501', null, 'the inputs a calculation used cannot be deleted either');
+select has_column('public', 'audit_logs', 'ip_address', 'audit entries record where an action came from');
 
 select * from finish();
 rollback;

@@ -112,7 +112,12 @@ export function checkConfirm(
  */
 export function activityFieldKeys(
   fields: Pick<VerifyField, "key" | "dataType" | "required">[],
+  /** A multi-input formula names its activity field (lib/calculation/formulas.ts activityInput). */
+  formulaKey: string | null = null,
 ): { ok: true; valueKey: string; unitKey: string | null } | { ok: false; reason: string } {
+  const unit = fields.find((f) => f.dataType === "unit");
+  const named = fields.find((f) => f.key === formulaKey && f.dataType === "number" && f.required);
+  if (named) return { ok: true, valueKey: named.key, unitKey: unit?.key ?? null };
   const numbers = fields.filter((f) => f.dataType === "number" && f.required);
   if (numbers.length !== 1) {
     return {
@@ -121,7 +126,6 @@ export function activityFieldKeys(
         "This activity isn't configured for verification yet — it needs exactly one required number field. Contact your Admin.",
     };
   }
-  const unit = fields.find((f) => f.dataType === "unit");
   return { ok: true, valueKey: numbers[0].key, unitKey: unit?.key ?? null };
 }
 

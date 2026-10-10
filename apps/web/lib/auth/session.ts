@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ADMIN_ROLE } from "@/lib/auth/redirects";
+import { DEFAULT_THEME, isTheme, type ThemeId } from "@/lib/theme";
 
 // Data Access Layer (Next.js 16 authentication guide): the authoritative per-request session check.
 // proxy.ts only refreshes cookies and does optimistic redirects.
@@ -20,6 +21,7 @@ export type ActiveSession = {
   userId: string;
   email: string;
   displayName: string;
+  theme: ThemeId;
   isAdmin: boolean;
   roleCodes: string[];
   permissions: string[];
@@ -56,7 +58,7 @@ export async function resolveSession(supabase: SupabaseClient): Promise<SessionR
 
   const { data: profile, error: profileError } = await supabase
     .from("users")
-    .select("id, display_name, email, is_active")
+    .select("id, display_name, email, is_active, theme")
     .eq("id", user.id)
     .maybeSingle();
   if (profileError) throw profileError;
@@ -109,6 +111,7 @@ export async function resolveSession(supabase: SupabaseClient): Promise<SessionR
       userId: profile.id,
       email: profile.email,
       displayName: profile.display_name,
+      theme: isTheme(profile.theme) ? profile.theme : DEFAULT_THEME,
       isAdmin: roleCodes.includes(ADMIN_ROLE),
       roleCodes,
       permissions,
