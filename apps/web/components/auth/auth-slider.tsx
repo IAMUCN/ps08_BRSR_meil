@@ -6,7 +6,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MagicCard } from "@/components/ui/magic-card";
+import { ShineBorder } from "@/components/ui/shine-border";
 
 type Mode = "signin" | "forgot";
 type Step = "email" | "otp" | "password" | "done";
@@ -143,7 +143,7 @@ export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: Rea
         </Link>
       </header>
       <main className="flex flex-1 items-start justify-center p-4 pb-12 sm:p-6 md:items-center">
-        <MagicCard className="w-full max-w-4xl rounded-2xl shadow-lg">
+        <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl border bg-card shadow-lg">
           <div className="relative min-h-[600px] w-full text-card-foreground md:min-h-[540px]">
             {/* Sign-in panel */}
             <div
@@ -210,7 +210,13 @@ export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: Rea
               </div>
             </div>
           </div>
-        </MagicCard>
+          <ShineBorder
+            borderWidth={2}
+            duration={10}
+            shineColor={["#313490", "#E91029", "#313490"]}
+            className="z-30"
+          />
+        </div>
       </main>
       <p className="pb-6 text-center text-xs text-slate-500">
         &copy; MEIL &middot; TraceESG evidence-first BRSR reporting

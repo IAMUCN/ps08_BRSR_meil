@@ -4,6 +4,8 @@ import { cn } from "cn";
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
     <input
+      // Browser extensions (temp-mail, password managers) inject attributes into inputs before hydration.
+      suppressHydrationWarning
       type={type}
       data-slot="input"
       className={cn(
