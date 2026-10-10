@@ -4,3 +4,7 @@ Start every session by reading the project context and progress below. Follow it
 and update the file at the end of each phase as described in its last section.
 
 @PROGRESS.md
+
+## Landing page work
+
+For any landing-page task, read @docs/LANDING_PAGE_BRIEF.md first. Project-scoped design skills live in `.claude/skills/`.
