@@ -21,3 +21,14 @@ It was kept out of the ui role's files as far as possible:
   theme only — not in the Special or Dark theme, and not docked at 1900px.
 
 Deviation A32 in `apps/web/APP_FLOW_DEVIATIONS.md` describes the behaviour.
+
+## 2026-10-11 — The chat panel became a docked pane
+
+At the owner's request ("like Copilot in Edge") the panel no longer uses `components/ui/sheet.tsx`. It is an
+`<aside id="chat-pane">` in `components/chat/chat-launcher.tsx`: fixed at the right, 420px, on screens of
+1024px and wider, where the component sets `padding-right: 420px` on `<body>` so the page narrows; a
+full-screen cover below that. Open or closed is kept in `localStorage` (`traceesg-chat-open`).
+
+- **If the width changes,** change `PANE_WIDTH` and the class `lg:w-[420px]` together.
+- **Known rough edges:** a record drawer docked at 1900px opens over the pane (both sit at the right); toasts
+  appear over the pane's bottom corner; viewed at 1366px and 390px in the Corporate theme only.

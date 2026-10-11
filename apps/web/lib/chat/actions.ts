@@ -16,7 +16,7 @@ export async function loadConversationAction(id: string) {
 export async function sendChatMessageAction(input: {
   conversationId?: string;
   message: string;
-  page?: { orgUnitId?: string; periodId?: string };
+  page?: { orgUnitId?: string; periodId?: string; path?: string };
 }) {
   return runAction((api) => api.chat.send(input));
 }

@@ -64,7 +64,7 @@ export function systemPrompt(context: {
   /** The org units at the top of what the person may see. */
   ownUnits: string[];
   /** What the page the person is on shows, already checked by the server. */
-  page: { orgUnit?: string; period?: string };
+  page: { orgUnit?: string; period?: string; name?: string };
 }): string {
   const year = financialYearOf(context.today);
   return [
@@ -92,7 +92,12 @@ export function systemPrompt(context: {
       : "- This person has no org unit assigned.",
     context.page.orgUnit
       ? `- The page they are looking at shows the org unit "${context.page.orgUnit}"${context.page.period ? ` and the period "${context.page.period}"` : ""}. "This project" or "here" means that.`
-      : "- The page they are looking at does not select an org unit.",
+      : "- No org unit is selected on the page they are looking at.",
+    ...(context.page.name
+      ? [
+          `- The page they are looking at is ${context.page.name}. It is the only page they have open.`,
+        ]
+      : []),
   ].join("\n");
 }
 

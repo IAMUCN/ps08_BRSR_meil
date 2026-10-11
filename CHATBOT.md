@@ -205,7 +205,8 @@ A failed question is not saved; the panel offers "Try again".
 
 ## API
 
-`chat.send` — input `{ conversationId?: uuid, message: string (1–2000), page?: { orgUnitId?, periodId? } }`;
+`chat.send` — input `{ conversationId?: uuid, message: string (1–2000), page?: { orgUnitId?, periodId?, path? } }`
+(`path` only selects a page name from a fixed list on the server);
 returns `{ conversation: { id, title, lastMessageAt }, messages: [question, answer] }`. A message is
 `{ id, role, content, blocks, createdAt, hidden }`; `blocks` follow `lib/chat/blocks.ts`.
 `chat.conversations` → the person's conversations. `chat.conversation({ id })` → its messages.
@@ -227,7 +228,8 @@ hand from scripts that are not in the repository.
 
 1. `pnpm db:start`; on a database not reset since `0042`: `npx supabase migration up`, then the `alter role`.
 2. In `apps/web/.env.local` set the four variables (local `CHAT_DATABASE_URL` above). Restart `pnpm dev`.
-3. Sign in. Click **Ask** in the top bar or the round button at the bottom right.
+3. Sign in. Click **Ask** in the top bar or the round button at the bottom right. On a desktop the pane
+   docks at the right and the page narrows; keep using the page, move to another page — it stays open.
 4. Ask "What was the electricity consumption of Project X in September 2026?" — a worded answer, two figure
    tiles, a table, and a "Covers:" line. Compare the figure with Admin → Scope 2 for the same unit and period.
 5. Ask "Now compare it with the previous month." — it should still mean Project X.

@@ -7,6 +7,7 @@ import {
   SendHorizontal,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react";
 import {
   useCallback,
@@ -19,13 +20,6 @@ import {
 import { ChatBlocks } from "@/components/chat/chat-blocks";
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
   deleteConversationAction,
   listConversationsAction,
   loadConversationAction,
@@ -34,6 +28,9 @@ import {
 import type { ChatMessageView, ConversationSummary } from "@/lib/trpc/routers/chat";
 
 const MAX_QUESTION = 2000;
+/** Width of the docked pane; the class lg:w-[420px] below must say the same. */
+const PANE_WIDTH = 420;
+const OPEN_KEY = "traceesg-chat-open";
 
 const EXAMPLES = [
   "What are the total Scope 1 and Scope 2 emissions this financial year?",
@@ -49,8 +46,10 @@ const uuid = (value: string | null) =>
 
 /**
  * The ESG data analyst (.grill/chat-analyst-decisions.md, A32): a button in the top bar and a floating one
- * at the bottom right, both opening the same side panel. The panel only shows what the server returns —
- * the model's wording as plain text and the blocks the server built from the records.
+ * at the bottom right, both opening the same pane. On a desktop the pane docks at the right and the page
+ * narrows to make room — no backdrop, the page stays usable — and it stays open from page to page; on a
+ * small screen it covers the page. It only shows what the server returns: the model's wording as plain
+ * text and the blocks the server built from the records.
  */
 export function ChatLauncher() {
   const [open, setOpen] = useState(false);
@@ -68,6 +67,41 @@ export function ChatLauncher() {
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
   }, [messages, pending, error]);
+
+  // Open or closed is remembered in this browser, so the pane is still there on the next page.
+  const toggle = (next: boolean) => {
+    setOpen(next);
+    try {
+      localStorage.setItem(OPEN_KEY, next ? "1" : "0");
+    } catch {
+      // Storage can be blocked; the pane then simply starts closed.
+    }
+    if (next) setTimeout(() => input.current?.focus(), 0);
+  };
+  useEffect(() => {
+    // Read after mount (as a timer callback, like the notification bell) so server and browser render alike.
+    const restore = setTimeout(() => {
+      try {
+        if (localStorage.getItem(OPEN_KEY) === "1") setOpen(true);
+      } catch {
+        // See above.
+      }
+    }, 0);
+    return () => clearTimeout(restore);
+  }, []);
+  // Docked: the page gives up the pane's width instead of being covered by it.
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const apply = () => {
+      document.body.style.paddingRight = open && desktop.matches ? `${PANE_WIDTH}px` : "";
+    };
+    apply();
+    desktop.addEventListener("change", apply);
+    return () => {
+      desktop.removeEventListener("change", apply);
+      document.body.style.paddingRight = "";
+    };
+  }, [open]);
 
   const refreshConversations = useCallback(async () => {
     const result = await listConversationsAction();
@@ -109,7 +143,11 @@ export function ChatLauncher() {
     const result = await sendChatMessageAction({
       conversationId,
       message,
-      page: { orgUnitId: uuid(params.get("org")), periodId: uuid(params.get("period")) },
+      page: {
+        orgUnitId: uuid(params.get("org")),
+        periodId: uuid(params.get("period")),
+        path: window.location.pathname.slice(0, 200),
+      },
     });
     setPending(null);
     if (!result.ok) return setError({ message: result.error, question: message });
@@ -134,8 +172,8 @@ export function ChatLauncher() {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
+        onClick={() => toggle(!open)}
+        aria-controls="chat-pane"
         aria-expanded={open}
       >
         <Sparkles aria-hidden />
@@ -144,8 +182,9 @@ export function ChatLauncher() {
       {open ? null : (
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          aria-haspopup="dialog"
+          onClick={() => toggle(true)}
+          aria-controls="chat-pane"
+          aria-expanded={false}
           className="fixed right-4 bottom-4 z-40 inline-flex size-12 items-center justify-center rounded-full border bg-card text-primary-text shadow-lg transition-transform outline-none hover:scale-105 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:right-6 md:bottom-6"
         >
           <Sparkles className="size-5" aria-hidden />
@@ -153,23 +192,49 @@ export function ChatLauncher() {
         </button>
       )}
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent className="w-[480px] max-w-full gap-0">
-          <SheetHeader className="border-b">
-            <SheetTitle>ESG data analyst</SheetTitle>
-            <SheetDescription>
+      {open ? (
+        <aside
+          id="chat-pane"
+          aria-label="ESG data analyst"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") toggle(false);
+          }}
+          className="fixed inset-0 z-50 flex flex-col bg-popover text-sm text-popover-foreground lg:left-auto lg:z-40 lg:w-[420px] lg:border-l"
+        >
+          <div className="relative border-b p-4 pr-14">
+            <h2 className="font-heading text-base font-medium text-foreground">ESG data analyst</h2>
+            <p className="text-sm text-muted-foreground">
               Ask about the ESG data you can see. Figures come from the records; an AI model writes
               the wording. It cannot change anything.
-            </SheetDescription>
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="absolute top-3 right-3"
+              onClick={() => toggle(false)}
+            >
+              <X aria-hidden />
+              <span className="sr-only">Close the ESG data analyst</span>
+            </Button>
             <div className="mt-2 flex gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={startNew}>
+              {/* Icons only (owner's page feedback, 2026-10-11); the full wording shows on hover and is
+                  read out by a screen reader. */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                title="New conversation — start a fresh one; this one stays under Saved"
+                onClick={startNew}
+              >
                 <MessageSquarePlus aria-hidden />
-                New conversation
+                <span className="sr-only">New conversation</span>
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                size="icon"
+                title="Saved conversations — only you can see them; kept 90 days after their last message"
                 aria-pressed={showHistory}
                 onClick={() => {
                   setShowHistory((value) => !value);
@@ -177,10 +242,10 @@ export function ChatLauncher() {
                 }}
               >
                 <History aria-hidden />
-                Saved
+                <span className="sr-only">Saved conversations</span>
               </Button>
             </div>
-          </SheetHeader>
+          </div>
 
           {showHistory ? (
             <div className="flex-1 overflow-y-auto p-4">
@@ -317,8 +382,8 @@ export function ChatLauncher() {
               to the AI service.
             </p>
           </form>
-        </SheetContent>
-      </Sheet>
+        </aside>
+      ) : null}
     </>
   );
 }

@@ -73,6 +73,31 @@ const todayInIndia = () =>
 
 const uuid = z.uuid();
 
+// The page the person is on, by a fixed list — the browser's path only selects an entry, its text is never
+// passed on. Longer paths first.
+const PAGES: [string, string][] = [
+  ["/admin/scope-1", "the Scope 1 dashboard"],
+  ["/admin/scope-2", "the Scope 2 dashboard"],
+  ["/admin/scope-3", "the Scope 3 dashboard"],
+  ["/admin/submissions", "Submission Monitoring"],
+  ["/admin/data-explorer", "the ESG Data Explorer"],
+  ["/admin/validation-queue", "the Validation Queue"],
+  ["/admin/approval-queue", "the Approval Queue"],
+  ["/admin/conversion-factors", "the Conversion Factors page"],
+  ["/admin/brsr-mapping", "the BRSR Mapping page"],
+  ["/admin/disclosures", "the BRSR Disclosures page"],
+  ["/admin/reports", "the Reports page"],
+  ["/admin/reporting-periods", "the Reporting Periods page"],
+  ["/admin/organization", "the Organization page"],
+  ["/admin", "the Admin Control Tower"],
+  ["/app/submissions", "My Submissions"],
+  ["/app/approvals", "the Approvals page"],
+  ["/app/upload", "the Upload page"],
+  ["/app", "their dashboard"],
+];
+const pageName = (path: string | undefined) =>
+  PAGES.find(([prefix]) => path === prefix || path?.startsWith(`${prefix}/`))?.[1];
+
 export const chatRouter = router({
   /** The person's saved conversations, newest first. Conversations past retention are removed on the way. */
   conversations: chatProcedure.query(async ({ ctx }): Promise<ConversationSummary[]> => {
@@ -114,7 +139,13 @@ export const chatRouter = router({
         conversationId: uuid.optional(),
         message: z.string().trim().min(1).max(LIMITS.question),
         /** What the page the person is on shows. Used only if it is inside their scope. */
-        page: z.object({ orgUnitId: uuid.optional(), periodId: uuid.optional() }).optional(),
+        page: z
+          .object({
+            orgUnitId: uuid.optional(),
+            periodId: uuid.optional(),
+            path: z.string().max(200).optional(),
+          })
+          .optional(),
       }),
     )
     .mutation(
@@ -180,6 +211,7 @@ export const chatRouter = router({
           page: {
             orgUnit: units.find((u) => u.id === input.page?.orgUnitId)?.name,
             period: periods.find((p) => p.id === input.page?.periodId)?.label,
+            name: pageName(input.page?.path),
           },
         });
         // Earlier answers the person can no longer see are not context either.
