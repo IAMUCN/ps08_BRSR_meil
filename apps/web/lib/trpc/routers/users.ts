@@ -5,7 +5,14 @@ import { writeAudit } from "@/lib/audit";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
 import { accountCreatedEmailHtml, sendEmail } from "@/lib/email/brevo";
 import { loadLevels } from "@/lib/org/levels";
-import { isFrozen, levelLabel, reachableNodeIds, treeOrder, type OrgNode } from "@/lib/org/rules";
+import {
+  isFrozen,
+  levelLabel,
+  reachableNodeIds,
+  treeOrder,
+  unitByRef,
+  type OrgNode,
+} from "@/lib/org/rules";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { permissionProcedure, router } from "@/lib/trpc/init";
 import type { ActiveSession } from "@/lib/auth/session";
@@ -445,9 +452,9 @@ export const usersRouter = router({
     return {
       roles,
       // Every org unit in scope can be chosen. One with a code is named by it; one without is named by
-      // "Name — id:…", which bulkImport resolves by id (on a new installation most units have no code).
+      // its name, which bulkImport resolves (on a new installation most units have no code).
       orgUnits: inScope.map((n) => ({
-        code: n.code ?? `${n.name} — id:${n.id}`,
+        code: n.code ?? n.name,
         name: n.name,
         unitType: n.unitType,
         level: levelLabel(levels, n.unitType),
@@ -548,19 +555,26 @@ async function importOneEmployee(
       unit_type: string;
       status: string;
       code: string | null;
+      name: string;
     }[]
-  >`select id, parent_id, unit_type, status, code from public.org_units where deleted_at is null`;
+  >`select id, parent_id, unit_type, status, code, name from public.org_units where deleted_at is null`;
   const nodes: OrgNode[] = nodeRows.map((r) => ({
     id: r.id,
     parentId: r.parent_id,
     unitType: r.unit_type as OrgNode["unitType"],
     status: r.status as OrgNode["status"],
   }));
-  // By code, or — for an org unit that has no code, picked from the template's list — by its id.
+  // By code, or by name for an org unit that has no code ("id:…" is what an earlier template wrote).
   const scopeId = /^id:([0-9a-f-]{36})$/i.exec(row.orgUnitCode)?.[1].toLowerCase();
   const orgUnit = scopeId
     ? nodeRows.find((r) => r.id === scopeId)
-    : nodeRows.find((r) => r.code?.toLowerCase() === row.orgUnitCode.toLowerCase());
+    : unitByRef(nodeRows, row.orgUnitCode);
+  if (orgUnit === "ambiguous")
+    return rowFailed(
+      rowNum,
+      row,
+      `More than one org unit is called "${row.orgUnitCode}". Give them codes on the Organization page, then use the code.`,
+    );
   if (!orgUnit)
     return rowFailed(rowNum, row, `Unknown organization scope code "${row.orgUnitCode}".`);
   const reachable = new Set(

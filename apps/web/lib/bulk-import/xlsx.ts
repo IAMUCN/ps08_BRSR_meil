@@ -61,8 +61,8 @@ export const EMPLOYEE_HEADERS = [
 ] as const;
 
 /**
- * The org unit an Organization Scope cell names: its code, or — for a unit that has no code, shown in the
- * list as "Name — id:…" — the reference "id:…" the server resolves.
+ * The org unit an Organization Scope cell names: its code, or its name for a unit that has no code; the
+ * server resolves either. A sheet from an earlier template may still say "Name — id:…", read as "id:…".
  */
 export function scopeRefOf(cell: string): string {
   const id = /id:([0-9a-f-]{36}) *$/i.exec(cell)?.[1];
@@ -109,7 +109,7 @@ export async function downloadEmployeeTemplate(
   for (const line of [
     'Fill the "Employees" sheet, one person per row, starting on row 2. Keep the headings as they are.',
     "Role and Organization Scope are dropdowns. They take the values listed on the next two sheets.",
-    "An org unit that has no code shows as its name followed by an id; pick it from the list as it is.",
+    "An org unit that has no code is listed by its name; pick it from the list as it is.",
     "Organization Scope is the org unit the person works at; they see that unit and everything beneath it.",
     "Employee ID, Name and Email are all required. An employee ID and an email can each be used only once.",
     `At most ${MAX_IMPORT_ROWS} rows per sheet. Each row is created by itself: one bad row does not stop the others.`,
@@ -184,8 +184,9 @@ export const ORG_UNIT_HEADERS = ["Code", "Name", "Level", "Parent code"] as cons
  */
 export const PARENT_SEPARATOR = " — ";
 /**
- * The parent a cell names. Picked from the list it is "CODE — Name", or "Name — id:…" for an org unit that
- * has no code (the id is the only way to name it); typed by hand it is a bare code.
+ * The parent a cell names. Picked from the list it is "CODE — Name", or just the name for an org unit that
+ * has no code (the server matches it by name); typed by hand it is a bare code. A sheet from an earlier
+ * template may still say "Name — id:…".
  */
 export function parentOf(cell: string): { parentCode: string; parentId?: string } {
   const id = /id:([0-9a-f-]{36}) *$/i.exec(cell)?.[1];
@@ -233,7 +234,7 @@ export async function downloadOrgUnitTemplate(
   for (const line of [
     'Fill the "New org units" sheet, one org unit per row, starting on row 2. Keep the headings as they are.',
     `Parent code left empty: the row is created directly under "${parent.name}" (${parent.level}), the unit chosen on screen.`,
-    "Parent code filled in: pick an org unit that exists already from the cell's dropdown list, or type the Code of another row in this sheet (the list is only a suggestion, so typing is allowed). An org unit that has no code can be picked from the list too; it shows as its name followed by an id. That is how one sheet builds several levels at once; the order of the rows does not matter.",
+    "Parent code filled in: pick an org unit that exists already from the cell's dropdown list, or type the Code of another row in this sheet (the list is only a suggestion, so typing is allowed). An org unit that has no code can be picked from the list too; it is listed by its name. That is how one sheet builds several levels at once; the order of the rows does not matter.",
     "Level is a dropdown of the levels configured today. A unit's level must come after its parent's level; levels may be skipped.",
     "Code is letters, numbers, hyphens and underscores, and must be new. It is required for a row that other rows name as their parent.",
     `At most ${MAX_IMPORT_ROWS} rows per sheet. A row whose parent could not be created is not created either; the results say which.`,
@@ -306,9 +307,7 @@ export async function downloadOrgUnitTemplate(
   ref.getCell(1, 6).value = "Parent code choices (the list in the Parent code column)";
   ref.getCell(1, 6).font = { bold: true };
   parents.forEach((u, index) => {
-    ref.getCell(index + 2, 6).value = u.code
-      ? `${u.code}${PARENT_SEPARATOR}${u.name}`
-      : `${u.name}${PARENT_SEPARATOR}id:${u.id}`;
+    ref.getCell(index + 2, 6).value = u.code ? `${u.code}${PARENT_SEPARATOR}${u.name}` : u.name;
   });
   if (parents.length > 0) {
     const parentColumn = ORG_UNIT_HEADERS.indexOf("Parent code") + 1;

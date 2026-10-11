@@ -126,6 +126,21 @@ export function importOrder<T extends { code: string | null; parentCode?: string
   return { ordered, orphans: waiting };
 }
 
+/**
+ * The org unit a sheet cell names: by its code, else by its name (how a unit with no code is listed). When
+ * several units share that name the answer is "ambiguous" — the sheet must not guess which one was meant.
+ */
+export function unitByRef<T extends { code: string | null; name: string }>(
+  units: readonly T[],
+  ref: string,
+): T | "ambiguous" | undefined {
+  const wanted = ref.trim().toLowerCase();
+  const byCode = units.find((u) => u.code?.toLowerCase() === wanted);
+  if (byCode) return byCode;
+  const named = units.filter((u) => u.name.trim().toLowerCase() === wanted);
+  return named.length > 1 ? "ambiguous" : named[0];
+}
+
 export type MoveCheck = { ok: true } | { ok: false; reason: string };
 
 /** Moving a node: no cycles, root cannot move, ordering must hold for the node and its whole subtree. */

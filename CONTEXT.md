@@ -181,9 +181,28 @@ _Last updated: 2026-10-11._
   vertical line from each parent with a tick to each child (CSS only, `BRANCH`). Lint and typecheck pass; **not
   viewed in a browser** by the agent (no local Admin password). The lines use `--border`, which is pale in the
   Special theme.
-- **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
-  org unit, one open period `AUG26`, three users at the group. Needs, in order: a second Admin invited
-  by the owner for the agent (see §2); then the factor script and an org tree.
+- **`feature-chat-analyst` was pushed to `ucn` (`IAMUCN/ps08_BRSR_meil`) `main` by the owner on 2026-10-11**
+  (`dba8fa1`); `origin` (MACRO72) does not have it. Everything below this line is **uncommitted**.
+- **No ids in the bulk-import templates (2026-10-11, owner's request), uncommitted:** an org unit with no code is
+  listed by its name and matched by name on the server (`unitByRef`, `lib/org/rules.ts`; `users.ts`,
+  `organization.ts`, `xlsx.ts`); a name several units share is refused. Checked: format, lint, typecheck, web
+  unit 128/128 (1 new). **Not run:** an import through the procedure, the screens in a browser, the build.
+- **Hosted was cleared and given MEIL's Admin inputs on 2026-10-11** (owner's request, each group confirmed;
+  `.grill/demo-data-decisions.md`). Gone: all records, documents and files, OCR / validation / approval rows,
+  notifications, the saved chat, the 0.02 factor, `AUG26`, DrillMac / Drilling / Olectra, the role "test".
+  Kept: the three accounts, the audit log (append-only), all configuration. Entered through the Admin
+  procedures by script, as the one Admin account: 23 BRSR Disclosure answers for FY 2026-27 (only what meil.in
+  or its published annual return and CSR summary state), turnover for FY 2022-23, and 29 conversion factors
+  (the 28 sourced ones plus zero for renewable electricity). Hosted now has **one org unit (MEIL), no period,
+  three users**. Rows deleted are copied in `test data/_backup/`.
+- **Two sets of test data** in `test data/` (git-ignored; `README.md` there says how to use them), made by
+  `apps/ocr-worker/scripts/make_test_data.py` and `apps/web/scripts/test-data-sheets.mjs`: per set a filled
+  org-unit sheet, an employee sheet with the Email column empty (the owner types addresses and imports), one
+  document for each of the 47 activities, a multi-bill PDF and a manifest. Set 1 is August 2026, set 2
+  September 2026. Checked: the worker's real OCR and extraction on all 63 single documents of set 1 (every
+  required field read, document type chosen; the faint Men figure is misread on purpose), the sheets against
+  `importOrder` and `canBeChildOf`, Ruff. **Not run:** set 2 through OCR (same layouts), any upload or import
+  through the app. **The owner does the rest:** creates the two periods, imports org units and users, uploads.
 - **The `agentation` widget is committed now** (it is in `apps/web/package.json` on `main`; the working tree was
   clean at the start of the 2026-10-11 session and `pnpm format:check` passes).
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
@@ -194,7 +213,9 @@ _Last updated: 2026-10-11._
 |---|---|
 | Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
 | NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
-| Push the chatbot branch and open its pull request | Branch `feature-chat-analyst`, committed (`67700f8`), not pushed; `gh` is not installed. The pull request must say that the feature role built UI (`UI_NOTES.md`). |
+| Chatbot branch on MACRO72's repo | The owner pushed `feature-chat-analyst` straight to `ucn` `main` (2026-10-11). `origin` has neither the branch nor a pull request; `gh` is not installed. A pull request must say that the feature role built UI (`UI_NOTES.md`). |
+| Commit the 2026-10-11 work | Template without ids, the two test-data scripts, `.gitignore`, the docs. Not committed: the owner has not asked. |
+| Admin answers to complete | BRSR Disclosures holds only what meil.in states. Reporting boundary, contact person, assurance, PPP rate and every answer not on the website are empty. R-22's factor value came from a search summary. |
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
 | Hosted demo setup | The owner chose hosted for the demo (2026-10-08). Waiting on: (1) go-ahead to replace the hosted worker container with the `rules-12` image; (2) a second Admin invited from Admin → Users for the agent — the provisioning script refuses a second Admin by design and the owner's password must not be reset; (3) the owner's review of the factor table in `.grill/audit-2-decisions.md`. |
@@ -361,6 +382,12 @@ _Last updated: 2026-10-11._
   elsewhere, so opening a second one leaves the first open underneath and its button does nothing. A page with
   more than one `Sheet` must close the others when it opens one (`show()` in `users-manager.tsx`; also fixed in
   `periods-manager.tsx`, 2026-10-11). Users’ bulk import is a side panel now, not a fold-out.
+- **OCR does not detect a lone digit on a line** ("Fatalities: 0" comes back empty). Sample documents print
+  "0 Nos". A document type needs two of its keywords on the page or the person must pick it.
+- **Users cannot be deleted once the audit log names them** (foreign key, append-only log); deactivate instead.
+  `calculations` and `audit_logs` refuse deletes for every role.
+- **Running the worker's OCR on files without the database:** `OcrEngine(Path("models"))`, `to_page_images`,
+  `extract_fields` with `FieldSpec`s (about 10 s a page; output is buffered until the end when redirected).
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands
