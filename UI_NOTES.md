@@ -44,3 +44,21 @@ Built by the feature session at the owner's request (A34).
   `chat-launcher.tsx` calls `router.push` when an answer carries one.
 - **Not viewed in a browser.** Check the form's wrapping with five controls in a row, and the link row in the
   Special and Dark themes.
+
+## 2026-10-11 — Organization page and chat pane, from the owner's page feedback
+
+Built by the feature session at the owner's request (A35).
+
+- `components/ui/confirm-dialog.tsx` (shared): two new optional props — `requireTyped` (a word to type before
+  the button works) and `blocked` (only Cancel works). Existing callers are unaffected.
+- `app/admin/organization/org-manager.tsx`: the tree draws every group and draws a shared unit under each
+  parent with a "Shared" tag; two new cards (Also under another parent, Delete this unit); the Add a unit
+  panel starts with an "Add where" select; the "Organization hierarchy" heading is bold.
+- `components/chat/chat-launcher.tsx`: the header is a 56px bar (`bg-modal-header`) with the three icon
+  buttons; the textarea is one row and sizes itself to its text (up to `max-h-40`); the empty state sits at
+  the bottom (`mt-auto`).
+- **Not viewed in a browser.** Check the header bar's icon contrast in the Special and Dark themes, the tree
+  with a shared unit at 1366px, and the chat pane's empty state on a short screen.
+- Second round the same day: the Shared tag is a glowing pill in `text-primary-text` (a box shadow in the
+  same colour) and shows under every parent; an **Export hierarchy** button sits beside the two add buttons.
+  The glow has not been seen in any theme.

@@ -31,7 +31,14 @@ export type OrgUnit = {
   code: string | null;
   type: string;
   parentId: string | null;
+  /** Other units it also sits under (migration 0044): it belongs to, and counts in, each of them. */
+  alsoUnder?: string[];
 };
+
+/** Whether a unit sits directly under any of the given units, by its main parent or an extra one. */
+const sitsUnder = (u: OrgUnit, parents: { has(id: string): boolean }) =>
+  Boolean(u.parentId && parents.has(u.parentId)) ||
+  Boolean(u.alsoUnder?.some((p) => parents.has(p)));
 
 export type Metric = {
   id: string;
@@ -441,20 +448,48 @@ const tool = <S extends z.ZodType>(t: Tool<S>) => t;
 export const TOOLS = {
   list_org_units: tool({
     description:
-      "The org units (group, subsidiaries, projects, sites...) this person may see. Use it to find the exact name before another tool.",
+      'The org units (group, subsidiaries, projects, sites...) this person may see. Use it to find the exact name before another tool. For what belongs to a unit ("the projects under X"), pass under: the answer then holds only units beneath X.',
     schema: z.strictObject({
       search: z.string().trim().max(80).optional().describe("Part of a name."),
       type: z.string().trim().max(40).optional().describe("A level, e.g. project or subsidiary."),
+      under: z
+        .string()
+        .trim()
+        .min(1)
+        .max(80)
+        .optional()
+        .describe("Name or code of an org unit: list only the units beneath it, at any depth."),
+      direct_only: z
+        .boolean()
+        .optional()
+        .describe("With under: only the units directly beneath it, not their own children."),
     }),
     async run(a, ctx) {
       const search = a.search?.toLowerCase();
+      // Membership is worked out here from the hierarchy, never left to the model to read off a list.
+      const beneath = new Set<string>();
+      if (a.under) {
+        let layer = [resolveUnit(ctx, a.under).id];
+        while (layer.length) {
+          const parents = new Set(layer);
+          const children = ctx.units.filter((u) => sitsUnder(u, parents) && !beneath.has(u.id));
+          for (const child of children) beneath.add(child.id);
+          layer = a.direct_only ? [] : children.map((u) => u.id);
+        }
+      }
       const found = ctx.units.filter(
         (u) =>
+          (!a.under || beneath.has(u.id)) &&
           (!search || u.name.toLowerCase().includes(search)) &&
           (!a.type || u.type === a.type.toLowerCase().replace(/ /g, "_")),
       );
       const shown = found.slice(0, MAX_TABLE_ROWS);
-      const parent = (u: OrgUnit) => ctx.units.find((p) => p.id === u.parentId)?.name ?? null;
+      // Every parent of a shared unit, main one first.
+      const parent = (u: OrgUnit) =>
+        [u.parentId, ...(u.alsoUnder ?? [])]
+          .map((id) => ctx.units.find((p) => p.id === id)?.name)
+          .filter(Boolean)
+          .join(" and ") || null;
       return {
         data: {
           total: found.length,
@@ -869,7 +904,7 @@ export const TOOLS = {
       for (let grew = true; grew;) {
         grew = false;
         for (const u of ctx.units) {
-          if (u.parentId && beneath.has(u.parentId) && !beneath.has(u.id)) {
+          if (sitsUnder(u, beneath) && !beneath.has(u.id)) {
             beneath.add(u.id);
             grew = true;
           }
@@ -878,7 +913,7 @@ export const TOOLS = {
       const candidates = ctx.units.filter((u) =>
         type
           ? beneath.has(u.id) && u.id !== parent.id && u.type === type
-          : u.parentId === parent.id,
+          : sitsUnder(u, new Set([parent.id])),
       );
       if (!candidates.length) {
         throw new ToolError(

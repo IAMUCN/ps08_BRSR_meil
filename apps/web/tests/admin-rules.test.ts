@@ -3,11 +3,13 @@ import { test } from "node:test";
 import {
   allowedChildTypes,
   canBeChildOf,
+  checkAlsoUnder,
   checkMove,
   descendantIds,
   importOrder,
   isFrozen,
   reachableNodeIds,
+  rootOf,
   treeOrder,
   unitByRef,
   type OrgLevel,
@@ -305,4 +307,63 @@ test("a sheet names an org unit by its code, or by its name when it has none", (
   assert.equal(unitByRef(units, " olectra "), units[1]);
   assert.equal(unitByRef(units, "Drilling"), "ambiguous"); // two units share the name: never guess
   assert.equal(unitByRef(units, "No such unit"), undefined);
+});
+
+// --- A unit under more than one parent, and several groups (migration 0044) -------------------------------
+
+const SHARED_TREE: OrgNode[] = [
+  { id: "g", parentId: null, unitType: "group", status: "active" },
+  { id: "s1", parentId: "g", unitType: "subsidiary", status: "active" },
+  { id: "s2", parentId: "g", unitType: "subsidiary", status: "active" },
+  // The shared project: managed from s1, also under s2.
+  { id: "p", parentId: "s1", alsoUnder: ["s2"], unitType: "project", status: "active" },
+  { id: "site", parentId: "p", unitType: "site", status: "active" },
+  { id: "g2", parentId: null, unitType: "group", status: "active" },
+  { id: "t1", parentId: "g2", unitType: "subsidiary", status: "active" },
+];
+
+test("a shared unit is beneath both parents for scope, and beneath its main parent for management", () => {
+  assert.deepEqual(descendantIds("s2", SHARED_TREE), []);
+  assert.deepEqual(descendantIds("s2", SHARED_TREE, "all").sort(), ["p", "site"]);
+  assert.deepEqual(descendantIds("s1", SHARED_TREE).sort(), ["p", "site"]);
+  // Someone assigned to the second subsidiary reaches the shared project and its site.
+  assert.deepEqual(reachableNodeIds(SHARED_TREE, ["s2"]).sort(), ["p", "s2", "site"]);
+  // Each unit once at the group, though two paths lead to the shared project.
+  assert.deepEqual(descendantIds("g", SHARED_TREE, "all").sort(), ["p", "s1", "s2", "site"]);
+});
+
+test("one more parent: an earlier level of the same group, not one it has already", () => {
+  const check = (node: string, parent: string) => checkAlsoUnder(node, parent, SHARED_TREE, LEVELS);
+  assert.deepEqual(check("site", "s2"), { ok: true });
+  assert.equal(check("p", "s1").ok, false, "its main parent");
+  assert.equal(check("p", "s2").ok, false, "already an extra parent");
+  assert.equal(check("p", "p").ok, false, "itself");
+  assert.equal(check("s1", "p").ok, false, "a later level: this would close a circle");
+  assert.equal(check("s1", "s2").ok, false, "the same level");
+  assert.equal(check("g", "g2").ok, false, "a group sits under nothing");
+  assert.equal(check("p", "t1").ok, false, "another group's subsidiary");
+  assert.equal(rootOf("site", SHARED_TREE), "g");
+  // Moving it under a parent it already sits under is refused; so is moving a parent under it.
+  assert.equal(checkMove("p", "s2", SHARED_TREE, LEVELS).ok, false);
+  assert.equal(checkMove("s2", "p", SHARED_TREE, LEVELS).ok, false);
+});
+
+test("import order waits for every parent a row names, the extra ones too", () => {
+  const { ordered, orphans } = importOrder(
+    [
+      { code: "PRJ", parentCode: "SUB-1", alsoUnderCodes: ["SUB-2"] },
+      { code: "SUB-2", parentCode: null },
+      { code: "SUB-1", parentCode: null },
+      { code: "LOST", parentCode: null, alsoUnderCodes: ["NO-SUCH"] },
+    ],
+    new Set<string>(),
+  );
+  assert.deepEqual(
+    ordered.map((r) => r.code),
+    ["SUB-2", "SUB-1", "PRJ"],
+  );
+  assert.deepEqual(
+    orphans.map((r) => r.code),
+    ["LOST"],
+  );
 });

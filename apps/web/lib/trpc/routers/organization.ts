@@ -6,6 +6,7 @@ import type { ActiveSession } from "@/lib/auth/session";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
 import {
   canBeChildOf,
+  checkAlsoUnder,
   checkMove,
   descendantIds,
   importOrder,
@@ -17,6 +18,7 @@ import {
   type OrgNode,
 } from "@/lib/org/rules";
 import { loadLevels } from "@/lib/org/levels";
+import { loadOrgNodes, type OrgNodeRow } from "@/lib/org/nodes";
 import { permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 
 const orgManage = permissionProcedure("org.manage");
@@ -32,7 +34,10 @@ export type OrgExpectation = {
   expected: boolean;
 };
 
-export type OrgUnitRow = OrgNode & { name: string; code: string | null; activeAssignments: number };
+export type OrgUnitRow = OrgNodeRow & { activeAssignments: number };
+
+/** What stands in the way of deleting a unit for good, and how many units would go. */
+export type OrgDeleteCheck = { units: number; blockers: string[] };
 
 const nameSchema = z.string().trim().min(1, "Name is required.").max(200);
 const codeSchema = z
@@ -51,18 +56,50 @@ function badRequest(message: string): never {
 }
 
 /** Serialises structural tree changes so concurrent moves/creates can't race each other. */
-async function loadTreeForUpdate(tx: Tx): Promise<OrgNode[]> {
+async function loadTreeForUpdate(tx: Tx): Promise<OrgNodeRow[]> {
   await tx`select pg_advisory_xact_lock(hashtext('org_units_tree'))`;
-  const rows = await tx<
-    { id: string; parent_id: string | null; unit_type: string; status: string }[]
+  return loadOrgNodes(tx);
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * Deleting for good is only for a unit nobody has used: it and everything managed under it must have no
+ * person ever assigned, no document, no record and no report. Anything used is deactivated instead, so its
+ * history stays. A group may go only while another group remains.
+ */
+async function deleteCheck(
+  sql: Tx | ReturnType<typeof db>,
+  nodeId: string,
+  nodes: readonly OrgNode[],
+): Promise<OrgDeleteCheck & { ids: string[] }> {
+  const node = nodes.find((n) => n.id === nodeId);
+  if (!node) badRequest("Node not found.");
+  const ids = [nodeId, ...descendantIds(nodeId, nodes)];
+  const [used] = await sql<
+    { assignments: number; documents: number; records: number; reports: number }[]
   >`
-    select id, parent_id, unit_type, status from public.org_units where deleted_at is null`;
-  return rows.map((r) => ({
-    id: r.id,
-    parentId: r.parent_id,
-    unitType: r.unit_type as OrgNode["unitType"],
-    status: r.status as OrgNode["status"],
-  }));
+    select
+      (select count(*)::int from public.user_org_assignments where org_unit_id = any(${ids}::uuid[])) as assignments,
+      (select count(*)::int from public.documents where org_unit_id = any(${ids}::uuid[])) as documents,
+      (select count(*)::int from public.esg_records where org_unit_id = any(${ids}::uuid[])) as records,
+      (select count(*)::int from public.report_runs where org_unit_id = any(${ids}::uuid[])) as reports`;
+  const blockers: string[] = [];
+  if (node.parentId === null && nodes.filter((n) => n.parentId === null).length < 2) {
+    blockers.push("It is the only group; one group must remain.");
+  }
+  if (used.assignments) {
+    blockers.push(
+      `${plural(used.assignments, "role assignment names", "role assignments name")} it or a unit under it (past ones count: they are part of the history).`,
+    );
+  }
+  if (used.documents)
+    blockers.push(`${plural(used.documents, "document was", "documents were")} uploaded there.`);
+  if (used.records)
+    blockers.push(`${plural(used.records, "record belongs", "records belong")} there.`);
+  if (used.reports)
+    blockers.push(`${plural(used.reports, "report was", "reports were")} generated for it.`);
+  return { units: ids.length, blockers, ids };
 }
 
 async function subtreeImpact(nodeId: string, nodes: OrgNode[]) {
@@ -181,52 +218,29 @@ export const organizationRouter = router({
   }),
 
   tree: orgManage.query(async (): Promise<OrgUnitRow[]> => {
-    const rows = await db()<
-      {
-        id: string;
-        parent_id: string | null;
-        unit_type: string;
-        status: string;
-        name: string;
-        code: string | null;
-        active_assignments: number;
-      }[]
-    >`
-      select ou.id, ou.parent_id, ou.unit_type, ou.status, ou.name, ou.code,
-             (select count(*)::int from public.user_org_assignments uoa
-              where uoa.org_unit_id = ou.id and uoa.revoked_at is null) as active_assignments
-      from public.org_units ou
-      where ou.deleted_at is null
-      order by ou.name`;
-    return rows.map((r) => ({
-      id: r.id,
-      parentId: r.parent_id,
-      unitType: r.unit_type as OrgNode["unitType"],
-      status: r.status as OrgNode["status"],
-      name: r.name,
-      code: r.code,
-      activeAssignments: r.active_assignments,
-    }));
+    const sql = db();
+    const [nodes, counts] = await Promise.all([
+      loadOrgNodes(sql),
+      sql<{ org_unit_id: string; n: number }[]>`
+        select org_unit_id, count(*)::int as n from public.user_org_assignments
+        where revoked_at is null group by org_unit_id`,
+    ]);
+    const assigned = new Map(counts.map((c) => [c.org_unit_id, c.n]));
+    return nodes.map((node) => ({ ...node, activeAssignments: assigned.get(node.id) ?? 0 }));
   }),
 
-  impact: orgManage.input(z.object({ id: z.uuid() })).query(async ({ input }) => {
-    const rows = await db()<
-      { id: string; parent_id: string | null; unit_type: string; status: string }[]
-    >`
-      select id, parent_id, unit_type, status from public.org_units where deleted_at is null`;
-    const nodes: OrgNode[] = rows.map((r) => ({
-      id: r.id,
-      parentId: r.parent_id,
-      unitType: r.unit_type as OrgNode["unitType"],
-      status: r.status as OrgNode["status"],
-    }));
-    return subtreeImpact(input.id, nodes);
-  }),
+  impact: orgManage
+    .input(z.object({ id: z.uuid() }))
+    .query(async ({ input }) => subtreeImpact(input.id, await loadOrgNodes(db()))),
 
+  /**
+   * A unit under a parent, or — with no parent — one more group: a separate organization with its own
+   * tree, managed by the same Admins (owner's decision 2026-10-11, .grill/shared-org-units-decisions.md).
+   */
   create: orgManage
     .input(
       z.object({
-        parentId: z.uuid(),
+        parentId: z.uuid().nullable(),
         unitType: levelCode,
         name: nameSchema,
         code: codeSchema,
@@ -236,17 +250,26 @@ export const organizationRouter = router({
       try {
         return await db().begin(async (tx) => {
           const nodes = await loadTreeForUpdate(tx);
-          const parent = nodes.find((n) => n.id === input.parentId);
-          if (!parent) badRequest("Parent node not found.");
-          if (isFrozen(parent.id, nodes)) {
-            badRequest("That node is inactive (or under an inactive node) — reactivate it first.");
-          }
-          if (!canBeChildOf(await loadLevels(tx), parent.unitType, input.unitType)) {
-            badRequest("That level can't be placed under the selected parent.");
+          const parent = input.parentId ? nodes.find((n) => n.id === input.parentId) : null;
+          if (input.parentId && !parent) badRequest("Parent node not found.");
+          if (parent) {
+            if (isFrozen(parent.id, nodes)) {
+              badRequest(
+                "That node is inactive (or under an inactive node) — reactivate it first.",
+              );
+            }
+            if (!canBeChildOf(await loadLevels(tx), parent.unitType, input.unitType)) {
+              badRequest("That level can't be placed under the selected parent.");
+            }
+          } else {
+            if (!ctx.session.isAdmin) badRequest("Only an Admin can add a group.");
+            if (input.unitType !== ROOT_LEVEL) {
+              badRequest("Only a group can stand on its own; every other level needs a parent.");
+            }
           }
           const [created] = await tx<{ id: string }[]>`
             insert into public.org_units (parent_id, unit_type, name, code)
-            values (${parent.id}, ${input.unitType}, ${input.name}, ${input.code})
+            values (${parent?.id ?? null}, ${input.unitType}, ${input.name}, ${input.code})
             returning id`;
           await writeAudit(tx, {
             eventType: "org_unit.created",
@@ -254,7 +277,7 @@ export const organizationRouter = router({
             entityId: created.id,
             userId: ctx.session.userId,
             newValue: {
-              parent_id: parent.id,
+              parent_id: parent?.id ?? null,
               unit_type: input.unitType,
               name: input.name,
               code: input.code,
@@ -321,6 +344,108 @@ export const organizationRouter = router({
       return null;
     }),
 
+  /**
+   * One more parent for a unit (migration 0044): a project two subsidiaries run sits under both. Its
+   * figures count in full in each parent and once above them, and both parents' people see it. The main
+   * parent — where it is moved and deactivated from — does not change.
+   */
+  addParent: orgManage
+    .input(z.object({ id: z.uuid(), parentId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const nodes = await loadTreeForUpdate(tx);
+        const check = checkAlsoUnder(input.id, input.parentId, nodes, await loadLevels(tx));
+        if (!check.ok) badRequest(check.reason);
+        if (isFrozen(input.parentId, nodes)) {
+          badRequest("That parent is inactive (or under an inactive node).");
+        }
+        await tx`
+          insert into public.org_unit_parents (org_unit_id, parent_id, created_by)
+          values (${input.id}, ${input.parentId}, ${ctx.session.userId})`;
+        await writeAudit(tx, {
+          eventType: "org_unit.parent_added",
+          entityType: "org_unit",
+          entityId: input.id,
+          userId: ctx.session.userId,
+          newValue: { also_under: input.parentId },
+        });
+      });
+      return null;
+    }),
+
+  removeParent: orgManage
+    .input(z.object({ id: z.uuid(), parentId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        await tx`select pg_advisory_xact_lock(hashtext('org_units_tree'))`;
+        const removed = await tx`
+          delete from public.org_unit_parents
+          where org_unit_id = ${input.id} and parent_id = ${input.parentId} returning org_unit_id`;
+        if (removed.length === 0) badRequest("The node does not sit under that parent.");
+        await writeAudit(tx, {
+          eventType: "org_unit.parent_removed",
+          entityType: "org_unit",
+          entityId: input.id,
+          userId: ctx.session.userId,
+          oldValue: { also_under: input.parentId },
+        });
+      });
+      return null;
+    }),
+
+  /** Whether a unit can be deleted for good, and what stands in the way if not. */
+  deleteCheck: orgManage
+    .input(z.object({ id: z.uuid() }))
+    .query(async ({ input }): Promise<OrgDeleteCheck> => {
+      const sql = db();
+      const { units, blockers } = await deleteCheck(sql, input.id, await loadOrgNodes(sql));
+      return { units, blockers };
+    }),
+
+  /** Deletes an unused unit and the units managed under it. The audit log keeps what they were. */
+  delete: orgManage.input(z.object({ id: z.uuid() })).mutation(async ({ ctx, input }) => {
+    try {
+      await db().begin(async (tx) => {
+        const nodes = await loadTreeForUpdate(tx);
+        const check = await deleteCheck(tx, input.id, nodes);
+        if (check.blockers.length) {
+          badRequest(
+            `This unit cannot be deleted. ${check.blockers.join(" ")} Deactivate it instead.`,
+          );
+        }
+        const gone = nodes.filter((n) => check.ids.includes(n.id));
+        await tx`delete from public.submission_expectations where org_unit_id = any(${check.ids}::uuid[])`;
+        // One statement: the links between a parent and its children are checked when it ends.
+        await tx`delete from public.org_units where id = any(${check.ids}::uuid[])`;
+        for (const unit of gone) {
+          await writeAudit(tx, {
+            eventType: "org_unit.deleted",
+            entityType: "org_unit",
+            entityId: unit.id,
+            userId: ctx.session.userId,
+            oldValue: {
+              parent_id: unit.parentId,
+              also_under: unit.alsoUnder,
+              unit_type: unit.unitType,
+              name: unit.name,
+              code: unit.code,
+              deleted_with: unit.id === input.id ? null : input.id,
+            },
+          });
+        }
+      });
+    } catch (error) {
+      // Something else names the unit (a table added later): refuse rather than guess.
+      if (pgErrorCode(error) === "23503") {
+        badRequest(
+          "This unit is still referred to by other data, so it cannot be deleted. Deactivate it instead.",
+        );
+      }
+      throw error;
+    }
+    return null;
+  }),
+
   setStatus: orgManage
     .input(z.object({ id: z.uuid(), status: z.enum(["active", "inactive"]) }))
     .mutation(async ({ ctx, input }) => {
@@ -328,8 +453,12 @@ export const organizationRouter = router({
         const nodes = await loadTreeForUpdate(tx);
         const node = nodes.find((n) => n.id === input.id);
         if (!node) badRequest("Node not found.");
-        if (node.parentId === null && input.status === "inactive") {
-          badRequest("The root organization can't be deactivated.");
+        if (
+          node.parentId === null &&
+          input.status === "inactive" &&
+          !nodes.some((n) => n.parentId === null && n.id !== node.id && n.status === "active")
+        ) {
+          badRequest("The only active group can't be deactivated.");
         }
         if (node.status === input.status) badRequest(`The node is already ${input.status}.`);
         const impact = await subtreeImpact(input.id, nodes);
@@ -409,24 +538,8 @@ export const organizationRouter = router({
     }),
 
   bulkImportOptions: orgBulkImport.query(async ({ ctx }) => {
-    const rows = await db()<
-      {
-        id: string;
-        parent_id: string | null;
-        unit_type: string;
-        status: string;
-        name: string;
-        code: string | null;
-      }[]
-    >`
-      select id, parent_id, unit_type, status, name, code from public.org_units
-      where deleted_at is null`;
-    const nodes: OrgNode[] = rows.map((r) => ({
-      id: r.id,
-      parentId: r.parent_id,
-      unitType: r.unit_type as OrgNode["unitType"],
-      status: r.status as OrgNode["status"],
-    }));
+    const nodes = await loadOrgNodes(db());
+    const rows = nodes.map((n) => ({ ...n, parent_id: n.parentId, unit_type: n.unitType }));
     const reachable = new Set(
       ctx.session.isAdmin
         ? nodes.filter((n) => !isFrozen(n.id, nodes)).map((n) => n.id)
@@ -469,6 +582,11 @@ export const organizationRouter = router({
                 .optional(),
               /** An existing org unit named by id (what an earlier template wrote). */
               parentId: z.uuid().optional(),
+              /**
+               * Other parents the unit also sits under (migration 0044), each named like `parentCode`:
+               * a shared project lists its second subsidiary here.
+               */
+              alsoUnder: z.array(z.string().trim().min(1).max(200)).max(10).optional(),
             }),
           )
           .min(1, "The sheet has no rows.")
@@ -500,8 +618,14 @@ export const organizationRouter = router({
       const repeated = rows.filter((row) => row.code && seen.get(row.code)! > 1);
       const unique = rows.filter((row) => !repeated.includes(row));
       // A row that names its parent by id needs no ordering: that org unit exists already.
+      // An "also under" that names another row of the sheet must wait for that row as well; one that names
+      // an existing unit is looked up when the link is made.
       const { ordered, orphans } = importOrder(
-        unique.map((row) => (row.parentId ? { ...row, parentCode: null } : row)),
+        unique.map((row) => ({
+          ...row,
+          parentCode: row.parentId ? null : row.parentCode,
+          alsoUnderCodes: (row.alsoUnder ?? []).filter((ref) => sheetCodes.has(ref)),
+        })),
         new Set(known.keys()),
       );
       const results = new Map<number, OrgBulkImportRowResult>();
@@ -517,8 +641,16 @@ export const organizationRouter = router({
         const parentId =
           row.parentId ?? (row.parentCode ? known.get(row.parentCode) : input.parentId);
         // Listed as creatable, but the row it names was refused: this one is not created either.
+        // Each extra parent: another row's code (created by now, or refused), else an existing unit.
+        const extra = (row.alsoUnder ?? []).map((ref) => {
+          const unit = known.has(ref) || sheetCodes.has(ref) ? undefined : unitByRef(existing, ref);
+          return {
+            ref,
+            id: known.get(ref) ?? (unit && unit !== "ambiguous" ? unit.id : undefined),
+          };
+        });
         const result = parentId
-          ? await importOneOrgUnit(ctx.session, parentId, row, row.rowNum)
+          ? await importOneOrgUnit(ctx.session, parentId, row, row.rowNum, extra)
           : {
               row: row.rowNum,
               ok: false as const,
@@ -535,7 +667,9 @@ export const organizationRouter = router({
           name: row.name,
           error: shared.has(row.rowNum)
             ? `More than one org unit is called "${row.parentCode}". Give them codes on the Organization page, then use the code.`
-            : `Parent "${row.parentCode}" is neither an existing org unit nor another row of this sheet.`,
+            : row.parentCode && !known.has(row.parentCode) && !row.parentId
+              ? `Parent "${row.parentCode}" is neither an existing org unit nor another row of this sheet.`
+              : `One of its "also under" units (${(row.alsoUnder ?? []).join(", ")}) was not created, so this row was not either.`,
         });
       }
       return { results: rows.map((row) => results.get(row.rowNum)!) };
@@ -558,6 +692,8 @@ async function importOneOrgUnit(
   parentId: string,
   row: OrgBulkImportRow,
   rowNum: number,
+  /** Other parents to put the new unit under as well; `id` is missing when the name matched nothing. */
+  alsoUnder: { ref: string; id?: string }[] = [],
 ): Promise<OrgBulkImportRowResult> {
   try {
     return await db().begin(async (tx) => {
@@ -582,7 +718,8 @@ async function importOneOrgUnit(
       ) {
         return { row: rowNum, ok: false as const, name: row.name, error: "Outside your scope." };
       }
-      if (!canBeChildOf(await loadLevels(tx), parent.unitType, row.unitType)) {
+      const levels = await loadLevels(tx);
+      if (!canBeChildOf(levels, parent.unitType, row.unitType)) {
         return {
           row: rowNum,
           ok: false as const,
@@ -590,16 +727,57 @@ async function importOneOrgUnit(
           error: "That level can't be placed under the selected parent.",
         };
       }
+      // All or nothing: a shared unit created under only one of its parents would be a tree nobody meant.
+      const scope = session.isAdmin
+        ? null
+        : reachableNodeIds(
+            nodes,
+            session.assignments.map((a) => a.orgUnitId),
+          );
+      const placed: OrgNode = {
+        id: "new",
+        parentId: parent.id,
+        alsoUnder: [],
+        unitType: row.unitType,
+        status: "active",
+      };
+      const extraIds: string[] = [];
+      for (const extra of alsoUnder) {
+        const refuse = (error: string) => ({
+          row: rowNum,
+          ok: false as const,
+          name: row.name,
+          error: `Also under "${extra.ref}": ${error}`,
+        });
+        if (!extra.id) return refuse("no org unit has that code or name.");
+        if (scope && !scope.includes(extra.id)) return refuse("outside your scope.");
+        if (isFrozen(extra.id, nodes)) return refuse("that unit is inactive.");
+        const check = checkAlsoUnder("new", extra.id, [...nodes, placed], levels);
+        if (!check.ok) return refuse(check.reason);
+        placed.alsoUnder = [...(placed.alsoUnder ?? []), extra.id];
+        extraIds.push(extra.id);
+      }
       const [created] = await tx<{ id: string }[]>`
         insert into public.org_units (parent_id, unit_type, name, code)
         values (${parent.id}, ${row.unitType}, ${row.name}, ${row.code})
         returning id`;
+      for (const extraId of extraIds) {
+        await tx`
+          insert into public.org_unit_parents (org_unit_id, parent_id, created_by)
+          values (${created.id}, ${extraId}, ${session.userId})`;
+      }
       await writeAudit(tx, {
         eventType: "org_unit.bulk_imported",
         entityType: "org_unit",
         entityId: created.id,
         userId: session.userId,
-        newValue: { parent_id: parent.id, unit_type: row.unitType, name: row.name, code: row.code },
+        newValue: {
+          parent_id: parent.id,
+          also_under: extraIds,
+          unit_type: row.unitType,
+          name: row.name,
+          code: row.code,
+        },
       });
       return { row: rowNum, ok: true as const, id: created.id, name: row.name };
     });

@@ -3,6 +3,7 @@
 import { Loader2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,8 @@ import { Label } from "@/components/ui/label";
 
 /**
  * UI brief §11.5: modal only for actions with real, hard-to-reverse consequence. Optionally requires a
- * written reason (e.g. reopening a closed period).
+ * written reason (e.g. reopening a closed period), or a word typed out before the button works (an action
+ * that reaches far, e.g. deactivating a unit with units under it).
  */
 export function ConfirmDialog({
   open,
@@ -25,7 +27,9 @@ export function ConfirmDialog({
   confirmLabel,
   destructive = false,
   pending = false,
+  blocked = false,
   requireReason,
+  requireTyped,
   onConfirm,
 }: {
   open: boolean;
@@ -35,10 +39,16 @@ export function ConfirmDialog({
   confirmLabel: string;
   destructive?: boolean;
   pending?: boolean;
+  /** The action cannot go ahead (the dialog says why): only Cancel works. */
+  blocked?: boolean;
   requireReason?: { label: string; minLength?: number; hint?: string };
+  requireTyped?: string;
   onConfirm: (reason: string) => void;
 }) {
   const [reason, setReason] = useState("");
+  const [typed, setTyped] = useState("");
+  const typedMissing =
+    Boolean(requireTyped) && typed.trim().toLowerCase() !== requireTyped?.toLowerCase();
   const reasonMissing =
     Boolean(requireReason) && reason.trim().length < (requireReason?.minLength ?? 1);
 
@@ -46,7 +56,10 @@ export function ConfirmDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) setReason("");
+        if (!next) {
+          setReason("");
+          setTyped("");
+        }
         onOpenChange(next);
       }}
     >
@@ -76,6 +89,20 @@ export function ConfirmDialog({
             ) : null}
           </div>
         ) : null}
+        {requireTyped ? (
+          <div className="space-y-2">
+            <Label htmlFor="confirm-typed">
+              To confirm, type <span className="font-mono font-semibold">{requireTyped}</span>
+            </Label>
+            <Input
+              id="confirm-typed"
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+        ) : null}
         <DialogFooter>
           <Button
             type="button"
@@ -88,7 +115,7 @@ export function ConfirmDialog({
           <Button
             type="button"
             variant={destructive ? "destructive" : "default"}
-            disabled={pending || reasonMissing}
+            disabled={pending || blocked || reasonMissing || typedMissing}
             onClick={() => onConfirm(reason.trim())}
           >
             {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}

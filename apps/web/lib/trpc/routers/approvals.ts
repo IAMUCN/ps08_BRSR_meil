@@ -52,7 +52,7 @@ function scopeFilter(sql: Sql, session: ActiveSession) {
       join public.permissions p on p.id = rp.permission_id and p.code = 'approval.decide'
       where uoa.user_id = ${session.userId} and uoa.revoked_at is null
       union
-      select o.id from public.org_units o join scope s on o.parent_id = s.id
+      select l.child_id from public.org_unit_links l join scope s on l.parent_id = s.id
     )
     select id from scope)`;
 }

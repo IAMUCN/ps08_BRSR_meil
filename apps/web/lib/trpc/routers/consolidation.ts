@@ -47,7 +47,8 @@ export const consolidationRouter = router({
       if (ctx.session.isAdmin) {
         if (!orgUnitId) {
           const [root] = await sql<{ id: string }[]>`
-          select id from public.org_units where parent_id is null and deleted_at is null limit 1`;
+          select id from public.org_units where parent_id is null and deleted_at is null
+          order by created_at limit 1`;
           orgUnitId = root?.id;
         }
       } else {

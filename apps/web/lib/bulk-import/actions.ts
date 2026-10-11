@@ -25,7 +25,14 @@ export async function bulkImportOrgUnitsOptionsAction() {
 
 export async function bulkImportOrgUnitsAction(input: {
   parentId: string;
-  rows: { unitType: OrgUnitType; name: string; code: string }[];
+  rows: {
+    unitType: OrgUnitType;
+    name: string;
+    code: string;
+    parentCode?: string;
+    parentId?: string;
+    alsoUnder?: string[];
+  }[];
 }) {
   return runAction((api) => api.organization.bulkImport(input));
 }

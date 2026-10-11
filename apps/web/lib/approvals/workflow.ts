@@ -42,10 +42,9 @@ export async function submitForApproval(tx: Tx, recordId: string): Promise<void>
   // when nobody below Admin can approve it, Admins are told instead.
   const message = `${record.file_name ?? "A record"} (${record.org_unit_name}) is ready for approval.`;
   const scoped = await tx<{ id: string }[]>`
-    with recursive ancestors as (
-      select id, parent_id from public.org_units where id = ${record.org_unit_id}
-      union all
-      select o.id, o.parent_id from public.org_units o join ancestors a on o.id = a.parent_id
+    -- Every unit the record's unit sits under, by either kind of parent link (migration 0044).
+    with ancestors as (
+      select ancestor_id as id from public.org_unit_tree where descendant_id = ${record.org_unit_id}
     )
     select distinct u.id
     from public.users u

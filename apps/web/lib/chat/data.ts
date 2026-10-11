@@ -200,13 +200,17 @@ const MAX_UNITS = 5000;
  */
 export async function allowedUnits(session: ActiveSession): Promise<OrgUnit[]> {
   const sql = db();
+  // The units it also sits under (migration 0044), so "what is under X" lists a shared unit under each.
+  const ALSO_UNDER = sql`array(select x.parent_id::text from public.org_unit_parents x
+                               where x.org_unit_id = o.id) as "alsoUnder"`;
   if (session.isAdmin) {
     return sql<OrgUnit[]>`
-      select id, name, code, unit_type::text as type, parent_id as "parentId"
-      from public.org_units where deleted_at is null order by name limit ${MAX_UNITS}`;
+      select o.id, o.name, o.code, o.unit_type::text as type, o.parent_id as "parentId", ${ALSO_UNDER}
+      from public.org_units o where o.deleted_at is null order by o.name limit ${MAX_UNITS}`;
   }
   return sql<OrgUnit[]>`
-    select distinct o.id, o.name, o.code, o.unit_type::text as type, o.parent_id as "parentId"
+    select distinct o.id, o.name, o.code, o.unit_type::text as type, o.parent_id as "parentId",
+           ${ALSO_UNDER}
     from public.user_org_assignments uoa
     join public.org_unit_tree t on t.ancestor_id = uoa.org_unit_id
     join public.org_units o on o.id = t.descendant_id

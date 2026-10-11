@@ -44,19 +44,32 @@ export function allowedChildTypes(
 
 export type OrgNode = {
   id: string;
+  /** The main parent: where the unit is managed (moved, deactivated with). Null for a group. */
   parentId: string | null;
+  /** Other units it also sits under (migration 0044): it counts in each, and their people see it. */
+  alsoUnder?: readonly string[];
   unitType: OrgUnitType;
   status: "active" | "inactive";
 };
 
-/** All descendant ids of a node (excluding the node itself). */
-export function descendantIds(nodeId: string, nodes: readonly OrgNode[]): string[] {
+/**
+ * All descendant ids of a node (excluding the node itself). "main" follows main parents only — what is
+ * managed with the node; "all" also follows the extra parents — what counts in it and is seen from it.
+ */
+export function descendantIds(
+  nodeId: string,
+  nodes: readonly OrgNode[],
+  links: "main" | "all" = "main",
+): string[] {
   const childrenByParent = new Map<string, string[]>();
   for (const node of nodes) {
-    if (!node.parentId) continue;
-    const siblings = childrenByParent.get(node.parentId) ?? [];
-    siblings.push(node.id);
-    childrenByParent.set(node.parentId, siblings);
+    const parents = [node.parentId, ...(links === "all" ? (node.alsoUnder ?? []) : [])];
+    for (const parentId of parents) {
+      if (!parentId) continue;
+      const siblings = childrenByParent.get(parentId) ?? [];
+      siblings.push(node.id);
+      childrenByParent.set(parentId, siblings);
+    }
   }
   const result: string[] = [];
   const stack = [...(childrenByParent.get(nodeId) ?? [])];
@@ -102,10 +115,14 @@ export function treeOrder<T extends { id: string; parentId?: string | null; name
  * names an existing code, can be created at once. `orphans` are the rows whose parent is neither — a code
  * that does not exist, a row naming itself, or rows naming each other in a circle.
  */
-export function importOrder<T extends { code: string | null; parentCode?: string | null }>(
-  rows: readonly T[],
-  existingCodes: ReadonlySet<string>,
-): { ordered: T[]; orphans: T[] } {
+export function importOrder<
+  T extends {
+    code: string | null;
+    parentCode?: string | null;
+    /** Codes of other rows it also sits under; those rows must be created first as well. */
+    alsoUnderCodes?: readonly string[];
+  },
+>(rows: readonly T[], existingCodes: ReadonlySet<string>): { ordered: T[]; orphans: T[] } {
   const available = new Set(existingCodes);
   const ordered: T[] = [];
   let waiting = [...rows];
@@ -113,7 +130,10 @@ export function importOrder<T extends { code: string | null; parentCode?: string
     progressed = false;
     const later: T[] = [];
     for (const row of waiting) {
-      if (row.parentCode && !available.has(row.parentCode)) {
+      if (
+        (row.parentCode && !available.has(row.parentCode)) ||
+        row.alsoUnderCodes?.some((code) => !available.has(code))
+      ) {
         later.push(row);
         continue;
       }
@@ -156,11 +176,56 @@ export function checkMove(
   if (!node || !newParent) return { ok: false, reason: "Node not found." };
   if (node.parentId === null) return { ok: false, reason: "The root Group cannot be moved." };
   if (nodeId === newParentId) return { ok: false, reason: "A node cannot be its own parent." };
-  if (descendantIds(nodeId, nodes).includes(newParentId)) {
+  if (descendantIds(nodeId, nodes, "all").includes(newParentId)) {
     return { ok: false, reason: "A node cannot be moved under its own descendant." };
+  }
+  if (node.alsoUnder?.includes(newParentId)) {
+    return { ok: false, reason: "The node already sits under that parent as well." };
   }
   if (!canBeChildOf(levels, newParent.unitType, node.unitType)) {
     return { ok: false, reason: "That parent's level must come before this node's level." };
+  }
+  return { ok: true };
+}
+
+/** The group a node hangs from, by its main parents. */
+export function rootOf(nodeId: string, nodes: readonly OrgNode[]): string | undefined {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const seen = new Set<string>();
+  let current = byId.get(nodeId);
+  while (current?.parentId && !seen.has(current.id)) {
+    seen.add(current.id);
+    current = byId.get(current.parentId);
+  }
+  return current?.id;
+}
+
+/**
+ * Putting a node under one more parent (migration 0044): not a group, not a parent it has already, the
+ * parent's level before the node's — which also rules out a circle — and both in the same group.
+ */
+export function checkAlsoUnder(
+  nodeId: string,
+  parentId: string,
+  nodes: readonly OrgNode[],
+  levels: readonly OrgLevel[],
+): MoveCheck {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const node = byId.get(nodeId);
+  const parent = byId.get(parentId);
+  if (!node || !parent) return { ok: false, reason: "Node not found." };
+  if (node.parentId === null) {
+    return { ok: false, reason: "A group is the top of its organization; it has no parent." };
+  }
+  if (nodeId === parentId) return { ok: false, reason: "A node cannot be its own parent." };
+  if (node.parentId === parentId || node.alsoUnder?.includes(parentId)) {
+    return { ok: false, reason: "The node already sits under that parent." };
+  }
+  if (!canBeChildOf(levels, parent.unitType, node.unitType)) {
+    return { ok: false, reason: "That parent's level must come before this node's level." };
+  }
+  if (rootOf(nodeId, nodes) !== rootOf(parentId, nodes)) {
+    return { ok: false, reason: "Both must belong to the same group." };
   }
   return { ok: true };
 }
@@ -177,7 +242,7 @@ export function reachableNodeIds(
   const ids = new Set<string>();
   for (const nodeId of fromNodeIds) {
     if (!nodes.some((n) => n.id === nodeId)) continue;
-    for (const id of [nodeId, ...descendantIds(nodeId, nodes)]) {
+    for (const id of [nodeId, ...descendantIds(nodeId, nodes, "all")]) {
       if (!isFrozen(id, nodes)) ids.add(id);
     }
   }

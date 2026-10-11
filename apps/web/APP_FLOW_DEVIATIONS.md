@@ -599,3 +599,21 @@ nothing about people and only points to Admin → Reports.
   a link and the panel goes there at once with the org unit and period selected. Nothing is generated until
   the person presses the button.
 - **For everyone else** those three do not exist; their chatbot is unchanged.
+
+## A35 — Organization: a unit under several parents, more than one group, delete; the chat pane's header
+
+**App Flow:** §2.2 Organization is one tree under one root; a unit is deactivated, never deleted.
+
+**Now (owner's page feedback, 2026-10-11; `.grill/shared-org-units-decisions.md`, D36):**
+
+- **Also under another parent.** A unit below group level can be placed under further parents. It is drawn
+  under each, marked "Shared" where the parent is not its main one; both parents' people see it; its figures
+  count in full in each parent and once in the group above them.
+- **A new group.** Add a unit offers "On its own, as a new group": a separate tree, managed by the same
+  Admins.
+- **Delete this unit** removes an unused unit and the units under it after the word `delete` is typed; the
+  dialog says what stands in the way when it has been used. Deactivating a unit with units under it asks for
+  the word `deactivate`.
+- **Bulk import** has an Also under column for the other parents of a shared unit.
+- **Chat pane:** a coloured header bar as tall as the top bar, a one-line question box that grows, and the
+  suggested questions at the foot of the pane.

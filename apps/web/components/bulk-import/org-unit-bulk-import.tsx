@@ -9,6 +9,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { RowsPreview } from "@/components/bulk-import/rows-preview";
 import {
+  alsoUnderOf,
   downloadCsv,
   downloadOrgUnitTemplate,
   LEGACY_LEVEL_HEADER,
@@ -40,6 +41,8 @@ type ParsedRow = {
   parentCode: string;
   /** Set when the parent was picked from the list and has no code. */
   parentId?: string;
+  /** Other parents the unit also sits under, as the sheet names them. */
+  alsoUnder: string[];
 };
 type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -64,6 +67,7 @@ export function OrgUnitBulkImport({
       code: string;
       parentCode?: string;
       parentId?: string;
+      alsoUnder?: string[];
     }[];
   }) => Promise<ActionResult<{ results: OrgBulkImportRowResult[] }>>;
   onImported?: () => void;
@@ -98,6 +102,7 @@ export function OrgUnitBulkImport({
               name: r[ORG_UNIT_HEADERS[1]] ?? "",
               unitType: level?.code ?? typed,
               ...parentOf(r[ORG_UNIT_HEADERS[3]] ?? ""),
+              alsoUnder: alsoUnderOf(r[ORG_UNIT_HEADERS[4]]),
             };
           }),
         );
@@ -123,6 +128,7 @@ export function OrgUnitBulkImport({
           code: r.code,
           parentCode: r.parentCode,
           parentId: r.parentId,
+          alsoUnder: r.alsoUnder,
         })),
       });
       if (!result.ok) {
@@ -212,7 +218,9 @@ export function OrgUnitBulkImport({
           <p className="text-xs text-muted-foreground">
             A row with no parent code is created directly under {parent.name}. A row with one goes
             under that org unit — an existing one, or another row of the same sheet — so one sheet
-            can build several levels. Levels beneath {parent.name}:{" "}
+            can build several levels. A unit that belongs to more than one parent (a project two
+            subsidiaries run) names the others in the Also under column, separated by commas. Levels
+            beneath {parent.name}:{" "}
             {childTypes.length > 0
               ? childTypes.map((t) => levelLabel(levels, t)).join(", ")
               : "none — this node can't have children"}
@@ -230,6 +238,7 @@ export function OrgUnitBulkImport({
             levelLabel(levels, r.unitType),
             (r.parentId ? nodes.find((n) => n.id === r.parentId)?.name : r.parentCode) ||
               `(${parent?.name ?? "chosen unit"})`,
+            r.alsoUnder.join(", "),
           ])}
         />
       ) : null}

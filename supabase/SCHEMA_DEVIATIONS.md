@@ -503,6 +503,21 @@ constraint `report_runs_one_coverage` was replaced to say so (both dates or neit
 so a range of periods is the only custom period that reports exactly what was recorded. Decision:
 `.grill/chat-admin-access-decisions.md`.
 
+## D36 — An org unit may have more than one parent; several groups (migration `0044`)
+
+**Schema:** §3 gives `org_units` one `parent_id`: a tree with one root.
+
+**Now:** `parent_id` is the unit's main parent; a new table `org_unit_parents (org_unit_id, parent_id)` holds
+each further parent. A trigger keeps the level rule for them (parent strictly earlier), keeps both in the
+same group and refuses a parent the unit already has. `org_unit_tree` follows both kinds of link, one row
+per ancestor–descendant pair; a new view `org_unit_links` lists every link; `my_org_unit_ids()` follows both.
+The table and views are closed to the browser; `chat_reader` may read them. More than one row may have no
+parent (several groups) — the schema always allowed it, the app now does.
+
+**Why:** the owner asked for a project run by two subsidiaries to sit under both, counted in full in each and
+once at the group, and for more than one group (2026-10-11). Decision:
+`.grill/shared-org-units-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

@@ -1319,3 +1319,45 @@ test("explain_forecast: projects emissions using real backtested models or repor
     });
   }, /in this person's scope/i);
 });
+
+test("the units beneath a named unit are worked out by the tool, not left to the model", async () => {
+  const { ctx } = ADMIN();
+  const names = async (args: unknown) =>
+    dataOf(await call(ctx, "list_org_units", args)).org_units.map((u: { name: string }) => u.name);
+  // Project Z is another subsidiary's project: it must not appear under Subsidiary A.
+  assert.deepEqual(await names({ under: "Subsidiary A", type: "project" }), [
+    "Project X",
+    "Project Y",
+  ]);
+  assert.deepEqual(await names({ under: "Subsidiary A" }), [
+    "Project X",
+    "Project Y",
+    "Project X Site 1",
+  ]);
+  assert.deepEqual(await names({ under: "Subsidiary A", direct_only: true }), [
+    "Project X",
+    "Project Y",
+  ]);
+  assert.deepEqual(await names({ under: "Project Z" }), []);
+  // A unit outside the person's scope cannot be used to list what is beneath it.
+  assert.equal(
+    await refused(PROJECT_X_MANAGER().ctx, "list_org_units", { under: "Subsidiary B" }),
+    `No org unit called "Subsidiary B" is in this person's scope.`,
+  );
+});
+
+test("a project two subsidiaries share is listed under each of them", async () => {
+  const { ctx } = ADMIN();
+  // Project Z is Subsidiary B's; here it also sits under Subsidiary A (migration 0044).
+  ctx.units = ctx.units.map((u) => (u.id === "pz" ? { ...u, alsoUnder: ["sa"] } : u));
+  const under = async (parent: string) =>
+    dataOf(await call(ctx, "list_org_units", { under: parent, type: "project" })).org_units;
+  assert.deepEqual(
+    (await under("Subsidiary A")).map((u: { name: string }) => u.name),
+    ["Project X", "Project Y", "Project Z"],
+  );
+  assert.deepEqual(
+    (await under("Subsidiary B")).map((u: { name: string; parent: string }) => [u.name, u.parent]),
+    [["Project Z", "Subsidiary B and Subsidiary A"]],
+  );
+});

@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-11 — reports for a custom period, and the chatbot's Admin-only lookups and report-page link (committed, merged with `main`; migration `0043` on hosted); hosted cleared and given MEIL's Admin inputs, two sets of test data generated (uncommitted); the ESG data analyst chatbot is committed on branch `feature-chat-analyst` (`67700f8`, not pushed); migration `0042` is on hosted (2026-10-11), the read-only role has no password there yet. Before that: Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
+_Last updated: 2026-10-11 — org units under several parents, several groups, delete, and chat pane feedback (uncommitted, branch `feature-org-chat-feedback`; migration `0044` on hosted since 2026-10-11); reports for a custom period, and the chatbot's Admin-only lookups and report-page link (committed, merged with `main`; migration `0043` on hosted); hosted cleared and given MEIL's Admin inputs, two sets of test data generated (uncommitted); the ESG data analyst chatbot is committed on branch `feature-chat-analyst` (`67700f8`, not pushed); migration `0042` is on hosted (2026-10-11), the read-only role has no password there yet. Before that: Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
 merged); the second audit's follow-up work (migrations `0038`–`0039`, fuller report with SDG tags, 28 sourced factors on local) is committed locally, not
 pushed; migrations `0038`–`0039` are on hosted (2026-10-09), the factors and demo data are not; Phase 21 (deployment) comes after, hosting to be decided by the owner._
 
@@ -36,12 +36,12 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format, the chatbot, custom-period reports (`0001`–`0043`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format, the chatbot, custom-period reports, shared org units (`0001`–`0044`, all pushed to hosted) |
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D35) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A34) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D36) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A35) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `ASSURANCE.md` | How the system supports assurance on BRSR Core KPIs: controls, KPI-by-KPI status, an assurer's walkthrough |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
@@ -84,6 +84,7 @@ may run in parallel with Phases 3–5.
 | — | Second audit follow-up: remaining activities, air emissions, fuller SEBI report tables, sourced factors on local (migration `0038`) | Done locally, committed, **not pushed, not on hosted** | — |
 | — | Full BRSR format in the report: 146 questions, typed disclosures, all 17 SDGs (migration `0040`); owner's page feedback | Done, **uncommitted**; `0040` on hosted | — |
 | — | ESG data analyst chatbot: read-only tools, NVIDIA NIM, saved conversations (migration `0042`) | Done, on branch `feature-chat-analyst` (not pushed); `0042` on hosted | `67700f8` |
+| — | Org units under several parents, several groups, delete; chat pane feedback (migration `0044`) | Done, **uncommitted**, on branch `feature-org-chat-feedback`; `0044` on hosted | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -735,7 +736,24 @@ snapshot through the app's own code on the local database, 27/27. Not run: a bro
 the panel going to the page, a question through the real model, a custom report generated to a PDF, the
 end-to-end suite. Committed and merged with `main` (web unit 169/169 after the merge); `0043` pushed to hosted 2026-10-11.
 
+**Org units under several parents, several groups, delete; chat pane (2026-10-11).** Decisions:
+`.grill/shared-org-units-decisions.md`, D36, A35. From the owner's page feedback. A unit below group level
+can be placed under further parents (migration `0044`): it counts in full in each and once in the group
+above them, and both parents' people see it; its main parent still manages it. More than one group can
+exist, each its own tree, with the same Admins. An unused unit can be deleted after typing `delete`; a used
+one is deactivated, and deactivating one with units under it asks for the word. The bulk-import sheet has an
+Also under column. The chatbot lists what is under a unit from the hierarchy instead of leaving it to the
+model. The chat pane has a coloured header bar, a one-line question box and its suggestions at the foot.
+Checks: web unit 174/174, database 271/271, lint, typecheck, format, production build, 25/25 through the
+real procedures on the local database. Not run: a browser view, the real model, the end-to-end suite.
+Migration `0044` was pushed to hosted on 2026-10-11 and checked there.
+The test data was also regenerated with a mix of single PDFs, images and multi-bill PDFs. Uncommitted.
+
 ## 4. What comes next
+
+**Organization feedback, to finish:** look at
+the Organization page and the chat pane in a browser; commit and open a pull request from
+`feature-org-chat-feedback`.
 
 **Chatbot, to finish:** push `feature-chat-analyst` and open its pull request; on hosted (migration `0042` is there since 2026-10-11) the owner sets a password for `chat_reader`, then try its connection through the pooler; set the four variables for the owner's dev server. Review NVIDIA's terms before real MEIL figures go through the free endpoints.
 

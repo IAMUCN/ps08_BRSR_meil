@@ -66,7 +66,7 @@ export const scopeRouter = router({
             select uoa.org_unit_id as id from public.user_org_assignments uoa
             where uoa.user_id = ${ctx.session.userId} and uoa.revoked_at is null
             union
-            select o.id from public.org_units o join scope s on o.parent_id = s.id
+            select l.child_id from public.org_unit_links l join scope s on l.parent_id = s.id
           )
           select exists (
             select 1 from public.esg_records r where r.id = ${input.recordId}
@@ -87,7 +87,8 @@ export const scopeRouter = router({
     let orgUnitId = input.orgUnitId;
     if (!orgUnitId) {
       const [root] = await sql<{ id: string }[]>`
-        select id from public.org_units where parent_id is null and deleted_at is null limit 1`;
+        select id from public.org_units where parent_id is null and deleted_at is null
+          order by created_at limit 1`;
       orgUnitId = root?.id;
     }
     if (!orgUnitId) return null;
@@ -121,7 +122,7 @@ export const scopeRouter = router({
           select uoa.org_unit_id as id from public.user_org_assignments uoa
           where uoa.user_id = ${ctx.session.userId} and uoa.revoked_at is null
           union
-          select o.id from public.org_units o join scope s on o.parent_id = s.id
+          select l.child_id from public.org_unit_links l join scope s on l.parent_id = s.id
         )
         select exists (select 1 from scope where id = ${input.orgUnitId}) as ok`;
         if (!allowed?.ok) {

@@ -1,6 +1,15 @@
 "use client";
 
-import { ChevronDown, ChevronRight, FileSpreadsheet, Loader2, Plus } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Download,
+  FileSpreadsheet,
+  Link2,
+  Loader2,
+  Plus,
+  X,
+} from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -20,21 +29,29 @@ import {
 } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { bulkImportOrgUnitsAction } from "@/lib/bulk-import/actions";
+import { downloadOrgHierarchy } from "@/lib/bulk-import/xlsx";
 import {
   allowedChildTypes,
+  checkAlsoUnder,
   checkMove,
   isFrozen,
   levelLabel,
+  ROOT_LEVEL,
+  treeOrder,
   type OrgLevel,
   type OrgUnitType,
 } from "@/lib/org/rules";
-import type { OrgExpectation, OrgUnitRow } from "@/lib/trpc/routers/organization";
+import type { OrgDeleteCheck, OrgExpectation, OrgUnitRow } from "@/lib/trpc/routers/organization";
 import {
+  addOrgUnitParentAction,
   createOrgUnitAction,
+  deleteOrgUnitAction,
   orgExpectationsAction,
   setExpectationAction,
   moveOrgUnitAction,
+  orgUnitDeleteCheckAction,
   orgUnitImpactAction,
+  removeOrgUnitParentAction,
   setOrgUnitStatusAction,
   updateOrgUnitAction,
 } from "./actions";
@@ -53,14 +70,19 @@ export function OrgManager({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const root = nodes.find((n) => n.parentId === null) ?? null;
+  // Every group is the top of its own tree (owner's decision 2026-10-11): usually one, sometimes several.
+  const roots = nodes.filter((n) => n.parentId === null);
+  const root = roots[0] ?? null;
   const selected = nodes.find((n) => n.id === selectedId) ?? root;
 
+  // A unit is drawn under its main parent and under every unit it also sits under (migration 0044).
   const childrenByParent = useMemo(() => {
     const map = new Map<string, OrgUnitRow[]>();
     for (const node of nodes) {
-      if (!node.parentId) continue;
-      map.set(node.parentId, [...(map.get(node.parentId) ?? []), node]);
+      for (const parentId of [node.parentId, ...node.alsoUnder]) {
+        if (!parentId) continue;
+        map.set(parentId, [...(map.get(parentId) ?? []), node]);
+      }
     }
     return map;
   }, [nodes]);
@@ -70,6 +92,26 @@ export function OrgManager({
   const [adding, setAdding] = useState<"one" | "many" | null>(null);
   // Which Expected-submissions sections are open: collapsed on load, kept while another unit is picked.
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+
+  // The hierarchy as a spreadsheet in the bulk-import columns: edit it and upload it again.
+  function exportHierarchy() {
+    const ref = (id: string | null) => {
+      const unit = nodes.find((n) => n.id === id);
+      return unit ? (unit.code ?? unit.name) : "";
+    };
+    downloadOrgHierarchy(
+      treeOrder(nodes)
+        .filter((n) => n.parentId !== null)
+        .map((n) => ({
+          code: n.code,
+          name: n.name,
+          level: n.unitType,
+          parent: ref(n.parentId),
+          alsoUnder: n.alsoUnder.map(ref).filter(Boolean),
+        })),
+      levels.map((l) => ({ code: l.code, label: l.label })),
+    ).catch(() => toast.error("Couldn't create the spreadsheet — try again."));
+  }
 
   function select(id: string) {
     router.replace(`${pathname}?node=${id}`, { scroll: false });
@@ -81,9 +123,15 @@ export function OrgManager({
   const BRANCH =
     "relative pl-2 before:absolute before:top-[18px] before:left-0 before:h-px before:w-2.5 before:bg-muted-foreground/70 after:absolute after:top-0 after:bottom-0 after:left-0 after:w-px after:bg-muted-foreground/70 last:after:bottom-auto last:after:h-[18px]";
 
-  function renderNode(node: OrgUnitRow, depth: number) {
+  // `under` is the unit this row is drawn beneath: a shared unit appears once under each of its parents,
+  // and is marked where that parent is not its main one.
+  function renderNode(node: OrgUnitRow, depth: number, under: OrgUnitRow | null = null) {
     const children = childrenByParent.get(node.id) ?? [];
     const open = !collapsed.has(node.id);
+    // Shared = it sits under more than one parent; the tag shows wherever it is drawn (owner's page
+    // feedback, 2026-10-11), and says which parent this row is.
+    const shared = node.alsoUnder.length > 0 && under !== null;
+    const mainHere = under !== null && node.parentId === under.id;
     return (
       <li key={node.id} className={depth > 0 ? BRANCH : undefined}>
         <div
@@ -133,10 +181,23 @@ export function OrgManager({
             <span className="shrink-0 text-xs text-muted-foreground">
               {levelLabel(levels, node.unitType)}
             </span>
+            {shared ? (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary-text/60 bg-primary-text/10 px-1.5 text-[11px] leading-4 font-medium text-primary-text shadow-[0_0_8px_1px] shadow-primary-text/50"
+                title={
+                  mainHere
+                    ? `Shared: also under ${node.alsoUnder.map((id) => nodes.find((n) => n.id === id)?.name ?? "another unit").join(" and ")}`
+                    : `Shared: its main parent is ${nodes.find((n) => n.id === node.parentId)?.name ?? "another unit"}`
+                }
+              >
+                <Link2 className="size-3" aria-hidden />
+                Shared
+              </span>
+            ) : null}
           </button>
         </div>
         {children.length > 0 && open ? (
-          <ul className="ml-4">{children.map((child) => renderNode(child, depth + 1))}</ul>
+          <ul className="ml-4">{children.map((child) => renderNode(child, depth + 1, node))}</ul>
         ) : null}
       </li>
     );
@@ -162,6 +223,10 @@ export function OrgManager({
                 <FileSpreadsheet aria-hidden />
                 Add from a spreadsheet
               </Button>
+              <Button type="button" variant="outline" onClick={exportHierarchy}>
+                <Download aria-hidden />
+                Export hierarchy
+              </Button>
             </div>
           ) : null}
         </div>
@@ -180,10 +245,10 @@ export function OrgManager({
           // Stays in view while the panels beside it scroll.
           className="rounded-md border bg-card p-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
         >
-          <h2 className="px-2 pt-1 pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <h2 className="px-2 pt-1 pb-2 text-xs font-bold tracking-wide text-foreground uppercase">
             Organization hierarchy
           </h2>
-          {root ? <ul>{renderNode(root, 0)}</ul> : null}
+          <ul>{roots.map((group) => renderNode(group, 0))}</ul>
         </section>
         {selected ? (
           <NodeDetail
@@ -210,14 +275,12 @@ export function OrgManager({
             <SheetContent>
               <SheetHeader>
                 <SheetTitle>
-                  {adding === "many"
-                    ? "Add several units from a spreadsheet"
-                    : `Add a unit under ${selected.name}`}
+                  {adding === "many" ? "Add several units from a spreadsheet" : "Add a unit"}
                 </SheetTitle>
                 <SheetDescription>
                   {adding === "many"
                     ? "Download the template, list the new units, and upload it."
-                    : `Creates a new company, business unit, project or other level directly beneath ${selected.name}. To add under a different unit, select it in the tree first.`}
+                    : `Creates a new company, business unit, project or other level directly beneath ${selected.name}, or a new group that stands on its own. To add under a different unit, select it in the tree first.`}
                 </SheetDescription>
               </SheetHeader>
               <div className="overflow-y-auto px-4 pb-6">
@@ -267,14 +330,19 @@ function AddChildren({
   const [childType, setChildType] = useState<OrgUnitType | "">(childTypes[0] ?? "");
   const [childName, setChildName] = useState("");
   const [childCode, setChildCode] = useState("");
+  // A new group has no parent: a separate organization with its own tree (owner's decision 2026-10-11).
+  const [where, setWhere] = useState<"under" | "group">(
+    frozen || childTypes.length === 0 ? "group" : "under",
+  );
+  const asGroup = where === "group";
 
   function onAddChild(event: FormEvent) {
     event.preventDefault();
-    if (!childType) return;
+    if (!asGroup && !childType) return;
     startTransition(async () => {
       const result = await createOrgUnitAction({
-        parentId: node.id,
-        unitType: childType,
+        parentId: asGroup ? null : node.id,
+        unitType: asGroup ? ROOT_LEVEL : childType,
         name: childName,
         code: childCode,
       });
@@ -304,31 +372,52 @@ function AddChildren({
 
   return (
     <>
-      {frozen ? (
+      <div className="mb-3 space-y-2">
+        <Label htmlFor="child-where">Add where</Label>
+        <NativeSelect
+          id="child-where"
+          value={where}
+          onChange={(e) => setWhere(e.target.value as "under" | "group")}
+        >
+          <option value="under">Under {node.name}</option>
+          <option value="group">
+            On its own, as a new {levelLabel(levels, ROOT_LEVEL).toLowerCase()} (no parent)
+          </option>
+        </NativeSelect>
+        {asGroup ? (
+          <p className="text-xs leading-4 text-muted-foreground">
+            A new {levelLabel(levels, ROOT_LEVEL).toLowerCase()} is a separate organization with its
+            own tree and its own reports. The same Admins manage it.
+          </p>
+        ) : null}
+      </div>
+      {!asGroup && frozen ? (
         <p className="text-sm leading-5 text-muted-foreground">
           {node.name} is inactive{frozenByAncestor ? " because a unit above it is inactive" : ""} —
           nothing new can be added under it.
         </p>
-      ) : childTypes.length === 0 ? (
+      ) : !asGroup && childTypes.length === 0 ? (
         <p className="text-sm leading-5 text-muted-foreground">
           This is the lowest level; nothing can be added beneath it.
         </p>
       ) : (
         <form onSubmit={onAddChild} className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="child-type">Level</Label>
-            <NativeSelect
-              id="child-type"
-              value={childType}
-              onChange={(e) => setChildType(e.target.value as OrgUnitType)}
-            >
-              {childTypes.map((type) => (
-                <option key={type} value={type}>
-                  {levelLabel(levels, type)}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
+          {asGroup ? null : (
+            <div className="space-y-2">
+              <Label htmlFor="child-type">Level</Label>
+              <NativeSelect
+                id="child-type"
+                value={childType}
+                onChange={(e) => setChildType(e.target.value as OrgUnitType)}
+              >
+                {childTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {levelLabel(levels, type)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="child-name">Name</Label>
             <Input
@@ -384,6 +473,21 @@ function NodeDetail({
   const [moveOpen, setMoveOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [impact, setImpact] = useState<Impact | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletable, setDeletable] = useState<OrgDeleteCheck | null>(null);
+  const [extraParentId, setExtraParentId] = useState("");
+  const alsoUnder = node.alsoUnder.flatMap((id) => nodes.find((n) => n.id === id) ?? []);
+  const extraParentTargets = nodes.filter(
+    (candidate) =>
+      checkAlsoUnder(node.id, candidate.id, nodes, levels).ok && !isFrozen(candidate.id, nodes),
+  );
+  // A group can be switched off only while another active group remains.
+  const canChangeStatus =
+    node.parentId !== null ||
+    node.status === "inactive" ||
+    nodes.some((n) => n.parentId === null && n.id !== node.id && n.status === "active");
 
   const moveTargets = nodes.filter(
     (candidate) =>
@@ -424,6 +528,16 @@ function NodeDetail({
     });
   }
 
+  function openDeleteDialog() {
+    setDeletable(null);
+    setDeleteOpen(true);
+    startTransition(async () => {
+      const result = await orgUnitDeleteCheckAction({ id: node.id });
+      if (result.ok) setDeletable(result.data);
+      else toast.error(result.error);
+    });
+  }
+
   const deactivating = node.status === "active";
 
   return (
@@ -438,7 +552,9 @@ function NodeDetail({
               {node.name}
             </h2>
             <p className="text-sm leading-5 text-muted-foreground">
-              {parent ? `Under ${parent.name}` : "Root organization"}
+              {parent
+                ? `Under ${[parent, ...alsoUnder].map((p) => p.name).join(" and ")}`
+                : "Group: the top of its own tree"}
               {node.code ? (
                 <>
                   {" · "}
@@ -527,6 +643,78 @@ function NodeDetail({
 
       {node.parentId ? (
         <div className="rounded-md border bg-card p-6">
+          <h3 className="text-base leading-6 font-semibold">Also under another parent</h3>
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">
+            For a unit that belongs to more than one parent, such as a project two subsidiaries run.{" "}
+            {node.name} then appears under each of them, their people can see it, and its figures
+            count in full in each parent and once in the group above them — so those parents add up
+            to more than the group. It is still managed from {parent?.name ?? "its main parent"}.
+          </p>
+          {alsoUnder.length > 0 ? (
+            <ul className="mt-4 divide-y rounded-md border">
+              {alsoUnder.map((extra) => (
+                <li key={extra.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="min-w-0 truncate text-sm">
+                    {extra.name}{" "}
+                    <span className="text-xs text-muted-foreground">
+                      ({levelLabel(levels, extra.unitType)})
+                    </span>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() =>
+                      run(
+                        () => removeOrgUnitParentAction({ id: node.id, parentId: extra.id }),
+                        `No longer under ${extra.name}`,
+                      )
+                    }
+                  >
+                    <X aria-hidden />
+                    Remove
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+            <div className="space-y-2">
+              <Label htmlFor="extra-parent">Also place under</Label>
+              <NativeSelect
+                id="extra-parent"
+                value={extraParentId}
+                onChange={(e) => setExtraParentId(e.target.value)}
+              >
+                <option value="">Select another parent…</option>
+                {extraParentTargets.map((target) => (
+                  <option key={target.id} value={target.id}>
+                    {target.name} ({levelLabel(levels, target.unitType)})
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending || extraParentId === ""}
+              onClick={() =>
+                run(
+                  () => addOrgUnitParentAction({ id: node.id, parentId: extraParentId }),
+                  "Added",
+                  () => setExtraParentId(""),
+                )
+              }
+            >
+              Add
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {canChangeStatus ? (
+        <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">
             {deactivating ? "Deactivate this unit" : "Reactivate this unit"}
           </h3>
@@ -546,6 +734,24 @@ function NodeDetail({
           </Button>
         </div>
       ) : null}
+
+      <div className="rounded-md border bg-card p-6">
+        <h3 className="text-base leading-6 font-semibold">Delete this unit</h3>
+        <p className="mt-1 text-sm leading-5 text-muted-foreground">
+          Removes {node.name} and every unit under it for good. Only possible while they are unused:
+          no person ever assigned, no document, no record and no report. A unit that has been used
+          is deactivated instead, so its history stays.
+        </p>
+        <Button
+          type="button"
+          variant="destructive"
+          className="mt-4"
+          disabled={pending}
+          onClick={openDeleteDialog}
+        >
+          Delete this unit
+        </Button>
+      </div>
 
       <ConfirmDialog
         open={moveOpen}
@@ -596,6 +802,8 @@ function NodeDetail({
         title={deactivating ? `Deactivate ${node.name}?` : `Reactivate ${node.name}?`}
         confirmLabel={deactivating ? "Deactivate" : "Reactivate"}
         destructive={deactivating}
+        // A unit with units under it takes them all with it: the word has to be typed first.
+        requireTyped={deactivating && impact && impact.descendants > 0 ? "deactivate" : undefined}
         pending={pending || impact === null}
         onConfirm={() =>
           run(
@@ -614,6 +822,51 @@ function NodeDetail({
             <li>{impact.activeAssignments} people assigned here or below</li>
             <li>{impact.inProgressRecords} submission(s) still in progress</li>
           </ul>
+        )}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Delete ${node.name}?`}
+        confirmLabel="Delete for good"
+        destructive
+        blocked={deletable === null || deletable.blockers.length > 0}
+        requireTyped={deletable && deletable.blockers.length === 0 ? "delete" : undefined}
+        pending={pending}
+        onConfirm={() =>
+          run(
+            () => deleteOrgUnitAction({ id: node.id }),
+            "Unit deleted",
+            () => {
+              setDeleteOpen(false);
+              // The unit is gone: show where it used to sit.
+              router.replace(node.parentId ? `${pathname}?node=${node.parentId}` : pathname, {
+                scroll: false,
+              });
+            },
+          )
+        }
+      >
+        {deletable === null ? (
+          <p>Checking whether it can be deleted…</p>
+        ) : deletable.blockers.length > 0 ? (
+          <>
+            <p>{node.name} cannot be deleted:</p>
+            <ul className="list-disc space-y-1 pl-5">
+              {deletable.blockers.map((blocker) => (
+                <li key={blocker}>{blocker}</li>
+              ))}
+            </ul>
+            <p>Deactivate it instead: that stops new activity and keeps the history.</p>
+          </>
+        ) : (
+          <p>
+            {deletable.units === 1
+              ? `${node.name} will be removed.`
+              : `${node.name} and the ${deletable.units - 1} unit(s) under it will be removed.`}{" "}
+            This cannot be undone. The audit trail keeps a note of what was deleted.
+          </p>
         )}
       </ConfirmDialog>
     </section>

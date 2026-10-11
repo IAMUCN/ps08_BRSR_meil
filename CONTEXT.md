@@ -239,6 +239,28 @@ _Last updated: 2026-10-11._
   `test data/_backup/` is ignored. `origin` (MACRO72) does not have these commits.
 - **The `agentation` widget is committed now** (it is in `apps/web/package.json` on `main`; the working tree was
   clean at the start of the 2026-10-11 session and `pnpm format:check` passes).
+- **Owner's page feedback of 2026-10-11 on Organization and the chat pane — uncommitted, on branch
+  `feature-org-chat-feedback` (cut from `main` at `7cc1144`); migration `0044` was pushed to hosted on 2026-10-11
+  (owner's go-ahead) and checked there: 44 migrations, the new table has RLS and no browser access, both views
+  closed to the browser and readable by `chat_reader`, the tree has no repeated pair, the 13 org units, 29
+  factors and the accounts untouched**
+  (`.grill/shared-org-units-decisions.md`, D36, A35, `UI_NOTES.md`). An org unit can sit under more than one
+  parent (full in each, once at the group — the owner's choice), there can be several groups (same Admins),
+  an unused unit can be deleted after typing `delete`, deactivating a unit with units under it asks for
+  `deactivate`, the bulk-import sheet has an Also under column, the chatbot's `list_org_units` takes `under`
+  (the wrong "projects under X" answer), and the chat pane has a coloured header bar, a one-line question
+  box and the suggestions at the foot. A second round the same day: the Shared tag glows and shows under every
+  parent, **Export hierarchy** downloads the tree in the bulk-import columns, and Also under is separated by
+  commas (format, lint, typecheck, unit tests re-run after it; the build, the database tests and the 25
+  procedure checks were not; the exported file was not opened). Checked: format, lint, typecheck, web unit 174/174 (5 new), database
+  271/271 (19 new), production build, and 25/25 through the real procedures on the local database (shared
+  totals at each level, bulk import, second group, delete; everything created was removed again, a test
+  user `shared.units.check@traceesg.test` stays). **Not run:** any of it in a browser, a question through
+  the real model, the end-to-end suite, the template downloaded and opened in Excel.
+- **The test data was regenerated on 2026-10-11 with mixed formats, uncommitted** (owner's request): in each
+  role's folder a third of the bills are single PDFs, a third are images (JPG and PNG in turn) and the rest
+  are pages of one multi-bill PDF; `make_test_data.py` and `test data/README.md` changed. Set 1: 30 PDFs, 21 images, 6 multi-bill PDFs; set 2: 40, 27, 6. Ruff passes; no file was put
+  through OCR or uploaded.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -248,6 +270,7 @@ _Last updated: 2026-10-11._
 | Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
 | NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
 | Chatbot branch on MACRO72's repo | The owner pushed `feature-chat-analyst` straight to `ucn` `main` (2026-10-11). `origin` has neither the branch nor a pull request; `gh` is not installed. A pull request must say that the feature role built UI (`UI_NOTES.md`). |
+| Readings of the 2026-10-11 feedback to confirm | Suggested questions were moved to the **bottom** of the chat pane; "aligned with the navbar width" was read as the same **height**; sharing is allowed at every level below group. `.grill/shared-org-units-decisions.md`. |
 | Chatbot: how far "full access" goes | An Admin can ask about people and who submitted or approved records. Not included: audit trail, document text, written disclosures; and a non-Admin sees no people even inside their own scope. Employee names and emails in an Admin's answer go to the AI service. |
 | Admin answers to complete | BRSR Disclosures holds only what meil.in states. Reporting boundary, contact person, assurance, PPP rate and every answer not on the website are empty. R-22's factor value came from a search summary. |
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
@@ -265,7 +288,7 @@ _Last updated: 2026-10-11._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D36** and **A35**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D37** and **A36**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -430,6 +453,13 @@ _Last updated: 2026-10-11._
   `apps/ocr-worker/.venv/Scripts/python.exe`.
 - **The hosted worker container was found exited with code 137** (out of memory) on 2026-10-11 and was
   started again after the local checks.
+- **A unit can have several parents and there can be several groups (migration `0044`).** Never walk
+  `org_units.parent_id` alone for scope or totals: use `org_unit_tree`, `org_unit_links`, or
+  `loadOrgNodes` + `descendantIds(…, "all")`. Main-parent-only walks are right for deactivation, move and
+  delete. Never assume one row with `parent_id is null`.
+- **The checkout at `D:\BRSR-MEIL` has no `apps/ocr-worker/.venv`** (seen 2026-10-11): the test-data
+  generator needs only `pypdfium2`, `pillow` and `numpy`, which a throw-away venv in the scratchpad gives.
+- **`test data/` is tracked now**, so regenerating it shows up in `git status` as changed and new files.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

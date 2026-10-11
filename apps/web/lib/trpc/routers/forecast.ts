@@ -33,8 +33,9 @@ export const forecastRouter = router({
           where a.user_id = ${ctx.session.userId} and a.revoked_at is null and o.deleted_at is null
           union all
           select child.id, child.name, child.code, parent.depth + 1, parent.path || child.name::text
-          from public.org_units child
-          join assigned parent on child.parent_id = parent.id
+          from public.org_unit_links l
+          join assigned parent on l.parent_id = parent.id
+          join public.org_units child on child.id = l.child_id
           where child.deleted_at is null
         )
         select distinct id, name, code, depth from assigned order by depth, name`;
