@@ -19,6 +19,17 @@ import type { ActiveSession } from "@/lib/auth/session";
 import { checkAdminRemoval, checkRoleAtNode, generateDefaultPassword } from "@/lib/users/rules";
 
 const userManage = permissionProcedure("user.manage");
+// Handing out or taking away a role is Admin-only, whoever else holds user.manage: otherwise a person who
+// was given that permission could assign themselves (or anyone) the Admin role.
+const roleGrant = userManage.use(({ ctx, next }) => {
+  if (!ctx.session.isAdmin) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Only an Admin can assign or remove roles.",
+    });
+  }
+  return next();
+});
 const userBulkImport = permissionProcedure("user.bulk_import");
 
 // Supabase Auth ban used for deactivation (~100 years); "none" lifts it.
@@ -164,7 +175,7 @@ export const usersRouter = router({
     }));
   }),
 
-  invite: userManage
+  invite: roleGrant
     .input(
       z.object({
         email: z.email("Enter a valid email address.").transform((e) => e.trim().toLowerCase()),
@@ -244,11 +255,14 @@ export const usersRouter = router({
       return null;
     }),
 
-  addAssignment: userManage
+  addAssignment: roleGrant
     .input(z.object({ userId: z.uuid(), roleId: z.uuid(), orgUnitId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
       try {
         await db().begin(async (tx) => {
+          if (input.userId === ctx.session.userId) {
+            badRequest("You can't change your own roles. Ask another Admin.");
+          }
           const [user] =
             await tx`select 1 from public.users where id = ${input.userId} and deleted_at is null`;
           if (!user) badRequest("User not found.");
@@ -273,7 +287,7 @@ export const usersRouter = router({
       }
     }),
 
-  revokeAssignment: userManage
+  revokeAssignment: roleGrant
     .input(z.object({ assignmentId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
       await db().begin(async (tx) => {
@@ -285,6 +299,9 @@ export const usersRouter = router({
           where uoa.id = ${input.assignmentId} and uoa.revoked_at is null
           for update of uoa`;
         if (!assignment) badRequest("Assignment not found or already revoked.");
+        if (assignment.user_id === ctx.session.userId) {
+          badRequest("You can't change your own roles. Ask another Admin.");
+        }
         if (assignment.role_code === "admin") {
           await assertAdminRemovalAllowed(tx, ctx.session.userId, assignment.user_id);
         }

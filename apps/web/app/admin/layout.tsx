@@ -9,27 +9,41 @@ import { requireAdminSession } from "@/lib/auth/session";
 // Built-pages-only sidebar (.grill/phase-4-admin-foundation-decisions.md): items are added as phases land.
 const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: "dashboard" },
-  { href: "/admin/organization", label: "Organization", icon: "organization" },
-  { href: "/admin/users", label: "Users", icon: "users" },
-  { href: "/admin/roles", label: "Roles & Permissions", icon: "roles" },
-  { href: "/admin/reporting-periods", label: "Reporting Periods", icon: "periods" },
-  { href: "/admin/submissions", label: "Submission Monitoring", icon: "submissions" },
-  { href: "/admin/deadlines", label: "Reporting Deadlines", icon: "deadlines" },
+  // Daily work: review and approve what comes in.
+  {
+    href: "/admin/submissions",
+    label: "Submission Monitoring",
+    icon: "submissions",
+    startsGroup: true,
+  },
   { href: "/admin/ocr-monitoring", label: "OCR Monitoring", icon: "ocr" },
   { href: "/admin/validation-queue", label: "Validation Queue", icon: "validation" },
   { href: "/admin/approval-queue", label: "Approval Queue", icon: "approvals" },
-  { href: "/admin/conversion-factors", label: "Conversion Factors", icon: "factors" },
-  { href: "/admin/brsr-mapping", label: "BRSR Mapping", icon: "brsr" },
-  { href: "/admin/disclosures", label: "BRSR Disclosures", icon: "reports" },
-  { href: "/admin/data-explorer", label: "Data Explorer", icon: "explorer" },
-  { href: "/admin/reports", label: "Reports", icon: "reports" },
-  { href: "/admin/audit-trail", label: "Audit Trail", icon: "audit" },
-  { href: "/admin/scope-1", label: "Scope 1", icon: "scope1" },
+  { href: "/admin/deadlines", label: "Reporting Deadlines", icon: "deadlines" },
+  // The numbers: emissions by scope, exploring and looking ahead.
+  { href: "/admin/scope-1", label: "Scope 1", icon: "scope1", startsGroup: true },
   { href: "/admin/scope-2", label: "Scope 2", icon: "scope2" },
   { href: "/admin/scope-3", label: "Scope 3", icon: "scope3" },
+  { href: "/admin/data-explorer", label: "Data Explorer", icon: "explorer" },
   { href: "/admin/forecast", label: "Emissions Forecast", icon: "forecast" },
   { href: "/admin/simulator", label: "Reduction Simulator", icon: "simulator" },
-  { href: "/admin/carbon-credits", label: "Carbon Offsets & ICP", icon: "carbon" },
+  // Output and oversight.
+  { href: "/admin/reports", label: "Reports", icon: "reports", startsGroup: true },
+  { href: "/admin/audit-trail", label: "Audit Trail", icon: "audit" },
+  // Set up again each reporting cycle or financial year.
+  {
+    href: "/admin/reporting-periods",
+    label: "Reporting Periods",
+    icon: "periods",
+    startsGroup: true,
+  },
+  { href: "/admin/conversion-factors", label: "Conversion Factors", icon: "factors" },
+  { href: "/admin/disclosures", label: "BRSR Disclosures", icon: "reports" },
+  // Configured once, rarely touched.
+  { href: "/admin/organization", label: "Organization", icon: "organization", startsGroup: true },
+  { href: "/admin/users", label: "Users", icon: "users" },
+  { href: "/admin/roles", label: "Roles & Permissions", icon: "roles" },
+  { href: "/admin/brsr-mapping", label: "BRSR Mapping", icon: "brsr" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {

@@ -91,8 +91,10 @@ export function ContextFilters({
     options: [string, string][],
     key: string,
     any = "All",
+    // Flex share: the organization names are long, Period and Scope are short.
+    width = "flex-[1_1_10rem]",
   ) => (
-    <label htmlFor={id} className="flex flex-col gap-1 text-xs text-muted-foreground">
+    <label htmlFor={id} className={`flex flex-col gap-1 text-xs text-muted-foreground ${width}`}>
       {label}
       <NativeSelect id={id} value={value} onChange={(e) => set(key, e.target.value)}>
         {any ? <option value="">{any}</option> : null}
@@ -105,128 +107,90 @@ export function ContextFilters({
     </label>
   );
 
+  const filtered = ["fy", "scope", "metric", "role", "status", "issue"].some((k) => params[k]);
+
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3">
-      {search ? (
-        <form
-          role="search"
-          className="flex min-w-56 flex-1 basis-full flex-col gap-1 text-xs text-muted-foreground"
-          onSubmit={(event) => {
-            event.preventDefault();
-            applyText(text);
-          }}
+    <div className="relative">
+      {/* Laid over the gap above the bar, so showing it never moves the dropdowns. */}
+      {filtered ? (
+        <Link
+          href={pathname}
+          className="absolute -top-[1.125rem] right-0 text-xs leading-4 font-medium text-primary-text underline underline-offset-2"
         >
-          <label htmlFor="f-search">Search</label>
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
-            />
-            <Input
-              id="f-search"
-              type="search"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              maxLength={100}
-              placeholder="Document, metric, org unit, period, person, value or unit…"
-              className="px-8 text-sm text-foreground [&::-webkit-search-cancel-button]:hidden"
-            />
-            {text ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setText("");
-                  applyText("");
-                }}
-                className="absolute top-1/2 right-1.5 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                <X className="size-4" aria-hidden />
-                <span className="sr-only">Clear the search</span>
-              </button>
-            ) : null}
-          </div>
-        </form>
+          Clear filters
+        </Link>
       ) : null}
-      {select(
-        "f-org",
-        "Organization",
-        context.orgUnitId,
-        context.orgUnits.map((o) => [o.id, `${"  ".repeat(o.depth)}${o.name}`]),
-        "org",
-        "",
-      )}
-      {variant === "explorer"
-        ? select(
-            "f-fy",
-            "Financial year",
-            params.fy ?? "",
-            years.map((y) => [String(y), `FY ${y}-${String((y + 1) % 100).padStart(2, "0")}`]),
-            "fy",
-            "One period",
-          )
-        : null}
-      {!params.fy
-        ? select(
-            "f-period",
-            "Period",
-            context.periodId,
-            context.periods.map((p) => [p.id, p.label]),
-            "period",
-            "",
-          )
-        : null}
-      {select(
-        "f-scope",
-        "Scope",
-        params.scope ?? "",
-        [
-          ["SCOPE_1", "Scope 1"],
-          ["SCOPE_2", "Scope 2"],
-          ["SCOPE_3", "Scope 3"],
-        ],
-        "scope",
-      )}
-      {variant === "explorer"
-        ? select(
-            "f-metric",
-            "Metric",
-            params.metric ?? "",
-            context.metrics.map((m) => [m.code, m.name]),
-            "metric",
-          )
-        : select(
-            "f-role",
-            "Role",
-            params.role ?? "",
-            context.roles.map((r) => [r.code, r.name]),
-            "role",
-          )}
-      {select("f-status", "Status", params.status ?? "", Object.entries(STATUS_LABELS), "status")}
-      {variant === "monitoring"
-        ? select(
-            "f-issue",
-            "Issue",
-            params.issue ?? "",
-            Object.entries(ISSUE_LABELS),
-            "issue",
-            "Any",
-          )
-        : null}
-      {/* With the filters, so it is in reach whatever the table shows (owner's page feedback, 2026-10-11).
-          The organization and the period go back to their defaults too. */}
-      <Button
-        variant="outline"
-        disabled={!narrowed}
-        className="ml-auto"
-        onClick={() => {
-          setText("");
-          applied.current = "";
-          router.push(pathname);
-        }}
-      >
-        <FilterX aria-hidden />
-        Clear filters
-      </Button>
+      <div className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3">
+        {select(
+          "f-org",
+          "Organization",
+          context.orgUnitId,
+          context.orgUnits.map((o) => [o.id, o.name]),
+          "org",
+          "",
+          "flex-[4_1_20rem]",
+        )}
+        {variant === "explorer"
+          ? select(
+              "f-fy",
+              "Financial year",
+              params.fy ?? "",
+              years.map((y) => [String(y), `FY ${y}-${String((y + 1) % 100).padStart(2, "0")}`]),
+              "fy",
+              "One period",
+            )
+          : null}
+        {!params.fy
+          ? select(
+              "f-period",
+              "Period",
+              context.periodId,
+              context.periods.map((p) => [p.id, p.label]),
+              "period",
+              "",
+              "flex-[0_1_9rem]",
+            )
+          : null}
+        {select(
+          "f-scope",
+          "Scope",
+          params.scope ?? "",
+          [
+            ["SCOPE_1", "Scope 1"],
+            ["SCOPE_2", "Scope 2"],
+            ["SCOPE_3", "Scope 3"],
+          ],
+          "scope",
+          "All",
+          "flex-[0_1_7.5rem]",
+        )}
+        {variant === "explorer"
+          ? select(
+              "f-metric",
+              "Metric",
+              params.metric ?? "",
+              context.metrics.map((m) => [m.code, m.name]),
+              "metric",
+            )
+          : select(
+              "f-role",
+              "Role",
+              params.role ?? "",
+              context.roles.map((r) => [r.code, r.name]),
+              "role",
+            )}
+        {select("f-status", "Status", params.status ?? "", Object.entries(STATUS_LABELS), "status")}
+        {variant === "monitoring"
+          ? select(
+              "f-issue",
+              "Issue",
+              params.issue ?? "",
+              Object.entries(ISSUE_LABELS),
+              "issue",
+              "Any",
+            )
+          : null}
+      </div>
     </div>
   );
 }
@@ -324,7 +288,7 @@ export function RecordsTable({
       </div>
       {rows.length === 0 ? (
         <p className="rounded-md border bg-card px-4 py-6 text-sm text-muted-foreground">
-          {emptyMessage} Change the filters above, or clear them.
+          {emptyMessage}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-table-border">
