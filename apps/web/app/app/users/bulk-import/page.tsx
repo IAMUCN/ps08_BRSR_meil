@@ -23,6 +23,7 @@ export default async function UsersBulkImportPage() {
       <EmployeeBulkImport
         roles={options.data.roles}
         orgUnits={options.data.orgUnits}
+        withoutCode={options.data.withoutCode}
         importAction={bulkImportUsersAction}
       />
     </div>

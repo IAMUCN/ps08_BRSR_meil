@@ -8,6 +8,7 @@ import {
   canBeChildOf,
   checkMove,
   descendantIds,
+  importOrder,
   isFrozen,
   reachableNodeIds,
   ROOT_LEVEL,
@@ -437,6 +438,7 @@ export const organizationRouter = router({
       .filter((r) => reachable.has(r.id))
       .map((r) => ({
         id: r.id,
+        parentId: r.parent_id,
         name: r.name,
         code: r.code,
         unitType: r.unit_type as OrgNode["unitType"],
@@ -449,18 +451,75 @@ export const organizationRouter = router({
       z.object({
         parentId: z.uuid(),
         rows: z
-          .array(z.object({ unitType: levelCode, name: nameSchema, code: codeSchema }))
+          .array(
+            z.object({
+              unitType: levelCode,
+              name: nameSchema,
+              code: codeSchema,
+              /** An existing org unit's code or another row's; empty = directly under `parentId`. */
+              parentCode: codeSchema.optional(),
+              /** An existing org unit that has no code, picked from the template's list. */
+              parentId: z.uuid().optional(),
+            }),
+          )
           .min(1, "The sheet has no rows.")
           .max(500, "Import at most 500 rows at a time."),
       }),
     )
     .mutation(async ({ ctx, input }): Promise<{ results: OrgBulkImportRowResult[] }> => {
-      const results: OrgBulkImportRowResult[] = [];
-      for (const [index, row] of input.rows.entries()) {
-        // Sheet row 1 is the header, so the first data row is row 2.
-        results.push(await importOneOrgUnit(ctx.session, input.parentId, row, index + 2));
+      // Sheet row 1 is the header, so the first data row is row 2.
+      const rows = input.rows.map((row, index) => ({ ...row, rowNum: index + 2 }));
+      const known = new Map(
+        (
+          await db()<{ id: string; code: string }[]>`
+            select id, code from public.org_units where code is not null and deleted_at is null`
+        ).map((unit) => [unit.code, unit.id]),
+      );
+      // One sheet can hold several levels: a row may name another row as its parent, so parents go first.
+      // A code used by two rows makes "its parent" ambiguous, so neither row is created (nor, below, any
+      // row that names that code): the person fixes the sheet rather than getting a tree they did not mean.
+      const seen = new Map<string, number>();
+      for (const row of rows) if (row.code) seen.set(row.code, (seen.get(row.code) ?? 0) + 1);
+      const repeated = rows.filter((row) => row.code && seen.get(row.code)! > 1);
+      const unique = rows.filter((row) => !repeated.includes(row));
+      // A row that names its parent by id needs no ordering: that org unit exists already.
+      const { ordered, orphans } = importOrder(
+        unique.map((row) => (row.parentId ? { ...row, parentCode: null } : row)),
+        new Set(known.keys()),
+      );
+      const results = new Map<number, OrgBulkImportRowResult>();
+      for (const row of repeated) {
+        results.set(row.rowNum, {
+          row: row.rowNum,
+          ok: false,
+          name: row.name,
+          error: `Code "${row.code}" is used by more than one row of this sheet.`,
+        });
       }
-      return { results };
+      for (const row of ordered) {
+        const parentId =
+          row.parentId ?? (row.parentCode ? known.get(row.parentCode) : input.parentId);
+        // Listed as creatable, but the row it names was refused: this one is not created either.
+        const result = parentId
+          ? await importOneOrgUnit(ctx.session, parentId, row, row.rowNum)
+          : {
+              row: row.rowNum,
+              ok: false as const,
+              name: row.name,
+              error: `Its parent "${row.parentCode}" was not created, so this row was not either.`,
+            };
+        results.set(row.rowNum, result);
+        if (result.ok && row.code) known.set(row.code, result.id);
+      }
+      for (const row of orphans) {
+        results.set(row.rowNum, {
+          row: row.rowNum,
+          ok: false,
+          name: row.name,
+          error: `Parent code "${row.parentCode}" is neither an existing org unit nor another row of this sheet.`,
+        });
+      }
+      return { results: rows.map((row) => results.get(row.rowNum)!) };
     }),
 });
 

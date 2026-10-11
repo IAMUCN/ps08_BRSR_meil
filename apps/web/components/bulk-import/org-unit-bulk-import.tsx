@@ -11,18 +11,41 @@ import { RowsPreview } from "@/components/bulk-import/rows-preview";
 import {
   downloadCsv,
   downloadOrgUnitTemplate,
+  LEGACY_LEVEL_HEADER,
   ORG_UNIT_HEADERS,
+  parentOf,
   parseSheetRows,
 } from "@/lib/bulk-import/xlsx";
-import { allowedChildTypes, levelLabel, type OrgLevel, type OrgUnitType } from "@/lib/org/rules";
+import {
+  allowedChildTypes,
+  levelLabel,
+  treeOrder,
+  type OrgLevel,
+  type OrgUnitType,
+} from "@/lib/org/rules";
 import type { OrgBulkImportRowResult } from "@/lib/trpc/routers/organization";
 
-type NodeOption = { id: string; name: string; code: string | null; unitType: OrgUnitType };
-type ParsedRow = { code: string; name: string; unitType: OrgUnitType | "" };
+type NodeOption = {
+  id: string;
+  /** Present where the caller knows the tree; the template then lists units under their parents. */
+  parentId?: string | null;
+  name: string;
+  code: string | null;
+  unitType: OrgUnitType;
+};
+type ParsedRow = {
+  code: string;
+  name: string;
+  unitType: string;
+  parentCode: string;
+  /** Set when the parent was picked from the list and has no code. */
+  parentId?: string;
+};
 type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
-// Org unit bulk import (bulk-import-decisions.md): every row becomes a direct child of one chosen
-// parent — no multi-level sheets — so no topological ordering is needed between rows.
+// Org unit bulk import (bulk-import-decisions.md): one sheet can hold a whole branch. A row names its
+// parent by code — an existing unit or another row — and a row without one goes under the chosen unit.
+// The server orders the rows (parents first) and checks levels, scope and codes for each.
 export function OrgUnitBulkImport({
   nodes,
   levels,
@@ -35,7 +58,13 @@ export function OrgUnitBulkImport({
   defaultParentId?: string;
   importAction: (input: {
     parentId: string;
-    rows: { unitType: OrgUnitType; name: string; code: string }[];
+    rows: {
+      unitType: OrgUnitType;
+      name: string;
+      code: string;
+      parentCode?: string;
+      parentId?: string;
+    }[];
   }) => Promise<ActionResult<{ results: OrgBulkImportRowResult[] }>>;
   onImported?: () => void;
 }) {
@@ -57,11 +86,20 @@ export function OrgUnitBulkImport({
     parseSheetRows(file)
       .then((sheetRows) => {
         setRows(
-          sheetRows.map((r) => ({
-            code: r[ORG_UNIT_HEADERS[0]] ?? "",
-            name: r[ORG_UNIT_HEADERS[1]] ?? "",
-            unitType: (r[ORG_UNIT_HEADERS[2]] ?? "") as OrgUnitType | "",
-          })),
+          sheetRows.map((r) => {
+            // The level by its code or by its name, in any letter case; a sheet from before the Parent
+            // column calls the column "Type".
+            const typed = (r[ORG_UNIT_HEADERS[2]] ?? r[LEGACY_LEVEL_HEADER] ?? "").toLowerCase();
+            const level = levels.find(
+              (l) => l.code.toLowerCase() === typed || l.label.toLowerCase() === typed,
+            );
+            return {
+              code: r[ORG_UNIT_HEADERS[0]] ?? "",
+              name: r[ORG_UNIT_HEADERS[1]] ?? "",
+              unitType: level?.code ?? typed,
+              ...parentOf(r[ORG_UNIT_HEADERS[3]] ?? ""),
+            };
+          }),
         );
       })
       .catch(() => toast.error("Couldn't read that file — is it a .xlsx export?"));
@@ -69,18 +107,22 @@ export function OrgUnitBulkImport({
 
   function onSubmit() {
     if (!parent) return;
-    const invalid = rows.find((r) => !r.unitType || !childTypes.includes(r.unitType));
+    // Only what can be said without the tree: the level exists. Order and scope are the server's to check,
+    // row by row, since a row's parent may be another row.
+    const invalid = rows.find((r) => !levels.some((l) => l.code === r.unitType));
     if (invalid) {
-      toast.error(`"${invalid.unitType || "(blank)"}" isn't a valid type under ${parent.name}.`);
+      toast.error(`"${invalid.unitType || "(blank)"}" isn't one of the configured levels.`);
       return;
     }
     startTransition(async () => {
       const result = await importAction({
         parentId: parent.id,
         rows: rows.map((r) => ({
-          unitType: r.unitType as OrgUnitType,
+          unitType: r.unitType,
           name: r.name,
           code: r.code,
+          parentCode: r.parentCode,
+          parentId: r.parentId,
         })),
       });
       if (!result.ok) {
@@ -135,8 +177,20 @@ export function OrgUnitBulkImport({
               disabled={childTypes.length === 0}
               onClick={() =>
                 downloadOrgUnitTemplate(
-                  parent.name,
-                  childTypes.map((t) => ({ value: t, label: levelLabel(levels, t) })),
+                  {
+                    name: parent.name,
+                    code: parent.code,
+                    level: levelLabel(levels, parent.unitType),
+                  },
+                  childTypes.map((t) => ({ code: t, label: levelLabel(levels, t) })),
+                  treeOrder(nodes).map((n) => ({
+                    id: n.id,
+                    code: n.code,
+                    name: n.name,
+                    level: levelLabel(levels, n.unitType),
+                    parentCode: nodes.find((p) => p.id === n.parentId)?.code ?? null,
+                    depth: n.depth,
+                  })),
                 ).catch(() => toast.error("Couldn't generate the template — try again."))
               }
             >
@@ -156,7 +210,9 @@ export function OrgUnitBulkImport({
             ) : null}
           </div>
           <p className="text-xs text-muted-foreground">
-            Every row becomes a direct child of {parent.name}. Allowed types:{" "}
+            A row with no parent code is created directly under {parent.name}. A row with one goes
+            under that org unit — an existing one, or another row of the same sheet — so one sheet
+            can build several levels. Levels beneath {parent.name}:{" "}
             {childTypes.length > 0
               ? childTypes.map((t) => levelLabel(levels, t)).join(", ")
               : "none — this node can't have children"}
@@ -168,7 +224,13 @@ export function OrgUnitBulkImport({
       {rows.length > 0 && !results ? (
         <RowsPreview
           headers={[...ORG_UNIT_HEADERS]}
-          rows={rows.map((r) => [r.code, r.name, r.unitType])}
+          rows={rows.map((r) => [
+            r.code,
+            r.name,
+            levelLabel(levels, r.unitType),
+            (r.parentId ? nodes.find((n) => n.id === r.parentId)?.name : r.parentCode) ||
+              `(${parent?.name ?? "chosen unit"})`,
+          ])}
         />
       ) : null}
 

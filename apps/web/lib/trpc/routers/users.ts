@@ -4,7 +4,8 @@ import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
 import { accountCreatedEmailHtml, sendEmail } from "@/lib/email/brevo";
-import { isFrozen, reachableNodeIds, type OrgNode } from "@/lib/org/rules";
+import { loadLevels } from "@/lib/org/levels";
+import { isFrozen, levelLabel, reachableNodeIds, treeOrder, type OrgNode } from "@/lib/org/rules";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { permissionProcedure, router } from "@/lib/trpc/init";
 import type { ActiveSession } from "@/lib/auth/session";
@@ -427,12 +428,36 @@ export const usersRouter = router({
     );
     const roles = await db()<{ code: string; name: string }[]>`
       select code, name from public.roles where code <> 'admin' order by name`;
+    // In tree order with level and parent, so the template's reference sheet reads as the hierarchy does.
+    const levels = await loadLevels(db());
+    const codeOf = new Map(nodeRows.map((n) => [n.id, n.code]));
+    const inScope = treeOrder(
+      nodeRows
+        .filter((n) => reachable.has(n.id))
+        .map((n) => ({
+          id: n.id,
+          parentId: n.parent_id,
+          name: n.name,
+          code: n.code,
+          unitType: n.unit_type,
+        })),
+    );
     return {
       roles,
-      orgUnits: nodeRows
-        .filter((n) => reachable.has(n.id) && n.code !== null)
-        .map((n) => ({ code: n.code as string, name: n.name, unitType: n.unit_type }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
+      // Every org unit in scope can be chosen. One with a code is named by it; one without is named by
+      // "Name — id:…", which bulkImport resolves by id (on a new installation most units have no code).
+      orgUnits: inScope.map((n) => ({
+        code: n.code ?? `${n.name} — id:${n.id}`,
+        name: n.name,
+        unitType: n.unitType,
+        level: levelLabel(levels, n.unitType),
+        parentCode: n.parentId
+          ? (codeOf.get(n.parentId) ?? nodeRows.find((p) => p.id === n.parentId)?.name ?? null)
+          : null,
+        depth: n.depth,
+      })),
+      /** Kept for the template's signature; every unit can be named now. */
+      withoutCode: [] as string[],
     };
   }),
 
@@ -531,7 +556,11 @@ async function importOneEmployee(
     unitType: r.unit_type as OrgNode["unitType"],
     status: r.status as OrgNode["status"],
   }));
-  const orgUnit = nodeRows.find((r) => r.code?.toLowerCase() === row.orgUnitCode.toLowerCase());
+  // By code, or — for an org unit that has no code, picked from the template's list — by its id.
+  const scopeId = /^id:([0-9a-f-]{36})$/i.exec(row.orgUnitCode)?.[1].toLowerCase();
+  const orgUnit = scopeId
+    ? nodeRows.find((r) => r.id === scopeId)
+    : nodeRows.find((r) => r.code?.toLowerCase() === row.orgUnitCode.toLowerCase());
   if (!orgUnit)
     return rowFailed(rowNum, row, `Unknown organization scope code "${row.orgUnitCode}".`);
   const reachable = new Set(
