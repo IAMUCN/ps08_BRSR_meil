@@ -68,8 +68,10 @@ export function ContextFilters({
     options: [string, string][],
     key: string,
     any = "All",
+    // Flex share: the organization names are long, Period and Scope are short.
+    width = "flex-[1_1_10rem]",
   ) => (
-    <label htmlFor={id} className="flex flex-col gap-1 text-xs text-muted-foreground">
+    <label htmlFor={id} className={`flex flex-col gap-1 text-xs text-muted-foreground ${width}`}>
       {label}
       <NativeSelect id={id} value={value} onChange={(e) => set(key, e.target.value)}>
         {any ? <option value="">{any}</option> : null}
@@ -82,73 +84,90 @@ export function ContextFilters({
     </label>
   );
 
+  const filtered = ["fy", "scope", "metric", "role", "status", "issue"].some((k) => params[k]);
+
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3">
-      {select(
-        "f-org",
-        "Organization",
-        context.orgUnitId,
-        context.orgUnits.map((o) => [o.id, `${"  ".repeat(o.depth)}${o.name}`]),
-        "org",
-        "",
-      )}
-      {variant === "explorer"
-        ? select(
-            "f-fy",
-            "Financial year",
-            params.fy ?? "",
-            years.map((y) => [String(y), `FY ${y}-${String((y + 1) % 100).padStart(2, "0")}`]),
-            "fy",
-            "One period",
-          )
-        : null}
-      {!params.fy
-        ? select(
-            "f-period",
-            "Period",
-            context.periodId,
-            context.periods.map((p) => [p.id, p.label]),
-            "period",
-            "",
-          )
-        : null}
-      {select(
-        "f-scope",
-        "Scope",
-        params.scope ?? "",
-        [
-          ["SCOPE_1", "Scope 1"],
-          ["SCOPE_2", "Scope 2"],
-          ["SCOPE_3", "Scope 3"],
-        ],
-        "scope",
-      )}
-      {variant === "explorer"
-        ? select(
-            "f-metric",
-            "Metric",
-            params.metric ?? "",
-            context.metrics.map((m) => [m.code, m.name]),
-            "metric",
-          )
-        : select(
-            "f-role",
-            "Role",
-            params.role ?? "",
-            context.roles.map((r) => [r.code, r.name]),
-            "role",
-          )}
-      {select("f-status", "Status", params.status ?? "", Object.entries(STATUS_LABELS), "status")}
-      {variant === "monitoring"
-        ? select(
-            "f-issue",
-            "Issue",
-            params.issue ?? "",
-            Object.entries(ISSUE_LABELS),
-            "issue",
-            "Any",
-          )
-        : null}
+    <div className="relative">
+      {/* Laid over the gap above the bar, so showing it never moves the dropdowns. */}
+      {filtered ? (
+        <Link
+          href={pathname}
+          className="absolute -top-[1.125rem] right-0 text-xs leading-4 font-medium text-primary-text underline underline-offset-2"
+        >
+          Clear filters
+        </Link>
+      ) : null}
+      <div className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3">
+        {select(
+          "f-org",
+          "Organization",
+          context.orgUnitId,
+          context.orgUnits.map((o) => [o.id, o.name]),
+          "org",
+          "",
+          "flex-[4_1_20rem]",
+        )}
+        {variant === "explorer"
+          ? select(
+              "f-fy",
+              "Financial year",
+              params.fy ?? "",
+              years.map((y) => [String(y), `FY ${y}-${String((y + 1) % 100).padStart(2, "0")}`]),
+              "fy",
+              "One period",
+            )
+          : null}
+        {!params.fy
+          ? select(
+              "f-period",
+              "Period",
+              context.periodId,
+              context.periods.map((p) => [p.id, p.label]),
+              "period",
+              "",
+              "flex-[0_1_9rem]",
+            )
+          : null}
+        {select(
+          "f-scope",
+          "Scope",
+          params.scope ?? "",
+          [
+            ["SCOPE_1", "Scope 1"],
+            ["SCOPE_2", "Scope 2"],
+            ["SCOPE_3", "Scope 3"],
+          ],
+          "scope",
+          "All",
+          "flex-[0_1_7.5rem]",
+        )}
+        {variant === "explorer"
+          ? select(
+              "f-metric",
+              "Metric",
+              params.metric ?? "",
+              context.metrics.map((m) => [m.code, m.name]),
+              "metric",
+            )
+          : select(
+              "f-role",
+              "Role",
+              params.role ?? "",
+              context.roles.map((r) => [r.code, r.name]),
+              "role",
+            )}
+        {select("f-status", "Status", params.status ?? "", Object.entries(STATUS_LABELS), "status")}
+        {variant === "monitoring"
+          ? select(
+              "f-issue",
+              "Issue",
+              params.issue ?? "",
+              Object.entries(ISSUE_LABELS),
+              "issue",
+              "Any",
+            )
+          : null}
+      </div>
     </div>
   );
 }
@@ -223,7 +242,6 @@ export function RecordsTable({
   emptyMessage: string;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const pathname = usePathname();
   const headings =
     variant === "monitoring"
       ? ["Document", "ESG activity", "Org unit", "Period", "Submitted by", "Status"]
@@ -247,13 +265,7 @@ export function RecordsTable({
       </div>
       {rows.length === 0 ? (
         <p className="rounded-md border bg-card px-4 py-6 text-sm text-muted-foreground">
-          {emptyMessage}{" "}
-          <Link
-            href={pathname}
-            className="font-medium text-primary-text underline underline-offset-2"
-          >
-            Clear filters
-          </Link>
+          {emptyMessage}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-table-border">

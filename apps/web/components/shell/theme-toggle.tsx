@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Palette } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -19,13 +19,41 @@ export function ThemeToggle({ current }: { current: ThemeId }) {
   const [theme, setTheme] = useState(current);
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  /** Magic UI's AnimatedThemeToggler reveal: the new theme grows as a circle from the button (view transition). */
+  function applyWithReveal(next: ThemeId) {
+    const button = triggerRef.current;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!button || reduce || !document.startViewTransition) return applyTheme(next);
+    const { top, left, width, height } = button.getBoundingClientRect();
+    const x = left + width / 2;
+    const y = top + height / 2;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    // Percentages, not pixels: the view-transition layer scales pixel coordinates with browser zoom and
+    // display scaling (the circle then starts away from the button); percentages scale with it.
+    // Radius 100% = hypot(w, h) / sqrt(2), so the end radius is the distance to the farthest corner.
+    const at = `${(x / w) * 100}% ${(y / h) * 100}%`;
+    const reach = Math.hypot(Math.max(x, w - x), Math.max(y, h - y));
+    const end = (reach / (Math.hypot(w, h) / Math.SQRT2)) * 100;
+    document
+      .startViewTransition(() => applyTheme(next))
+      .ready.then(() =>
+        document.documentElement.animate(
+          { clipPath: [`circle(0% at ${at})`, `circle(${end}% at ${at})`] },
+          { duration: 500, easing: "ease-in-out", pseudoElement: "::view-transition-new(root)" },
+        ),
+      )
+      .catch(() => {});
+  }
 
   function choose(next: ThemeId) {
     setOpen(false);
     if (next === theme) return;
     const previous = theme;
     setTheme(next);
-    applyTheme(next);
+    applyWithReveal(next);
     start(async () => {
       const result = await setThemeAction({ theme: next });
       if (result.ok) return;
@@ -38,7 +66,13 @@ export function ThemeToggle({ current }: { current: ThemeId }) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-lg" aria-busy={pending} aria-label="Theme">
+        <Button
+          ref={triggerRef}
+          variant="ghost"
+          size="icon-lg"
+          aria-busy={pending}
+          aria-label="Theme"
+        >
           <Palette className="size-5" strokeWidth={1.5} aria-hidden />
         </Button>
       </PopoverTrigger>

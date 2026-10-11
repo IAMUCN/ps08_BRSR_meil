@@ -66,9 +66,18 @@ export type NavIcon = keyof typeof ICONS;
  * Persistent left sidebar (03_APP_FLOW.md §1; UI brief §6.2). Lists only pages that exist. Below 1280px it
  * collapses to an icon rail that opens over the page (UI brief §16); labels stay the accessible names.
  */
+// A spring as a CSS easing curve: overshoots the target slightly, then settles.
+const SPRING =
+  "linear(0, 0.4 7%, 0.85 15%, 1.08 25%, 1.13 31%, 1.1 38%, 1.03 49%, 0.99 60%, 1.005 75%, 1)";
+
 export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
   const pathname = usePathname();
   const rootHref = items[0]?.href;
+  const isActive = (item: NavItem) =>
+    item.href === rootHref
+      ? pathname === item.href
+      : pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const activeIndex = items.findIndex(isActive);
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -92,7 +101,7 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
       <nav
         aria-label={label}
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex flex-col overflow-y-auto bg-sidebar text-sidebar-foreground xl:w-60 xl:shadow-none",
+          "fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden bg-sidebar text-sidebar-foreground xl:w-60 xl:shadow-none",
           expanded ? "w-60 shadow-lg" : "w-16",
         )}
       >
@@ -112,13 +121,22 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
           </button>
           <span className={cn("text-base font-semibold", shown("hidden xl:inline"))}>TraceESG</span>
         </div>
-        <ul className="flex flex-col gap-1 p-3">
+        {/* Only the list scrolls (scrollbar hidden); the TraceESG header above it stays put. */}
+        <ul className="relative flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {/* One highlight that slides to the active item with a spring overshoot (CSS only). Rows are
+              h-10 with gap-1, so row n sits n × 2.75rem down. */}
+          <span
+            aria-hidden
+            className="absolute inset-x-3 top-3 h-10 rounded-md bg-sidebar-active transition-[transform,opacity] duration-500 motion-reduce:transition-none"
+            style={{
+              transform: `translateY(calc(${Math.max(activeIndex, 0)} * 2.75rem))`,
+              opacity: activeIndex < 0 ? 0 : 1,
+              transitionTimingFunction: SPRING,
+            }}
+          />
           {items.map((item) => {
             const Icon = ICONS[item.icon];
-            const active =
-              item.href === rootHref
-                ? pathname === item.href
-                : pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const active = isActive(item);
             return (
               <li key={item.href}>
                 <Link
@@ -129,8 +147,9 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
                   className={cn(
                     "flex h-10 items-center gap-3 rounded-md px-2.5 text-sm font-medium transition-colors xl:px-3",
                     "focus-visible:ring-2 focus-visible:ring-sidebar-foreground focus-visible:outline-none",
+                    "relative",
                     active
-                      ? "bg-sidebar-active text-sidebar-active-foreground"
+                      ? "text-sidebar-active-foreground"
                       : "hover:bg-sidebar-hover hover:text-sidebar-hover-foreground",
                   )}
                 >

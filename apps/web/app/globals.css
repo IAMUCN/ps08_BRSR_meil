@@ -398,3 +398,10 @@ html.custom-cursor-enabled img {
 [data-native-cursor="true"] *::after {
   cursor: auto !important;
 }
+
+/* Theme switch reveal (components/shell/theme-toggle.tsx): the browser's cross-fade is replaced by the circle. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
