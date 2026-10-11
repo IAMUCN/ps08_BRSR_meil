@@ -694,6 +694,7 @@ test("only the approved tools exist, and their arguments are checked strictly", 
   assert.deepEqual(Object.keys(TOOLS).sort(), [
     "compare",
     "explain_calculation",
+    "explain_forecast",
     "get_completeness",
     "get_totals",
     "get_trend",
@@ -701,7 +702,7 @@ test("only the approved tools exist, and their arguments are checked strictly", 
     "list_org_units",
     "rank_org_units",
   ]);
-  assert.equal(toolSpecs().length, 8);
+  assert.equal(toolSpecs().length, 9);
   for (const name of [
     "run_sql",
     "execute",
@@ -903,7 +904,7 @@ test("a model that is rate limited, missing or broken gives way to the next on t
         assert.equal(String(url), "https://nim.test/v1/chat/completions");
         assert.equal(new Headers(init?.headers).get("authorization"), "Bearer nvapi-SECRET-KEY");
         assert.equal(body.max_tokens, 900);
-        assert.equal(body.tools.length, 8);
+        assert.equal(body.tools.length, 9);
         return body.model === "first" ? failure.clone() : said("<think>hmm</think>Hello");
       },
     });
@@ -1172,4 +1173,44 @@ test("a quantity in a unit that cannot be converted is kept apart, never added i
   } finally {
     RECORDS.splice(-2);
   }
+});
+
+test("explain_forecast: projects emissions using real backtested models or reports insufficient data honestly", async () => {
+  const { ctx } = PROJECT_X_MANAGER();
+
+  // 1. Scope 2 has 4 historical periods: mar, apr, aug, sep -> can forecast!
+  const scope2Forecast = await call(ctx, "explain_forecast", {
+    org_unit: "Project X",
+    scope: "SCOPE_2",
+    periods_ahead: 2,
+  });
+
+  const s2Data = dataOf(scope2Forecast);
+  assert.equal(s2Data.can_forecast, undefined); // undefined when canForecast is true
+  assert.equal(s2Data.scope, "Scope 2 (Indirect Electricity & Steam)");
+  assert.ok(s2Data.predictions.length === 2);
+  assert.equal(s2Data.disclaimer, "Statistical estimates only — not official BRSR figures.");
+  assert.ok(scope2Forecast.blocks.some((b) => b.type === "stats"));
+  assert.ok(scope2Forecast.blocks.some((b) => b.type === "chart"));
+  assert.ok(scope2Forecast.blocks.some((b) => b.type === "table"));
+
+  // 2. Scope 1 has only 1 period (September) -> reports insufficient data honestly!
+  const scope1Forecast = await call(ctx, "explain_forecast", {
+    org_unit: "Project X",
+    scope: "SCOPE_1",
+    periods_ahead: 2,
+  });
+
+  const s1Data = dataOf(scope1Forecast);
+  assert.equal(s1Data.can_forecast, false);
+  assert.ok(s1Data.reason?.includes("Insufficient historical observations"));
+  assert.ok(scope1Forecast.blocks.some((b) => b.type === "note" && b.tone === "warning"));
+
+  // 3. Unauthorized org unit is refused
+  await assert.rejects(async () => {
+    await call(ctx, "explain_forecast", {
+      org_unit: "Project Z", // Project Z is outside Project X manager's access
+      scope: "TOTAL",
+    });
+  }, /in this person's scope/i);
 });
