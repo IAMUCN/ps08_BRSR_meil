@@ -62,3 +62,6 @@ Built by the feature session at the owner's request (A35).
 - Second round the same day: the Shared tag is a glowing pill in `text-primary-text` (a box shadow in the
   same colour) and shows under every parent; an **Export hierarchy** button sits beside the two add buttons.
   The glow has not been seen in any theme.
+- Third round: the Shared tag is a `Popover` trigger that opens on hover, focus-press or click and lists the
+  unit's parents (`SharedPlaces` in `org-manager.tsx`); it sits beside the row's select button, no longer
+  inside it. Tree rows have ids (`org-row-<parent>-<unit>`) so a chosen place can be scrolled into view.

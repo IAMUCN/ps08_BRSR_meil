@@ -258,6 +258,25 @@ _Last updated: 2026-10-11._
   totals at each level, bulk import, second group, delete; everything created was removed again, a test
   user `shared.units.check@traceesg.test` stays). **Not run:** any of it in a browser, a question through
   the real model, the end-to-end suite, the template downloaded and opened in Excel.
+- **Follow-up rounds of the same feedback, committed after `85446ef` and pushed to `ucn` `main` on 2026-10-11
+  (owner's request; production build passes; none of it viewed in a browser):** a shared unit's parents are written together —
+  Parent code takes every parent, comma separated, in the template, the import (`parentsOf`) and Export
+  hierarchy; the Also under column is gone (still read); the Organization card is "Parents". Checked: format,
+  lint, typecheck, web unit 175/175. Not run: the build, an import through the procedure, a browser view.
+  Also: Export hierarchy lists a shared unit under each parent, every such row naming all its
+  parents — units without a code included — and the import reads same-code same-name rows, or code-less rows
+  with the same name and parent list, as one unit (`mergeSharedRows`; web unit 176/176,
+  and 6/6 through the real procedure on the local database; the exported file itself was not opened).
+  Also: the template has pick-list columns Parent code 2 and Parent code 3 for further parents
+  (a spreadsheet pick-list cannot multi-select); static checks and unit tests only, the template was not
+  opened in Excel.
+  Also: hovering (or pressing) the Shared tag opens a list of the unit's parents, and choosing one
+  selects the unit at its place under that parent (`SharedPlaces`, `goTo` in `org-manager.tsx`); only the
+  drawing that was clicked is highlighted. Static checks and unit tests only — hover timing, the list's
+  position and the scroll need a real browser.
+  Also: migration `0045` renames the level "Subsidiary / Entity" to "Subsidiary" (label only);
+  **pushed to hosted 2026-10-11** on the owner's page feedback and read back there (45 migrations); database
+  tests 271/271 locally.
 - **The test data was regenerated on 2026-10-11 with mixed formats, committed (`9ba9081`) and on `ucn` `main`** (owner's request): in each
   role's folder a third of the bills are single PDFs, a third are images (JPG and PNG in turn) and the rest
   are pages of one multi-bill PDF; `make_test_data.py` and `test data/README.md` changed. Set 1: 30 PDFs, 21 images, 6 multi-bill PDFs; set 2: 40, 27, 6. Ruff passes; no file was put

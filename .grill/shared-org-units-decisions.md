@@ -56,6 +56,28 @@ parent, its main one included. **Export hierarchy** on the Organization page dow
 level in the bulk-import columns, to edit and upload again; uploaded unchanged it creates nothing, because
 codes must be new.
 
+**Two parents, side by side (owner's third note the same day).** "There should be two parents of that
+project, not one": the sheet no longer has an Also under column. **Parent code holds every parent, separated
+by commas** (`SUB-A, SUB-B`), in the template, the import and Export hierarchy; a sheet that still has an
+Also under column is read. The Organization page's card is called Parents and lists them all. Underneath,
+the first parent listed is still the one the unit is moved and deactivated from (`org_units.parent_id`); the
+page says so on that row.
+
+**Listed under both parents in the export (owner's fourth note the same day).** Export hierarchy writes a
+shared unit once under each parent, in the order of the tree on screen, and each of those rows names every
+parent in Parent code. So that the file still works as a template, the import reads rows with the same Code,
+Name and Level as one unit with all the parents they name (`mergeSharedRows`); one code with two names is
+still refused. What sits under a shared unit is exported once, under its first parent. A shared unit with no
+code is listed under each parent too (the owner's real projects have no codes); on import, rows with no code
+are one unit when their name, level and list of two or more parents are the same.
+
+**Picking several parents in the template (owner's fifth note the same day).** Asked for a multi-select
+Parent cell. A spreadsheet pick-list holds one value per cell (a true multi-select needs a macro, which the
+template does not carry), so the template has **Parent code 2** and **Parent code 3**, each with the same
+pick-list as Parent code. Codes typed into Parent code with commas are still read, and Export hierarchy
+still writes them that way. A cell that is exactly the name of an existing unit is read as that unit even
+when the name holds a comma.
+
 ## Assumptions made (say if any is wrong)
 
 - "Suggested questions should be in the top portion not in the up portion" was read as: at the **bottom**,

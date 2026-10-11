@@ -9,12 +9,13 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { RowsPreview } from "@/components/bulk-import/rows-preview";
 import {
-  alsoUnderOf,
   downloadCsv,
   downloadOrgUnitTemplate,
+  LEGACY_ALSO_UNDER_HEADER,
   LEGACY_LEVEL_HEADER,
+  MORE_PARENT_HEADERS,
   ORG_UNIT_HEADERS,
-  parentOf,
+  parentsOf,
   parseSheetRows,
 } from "@/lib/bulk-import/xlsx";
 import {
@@ -97,12 +98,20 @@ export function OrgUnitBulkImport({
             const level = levels.find(
               (l) => l.code.toLowerCase() === typed || l.label.toLowerCase() === typed,
             );
+            // The parents: Parent code (one, or several with commas), then a cell for each further one.
+            // A sheet from the day there was an Also under column lists the further ones there.
+            // An org unit with no code is named by its name, which may itself hold a comma.
+            const names = nodes.map((n) => n.name);
+            const parents = parentsOf(r[ORG_UNIT_HEADERS[3]] ?? "", names);
+            const more = [...MORE_PARENT_HEADERS, LEGACY_ALSO_UNDER_HEADER]
+              .map((header) => parentsOf(r[header] ?? "", names))
+              .flatMap((cell) => [cell.parentCode, ...cell.alsoUnder]);
             return {
               code: r[ORG_UNIT_HEADERS[0]] ?? "",
               name: r[ORG_UNIT_HEADERS[1]] ?? "",
               unitType: level?.code ?? typed,
-              ...parentOf(r[ORG_UNIT_HEADERS[3]] ?? ""),
-              alsoUnder: alsoUnderOf(r[ORG_UNIT_HEADERS[4]]),
+              ...parents,
+              alsoUnder: [...new Set([...parents.alsoUnder, ...more])].filter(Boolean),
             };
           }),
         );
@@ -218,9 +227,9 @@ export function OrgUnitBulkImport({
           <p className="text-xs text-muted-foreground">
             A row with no parent code is created directly under {parent.name}. A row with one goes
             under that org unit — an existing one, or another row of the same sheet — so one sheet
-            can build several levels. A unit that belongs to more than one parent (a project two
-            subsidiaries run) names the others in the Also under column, separated by commas. Levels
-            beneath {parent.name}:{" "}
+            can build several levels. A unit with more than one parent (a project two subsidiaries
+            run) picks its other parents in Parent code 2 and Parent code 3. Levels beneath{" "}
+            {parent.name}:{" "}
             {childTypes.length > 0
               ? childTypes.map((t) => levelLabel(levels, t)).join(", ")
               : "none — this node can't have children"}
@@ -236,9 +245,11 @@ export function OrgUnitBulkImport({
             r.code,
             r.name,
             levelLabel(levels, r.unitType),
-            (r.parentId ? nodes.find((n) => n.id === r.parentId)?.name : r.parentCode) ||
-              `(${parent?.name ?? "chosen unit"})`,
-            r.alsoUnder.join(", "),
+            [
+              (r.parentId ? nodes.find((n) => n.id === r.parentId)?.name : r.parentCode) ||
+                `(${parent?.name ?? "chosen unit"})`,
+              ...r.alsoUnder,
+            ].join(", "),
           ])}
         />
       ) : null}

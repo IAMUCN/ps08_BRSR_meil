@@ -8,6 +8,7 @@ import {
   descendantIds,
   importOrder,
   isFrozen,
+  mergeSharedRows,
   reachableNodeIds,
   rootOf,
   treeOrder,
@@ -15,6 +16,7 @@ import {
   type OrgLevel,
   type OrgNode,
 } from "../lib/org/rules.ts";
+import { parentsOf } from "../lib/bulk-import/xlsx.ts";
 import { PASSWORD_RULES } from "../lib/auth/password-policy.ts";
 import { checkPeriodDates, checkTransition } from "../lib/periods/rules.ts";
 import { checkAdminRemoval, checkRoleAtNode, generateDefaultPassword } from "../lib/users/rules.ts";
@@ -365,5 +367,82 @@ test("import order waits for every parent a row names, the extra ones too", () =
   assert.deepEqual(
     orphans.map((r) => r.code),
     ["LOST"],
+  );
+});
+
+test("a Parent code cell may name several parents, the first being where the unit is created", () => {
+  assert.deepEqual(parentsOf("SUB-A, SUB-B"), { parentCode: "SUB-A", alsoUnder: ["SUB-B"] });
+  assert.deepEqual(parentsOf(" SUB-A ; SUB-B,SUB-C "), {
+    parentCode: "SUB-A",
+    alsoUnder: ["SUB-B", "SUB-C"],
+  });
+  assert.deepEqual(parentsOf("SUB-A"), { parentCode: "SUB-A", alsoUnder: [] });
+  assert.deepEqual(parentsOf(""), { parentCode: "", alsoUnder: [] });
+  // One value picked from the template's list stays one parent, comma in the name or not.
+  assert.deepEqual(parentsOf("SUB-A — Megha, Engineering Ltd"), {
+    parentCode: "SUB-A",
+    alsoUnder: [],
+  });
+  // An existing unit with no code is named by its name, whatever the name holds.
+  assert.deepEqual(parentsOf("Seetharampur plant, Telangana", ["Seetharampur plant, Telangana"]), {
+    parentCode: "Seetharampur plant, Telangana",
+    alsoUnder: [],
+  });
+  assert.deepEqual(parentsOf("SUB-A — First, SUB-B — Second"), {
+    parentCode: "SUB-A",
+    alsoUnder: ["SUB-B"],
+  });
+});
+
+test("a shared unit listed under each parent is read as one unit with all those parents", () => {
+  const row = (
+    code: string | null,
+    name: string,
+    parentCode: string,
+    alsoUnder: string[] = [],
+  ) => ({
+    code,
+    name,
+    unitType: "project",
+    parentCode,
+    alsoUnder,
+  });
+  const { rows, sameAs } = mergeSharedRows([
+    row("PRJ-X", "Project X", "SUB-A", ["SUB-B"]), // under Subsidiary A, as the export writes it
+    row("PRJ-Y", "Project Y", "SUB-A"),
+    row("PRJ-X", "project x ", "SUB-A", ["SUB-B"]), // the same unit again, under Subsidiary B
+    row("PRJ-Z", "Project Z", "SUB-B"),
+    row("PRJ-Z", "A different name", "SUB-B"), // one code, two names: a mistake, left for the check
+    row(null, "No code", "SUB-A"),
+    row(null, "No code", "SUB-B"), // without a code, one parent each: two units
+    row(null, "TGSRTC", "EVEY", ["OLECTRA"]),
+    row(null, "TGSRTC", "EVEY", ["OLECTRA"]), // no code, but the same two parents: the same unit
+    row(null, "TGSRTC", "OLECTRA", ["EVEY"]), // and again, parents in the other order
+    row(null, "TGSRTC", "EVEY", ["DRILLMEC"]), // other parents: another unit
+    row("PRJ-W", "Project W", "SUB-A"),
+    row("PRJ-W", "Project W", "SUB-B"), // listed twice with one parent each: both parents are kept
+  ]);
+  assert.deepEqual(
+    rows.map((r) => [r.index, r.code, r.parentCode, r.alsoUnder]),
+    [
+      [0, "PRJ-X", "SUB-A", ["SUB-B"]],
+      [1, "PRJ-Y", "SUB-A", []],
+      [3, "PRJ-Z", "SUB-B", []],
+      [4, "PRJ-Z", "SUB-B", []],
+      [5, null, "SUB-A", []],
+      [6, null, "SUB-B", []],
+      [7, null, "EVEY", ["OLECTRA"]],
+      [10, null, "EVEY", ["DRILLMEC"]],
+      [11, "PRJ-W", "SUB-A", ["SUB-B"]],
+    ],
+  );
+  assert.deepEqual(
+    [...sameAs],
+    [
+      [2, 0],
+      [8, 7],
+      [9, 7],
+      [12, 11],
+    ],
   );
 });

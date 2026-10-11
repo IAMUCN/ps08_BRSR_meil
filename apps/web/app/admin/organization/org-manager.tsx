@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { OrgUnitBulkImport } from "@/components/bulk-import/org-unit-bulk-import
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Sheet,
   SheetContent,
@@ -37,7 +38,6 @@ import {
   isFrozen,
   levelLabel,
   ROOT_LEVEL,
-  treeOrder,
   type OrgLevel,
   type OrgUnitType,
 } from "@/lib/org/rules";
@@ -99,23 +99,58 @@ export function OrgManager({
       const unit = nodes.find((n) => n.id === id);
       return unit ? (unit.code ?? unit.name) : "";
     };
+    // In the order of the tree on screen. A shared unit is listed under each of its parents (owner's page
+    // feedback, 2026-10-11), each row naming all of them, with or without a code; what sits under it is
+    // listed once, under its main parent.
+    const rows: OrgUnitRow[] = [];
+    const visit = (node: OrgUnitRow) => {
+      if (node.parentId !== null) rows.push(node);
+      for (const child of childrenByParent.get(node.id) ?? []) {
+        if (child.parentId === node.id) visit(child);
+        else rows.push(child);
+      }
+    };
+    roots.forEach(visit);
     downloadOrgHierarchy(
-      treeOrder(nodes)
-        .filter((n) => n.parentId !== null)
-        .map((n) => ({
-          code: n.code,
-          name: n.name,
-          level: n.unitType,
-          parent: ref(n.parentId),
-          alsoUnder: n.alsoUnder.map(ref).filter(Boolean),
-        })),
+      rows.map((n) => ({
+        code: n.code,
+        name: n.name,
+        level: n.unitType,
+        parents: [n.parentId, ...n.alsoUnder].map(ref).filter(Boolean),
+      })),
       levels.map((l) => ({ code: l.code, label: l.label })),
     ).catch(() => toast.error("Couldn't create the spreadsheet — try again."));
   }
 
-  function select(id: string) {
+  // Which drawing of the selected unit is meant: a shared unit is drawn under each parent, and only the one
+  // that was clicked, or jumped to from the Shared list, is highlighted. Null (a fresh page): all of them.
+  const [place, setPlace] = useState<{ id: string; under: string | null } | null>(null);
+  const rowId = (id: string, under: string | null) => `org-row-${under ?? "top"}-${id}`;
+
+  function select(id: string, under: string | null = null) {
+    setPlace({ id, under });
     router.replace(`${pathname}?node=${id}`, { scroll: false });
   }
+
+  // From the Shared list: go to where the unit sits under that parent — open every unit above it, select
+  // it there and bring that row into view.
+  function goTo(id: string, under: string) {
+    const above = new Set<string>();
+    for (let at = nodes.find((n) => n.id === under); at && !above.has(at.id);) {
+      above.add(at.id);
+      at = nodes.find((n) => n.id === at!.parentId);
+    }
+    setCollapsed((prev) => new Set([...prev].filter((open) => !above.has(open))));
+    select(id, under);
+  }
+  useEffect(() => {
+    if (!place) return;
+    // After the branch has opened.
+    const frame = requestAnimationFrame(() =>
+      document.getElementById(rowId(place.id, place.under))?.scrollIntoView({ block: "nearest" }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [place]);
 
   // Guide lines (owner's page feedback, 2026-10-11): each unit hangs from a vertical line that drops from
   // its parent's arrow, joined by a short horizontal tick at the middle of its row (rows are 36px high). On
@@ -131,13 +166,17 @@ export function OrgManager({
     // Shared = it sits under more than one parent; the tag shows wherever it is drawn (owner's page
     // feedback, 2026-10-11), and says which parent this row is.
     const shared = node.alsoUnder.length > 0 && under !== null;
-    const mainHere = under !== null && node.parentId === under.id;
+    const here = under?.id ?? null;
+    const current =
+      selected?.id === node.id &&
+      (place === null || place.id !== node.id || place.under === null || place.under === here);
     return (
       <li key={node.id} className={depth > 0 ? BRANCH : undefined}>
         <div
+          id={rowId(node.id, here)}
           className={cn(
-            "flex h-9 items-center gap-1 rounded-sm pr-2 pl-1",
-            selected?.id === node.id ? "bg-table-row-hover" : "hover:bg-muted",
+            "flex h-9 scroll-my-10 items-center gap-1 rounded-sm pr-2 pl-1",
+            current ? "bg-table-row-hover" : "hover:bg-muted",
           )}
         >
           {children.length > 0 ? (
@@ -166,8 +205,8 @@ export function OrgManager({
           )}
           <button
             type="button"
-            onClick={() => select(node.id)}
-            aria-current={selected?.id === node.id ? "true" : undefined}
+            onClick={() => select(node.id, here)}
+            aria-current={current ? "true" : undefined}
             className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
           >
             <span
@@ -181,20 +220,18 @@ export function OrgManager({
             <span className="shrink-0 text-xs text-muted-foreground">
               {levelLabel(levels, node.unitType)}
             </span>
-            {shared ? (
-              <span
-                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary-text/60 bg-primary-text/10 px-1.5 text-[11px] leading-4 font-medium text-primary-text shadow-[0_0_8px_1px] shadow-primary-text/50"
-                title={
-                  mainHere
-                    ? `Shared: also under ${node.alsoUnder.map((id) => nodes.find((n) => n.id === id)?.name ?? "another unit").join(" and ")}`
-                    : `Shared: its main parent is ${nodes.find((n) => n.id === node.parentId)?.name ?? "another unit"}`
-                }
-              >
-                <Link2 className="size-3" aria-hidden />
-                Shared
-              </span>
-            ) : null}
           </button>
+          {shared ? (
+            <SharedPlaces
+              name={node.name}
+              here={here}
+              parents={[node.parentId, ...node.alsoUnder].flatMap(
+                (id) => nodes.find((n) => n.id === id) ?? [],
+              )}
+              levels={levels}
+              onGo={(parentId) => goTo(node.id, parentId)}
+            />
+          ) : null}
         </div>
         {children.length > 0 && open ? (
           <ul className="ml-4">{children.map((child) => renderNode(child, depth + 1, node))}</ul>
@@ -304,6 +341,94 @@ export function OrgManager({
         ) : null}
       </div>
     </>
+  );
+}
+
+/**
+ * The Shared tag on a unit with more than one parent (owner's page feedback, 2026-10-11). Hovering it — or
+ * focusing or pressing it — opens the list of every unit it sits under; choosing one goes to the unit's
+ * place under that parent in the tree. With many subsidiaries that is the quick way to find the others.
+ */
+function SharedPlaces({
+  name,
+  here,
+  parents,
+  levels,
+  onGo,
+}: {
+  name: string;
+  /** The parent this row is drawn under. */
+  here: string | null;
+  parents: OrgUnitRow[];
+  levels: OrgLevel[];
+  onGo: (parentId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The list stays while the pointer travels from the tag to it; it closes shortly after leaving both.
+  const hold = () => {
+    if (closing.current) clearTimeout(closing.current);
+    closing.current = null;
+  };
+  const show = () => {
+    hold();
+    setOpen(true);
+  };
+  const leave = () => {
+    hold();
+    closing.current = setTimeout(() => setOpen(false), 180);
+  };
+  useEffect(() => hold, []);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        onMouseEnter={show}
+        onMouseLeave={leave}
+        // A press opens it too (touch, keyboard) and never closes what the pointer just opened.
+        onClick={(event) => {
+          event.preventDefault();
+          show();
+        }}
+        aria-label={`${name} is shared: show the ${parents.length} units it sits under`}
+        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary-text/60 bg-primary-text/10 px-1.5 text-[11px] leading-4 font-medium text-primary-text shadow-[0_0_8px_1px] shadow-primary-text/50 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <Link2 className="size-3" aria-hidden />
+        Shared
+      </PopoverTrigger>
+      <PopoverContent
+        side="right"
+        align="start"
+        className="w-72 p-1"
+        onMouseEnter={hold}
+        onMouseLeave={leave}
+        // Hovering must not pull the keyboard focus away from the tree.
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <p className="px-2 pt-1.5 pb-1 text-xs leading-4 text-muted-foreground">
+          {name} sits under {parents.length} units. Go to it under:
+        </p>
+        <ul>
+          {parents.map((parent) => (
+            <li key={parent.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onGo(parent.id);
+                }}
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted"
+              >
+                <span className="min-w-0 flex-1 truncate">{parent.name}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {parent.id === here ? "you are here" : levelLabel(levels, parent.unitType)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -643,45 +768,58 @@ function NodeDetail({
 
       {node.parentId ? (
         <div className="rounded-md border bg-card p-6">
-          <h3 className="text-base leading-6 font-semibold">Also under another parent</h3>
+          <h3 className="text-base leading-6 font-semibold">
+            {alsoUnder.length > 0 ? `Parents (${alsoUnder.length + 1})` : "Parents"}
+          </h3>
           <p className="mt-1 text-sm leading-5 text-muted-foreground">
             For a unit that belongs to more than one parent, such as a project two subsidiaries run.{" "}
             {node.name} then appears under each of them, their people can see it, and its figures
             count in full in each parent and once in the group above them — so those parents add up
-            to more than the group. It is still managed from {parent?.name ?? "its main parent"}.
+            to more than the group.
           </p>
-          {alsoUnder.length > 0 ? (
-            <ul className="mt-4 divide-y rounded-md border">
-              {alsoUnder.map((extra) => (
-                <li key={extra.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                  <span className="min-w-0 truncate text-sm">
-                    {extra.name}{" "}
-                    <span className="text-xs text-muted-foreground">
-                      ({levelLabel(levels, extra.unitType)})
-                    </span>
+          <ul className="mt-4 divide-y rounded-md border">
+            {parent ? (
+              <li className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
+                <span className="min-w-0 truncate text-sm">
+                  {parent.name}{" "}
+                  <span className="text-xs text-muted-foreground">
+                    ({levelLabel(levels, parent.unitType)})
                   </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={pending}
-                    onClick={() =>
-                      run(
-                        () => removeOrgUnitParentAction({ id: node.id, parentId: extra.id }),
-                        `No longer under ${extra.name}`,
-                      )
-                    }
-                  >
-                    <X aria-hidden />
-                    Remove
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  Moved and deactivated from here
+                </span>
+              </li>
+            ) : null}
+            {alsoUnder.map((extra) => (
+              <li key={extra.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="min-w-0 truncate text-sm">
+                  {extra.name}{" "}
+                  <span className="text-xs text-muted-foreground">
+                    ({levelLabel(levels, extra.unitType)})
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() =>
+                    run(
+                      () => removeOrgUnitParentAction({ id: node.id, parentId: extra.id }),
+                      `No longer under ${extra.name}`,
+                    )
+                  }
+                >
+                  <X aria-hidden />
+                  Remove
+                </Button>
+              </li>
+            ))}
+          </ul>
           <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
             <div className="space-y-2">
-              <Label htmlFor="extra-parent">Also place under</Label>
+              <Label htmlFor="extra-parent">Add a parent</Label>
               <NativeSelect
                 id="extra-parent"
                 value={extraParentId}

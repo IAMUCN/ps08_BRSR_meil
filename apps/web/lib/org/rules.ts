@@ -147,6 +147,59 @@ export function importOrder<
 }
 
 /**
+ * A shared unit may be listed once under each of its parents (how Export hierarchy writes it, so the sheet
+ * reads like the tree). Rows with one code, the same name and the same level are therefore one unit, with
+ * every parent any of them names — and so are rows with no code, the same name and level and the same list
+ * of two or more parents; the first such row is kept and `sameAs` says which row each of the others
+ * repeats. Rows that share a code but differ in name or level are left alone — that is a mistake in the
+ * sheet, reported as one.
+ */
+export function mergeSharedRows<
+  T extends {
+    code: string | null;
+    name: string;
+    unitType: string;
+    parentCode?: string | null;
+    parentId?: string;
+    alsoUnder?: string[];
+  },
+>(rows: readonly T[]): { rows: (T & { index: number })[]; sameAs: Map<number, number> } {
+  // `listed`: the parents as the row itself named them, before any merge.
+  const kept: (T & { index: number; listed: string })[] = [];
+  const sameAs = new Map<number, number>();
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  // Without a code a unit is recognised by its name, level and whole list of parents — and only when that
+  // list has more than one, so two same-named units under one parent stay two units.
+  const parentsOf = (row: T) =>
+    [...new Set([row.parentCode, ...(row.alsoUnder ?? [])].filter(Boolean))]
+      .map((p) => p!.trim().toLowerCase())
+      .sort()
+      .join("|");
+  rows.forEach((row, index) => {
+    const first = kept.find(
+      (k) =>
+        same(k.name, row.name) &&
+        k.unitType === row.unitType &&
+        !k.parentId &&
+        !row.parentId &&
+        (row.code
+          ? k.code === row.code
+          : !k.code && parentsOf(row).includes("|") && k.listed === parentsOf(row)),
+    );
+    if (!first) {
+      kept.push({ ...row, index, listed: parentsOf(row) });
+      return;
+    }
+    const parents = [...(first.alsoUnder ?? []), row.parentCode, ...(row.alsoUnder ?? [])];
+    first.alsoUnder = [
+      ...new Set(parents.filter((p): p is string => Boolean(p) && p !== first.parentCode)),
+    ];
+    sameAs.set(index, first.index);
+  });
+  return { rows: kept, sameAs };
+}
+
+/**
  * The org unit a sheet cell names: by its code, else by its name (how a unit with no code is listed). When
  * several units share that name the answer is "ambiguous" — the sheet must not guess which one was meant.
  */

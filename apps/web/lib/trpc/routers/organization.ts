@@ -10,6 +10,7 @@ import {
   checkMove,
   descendantIds,
   importOrder,
+  mergeSharedRows,
   isFrozen,
   reachableNodeIds,
   ROOT_LEVEL,
@@ -602,8 +603,10 @@ export const organizationRouter = router({
       // A parent that is no code — of an existing unit or of a row — is the name of an existing unit that
       // has no code: the row is then tied to that unit. A name several units share stays unresolved.
       const shared = new Set<number>();
-      const rows = input.rows.map((row, index) => {
-        const rowNum = index + 2;
+      // A shared unit listed once under each parent is one unit with all those parents.
+      const { rows: merged, sameAs } = mergeSharedRows(input.rows);
+      const rows = merged.map((row) => {
+        const rowNum = row.index + 2;
         if (row.parentId || !row.parentCode) return { ...row, rowNum };
         if (known.has(row.parentCode) || sheetCodes.has(row.parentCode)) return { ...row, rowNum };
         const unit = unitByRef(existing, row.parentCode);
@@ -672,7 +675,13 @@ export const organizationRouter = router({
               : `One of its "also under" units (${(row.alsoUnder ?? []).join(", ")}) was not created, so this row was not either.`,
         });
       }
-      return { results: rows.map((row) => results.get(row.rowNum)!) };
+      // One result per row of the sheet; a row that repeats a shared unit gets that unit's result.
+      return {
+        results: input.rows.map((_, index) => ({
+          ...results.get((sameAs.get(index) ?? index) + 2)!,
+          row: index + 2,
+        })),
+      };
     }),
 });
 
