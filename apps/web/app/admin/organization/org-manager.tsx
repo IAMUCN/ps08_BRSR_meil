@@ -282,7 +282,7 @@ function AddChildren({
         toast.error(result.error);
         return;
       }
-      toast.success("Node added");
+      toast.success("Unit added");
       setChildName("");
       setChildCode("");
       onSelect(result.data.id);
@@ -380,6 +380,7 @@ function NodeDetail({
   const [name, setName] = useState(node.name);
   const [code, setCode] = useState(node.code ?? "");
   const [newParentId, setNewParentId] = useState("");
+  const newParentName = nodes.find((n) => n.id === newParentId)?.name ?? "the new parent";
   const [moveOpen, setMoveOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [impact, setImpact] = useState<Impact | null>(null);
@@ -490,19 +491,21 @@ function NodeDetail({
 
       {node.parentId ? (
         <div className="rounded-md border bg-card p-6">
-          <h3 className="text-base leading-6 font-semibold">Move under a different parent</h3>
+          <h3 className="text-base leading-6 font-semibold">Move to a different parent</h3>
           <p className="mt-1 text-sm leading-5 text-muted-foreground">
-            Moving changes which users can see this node and everything below it.
+            Choose the company or unit {node.name} should belong to, for example MEIL as the parent
+            of a subsidiary. Everything under {node.name} moves with it, and what people can see
+            changes with it.
           </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
             <div className="space-y-2">
-              <Label htmlFor="new-parent">New parent</Label>
+              <Label htmlFor="new-parent">Move to (new parent)</Label>
               <NativeSelect
                 id="new-parent"
                 value={newParentId}
                 onChange={(e) => setNewParentId(e.target.value)}
               >
-                <option value="">Select a parent…</option>
+                <option value="">Select the new parent…</option>
                 {moveTargets.map((target) => (
                   <option key={target.id} value={target.id}>
                     {target.name} ({levelLabel(levels, target.unitType)})
@@ -525,12 +528,12 @@ function NodeDetail({
       {node.parentId ? (
         <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">
-            {deactivating ? "Deactivate" : "Reactivate"}
+            {deactivating ? "Deactivate this unit" : "Reactivate this unit"}
           </h3>
           <p className="mt-1 text-sm leading-5 text-muted-foreground">
             {deactivating
-              ? "Freezes this node and everything below it: no new uploads, assignments or child nodes. History stays readable."
-              : "Allows new activity again (unless a parent is still inactive)."}
+              ? "Stops all new activity in this unit and everything under it: no new uploads, no new people assigned and no new units added. Past data stays visible and nothing is deleted. You can reactivate it later."
+              : "Lets this unit take new uploads, people and units again (unless a unit above it is still inactive)."}
           </p>
           <Button
             type="button"
@@ -539,7 +542,7 @@ function NodeDetail({
             disabled={pending}
             onClick={openStatusDialog}
           >
-            {deactivating ? "Deactivate node" : "Reactivate node"}
+            {deactivating ? "Deactivate this unit" : "Reactivate this unit"}
           </Button>
         </div>
       ) : null}
@@ -547,13 +550,13 @@ function NodeDetail({
       <ConfirmDialog
         open={moveOpen}
         onOpenChange={setMoveOpen}
-        title={`Move ${node.name}?`}
-        confirmLabel="Move node"
+        title={`Move ${node.name} to ${newParentName}?`}
+        confirmLabel="Move"
         pending={pending}
         onConfirm={() =>
           run(
             () => moveOrgUnitAction({ id: node.id, newParentId }),
-            "Node moved",
+            "Moved",
             () => {
               setMoveOpen(false);
               setNewParentId("");
@@ -561,11 +564,30 @@ function NodeDetail({
           )
         }
       >
-        <p>
-          {node.name} and all of its descendants will move under{" "}
-          <strong>{nodes.find((n) => n.id === newParentId)?.name}</strong>. Users assigned above the
-          old location lose visibility; users assigned above the new location gain it.
-        </p>
+        <div className="space-y-3">
+          <p>
+            <strong>{node.name}</strong>, together with everything under it, will move
+            {parent ? (
+              <>
+                {" "}
+                from <strong>{parent.name}</strong>
+              </>
+            ) : null}{" "}
+            to <strong>{newParentName}</strong>.
+          </p>
+          <ul className="list-disc space-y-1 pl-5">
+            {parent ? (
+              <li>
+                People assigned to {parent.name} will no longer see {node.name} or anything under
+                it.
+              </li>
+            ) : null}
+            <li>
+              People assigned to {newParentName} will be able to see {node.name} and everything
+              under it.
+            </li>
+          </ul>
+        </div>
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -579,7 +601,7 @@ function NodeDetail({
           run(
             () =>
               setOrgUnitStatusAction({ id: node.id, status: deactivating ? "inactive" : "active" }),
-            deactivating ? "Node deactivated" : "Node reactivated",
+            deactivating ? "Unit deactivated" : "Unit reactivated",
             () => setStatusOpen(false),
           )
         }
@@ -588,9 +610,9 @@ function NodeDetail({
           <p>Checking impact…</p>
         ) : (
           <ul className="list-disc space-y-1 pl-5">
-            <li>{impact.descendants} descendant node(s)</li>
-            <li>{impact.activeAssignments} active user assignment(s) in this subtree</li>
-            <li>{impact.inProgressRecords} in-progress record(s)</li>
+            <li>{impact.descendants} unit(s) under it will also be deactivated</li>
+            <li>{impact.activeAssignments} people assigned here or below</li>
+            <li>{impact.inProgressRecords} submission(s) still in progress</li>
           </ul>
         )}
       </ConfirmDialog>

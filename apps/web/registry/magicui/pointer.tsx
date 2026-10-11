@@ -293,12 +293,12 @@ export function Pointer({
       : false;
 
   // Hotspots:
-  // - "not-allowed": Center (11, 11) for 22x22 SVG
+  // - "not-allowed": Center (9.35, 9.35) for the 18.7x18.7 SVG
   // - "ibeam": Center (6, 10) for 12x20 SVG
-  // - "default" / "hover": Top-left tip (2, 2) for arrow
+  // - "default" / "hover": Top-left tip (1.7, 1.7) for the arrow (15% smaller)
   const currentHotspot =
     cursorMode === "not-allowed"
-      ? { x: 11, y: 11 }
+      ? { x: 9.35, y: 9.35 }
       : cursorMode === "ibeam"
         ? { x: 6, y: 10 }
         : hotspot;
