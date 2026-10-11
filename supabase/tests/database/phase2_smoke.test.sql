@@ -19,9 +19,10 @@ select tables_are('public', array[
   'approvals', 'calculations', 'calculation_inputs', 'brsr_sections', 'brsr_indicators',
   'brsr_disclosures',
   'brsr_metric_mappings', 'audit_logs', 'report_runs', 'notifications', 'org_settings',
-  -- Added by documented deviations (supabase/SCHEMA_DEVIATIONS.md D16, D19, D22, D24, D29, D34, D36), not by drift.
+  -- Added by documented deviations (supabase/SCHEMA_DEVIATIONS.md D16, D19, D22, D24, D29, D34, D36, D37), not by drift.
   'rate_limit_events', 'submission_expectations', 'password_reset_otps', 'document_bundle_parts',
-  'org_levels', 'chat_conversations', 'chat_messages', 'org_unit_parents'
+  'org_levels', 'chat_conversations', 'chat_messages', 'org_unit_parents',
+  'carbon_credits', 'carbon_credit_transactions', 'internal_carbon_prices', 'capex_carbon_evaluations'
 ], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(
@@ -58,13 +59,13 @@ select ok(not has_column_privilege('authenticated', 'public.user_display_names',
 ------------------------------------------------------------------------------------------------
 
 select is((select count(*)::int from public.roles where is_system_role), 7, '7 system roles');
-select is((select count(*)::int from public.permissions), 17, '17 permissions');
+select is((select count(*)::int from public.permissions), 20, '20 permissions');
 select is((select count(*)::int from public.role_permissions rp join public.roles r on r.id = rp.role_id
-           where r.code = 'admin'), 17, 'admin holds every permission');
+           where r.code = 'admin'), 20, 'admin holds every permission');
 select set_eq(
   $$select p.code from public.role_permissions rp join public.roles r on r.id = rp.role_id
     join public.permissions p on p.id = rp.permission_id where r.code = 'corporate_esg'$$,
-  array['approval.decide', 'monitoring.view', 'document.upload', 'record.verify', 'chat.use'],
+  array['approval.decide', 'monitoring.view', 'document.upload', 'record.verify', 'chat.use', 'carbon_credit.view', 'carbon_credit.manage', 'icp.manage'],
   'corporate_esg permissions match the approved catalogue');
 -- Seeded grants must still be there; an Admin may add more at runtime (Roles & Permissions, Phase 4),
 -- so this is a subset check rather than an exact match.

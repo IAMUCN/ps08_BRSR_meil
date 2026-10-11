@@ -29,6 +29,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/scope-3", label: "Scope 3", icon: "scope3" },
   { href: "/admin/forecast", label: "Emissions Forecast", icon: "forecast" },
   { href: "/admin/simulator", label: "Reduction Simulator", icon: "simulator" },
+  { href: "/admin/carbon-credits", label: "Carbon Offsets & ICP", icon: "carbon" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {

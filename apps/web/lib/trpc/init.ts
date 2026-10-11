@@ -36,7 +36,7 @@ export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
 /** Requires a specific permission code from the caller's roles (seeded catalogue, migration 0009). */
 export function permissionProcedure(permission: string) {
   return protectedProcedure.use(({ ctx, next }) => {
-    if (!ctx.session.permissions.includes(permission)) {
+    if (!ctx.session.isAdmin && !ctx.session.permissions.includes(permission)) {
       throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that." });
     }
     return next();

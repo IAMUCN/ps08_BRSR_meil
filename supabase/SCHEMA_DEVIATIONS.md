@@ -518,6 +518,19 @@ parent (several groups) — the schema always allowed it, the app now does.
 once at the group, and for more than one group (2026-10-11). Decision:
 `.grill/shared-org-units-decisions.md`.
 
+## D37 — Carbon credits registry ledger, anti-double-counting reconciliation, and internal carbon pricing (migration `0046`)
+
+**Schema:** `05_BACKEND_SCHEMA.md` originally specified Scope 1/2/3 operational accounting without carbon market offsets or capital expenditure shadow pricing.
+
+**Implemented (migration `0046`):**
+- `carbon_credits`: Registry batches (India CCTS, Verra VCS, Gold Standard, I-REC, BEE ESCerts, Internal Shadow) with serial ranges, vintage, methodology, verifier, and lifecycle statuses (`MINTED`, `HELD`, `TRANSFERRED`, `RETIRED`).
+- `carbon_credit_transactions`: Append-only transactional ledger tracking internal retirements against reporting periods/scopes, and transfers to external counterparties. Immutability enforced via database trigger preventing any UPDATE or DELETE.
+- `internal_carbon_prices`: Enterprise and subsidiary shadow carbon pricing schedules per tCO2e (benchmark ₹2,500/tCO2e seeded for root entity).
+- `capex_carbon_evaluations`: Project proposals evaluating NPV, IRR, and payback with shadow price monetizing avoided emissions.
+- Three permissions: `carbon_credit.view`, `carbon_credit.manage`, `icp.manage`.
+
+**Why:** Roadmap requirement for Carbon Markets - Credit Tracking & Double-Counting Prevention and Internal Carbon Pricing CapEx Evaluator for SEBI BRSR net emissions reporting.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.
