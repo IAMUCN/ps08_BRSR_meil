@@ -185,7 +185,7 @@ export function ChatLauncher() {
           onClick={() => toggle(true)}
           aria-controls="chat-pane"
           aria-expanded={false}
-          className="fixed right-4 bottom-4 z-40 inline-flex size-12 items-center justify-center rounded-full border bg-card text-primary-text shadow-lg transition-transform outline-none hover:scale-105 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:right-6 md:bottom-6"
+          className="fixed right-4 bottom-4 z-40 inline-flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform outline-none hover:scale-105 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:right-6 md:bottom-6"
         >
           <Sparkles className="size-5" aria-hidden />
           <span className="sr-only">Ask the ESG data analyst</span>
