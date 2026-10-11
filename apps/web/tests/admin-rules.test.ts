@@ -370,28 +370,54 @@ test("import order waits for every parent a row names, the extra ones too", () =
   );
 });
 
-test("a Parent code cell may name several parents, the first being where the unit is created", () => {
+test("a Parent code cell names any number of parents; spaces around a name never matter", () => {
   assert.deepEqual(parentsOf("SUB-A, SUB-B"), { parentCode: "SUB-A", alsoUnder: ["SUB-B"] });
-  assert.deepEqual(parentsOf(" SUB-A ; SUB-B,SUB-C "), {
+  assert.deepEqual(parentsOf("  SUB-A  ;SUB-B ,  SUB-C,SUB-D   "), {
     parentCode: "SUB-A",
-    alsoUnder: ["SUB-B", "SUB-C"],
+    alsoUnder: ["SUB-B", "SUB-C", "SUB-D"],
   });
   assert.deepEqual(parentsOf("SUB-A"), { parentCode: "SUB-A", alsoUnder: [] });
+  assert.deepEqual(parentsOf("SUB-A,, ,SUB-A"), { parentCode: "SUB-A", alsoUnder: [] });
   assert.deepEqual(parentsOf(""), { parentCode: "", alsoUnder: [] });
-  // One value picked from the template's list stays one parent, comma in the name or not.
-  assert.deepEqual(parentsOf("SUB-A — Megha, Engineering Ltd"), {
-    parentCode: "SUB-A",
+  // Names: one space, two or three, before or after — the same name.
+  assert.deepEqual(parentsOf("Olectra   Greentech  ,   EVEY   "), {
+    parentCode: "Olectra Greentech",
+    alsoUnder: ["EVEY"],
+  });
+  // A name that holds a comma is kept whole when such a unit exists, alone or in a list.
+  const names = ["Seetharampur plant, Telangana", "Olectra Greentech"];
+  assert.deepEqual(parentsOf("Seetharampur plant, Telangana", names), {
+    parentCode: "Seetharampur plant, Telangana",
     alsoUnder: [],
   });
-  // An existing unit with no code is named by its name, whatever the name holds.
-  assert.deepEqual(parentsOf("Seetharampur plant, Telangana", ["Seetharampur plant, Telangana"]), {
-    parentCode: "Seetharampur plant, Telangana",
+  assert.deepEqual(parentsOf("EVEY,  seetharampur  plant ,Telangana , Olectra Greentech", names), {
+    parentCode: "EVEY",
+    alsoUnder: ["seetharampur plant, Telangana", "Olectra Greentech"],
+  });
+  // Values picked from the template's list: "CODE — Name", the name's comma included.
+  assert.deepEqual(parentsOf("SUB-A — Megha, Engineering Ltd"), {
+    parentCode: "SUB-A",
     alsoUnder: [],
   });
   assert.deepEqual(parentsOf("SUB-A — First, SUB-B — Second"), {
     parentCode: "SUB-A",
     alsoUnder: ["SUB-B"],
   });
+  assert.deepEqual(parentsOf("SUB-A — First, SUB-B"), {
+    parentCode: "SUB-A",
+    alsoUnder: ["SUB-B"],
+  });
+});
+
+test("an org unit is found by code or name whatever the spaces and letter case", () => {
+  const units = [
+    { code: "OLECTRA", name: "Olectra Greentech" },
+    { code: null, name: "TGSRTC  Telangana" },
+  ];
+  assert.equal(unitByRef(units, "  olectra "), units[0]);
+  assert.equal(unitByRef(units, "Olectra   Greentech  "), units[0]);
+  assert.equal(unitByRef(units, " TGSRTC Telangana   "), units[1]);
+  assert.equal(unitByRef(units, "TGSRTC"), undefined);
 });
 
 test("a shared unit listed under each parent is read as one unit with all those parents", () => {

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { RowsPreview } from "@/components/bulk-import/rows-preview";
+import { RowParentsPicker, type ParentOption } from "@/components/bulk-import/row-parents-picker";
 import {
   downloadCsv,
   downloadOrgUnitTemplate,
@@ -20,7 +20,9 @@ import {
 } from "@/lib/bulk-import/xlsx";
 import {
   allowedChildTypes,
+  canBeChildOf,
   levelLabel,
+  sameName,
   treeOrder,
   type OrgLevel,
   type OrgUnitType,
@@ -152,6 +154,32 @@ export function OrgUnitBulkImport({
     });
   }
 
+  // How the import names a unit: its code, or its name when it has none.
+  const refOf = (unit: { code: string | null; name: string }) => unit.code ?? unit.name;
+  /** A row's parents as they will be sent, main one first. */
+  const parentsOfRow = (r: ParsedRow) => {
+    const picked = r.parentId ? nodes.find((n) => n.id === r.parentId) : undefined;
+    return [picked ? refOf(picked) : r.parentCode, ...r.alsoUnder].filter(Boolean);
+  };
+  /** What a row may sit under: existing units and other rows of the sheet, at an earlier level. */
+  const parentOptions = (index: number): ParentOption[] => {
+    const level = rows[index].unitType;
+    const existing = treeOrder(nodes)
+      .filter((n) => canBeChildOf(levels, n.unitType, level))
+      .map((n) => ({ ref: refOf(n), name: n.name, note: levelLabel(levels, n.unitType) }));
+    const sheet = rows
+      .filter(
+        (other, i) => i !== index && other.code && canBeChildOf(levels, other.unitType, level),
+      )
+      .filter((other) => !existing.some((e) => sameName(e.ref, other.code)))
+      .map((other) => ({
+        ref: other.code,
+        name: other.name || other.code,
+        note: `${levelLabel(levels, other.unitType)} · this sheet`,
+      }));
+    return [...existing, ...sheet];
+  };
+
   function onDownloadResults() {
     if (!results) return;
     downloadCsv(
@@ -228,7 +256,8 @@ export function OrgUnitBulkImport({
             A row with no parent code is created directly under {parent.name}. A row with one goes
             under that org unit — an existing one, or another row of the same sheet — so one sheet
             can build several levels. A unit with more than one parent (a project two subsidiaries
-            run) picks its other parents in Parent code 2 and Parent code 3. Levels beneath{" "}
+            run) can be given its parents after upload, by ticking them in the row&apos;s Parents
+            list; typing them in Parent code with commas between works too. Levels beneath{" "}
             {parent.name}:{" "}
             {childTypes.length > 0
               ? childTypes.map((t) => levelLabel(levels, t)).join(", ")
@@ -239,19 +268,63 @@ export function OrgUnitBulkImport({
       ) : null}
 
       {rows.length > 0 && !results ? (
-        <RowsPreview
-          headers={[...ORG_UNIT_HEADERS]}
-          rows={rows.map((r) => [
-            r.code,
-            r.name,
-            levelLabel(levels, r.unitType),
-            [
-              (r.parentId ? nodes.find((n) => n.id === r.parentId)?.name : r.parentCode) ||
-                `(${parent?.name ?? "chosen unit"})`,
-              ...r.alsoUnder,
-            ].join(", "),
-          ])}
-        />
+        <>
+          <p className="text-xs text-muted-foreground">
+            Check the rows before importing. To put a unit under more than one parent — a project
+            two subsidiaries run — open its Parents list and tick them; nothing needs typing.
+          </p>
+          <div className="max-h-96 overflow-auto rounded-md border border-table-border">
+            <table className="w-full border-collapse text-sm">
+              <thead className="sticky top-0 z-10 bg-table-header text-table-header-foreground">
+                <tr>
+                  {["Code", "Name", "Level", "Parents"].map((h) => (
+                    <th
+                      key={h}
+                      scope="col"
+                      className="px-3 py-2 text-left text-[11px] font-medium tracking-wide uppercase"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, index) => (
+                  <tr
+                    key={index}
+                    className="border-t border-table-border bg-table-row even:bg-table-row-alt"
+                  >
+                    <td className="px-3 py-2 font-mono">{r.code}</td>
+                    <td className="px-3 py-2">{r.name}</td>
+                    <td className="px-3 py-2">{levelLabel(levels, r.unitType)}</td>
+                    <td className="max-w-64 px-3 py-1.5">
+                      <RowParentsPicker
+                        rowName={r.name}
+                        parents={parentsOfRow(r)}
+                        options={parentOptions(index)}
+                        chosenUnit={parent?.name ?? "the chosen unit"}
+                        onChange={(parents) =>
+                          setRows((current) =>
+                            current.map((row, i) =>
+                              i === index
+                                ? {
+                                    ...row,
+                                    parentCode: parents[0] ?? "",
+                                    parentId: undefined,
+                                    alsoUnder: parents.slice(1),
+                                  }
+                                : row,
+                            ),
+                          )
+                        }
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : null}
 
       {results ? (

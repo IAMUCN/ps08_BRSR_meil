@@ -65,3 +65,13 @@ Built by the feature session at the owner's request (A35).
 - Third round: the Shared tag is a `Popover` trigger that opens on hover, focus-press or click and lists the
   unit's parents (`SharedPlaces` in `org-manager.tsx`); it sits beside the row's select button, no longer
   inside it. Tree rows have ids (`org-row-<parent>-<unit>`) so a chosen place can be scrolled into view.
+- Fourth round: parents are chosen from a checkbox list (`ParentChecklist` in `org-manager.tsx`, native
+  checkboxes in a bordered, scrolling box with a filter above eight entries), in the Add a unit panel and in
+  the Parents card, which now has a Save parents button instead of per-row Remove buttons.
+
+## 2026-10-11 — Records filter bar: search and Clear filters
+
+Built by the feature session at the owner's request. `components/records/records-explorer.tsx`: a search
+field on its own row at the top of the filter bar (prop `search`), applied 450 ms after typing stops or on
+Enter; a Clear filters button at the right of the bar, disabled when nothing narrows the list. The link in
+the empty-table message is gone. Not viewed in a browser.

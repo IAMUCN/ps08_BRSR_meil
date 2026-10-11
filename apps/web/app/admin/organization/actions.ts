@@ -6,6 +6,7 @@ import type { OrgUnitType } from "@/lib/org/rules";
 export async function createOrgUnitAction(input: {
   /** Null: a new group, a separate organization with its own tree. */
   parentId: string | null;
+  alsoUnder?: string[];
   unitType: OrgUnitType;
   name: string;
   code: string;
@@ -27,6 +28,10 @@ export async function addOrgUnitParentAction(input: { id: string; parentId: stri
 
 export async function removeOrgUnitParentAction(input: { id: string; parentId: string }) {
   return runAction((api) => api.organization.removeParent(input));
+}
+
+export async function setOrgUnitParentsAction(input: { id: string; alsoUnder: string[] }) {
+  return runAction((api) => api.organization.setParents(input));
 }
 
 export async function orgUnitDeleteCheckAction(input: { id: string }) {

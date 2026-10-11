@@ -3,6 +3,7 @@
 // re-validates everything server-side (never trust client-parsed input).
 import type { Worksheet } from "exceljs";
 import * as XLSX from "xlsx";
+import { tidy } from "../org/rules.ts";
 
 function triggerDownload(bytes: BlobPart, filename: string) {
   const blob = new Blob([bytes], { type: "application/octet-stream" });
@@ -192,42 +193,66 @@ export function parentOf(cell: string): { parentCode: string; parentId?: string 
   const id = /id:([0-9a-f-]{36}) *$/i.exec(cell)?.[1];
   return id
     ? { parentCode: "", parentId: id }
-    : { parentCode: cell.split(PARENT_SEPARATOR)[0].trim() };
+    : { parentCode: tidy(cell.split(PARENT_SEPARATOR)[0]) };
 }
 /**
- * Every parent a Parent code cell names (owner's follow-up, 2026-10-11: a shared project has two parents,
- * written side by side): codes separated by commas (a semicolon or a line break is read too). The first is
- * where the unit is created; the rest are the parents it also sits under. A single value picked from the
- * list ("CODE — Name") is one parent even when the name holds a comma.
+ * Every parent a Parent code cell names (owner's page feedback, 2026-10-11): any number of them in the one
+ * cell, separated by commas (a semicolon or a line break is read too). Spaces around a name do not matter.
+ * The first is where the unit is created; the rest are the parents it also sits under.
+ *
+ * A unit with no code is named by its name, and a name may itself hold a comma ("Seetharampur plant,
+ * Telangana"). So the pieces between commas are put back together wherever they spell an existing unit's
+ * name — the longest such name first.
  */
 export function parentsOf(
   cell: string,
-  /** Names of existing org units: a cell that is exactly one of them is that unit, commas and all. */
+  /** Names of the org units that exist, to recognise a name that holds a comma. */
   knownNames: readonly string[] = [],
 ): {
   parentCode: string;
   parentId?: string;
   alsoUnder: string[];
 } {
-  const whole = cell.trim().toLowerCase();
-  if (whole && knownNames.some((name) => name.trim().toLowerCase() === whole)) {
-    return { parentCode: cell.trim(), alsoUnder: [] };
+  // Commas compared without the spaces around them, so "plant , Telangana" is "plant, Telangana".
+  const key = (value: string) => tidy(value).toLowerCase().replace(/ ?, ?/g, ",");
+  const known = new Set(knownNames.map(key));
+  const pieces = cell.split(/[,;\n]/).map(tidy);
+  const parents: { parentCode: string; parentId?: string }[] = [];
+  for (let at = 0; at < pieces.length;) {
+    let end = at + 1;
+    for (let last = pieces.length; last > at + 1; last--) {
+      if (known.has(key(pieces.slice(at, last).join(",")))) {
+        end = last;
+        break;
+      }
+    }
+    // A value picked from the list reads "CODE — Name": whatever follows the code is its name, commas too.
+    const text = pieces.slice(at, end).join(", ");
+    if (end === at + 1 && text.includes(PARENT_SEPARATOR)) {
+      const next = pieces.findIndex((piece, i) => i > at && piece.includes(PARENT_SEPARATOR));
+      const stop = next < 0 ? pieces.length : next;
+      // Only when the pieces up to the next picked value are not themselves known codes or names.
+      if (
+        !pieces.slice(at + 1, stop).some((piece) => known.has(key(piece)) || /^[\w-]+$/.test(piece))
+      ) {
+        end = stop;
+      }
+    }
+    const one = parentOf(pieces.slice(at, end).join(", "));
+    if (one.parentCode || one.parentId) parents.push(one);
+    at = end;
   }
-  const picked = cell.split(PARENT_SEPARATOR);
-  if (picked.length === 2 && !/[,;\n]/.test(picked[0])) return { ...parentOf(cell), alsoUnder: [] };
-  const [first = "", ...others] = cell
-    .split(/[,;\n]/)
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const [first = { parentCode: "" }, ...others] = parents;
   return {
-    ...parentOf(first),
-    alsoUnder: others.map((part) => parentOf(part).parentCode).filter(Boolean),
+    ...first,
+    // Naming the same parent twice is one parent.
+    alsoUnder: [
+      ...new Set(others.map((p) => p.parentCode).filter((p) => p && p !== first.parentCode)),
+    ],
   };
 }
 /**
- * Further parents, each picked from the same list as Parent code (owner's page feedback, 2026-10-11). A
- * spreadsheet cell with a pick-list takes one value, so a unit with several parents gets one cell per
- * parent. Typing the codes into Parent code with commas between is still read.
+ * Two columns the template had for an hour on 2026-10-11, one further parent in each; still read.
  */
 export const MORE_PARENT_HEADERS = ["Parent code 2", "Parent code 3"] as const;
 /** A column one day's template had for the further parents (2026-10-11); still read, as a list of codes. */
@@ -265,7 +290,6 @@ export async function downloadOrgUnitTemplate(
     { header: ORG_UNIT_HEADERS[1], width: 40 },
     { header: ORG_UNIT_HEADERS[2], width: 24 },
     { header: ORG_UNIT_HEADERS[3], width: 44 },
-    ...MORE_PARENT_HEADERS.map((header) => ({ header, width: 44 })),
   ]);
 
   const help = wb.addWorksheet("How to fill in");
@@ -274,7 +298,7 @@ export async function downloadOrgUnitTemplate(
     'Fill the "New org units" sheet, one org unit per row, starting on row 2. Keep the headings as they are.',
     `Parent code left empty: the row is created directly under "${parent.name}" (${parent.level}), the unit chosen on screen.`,
     "Parent code filled in: pick an org unit that exists already from the cell's dropdown list, or type the Code of another row in this sheet (the list is only a suggestion, so typing is allowed). An org unit that has no code can be picked from the list too; it is listed by its name. That is how one sheet builds several levels at once; the order of the rows does not matter.",
-    "A unit with more than one parent, such as a project two subsidiaries run: pick the first parent in Parent code and the others in Parent code 2 and Parent code 3, each from the same dropdown list. (A cell with a dropdown holds one value, which is why there is a cell per parent. Typing every code into Parent code with commas between, for example SUB-A, SUB-B, works too, and is the way to give more than three.) It then sits under each of them, and its figures count in full in every parent and once in the group above them. Moving or deactivating it later is done from the first parent listed.",
+    "A unit with more than one parent, such as a project two subsidiaries run: write every parent in the one Parent code cell, separated by commas, for example SUB-A, SUB-B. As many as it has. Spaces before or after a name do not matter. (The dropdown fills in one value; type a comma and the next code after it.) The unit then sits under each of them, and its figures count in full in every parent and once in the group above them. Moving or deactivating it later is done from the first parent listed.",
     "Level is a dropdown of the levels configured today. A unit's level must come after its parent's level; levels may be skipped.",
     "Code is letters, numbers, hyphens and underscores, and must be new. It is required for a row that other rows name as their parent.",
     `At most ${MAX_IMPORT_ROWS} rows per sheet. A row whose parent could not be created is not created either; the results say which.`,
@@ -360,21 +384,19 @@ export async function downloadOrgUnitTemplate(
   if (parents.length > 0) {
     const parentColumn = ORG_UNIT_HEADERS.indexOf("Parent code") + 1;
     for (let row = 2; row <= MAX_IMPORT_ROWS + 1; row++) {
-      // The same pick-list in every parent cell: Parent code, then one cell for each further parent.
-      for (let extra = 0; extra <= MORE_PARENT_HEADERS.length; extra++) {
-        sheet.getCell(row, parentColumn + extra).dataValidation = {
-          type: "list",
-          allowBlank: true,
-          formulae: [`'Hierarchy'!$F$2:$F$${parents.length + 1}`],
-          showErrorMessage: false,
-          showInputMessage: true,
-          promptTitle: extra === 0 ? "Parent" : "One more parent (optional)",
-          prompt: (extra === 0
-            ? `Pick an existing org unit, or type the Code of another row. Empty = under ${parent.name}. A second or third parent goes in the next columns.`
-            : "Only for a unit with more than one parent, such as a project two subsidiaries run. Pick an existing org unit, or type the Code of another row."
-          ).slice(0, 250),
-        };
-      }
+      sheet.getCell(row, parentColumn).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: [`'Hierarchy'!$F$2:$F$${parents.length + 1}`],
+        showErrorMessage: false,
+        showInputMessage: true,
+        promptTitle: "Parent",
+        prompt:
+          `Pick an existing org unit, or type the Code of another row. Several parents: write them all here with commas between. Empty = under ${parent.name}.`.slice(
+            0,
+            250,
+          ),
+      };
     }
   }
 

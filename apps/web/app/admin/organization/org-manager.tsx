@@ -8,7 +8,6 @@ import {
   Link2,
   Loader2,
   Plus,
-  X,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
@@ -37,13 +36,14 @@ import {
   checkMove,
   isFrozen,
   levelLabel,
+  canBeChildOf,
+  rootOf,
   ROOT_LEVEL,
   type OrgLevel,
   type OrgUnitType,
 } from "@/lib/org/rules";
 import type { OrgDeleteCheck, OrgExpectation, OrgUnitRow } from "@/lib/trpc/routers/organization";
 import {
-  addOrgUnitParentAction,
   createOrgUnitAction,
   deleteOrgUnitAction,
   orgExpectationsAction,
@@ -51,10 +51,13 @@ import {
   moveOrgUnitAction,
   orgUnitDeleteCheckAction,
   orgUnitImpactAction,
-  removeOrgUnitParentAction,
+  setOrgUnitParentsAction,
   setOrgUnitStatusAction,
   updateOrgUnitAction,
 } from "./actions";
+
+/** The room a docked side panel takes at 1900px and wider (components/ui/sheet.tsx). */
+const DOCKED_ROOM = "min-[1900px]:pr-[clamp(20rem,calc(100vw-98.5rem),40rem)]";
 
 type Impact = { descendants: number; activeAssignments: number; inProgressRecords: number };
 
@@ -242,7 +245,9 @@ export function OrgManager({
 
   return (
     <>
-      <div className="mb-6">
+      {/* While the add panel is docked (1900px and up) the heading and its buttons make room for it too, so
+          Add from a spreadsheet and Export hierarchy stay in reach beside the open panel. */}
+      <div className={cn("mb-6", adding && DOCKED_ROOM)}>
         <h1 className="text-[32px] leading-10 font-semibold">Organization</h1>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-4">
           <p className="max-w-2xl text-sm leading-5 text-muted-foreground">
@@ -274,7 +279,7 @@ export function OrgManager({
       <div
         className={cn(
           "grid items-start gap-6 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]",
-          adding && "min-[1900px]:pr-[clamp(20rem,calc(100vw-98.5rem),40rem)]",
+          adding && DOCKED_ROOM,
         )}
       >
         <section
@@ -341,6 +346,92 @@ export function OrgManager({
         ) : null}
       </div>
     </>
+  );
+}
+
+/**
+ * A unit's parents as a list of boxes to tick (owner's page feedback, 2026-10-11) — several can be chosen,
+ * which a dropdown cannot do. `fixed` is the parent that is not a choice here: always ticked.
+ */
+function ParentChecklist({
+  legend,
+  hint,
+  fixed,
+  fixedNote,
+  choices,
+  checked,
+  levels,
+  disabled,
+  onToggle,
+}: {
+  legend: string;
+  hint: string;
+  fixed: OrgUnitRow | undefined;
+  fixedNote: string;
+  choices: OrgUnitRow[];
+  checked: Set<string>;
+  levels: OrgLevel[];
+  disabled: boolean;
+  onToggle: (id: string, on: boolean) => void;
+}) {
+  const [filter, setFilter] = useState("");
+  const wanted = filter.trim().toLowerCase();
+  // Ticked ones stay in view whatever the filter says, so a choice is never hidden.
+  const shown = choices.filter(
+    (c) =>
+      !wanted ||
+      checked.has(c.id) ||
+      c.name.toLowerCase().includes(wanted) ||
+      c.code?.toLowerCase().includes(wanted),
+  );
+  const row = "grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-2 px-3 py-1.5 text-sm";
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm leading-5 font-medium">
+        {legend} ({checked.size + (fixed ? 1 : 0)} ticked)
+      </legend>
+      <p className="text-xs leading-4 text-muted-foreground">{hint}</p>
+      {choices.length > 8 ? (
+        <Input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by name or code…"
+          aria-label={`Filter the list of ${legend.toLowerCase()}`}
+        />
+      ) : null}
+      <div className="max-h-64 divide-y overflow-y-auto rounded-md border">
+        {fixed ? (
+          <label className={cn(row, "text-muted-foreground")}>
+            <input type="checkbox" checked disabled className="size-4" />
+            <span className="truncate text-foreground">{fixed.name}</span>
+            <span className="text-xs">{fixedNote}</span>
+          </label>
+        ) : null}
+        {shown.map((choice) => (
+          <label key={choice.id} className={cn(row, "cursor-pointer hover:bg-muted")}>
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={checked.has(choice.id)}
+              disabled={disabled}
+              onChange={(e) => onToggle(choice.id, e.target.checked)}
+            />
+            <span className="truncate">{choice.name}</span>
+            <span className="text-xs text-muted-foreground">
+              {levelLabel(levels, choice.unitType)}
+            </span>
+          </label>
+        ))}
+        {choices.length === 0 ? (
+          <p className="px-3 py-2 text-xs leading-4 text-muted-foreground">
+            No other unit can be a parent here: a parent must be at an earlier level, active and in
+            the same group.
+          </p>
+        ) : shown.length === 0 ? (
+          <p className="px-3 py-2 text-xs leading-4 text-muted-foreground">Nothing matches.</p>
+        ) : null}
+      </div>
+    </fieldset>
   );
 }
 
@@ -460,6 +551,20 @@ function AddChildren({
     frozen || childTypes.length === 0 ? "group" : "under",
   );
   const asGroup = where === "group";
+  // Further parents for the new unit, ticked from a list (owner's page feedback, 2026-10-11): every active
+  // unit of this group whose level comes before the new unit's. The unit selected in the tree is always one.
+  const [extraParents, setExtraParents] = useState<Set<string>>(new Set());
+  const group = rootOf(node.id, nodes);
+  const parentChoices = childType
+    ? nodes.filter(
+        (n) =>
+          n.id !== node.id &&
+          canBeChildOf(levels, n.unitType, childType) &&
+          rootOf(n.id, nodes) === group &&
+          !isFrozen(n.id, nodes),
+      )
+    : [];
+  const ticked = parentChoices.filter((n) => extraParents.has(n.id)).map((n) => n.id);
 
   function onAddChild(event: FormEvent) {
     event.preventDefault();
@@ -467,6 +572,7 @@ function AddChildren({
     startTransition(async () => {
       const result = await createOrgUnitAction({
         parentId: asGroup ? null : node.id,
+        alsoUnder: asGroup ? [] : ticked,
         unitType: asGroup ? ROOT_LEVEL : childType,
         name: childName,
         code: childCode,
@@ -478,6 +584,7 @@ function AddChildren({
       toast.success("Unit added");
       setChildName("");
       setChildCode("");
+      setExtraParents(new Set());
       onSelect(result.data.id);
       onChanged();
     });
@@ -561,6 +668,26 @@ function AddChildren({
               className="font-mono"
             />
           </div>
+          {asGroup ? null : (
+            <ParentChecklist
+              legend="Parents"
+              hint={`Tick every unit the new one belongs to. Leave only ${node.name} ticked for an ordinary unit; tick more for one that several units share, such as a project two subsidiaries run.`}
+              fixed={node}
+              fixedNote="selected in the tree"
+              choices={parentChoices}
+              checked={new Set(ticked)}
+              levels={levels}
+              disabled={pending}
+              onToggle={(id, on) =>
+                setExtraParents((prev) => {
+                  const next = new Set(prev);
+                  if (on) next.add(id);
+                  else next.delete(id);
+                  return next;
+                })
+              }
+            />
+          )}
           <Button type="submit" disabled={pending || childName.trim() === ""}>
             {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
             Add
@@ -602,7 +729,11 @@ function NodeDetail({
   const pathname = usePathname();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletable, setDeletable] = useState<OrgDeleteCheck | null>(null);
-  const [extraParentId, setExtraParentId] = useState("");
+  // The checklist's ticks; nothing is written until Save parents.
+  const [tickedParents, setTickedParents] = useState<Set<string>>(new Set(node.alsoUnder));
+  const parentsChanged =
+    tickedParents.size !== node.alsoUnder.length ||
+    node.alsoUnder.some((id) => !tickedParents.has(id));
   const alsoUnder = node.alsoUnder.flatMap((id) => nodes.find((n) => n.id === id) ?? []);
   const extraParentTargets = nodes.filter(
     (candidate) =>
@@ -777,75 +908,37 @@ function NodeDetail({
             count in full in each parent and once in the group above them — so those parents add up
             to more than the group.
           </p>
-          <ul className="mt-4 divide-y rounded-md border">
-            {parent ? (
-              <li className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
-                <span className="min-w-0 truncate text-sm">
-                  {parent.name}{" "}
-                  <span className="text-xs text-muted-foreground">
-                    ({levelLabel(levels, parent.unitType)})
-                  </span>
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  Moved and deactivated from here
-                </span>
-              </li>
-            ) : null}
-            {alsoUnder.map((extra) => (
-              <li key={extra.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                <span className="min-w-0 truncate text-sm">
-                  {extra.name}{" "}
-                  <span className="text-xs text-muted-foreground">
-                    ({levelLabel(levels, extra.unitType)})
-                  </span>
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={pending}
-                  onClick={() =>
-                    run(
-                      () => removeOrgUnitParentAction({ id: node.id, parentId: extra.id }),
-                      `No longer under ${extra.name}`,
-                    )
-                  }
-                >
-                  <X aria-hidden />
-                  Remove
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-            <div className="space-y-2">
-              <Label htmlFor="extra-parent">Add a parent</Label>
-              <NativeSelect
-                id="extra-parent"
-                value={extraParentId}
-                onChange={(e) => setExtraParentId(e.target.value)}
-              >
-                <option value="">Select another parent…</option>
-                {extraParentTargets.map((target) => (
-                  <option key={target.id} value={target.id}>
-                    {target.name} ({levelLabel(levels, target.unitType)})
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
+          <div className="mt-4 space-y-3">
+            <ParentChecklist
+              legend="Parents"
+              hint="Tick every unit this one belongs to, then save."
+              fixed={parent}
+              fixedNote="moved and deactivated from here"
+              choices={[...alsoUnder, ...extraParentTargets]}
+              checked={tickedParents}
+              levels={levels}
+              disabled={pending}
+              onToggle={(id, on) =>
+                setTickedParents((prev) => {
+                  const next = new Set(prev);
+                  if (on) next.add(id);
+                  else next.delete(id);
+                  return next;
+                })
+              }
+            />
             <Button
               type="button"
               variant="outline"
-              disabled={pending || extraParentId === ""}
+              disabled={pending || !parentsChanged}
               onClick={() =>
                 run(
-                  () => addOrgUnitParentAction({ id: node.id, parentId: extraParentId }),
-                  "Added",
-                  () => setExtraParentId(""),
+                  () => setOrgUnitParentsAction({ id: node.id, alsoUnder: [...tickedParents] }),
+                  "Parents saved",
                 )
               }
             >
-              Add
+              Save parents
             </Button>
           </div>
         </div>

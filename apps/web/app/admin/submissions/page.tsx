@@ -101,6 +101,7 @@ export default async function SubmissionMonitoringPage({
     roleCode: q.roleCode,
     status: q.status,
     issue: q.issue,
+    text: q.text,
   });
   const queue = q.issue ? QUEUE[q.issue] : undefined;
 
@@ -110,7 +111,7 @@ export default async function SubmissionMonitoringPage({
         title="Submission Monitoring"
         description="Every submission across the organization and where it is in the pipeline. Open a record for its evidence, validation, calculation and audit trail."
       />
-      <ContextFilters context={context} params={params} variant="monitoring" />
+      <ContextFilters context={context} params={params} variant="monitoring" search />
       {q.issue ? (
         <p className="rounded-md border border-status-warning/40 bg-status-warning/5 px-4 py-2 text-sm">
           Showing <span className="font-medium">{ISSUE_LABELS[q.issue]}</span>

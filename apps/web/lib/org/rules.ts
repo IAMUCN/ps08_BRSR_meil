@@ -147,6 +147,13 @@ export function importOrder<
 }
 
 /**
+ * A name or code as a person typed it, for comparing: no spaces at either end, any run of spaces counted as
+ * one, letter case ignored. "Olectra", "Olectra  " and " olectra" are the same unit.
+ */
+export const tidy = (value: string) => value.trim().replace(/\s+/g, " ");
+export const sameName = (a: string, b: string) => tidy(a).toLowerCase() === tidy(b).toLowerCase();
+
+/**
  * A shared unit may be listed once under each of its parents (how Export hierarchy writes it, so the sheet
  * reads like the tree). Rows with one code, the same name and the same level are therefore one unit, with
  * every parent any of them names — and so are rows with no code, the same name and level and the same list
@@ -167,12 +174,12 @@ export function mergeSharedRows<
   // `listed`: the parents as the row itself named them, before any merge.
   const kept: (T & { index: number; listed: string })[] = [];
   const sameAs = new Map<number, number>();
-  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const same = sameName;
   // Without a code a unit is recognised by its name, level and whole list of parents — and only when that
   // list has more than one, so two same-named units under one parent stay two units.
   const parentsOf = (row: T) =>
     [...new Set([row.parentCode, ...(row.alsoUnder ?? [])].filter(Boolean))]
-      .map((p) => p!.trim().toLowerCase())
+      .map((p) => tidy(p!).toLowerCase())
       .sort()
       .join("|");
   rows.forEach((row, index) => {
@@ -207,10 +214,9 @@ export function unitByRef<T extends { code: string | null; name: string }>(
   units: readonly T[],
   ref: string,
 ): T | "ambiguous" | undefined {
-  const wanted = ref.trim().toLowerCase();
-  const byCode = units.find((u) => u.code?.toLowerCase() === wanted);
+  const byCode = units.find((u) => u.code && sameName(u.code, ref));
   if (byCode) return byCode;
-  const named = units.filter((u) => u.name.trim().toLowerCase() === wanted);
+  const named = units.filter((u) => sameName(u.name, ref));
   return named.length > 1 ? "ambiguous" : named[0];
 }
 

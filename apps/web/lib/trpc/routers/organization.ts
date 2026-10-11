@@ -242,6 +242,8 @@ export const organizationRouter = router({
     .input(
       z.object({
         parentId: z.uuid().nullable(),
+        /** Further parents ticked on the form: the new unit also sits under each (migration 0044). */
+        alsoUnder: z.array(z.uuid()).max(50).optional(),
         unitType: levelCode,
         name: nameSchema,
         code: codeSchema,
@@ -268,10 +270,35 @@ export const organizationRouter = router({
               badRequest("Only a group can stand on its own; every other level needs a parent.");
             }
           }
+          // All the ticked parents or none: checked before anything is written.
+          const extraIds = [...new Set(input.alsoUnder ?? [])].filter((id) => id !== parent?.id);
+          if (extraIds.length > 0) {
+            if (!parent) badRequest("A group has no parents.");
+            const levels = await loadLevels(tx);
+            const placed: OrgNode = {
+              id: "new",
+              parentId: parent.id,
+              alsoUnder: [],
+              unitType: input.unitType,
+              status: "active",
+            };
+            for (const extraId of extraIds) {
+              const check = checkAlsoUnder("new", extraId, [...nodes, placed], levels);
+              const name = nodes.find((n) => n.id === extraId)?.name ?? "A chosen parent";
+              if (!check.ok) badRequest(`${name}: ${check.reason}`);
+              if (isFrozen(extraId, nodes)) badRequest(`${name} is inactive.`);
+              placed.alsoUnder = [...(placed.alsoUnder ?? []), extraId];
+            }
+          }
           const [created] = await tx<{ id: string }[]>`
             insert into public.org_units (parent_id, unit_type, name, code)
             values (${parent?.id ?? null}, ${input.unitType}, ${input.name}, ${input.code})
             returning id`;
+          for (const extraId of extraIds) {
+            await tx`
+              insert into public.org_unit_parents (org_unit_id, parent_id, created_by)
+              values (${created.id}, ${extraId}, ${ctx.session.userId})`;
+          }
           await writeAudit(tx, {
             eventType: "org_unit.created",
             entityType: "org_unit",
@@ -279,6 +306,7 @@ export const organizationRouter = router({
             userId: ctx.session.userId,
             newValue: {
               parent_id: parent?.id ?? null,
+              also_under: extraIds,
               unit_type: input.unitType,
               name: input.name,
               code: input.code,
@@ -389,6 +417,57 @@ export const organizationRouter = router({
           entityId: input.id,
           userId: ctx.session.userId,
           oldValue: { also_under: input.parentId },
+        });
+      });
+      return null;
+    }),
+
+  /**
+   * The further parents of a unit, set in one go from the checklist on the Organization page: the ones no
+   * longer ticked are removed, the newly ticked are added, all or nothing. The main parent is not part of it.
+   */
+  setParents: orgManage
+    .input(z.object({ id: z.uuid(), alsoUnder: z.array(z.uuid()).max(50) }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const nodes = await loadTreeForUpdate(tx);
+        const node = nodes.find((n) => n.id === input.id);
+        if (!node) badRequest("Node not found.");
+        const wanted = [...new Set(input.alsoUnder)];
+        const removed = node.alsoUnder.filter((id) => !wanted.includes(id));
+        const added = wanted.filter((id) => !node.alsoUnder.includes(id));
+        if (removed.length + added.length === 0) return;
+        const levels = await loadLevels(tx);
+        // Checked against the unit as it will be once the removals are done.
+        const after: OrgNode = {
+          ...node,
+          alsoUnder: node.alsoUnder.filter((id) => wanted.includes(id)),
+        };
+        for (const parentId of added) {
+          const others = nodes.map((n) => (n.id === node.id ? after : n));
+          const check = checkAlsoUnder(node.id, parentId, others, levels);
+          const name = nodes.find((n) => n.id === parentId)?.name ?? "A chosen parent";
+          if (!check.ok) badRequest(`${name}: ${check.reason}`);
+          if (isFrozen(parentId, nodes)) badRequest(`${name} is inactive.`);
+          after.alsoUnder = [...(after.alsoUnder ?? []), parentId];
+        }
+        if (removed.length > 0) {
+          await tx`
+            delete from public.org_unit_parents
+            where org_unit_id = ${node.id} and parent_id = any(${removed}::uuid[])`;
+        }
+        for (const parentId of added) {
+          await tx`
+            insert into public.org_unit_parents (org_unit_id, parent_id, created_by)
+            values (${node.id}, ${parentId}, ${ctx.session.userId})`;
+        }
+        await writeAudit(tx, {
+          eventType: "org_unit.parents_changed",
+          entityType: "org_unit",
+          entityId: node.id,
+          userId: ctx.session.userId,
+          oldValue: { also_under: node.alsoUnder },
+          newValue: { also_under: after.alsoUnder, added, removed },
         });
       });
       return null;

@@ -23,6 +23,7 @@ export function readParams(params: Params) {
     scopeCode: scope && SCOPES.includes(scope) ? scope : undefined,
     metricCode: one(params, "metric"),
     roleCode: one(params, "role"),
+    text: one(params, "q")?.trim().slice(0, 100) || undefined,
     status: STATUSES.includes(status as Status) ? (status as Status) : undefined,
     issue: ISSUES.includes(issue as Issue) ? (issue as Issue) : undefined,
     missingSubmissions: issue === "missing_submissions",
