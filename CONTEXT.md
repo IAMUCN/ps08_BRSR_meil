@@ -379,9 +379,10 @@ _Last updated: 2026-10-12._
   open, lint, typecheck, format, build, advisory gate. One more item found and fixed: the development
   feedback widget's code was in the production bundle (`components/dev/feedback-widget.tsx` now loads it in
   development only). Open: 2 Medium (client address for rate limits, inline scripts in the CSP), 18 Low,
-  and everything about hosting, legal documents and a human accessibility pass. **Still uncommitted on
-  `feature-security-audit-fixes`; nothing pushed; hosted untouched; migration `0047` local only; the worker
-  image not rebuilt.**
+  and everything about hosting, legal documents and a human accessibility pass. **All of the 2026-10-12 audit work (every "uncommitted" entry above from that
+  date) was committed as `d4e214c` on `feature-security-audit-fixes` and the branch pushed to both `ucn` and
+  `origin` on 2026-10-12 at the owner's request. No pull request is open yet and CI has not run. Hosted is
+  untouched; migration `0047` is local only; the worker image is not rebuilt.**
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
