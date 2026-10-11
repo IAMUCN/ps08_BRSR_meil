@@ -58,8 +58,8 @@ export function DefaultCursorIcon({
 
   return (
     <svg
-      width="24"
-      height="30"
+      width="20.4"
+      height="25.5"
       viewBox="0 0 24 30"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -145,8 +145,8 @@ const PROHIBITION_FILTER =
 export function ProhibitionCursorIcon({ className }: { className?: string }) {
   return (
     <svg
-      width="22"
-      height="22"
+      width="18.7"
+      height="18.7"
       viewBox="0 0 22 22"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -208,10 +208,10 @@ export function CursorRenderer() {
  * CustomCursor component that mounts the sitewide custom cursor.
  * - Tracks smoothly with zero input lag.
  * - Dynamically renders:
- *   - "default": Indigo arrow with soft gray shadow (hotspot 2, 2)
- *   - "hover": Indigo arrow with radiant blue glow (hotspot 2, 2)
+ *   - "default": Indigo arrow with soft gray shadow (hotspot 1.7, 1.7)
+ *   - "hover": Indigo arrow with radiant blue glow (hotspot 1.7, 1.7)
  *   - "ibeam": Minimal Blue I-Beam cursor over inputs & textareas (hotspot 6, 10)
- *   - "not-allowed": Red Prohibition Symbol over disabled elements (hotspot 11, 11)
+ *   - "not-allowed": Red Prohibition Symbol over disabled elements (hotspot 9.35, 9.35)
  * - Disabled on touch/coarse devices and respects prefers-reduced-motion.
  */
 export function CustomCursor({ className }: { className?: string }) {
@@ -225,7 +225,7 @@ export function CustomCursor({ className }: { className?: string }) {
   if (!mounted) return null;
 
   return (
-    <Pointer global hotspot={{ x: 2, y: 2 }} className={className}>
+    <Pointer global hotspot={{ x: 1.7, y: 1.7 }} className={className}>
       {({ cursorMode }) => {
         if (cursorMode === "not-allowed") {
           return <ProhibitionCursorIcon />;
