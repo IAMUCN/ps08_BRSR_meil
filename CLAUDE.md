@@ -47,3 +47,7 @@ the merges clean. Ask the person you are working for which role they have if it 
 
 @CONTEXT.md
 @PROGRESS.md
+
+## Landing page work
+
+For any landing-page task, read @docs/LANDING_PAGE_BRIEF.md first. Project-scoped design skills live in `.claude/skills/`.
