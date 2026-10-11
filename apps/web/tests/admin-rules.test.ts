@@ -9,6 +9,7 @@ import {
   isFrozen,
   reachableNodeIds,
   treeOrder,
+  unitByRef,
   type OrgLevel,
   type OrgNode,
 } from "../lib/org/rules.ts";
@@ -291,4 +292,17 @@ test("import order sets aside rows whose parent can never exist", () => {
     ["OK"],
   );
   assert.deepEqual(orphans.map((r) => r.code).sort(), ["A", "B", "LOST", "SELF", "UNDER-LOST"]);
+});
+
+test("a sheet names an org unit by its code, or by its name when it has none", () => {
+  const units = [
+    { code: "MEIL", name: "Megha Engineering" },
+    { code: null, name: "Olectra" },
+    { code: null, name: "Drilling" },
+    { code: null, name: "drilling" },
+  ];
+  assert.equal(unitByRef(units, "meil"), units[0]);
+  assert.equal(unitByRef(units, " olectra "), units[1]);
+  assert.equal(unitByRef(units, "Drilling"), "ambiguous"); // two units share the name: never guess
+  assert.equal(unitByRef(units, "No such unit"), undefined);
 });

@@ -103,3 +103,13 @@ hierarchy", and, asked which of three readings was meant, chose a whole tree in 
   screen; the person's scope is what limits it.
 - Out of scope: creating users and org units from one file; moving or renaming existing org units by sheet;
   a dropdown on Parent code (it may name a row that does not exist yet).
+
+## 2026-10-11 (later): no ids in the templates
+
+- Decision: an org unit that has no code is listed in both templates by its **name** alone, and the server
+  matches it by name (`unitByRef`, `lib/org/rules.ts`): code first, then name, in any letter case. Reason:
+  the owner asked for the "Name — id:…" text to go; an id means nothing to the person filling the sheet.
+  Alternative considered: hide the id in a lookup sheet (still fragile when a cell is typed by hand).
+- Decision: when several org units share that name, the row is refused and the message asks for codes.
+  Reason: the sheet must not guess which unit was meant.
+- A sheet downloaded from the earlier template ("Name — id:…") still imports.

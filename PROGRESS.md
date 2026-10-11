@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-11 — the ESG data analyst chatbot is committed on branch `feature-chat-analyst` (`67700f8`, not pushed); migration `0042` is on hosted (2026-10-11), the read-only role has no password there yet. Before that: Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
+_Last updated: 2026-10-11 — hosted cleared and given MEIL's Admin inputs, two sets of test data generated (uncommitted); the ESG data analyst chatbot is committed on branch `feature-chat-analyst` (`67700f8`, not pushed); migration `0042` is on hosted (2026-10-11), the read-only role has no password there yet. Before that: Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
 merged); the second audit's follow-up work (migrations `0038`–`0039`, fuller report with SDG tags, 28 sourced factors on local) is committed locally, not
 pushed; migrations `0038`–`0039` are on hosted (2026-10-09), the factors and demo data are not; Phase 21 (deployment) comes after, hosting to be decided by the owner._
 
@@ -712,9 +712,24 @@ org units as the hierarchy stands at download. Checks: web unit 127/127, lint, t
 generated and read back and a 12-row sheet imported through the real procedure on local, 31/31. Not run: the
 production build, the screens in a browser. Committed on `feature-chat-analyst`, not pushed.
 
+**Hosted cleared, MEIL's Admin inputs, test data (2026-10-11).** Decisions: `.grill/demo-data-decisions.md`.
+The owner asked for a clean site, MEIL's details in the Admin's written inputs and two folders of sample data.
+The hosted test data was removed in one transaction (a copy of each row kept locally; accounts, audit log and
+configuration stay). Entered through the Admin procedures: 23 BRSR Disclosure answers taken from meil.in and
+its published annual return and CSR summary, the published turnover under FY 2022-23, and 29 conversion
+factors with sources. `test data/` (git-ignored) holds two sets — org-unit and employee sheets, a document for
+each of the 47 activities, a multi-bill PDF, a manifest — made by `apps/ocr-worker/scripts/make_test_data.py`.
+The bulk-import templates no longer show ids: an org unit with no code is listed and matched by its name.
+Checks: web unit 128/128, lint, typecheck, format, Ruff; the worker's real OCR on all 63 single documents of
+set 1; the sheets against the hierarchy rules. Not run: an import or upload through the app, the build.
+Uncommitted.
+
 ## 4. What comes next
 
 **Chatbot, to finish:** push `feature-chat-analyst` and open its pull request; on hosted (migration `0042` is there since 2026-10-11) the owner sets a password for `chat_reader`, then try its connection through the pooler; set the four variables for the owner's dev server. Review NVIDIA's terms before real MEIL figures go through the free endpoints.
+
+**Demo on hosted, the owner's steps:** create the August and September 2026 periods, import the org units and the
+users from `test data/` (typing the email addresses), upload the documents, approve, generate the report.
 
 **Before Phase 21:** run the end-to-end suite and click
 through BRSR Disclosures. Make the hosted project ready for the demo (the owner chose hosted). In order: push the

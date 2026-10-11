@@ -12,6 +12,7 @@ import {
   isFrozen,
   reachableNodeIds,
   ROOT_LEVEL,
+  unitByRef,
   type OrgLevel,
   type OrgNode,
 } from "@/lib/org/rules";
@@ -456,9 +457,17 @@ export const organizationRouter = router({
               unitType: levelCode,
               name: nameSchema,
               code: codeSchema,
-              /** An existing org unit's code or another row's; empty = directly under `parentId`. */
-              parentCode: codeSchema.optional(),
-              /** An existing org unit that has no code, picked from the template's list. */
+              /**
+               * An existing org unit's code or another row's, or the name of an existing org unit that has
+               * no code; empty = directly under `parentId`.
+               */
+              parentCode: z
+                .string()
+                .trim()
+                .max(200)
+                .transform((value) => value || null)
+                .optional(),
+              /** An existing org unit named by id (what an earlier template wrote). */
               parentId: z.uuid().optional(),
             }),
           )
@@ -468,13 +477,21 @@ export const organizationRouter = router({
     )
     .mutation(async ({ ctx, input }): Promise<{ results: OrgBulkImportRowResult[] }> => {
       // Sheet row 1 is the header, so the first data row is row 2.
-      const rows = input.rows.map((row, index) => ({ ...row, rowNum: index + 2 }));
-      const known = new Map(
-        (
-          await db()<{ id: string; code: string }[]>`
-            select id, code from public.org_units where code is not null and deleted_at is null`
-        ).map((unit) => [unit.code, unit.id]),
-      );
+      const existing = await db()<{ id: string; code: string | null; name: string }[]>`
+        select id, code, name from public.org_units where deleted_at is null`;
+      const known = new Map(existing.flatMap((unit) => (unit.code ? [[unit.code, unit.id]] : [])));
+      const sheetCodes = new Set(input.rows.map((row) => row.code));
+      // A parent that is no code — of an existing unit or of a row — is the name of an existing unit that
+      // has no code: the row is then tied to that unit. A name several units share stays unresolved.
+      const shared = new Set<number>();
+      const rows = input.rows.map((row, index) => {
+        const rowNum = index + 2;
+        if (row.parentId || !row.parentCode) return { ...row, rowNum };
+        if (known.has(row.parentCode) || sheetCodes.has(row.parentCode)) return { ...row, rowNum };
+        const unit = unitByRef(existing, row.parentCode);
+        if (unit === "ambiguous") shared.add(rowNum);
+        return { ...row, rowNum, parentId: unit && unit !== "ambiguous" ? unit.id : undefined };
+      });
       // One sheet can hold several levels: a row may name another row as its parent, so parents go first.
       // A code used by two rows makes "its parent" ambiguous, so neither row is created (nor, below, any
       // row that names that code): the person fixes the sheet rather than getting a tree they did not mean.
@@ -516,7 +533,9 @@ export const organizationRouter = router({
           row: row.rowNum,
           ok: false,
           name: row.name,
-          error: `Parent code "${row.parentCode}" is neither an existing org unit nor another row of this sheet.`,
+          error: shared.has(row.rowNum)
+            ? `More than one org unit is called "${row.parentCode}". Give them codes on the Organization page, then use the code.`
+            : `Parent "${row.parentCode}" is neither an existing org unit nor another row of this sheet.`,
         });
       }
       return { results: rows.map((row) => results.get(row.rowNum)!) };
