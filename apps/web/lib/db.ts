@@ -12,7 +12,15 @@ export function db(): postgres.Sql {
     if (!url) throw new Error("DATABASE_URL is not set");
     // prepare: false is required by Supabase's transaction-mode pooler (hosted deployments).
     // Cached on globalThis so dev hot-reloads don't open a new pool each time.
-    globalForDb.traceEsgSql = postgres(url, { prepare: false, max: 5 });
+    // idle_timeout / max_lifetime: close pooled connections before the Supabase pooler or the network drops
+    // them silently, which otherwise surfaces as "read ECONNRESET" on the next query after a quiet spell.
+    globalForDb.traceEsgSql = postgres(url, {
+      prepare: false,
+      max: 5,
+      idle_timeout: 20,
+      max_lifetime: 60 * 30,
+      connect_timeout: 15,
+    });
   }
   return globalForDb.traceEsgSql;
 }

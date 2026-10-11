@@ -309,7 +309,17 @@ export function UsersManager({
                     )}
                   </td>
                   <td className="px-3 py-3 text-right">
-                    <Button variant="ghost" size="sm" onClick={() => show({ user: user.id })}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={user.id === currentUserId}
+                      title={
+                        user.id === currentUserId
+                          ? "You can't manage your own account. Another Admin can."
+                          : undefined
+                      }
+                      onClick={() => show({ user: user.id })}
+                    >
                       Manage
                     </Button>
                   </td>
@@ -333,6 +343,14 @@ export function UsersManager({
           key={managed.id}
           user={managed}
           currentUserId={currentUserId}
+          otherActiveAdmins={
+            users.filter(
+              (u) =>
+                u.id !== managed.id &&
+                u.status !== "deactivated" &&
+                u.assignments.some((a) => a.roleCode === "admin"),
+            ).length
+          }
           roles={roles}
           nodes={nodes}
           levels={levels}
@@ -433,6 +451,7 @@ function InviteSheet({
 function ManageSheet({
   user,
   currentUserId,
+  otherActiveAdmins,
   roles,
   nodes,
   levels,
@@ -441,6 +460,8 @@ function ManageSheet({
 }: {
   user: UserRow;
   currentUserId: string;
+  /** Other active Admins, so the dialog can say why the last or own Admin access cannot be revoked. */
+  otherActiveAdmins: number;
   roles: RoleOption[];
   nodes: OrgUnitRow[];
   levels: OrgLevel[];
@@ -492,60 +513,80 @@ function ManageSheet({
               </p>
             ) : (
               <ul className="divide-y rounded-md border">
-                {user.assignments.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
-                  >
-                    <span>
-                      <span className="font-medium">{a.roleName}</span> · {a.orgUnitName}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => setRevokeId(a.id)}
+                {user.assignments.map((a) => {
+                  // The same rules the server enforces (no self-edits; lib/users/rules.ts checkAdminRemoval).
+                  const blocked = isSelf
+                    ? "You can't change your own roles. Ask another Admin."
+                    : a.roleCode === "admin" && otherActiveAdmins < 1
+                      ? "At least one active Admin is required."
+                      : null;
+                  return (
+                    <li
+                      key={a.id}
+                      className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
                     >
-                      Revoke
-                    </Button>
-                  </li>
-                ))}
+                      <span>
+                        <span className="font-medium">{a.roleName}</span> · {a.orgUnitName}
+                        {blocked ? (
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {blocked}
+                          </span>
+                        ) : null}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={pending || blocked !== null}
+                        title={blocked ?? undefined}
+                        onClick={() => setRevokeId(a.id)}
+                      >
+                        Revoke
+                      </Button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
-            <form
-              className="space-y-3 rounded-md border p-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                run(
-                  () => addAssignmentAction({ userId: user.id, roleId, orgUnitId }),
-                  "Assignment added",
-                  () => {
-                    setRoleId("");
-                    setOrgUnitId("");
-                  },
-                );
-              }}
-            >
-              <p className="text-sm font-medium">Add assignment</p>
-              <RoleScopeFields
-                levels={levels}
-                idPrefix="assign"
-                roles={roles}
-                nodes={nodes}
-                roleId={roleId}
-                orgUnitId={orgUnitId}
-                onRole={setRoleId}
-                onOrg={setOrgUnitId}
-              />
-              <Button
-                type="submit"
-                variant="outline"
-                className="w-full"
-                disabled={pending || !roleId || !orgUnitId}
+            {isSelf ? (
+              <p className="text-sm text-muted-foreground">
+                You can&apos;t change your own roles. Ask another Admin to add or remove one.
+              </p>
+            ) : (
+              <form
+                className="space-y-3 rounded-md border p-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  run(
+                    () => addAssignmentAction({ userId: user.id, roleId, orgUnitId }),
+                    "Assignment added",
+                    () => {
+                      setRoleId("");
+                      setOrgUnitId("");
+                    },
+                  );
+                }}
               >
-                Add assignment
-              </Button>
-            </form>
+                <p className="text-sm font-medium">Add assignment</p>
+                <RoleScopeFields
+                  levels={levels}
+                  idPrefix="assign"
+                  roles={roles}
+                  nodes={nodes}
+                  roleId={roleId}
+                  orgUnitId={orgUnitId}
+                  onRole={setRoleId}
+                  onOrg={setOrgUnitId}
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="w-full"
+                  disabled={pending || !roleId || !orgUnitId}
+                >
+                  Add assignment
+                </Button>
+              </form>
+            )}
           </section>
 
           <section aria-labelledby="account-heading" className="space-y-2">
