@@ -161,22 +161,8 @@ export function ProhibitionCursorIcon({ className }: { className?: string }) {
       <circle cx="11" cy="11" r="9.2" fill="#FFFFFF" />
 
       {/* Outer red ring with crisp white border */}
-      <circle
-        cx="11"
-        cy="11"
-        r="7.9"
-        fill="none"
-        stroke="#E91029"
-        strokeWidth="2.2"
-      />
-      <circle
-        cx="11"
-        cy="11"
-        r="9.2"
-        fill="none"
-        stroke="#FFFFFF"
-        strokeWidth="1.2"
-      />
+      <circle cx="11" cy="11" r="7.9" fill="none" stroke="#E91029" strokeWidth="2.2" />
+      <circle cx="11" cy="11" r="9.2" fill="none" stroke="#FFFFFF" strokeWidth="1.2" />
 
       {/* Centered red cross with rounded caps */}
       <line
@@ -239,11 +225,7 @@ export function CustomCursor({ className }: { className?: string }) {
   if (!mounted) return null;
 
   return (
-    <Pointer
-      global
-      hotspot={{ x: 2, y: 2 }}
-      className={className}
-    >
+    <Pointer global hotspot={{ x: 2, y: 2 }} className={className}>
       {({ cursorMode }) => {
         if (cursorMode === "not-allowed") {
           return <ProhibitionCursorIcon />;
@@ -251,11 +233,7 @@ export function CustomCursor({ className }: { className?: string }) {
         if (cursorMode === "ibeam") {
           return <IBeamCursorIcon />;
         }
-        return (
-          <DefaultCursorIcon
-            variant={cursorMode === "hover" ? "hover" : "default"}
-          />
-        );
+        return <DefaultCursorIcon variant={cursorMode === "hover" ? "hover" : "default"} />;
       }}
     </Pointer>
   );

@@ -69,7 +69,7 @@ export function TooltipContent({
       role="tooltip"
       className={cn(
         "absolute -top-10 left-1/2 -translate-x-1/2 z-50 overflow-hidden rounded-md bg-slate-900 px-3 py-1.5 text-xs text-white shadow-md pointer-events-none whitespace-nowrap animate-in fade-in-0 zoom-in-95",
-        className
+        className,
       )}
       {...props}
     >

@@ -72,7 +72,7 @@ export const PixelImage = ({
       );
     };
 
-    return isValidGrid(customGrid) ? customGrid! : DEFAULT_GRIDS[grid] ?? { rows: 4, cols: 6 };
+    return isValidGrid(customGrid) ? customGrid! : (DEFAULT_GRIDS[grid] ?? { rows: 4, cols: 6 });
   }, [customGrid, grid]);
 
   // Client-side mount flag to prevent SSR hydration mismatches
@@ -104,7 +104,7 @@ export const PixelImage = ({
           observer.disconnect();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     observer.observe(el);
@@ -140,7 +140,7 @@ export const PixelImage = ({
         ref={containerRef}
         className={cn(
           "relative select-none",
-          className ?? "h-72 w-72 md:h-96 md:w-96 rounded-[2.5rem] overflow-hidden"
+          className ?? "h-72 w-72 md:h-96 md:w-96 rounded-[2.5rem] overflow-hidden",
         )}
       >
         <img
@@ -149,7 +149,7 @@ export const PixelImage = ({
           className={cn(
             "w-full h-full object-cover",
             imgClassName,
-            grayscaleAnimation ? "grayscale" : ""
+            grayscaleAnimation ? "grayscale" : "",
           )}
           draggable={false}
         />
@@ -162,7 +162,7 @@ export const PixelImage = ({
       ref={containerRef}
       className={cn(
         "relative select-none",
-        className ?? "h-72 w-72 md:h-96 md:w-96 rounded-[2.5rem] overflow-hidden"
+        className ?? "h-72 w-72 md:h-96 md:w-96 rounded-[2.5rem] overflow-hidden",
       )}
     >
       {pieces.map((piece, index) => (
@@ -170,7 +170,7 @@ export const PixelImage = ({
           key={index}
           className={cn(
             "absolute inset-0 transition-all ease-out",
-            isVisible ? "opacity-100" : "opacity-0"
+            isVisible ? "opacity-100" : "opacity-0",
           )}
           style={{
             clipPath: piece.clipPath,
@@ -184,7 +184,7 @@ export const PixelImage = ({
             className={cn(
               "w-full h-full object-cover",
               imgClassName,
-              grayscaleAnimation && (showColor ? "grayscale-0" : "grayscale")
+              grayscaleAnimation && (showColor ? "grayscale-0" : "grayscale"),
             )}
             style={{
               transition: grayscaleAnimation

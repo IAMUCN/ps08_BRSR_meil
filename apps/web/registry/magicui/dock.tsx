@@ -2,13 +2,7 @@
 
 import React, { useRef, type PropsWithChildren } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import {
-  motion,
-  MotionValue,
-  useMotionValue,
-  useSpring,
-  useTransform,
-} from "motion/react";
+import { motion, MotionValue, useMotionValue, useSpring, useTransform } from "motion/react";
 import type { MotionProps } from "motion/react";
 
 import { cn } from "@/lib/utils";
@@ -28,21 +22,18 @@ const DEFAULT_MAGNIFICATION = 60;
 const DEFAULT_DISTANCE = 140;
 const DEFAULT_DISABLEMAGNIFICATION = false;
 
-const dockVariants = cva(
-  "mx-auto flex items-center justify-center",
-  {
-    variants: {
-      variant: {
-        default:
-          "supports-backdrop-blur:bg-white/10 supports-backdrop-blur:dark:bg-black/10 h-[58px] w-max gap-2 rounded-2xl border p-2 backdrop-blur-md",
-        bare: "w-auto bg-transparent border-none p-0 shadow-none",
-      },
+const dockVariants = cva("mx-auto flex items-center justify-center", {
+  variants: {
+    variant: {
+      default:
+        "supports-backdrop-blur:bg-white/10 supports-backdrop-blur:dark:bg-black/10 h-[58px] w-max gap-2 rounded-2xl border p-2 backdrop-blur-md",
+      bare: "w-auto bg-transparent border-none p-0 shadow-none",
     },
-    defaultVariants: {
-      variant: "default",
-    },
-  }
-);
+  },
+  defaultVariants: {
+    variant: "default",
+  },
+});
 
 const Dock = React.forwardRef<HTMLDivElement, DockProps>(
   (
@@ -57,7 +48,7 @@ const Dock = React.forwardRef<HTMLDivElement, DockProps>(
       variant,
       ...props
     },
-    ref
+    ref,
   ) => {
     const mouseX = useMotionValue(Infinity);
 
@@ -92,7 +83,7 @@ const Dock = React.forwardRef<HTMLDivElement, DockProps>(
         {renderChildren()}
       </motion.div>
     );
-  }
+  },
 );
 
 Dock.displayName = "Dock";
@@ -135,7 +126,7 @@ const DockIcon = ({
   const sizeTransform = useTransform(
     distanceCalc,
     [-distance, 0, distance],
-    [size, targetSize, size]
+    [size, targetSize, size],
   );
 
   const scaleSize = useSpring(sizeTransform, {
@@ -151,7 +142,7 @@ const DockIcon = ({
       className={cn(
         "flex aspect-square cursor-pointer items-center justify-center rounded-full",
         disableMagnification && "hover:bg-muted-foreground transition-colors",
-        className
+        className,
       )}
       {...props}
     >
@@ -200,13 +191,13 @@ const DockItem = ({
   const scaleTransform = useTransform(
     distanceCalc,
     [-distance, 0, distance],
-    [1, effectiveMaxScale, 1]
+    [1, effectiveMaxScale, 1],
   );
 
   const yTransform = useTransform(
     distanceCalc,
     [-distance, 0, distance],
-    [0, disableMagnification ? 0 : -2, 0]
+    [0, disableMagnification ? 0 : -2, 0],
   );
 
   const scale = useSpring(scaleTransform, {

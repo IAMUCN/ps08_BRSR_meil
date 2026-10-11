@@ -1,12 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import {
-  AnimatePresence,
-  motion,
-  useMotionValue,
-  type HTMLMotionProps,
-} from "motion/react";
+import { AnimatePresence, motion, useMotionValue, type HTMLMotionProps } from "motion/react";
 import { cn } from "@/lib/utils";
 
 export type CursorMode = "default" | "hover" | "ibeam" | "not-allowed";
@@ -130,38 +125,45 @@ export function Pointer({
         // Detect disabled / not-allowed elements
         const isNotAllowed = !!(
           target &&
-          (target.closest(
-            ':disabled, [disabled], [aria-disabled="true"], .cursor-not-allowed, [data-cursor="not-allowed"], [data-cursor="prohibited"], [data-state="disabled"]'
-          ))
+          target.closest(
+            ':disabled, [disabled], [aria-disabled="true"], .cursor-not-allowed, [data-cursor="not-allowed"], [data-cursor="prohibited"], [data-state="disabled"]',
+          )
         );
 
         // Detect text-editable fields and active text selection
-        const isTextEditable = !isNotAllowed && !!(
-          target &&
-          (target.closest(
-            'input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([disabled]), textarea:not([disabled]), [contenteditable="true"], [role="textbox"]:not([aria-disabled="true"]), .monaco-editor, [data-cursor="ibeam"]'
-          ) ||
-            (window.getSelection() && window.getSelection()?.type === "Range"))
-        );
+        const isTextEditable =
+          !isNotAllowed &&
+          !!(
+            target &&
+            (target.closest(
+              'input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([disabled]), textarea:not([disabled]), [contenteditable="true"], [role="textbox"]:not([aria-disabled="true"]), .monaco-editor, [data-cursor="ibeam"]',
+            ) ||
+              (window.getSelection() && window.getSelection()?.type === "Range"))
+          );
 
         // Detect hover over interactive clickable elements
-        const isClickable = !isNotAllowed && !isTextEditable && !!(
-          target &&
-          (target.closest(
-            'a, button:not([disabled]), [role="button"]:not([aria-disabled="true"]), [role="link"], [role="tab"]:not([aria-disabled="true"]), [role="menuitem"], [role="switch"], [role="checkbox"], select:not([disabled]), label, summary, [data-cursor="hover"], [data-pointer="hover"], .cursor-pointer, [tabindex]:not([tabindex="-1"])'
-          ) ||
-            target.onclick !== null ||
-            target.getAttribute("onclick") !== null ||
-            (target.parentElement && (target.parentElement.onclick !== null || target.parentElement.getAttribute("onclick") !== null)))
-        );
+        const isClickable =
+          !isNotAllowed &&
+          !isTextEditable &&
+          !!(
+            target &&
+            (target.closest(
+              'a, button:not([disabled]), [role="button"]:not([aria-disabled="true"]), [role="link"], [role="tab"]:not([aria-disabled="true"]), [role="menuitem"], [role="switch"], [role="checkbox"], select:not([disabled]), label, summary, [data-cursor="hover"], [data-pointer="hover"], .cursor-pointer, [tabindex]:not([tabindex="-1"])',
+            ) ||
+              target.onclick !== null ||
+              target.getAttribute("onclick") !== null ||
+              (target.parentElement &&
+                (target.parentElement.onclick !== null ||
+                  target.parentElement.getAttribute("onclick") !== null)))
+          );
 
         const currentMode: CursorMode = isNotAllowed
           ? "not-allowed"
           : isTextEditable
-          ? "ibeam"
-          : isClickable
-          ? "hover"
-          : "default";
+            ? "ibeam"
+            : isClickable
+              ? "hover"
+              : "default";
 
         if (cursorModeRef.current !== currentMode) {
           cursorModeRef.current = currentMode;
@@ -200,7 +202,10 @@ export function Pointer({
 
       const handleMouseLeaveWindow = (e: MouseEvent) => {
         // Hide custom cursor if mouse leaves browser window viewport
-        if (!e.relatedTarget && !("toElement" in e && (e as unknown as { toElement: unknown }).toElement)) {
+        if (
+          !e.relatedTarget &&
+          !("toElement" in e && (e as unknown as { toElement: unknown }).toElement)
+        ) {
           isActiveRef.current = false;
           setIsActive(false);
           setIsPressed(false);
@@ -295,8 +300,8 @@ export function Pointer({
     cursorMode === "not-allowed"
       ? { x: 11, y: 11 }
       : cursorMode === "ibeam"
-      ? { x: 6, y: 10 }
-      : hotspot;
+        ? { x: 6, y: 10 }
+        : hotspot;
 
   const isHovered = cursorMode === "hover";
   const isEditable = cursorMode === "ibeam";
@@ -308,10 +313,7 @@ export function Pointer({
       <AnimatePresence>
         {isActive && (
           <motion.div
-            className={cn(
-              "pointer-events-none fixed top-0 left-0 z-[9999] select-none",
-              className
-            )}
+            className={cn("pointer-events-none fixed top-0 left-0 z-[9999] select-none", className)}
             style={{
               x,
               y,
@@ -320,20 +322,12 @@ export function Pointer({
               willChange: "transform",
               ...style,
             }}
-            initial={
-              prefersReducedMotion
-                ? { opacity: 0 }
-                : { opacity: 0, scale: 0.9 }
-            }
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
             animate={{
               opacity: 1,
               scale: prefersReducedMotion ? 1 : isPressed ? 0.92 : 1,
             }}
-            exit={
-              prefersReducedMotion
-                ? { opacity: 0 }
-                : { opacity: 0, scale: 0.9 }
-            }
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
             transition={{
               duration: prefersReducedMotion ? 0 : 0.08,
               ease: "easeOut",
