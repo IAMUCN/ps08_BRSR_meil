@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-11 — org units under several parents, several groups, delete, and chat pane feedback (uncommitted, branch `feature-org-chat-feedback`; migration `0044` on hosted since 2026-10-11); reports for a custom period, and the chatbot's Admin-only lookups and report-page link (committed, merged with `main`; migration `0043` on hosted); hosted cleared and given MEIL's Admin inputs, two sets of test data generated (uncommitted); the ESG data analyst chatbot is committed on branch `feature-chat-analyst` (`67700f8`, not pushed); migration `0042` is on hosted (2026-10-11), the read-only role has no password there yet. Before that: Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
+_Last updated: 2026-10-11 — org units under several parents, several groups, delete, and chat pane feedback (committed `db4f66b`, on `ucn` `main`; migration `0044` on hosted since 2026-10-11); reports for a custom period, and the chatbot's Admin-only lookups and report-page link (committed, merged with `main`; migration `0043` on hosted); hosted cleared and given MEIL's Admin inputs, two sets of test data generated (uncommitted); the ESG data analyst chatbot is committed on branch `feature-chat-analyst` (`67700f8`, not pushed); migration `0042` is on hosted (2026-10-11), the read-only role has no password there yet. Before that: Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
 merged); the second audit's follow-up work (migrations `0038`–`0039`, fuller report with SDG tags, 28 sourced factors on local) is committed locally, not
 pushed; migrations `0038`–`0039` are on hosted (2026-10-09), the factors and demo data are not; Phase 21 (deployment) comes after, hosting to be decided by the owner._
 
@@ -84,7 +84,7 @@ may run in parallel with Phases 3–5.
 | — | Second audit follow-up: remaining activities, air emissions, fuller SEBI report tables, sourced factors on local (migration `0038`) | Done locally, committed, **not pushed, not on hosted** | — |
 | — | Full BRSR format in the report: 146 questions, typed disclosures, all 17 SDGs (migration `0040`); owner's page feedback | Done, **uncommitted**; `0040` on hosted | — |
 | — | ESG data analyst chatbot: read-only tools, NVIDIA NIM, saved conversations (migration `0042`) | Done, on branch `feature-chat-analyst` (not pushed); `0042` on hosted | `67700f8` |
-| — | Org units under several parents, several groups, delete; chat pane feedback (migration `0044`) | Done, **uncommitted**, on branch `feature-org-chat-feedback`; `0044` on hosted | — |
+| — | Org units under several parents, several groups, delete; chat pane feedback (migration `0044`) | Done, on `ucn` `main`; `0044` on hosted | `db4f66b` |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -747,13 +747,12 @@ model. The chat pane has a coloured header bar, a one-line question box and its 
 Checks: web unit 174/174, database 271/271, lint, typecheck, format, production build, 25/25 through the
 real procedures on the local database. Not run: a browser view, the real model, the end-to-end suite.
 Migration `0044` was pushed to hosted on 2026-10-11 and checked there.
-The test data was also regenerated with a mix of single PDFs, images and multi-bill PDFs. Uncommitted.
+The test data was also regenerated with a mix of single PDFs, images and multi-bill PDFs (`9ba9081`).
 
 ## 4. What comes next
 
 **Organization feedback, to finish:** look at
-the Organization page and the chat pane in a browser; commit and open a pull request from
-`feature-org-chat-feedback`.
+the Organization page and the chat pane in a browser; bring `origin` (MACRO72) up to date with `ucn` `main`.
 
 **Chatbot, to finish:** push `feature-chat-analyst` and open its pull request; on hosted (migration `0042` is there since 2026-10-11) the owner sets a password for `chat_reader`, then try its connection through the pooler; set the four variables for the owner's dev server. Review NVIDIA's terms before real MEIL figures go through the free endpoints.
 

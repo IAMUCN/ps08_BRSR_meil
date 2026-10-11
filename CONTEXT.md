@@ -239,8 +239,9 @@ _Last updated: 2026-10-11._
   `test data/_backup/` is ignored. `origin` (MACRO72) does not have these commits.
 - **The `agentation` widget is committed now** (it is in `apps/web/package.json` on `main`; the working tree was
   clean at the start of the 2026-10-11 session and `pnpm format:check` passes).
-- **Owner's page feedback of 2026-10-11 on Organization and the chat pane — uncommitted, on branch
-  `feature-org-chat-feedback` (cut from `main` at `7cc1144`); migration `0044` was pushed to hosted on 2026-10-11
+- **Owner's page feedback of 2026-10-11 on Organization and the chat pane — committed (`db4f66b`) on branch
+  `feature-org-chat-feedback` and pushed to `ucn` `main` on 2026-10-11 at the owner's request (a fast-forward;
+  no pull request, CI not run); `origin` (MACRO72) does not have it; migration `0044` was pushed to hosted on 2026-10-11
   (owner's go-ahead) and checked there: 44 migrations, the new table has RLS and no browser access, both views
   closed to the browser and readable by `chat_reader`, the tree has no repeated pair, the 13 org units, 29
   factors and the accounts untouched**
@@ -257,7 +258,7 @@ _Last updated: 2026-10-11._
   totals at each level, bulk import, second group, delete; everything created was removed again, a test
   user `shared.units.check@traceesg.test` stays). **Not run:** any of it in a browser, a question through
   the real model, the end-to-end suite, the template downloaded and opened in Excel.
-- **The test data was regenerated on 2026-10-11 with mixed formats, uncommitted** (owner's request): in each
+- **The test data was regenerated on 2026-10-11 with mixed formats, committed (`9ba9081`) and on `ucn` `main`** (owner's request): in each
   role's folder a third of the bills are single PDFs, a third are images (JPG and PNG in turn) and the rest
   are pages of one multi-bill PDF; `make_test_data.py` and `test data/README.md` changed. Set 1: 30 PDFs, 21 images, 6 multi-bill PDFs; set 2: 40, 27, 6. Ruff passes; no file was put
   through OCR or uploaded.
@@ -459,7 +460,10 @@ _Last updated: 2026-10-11._
   delete. Never assume one row with `parent_id is null`.
 - **The checkout at `D:\BRSR-MEIL` has no `apps/ocr-worker/.venv`** (seen 2026-10-11): the test-data
   generator needs only `pypdfium2`, `pillow` and `numpy`, which a throw-away venv in the scratchpad gives.
-- **`test data/` is tracked now**, so regenerating it shows up in `git status` as changed and new files.
+- **`test data/` is tracked now**, so regenerating it shows up in `git status` as changed and new files. Delete
+  both set folders before regenerating: files left from an earlier run (or restored by a pull) stay beside the
+  new ones and the same bill then exists twice.
+- **This checkout had no `ucn` remote** until 2026-10-11 (`git remote add ucn https://github.com/IAMUCN/ps08_BRSR_meil.git`).
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands
