@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   consolidate,
   financialYearLabel,
+  rangeLabel,
   financialYearOf,
   financialYearRange,
 } from "../lib/consolidation/aggregate.ts";
@@ -80,5 +81,6 @@ test("the Indian financial year runs April to March", () => {
   assert.equal(financialYearOf("2027-03-01"), 2026);
   assert.equal(financialYearOf("2026-03-31"), 2025);
   assert.equal(financialYearLabel(2026), "FY 2026-27");
+  assert.equal(rangeLabel("2026-08-01", "2026-09-30"), "1 Aug 2026 to 30 Sep 2026");
   assert.deepEqual(financialYearRange(2026), { from: "2026-04-01", to: "2027-03-31" });
 });

@@ -5,7 +5,7 @@ import { loadMetrics } from "@/lib/consolidation/query";
 import { db } from "@/lib/db";
 import type { Period } from "./analysis";
 import { readConfig } from "./nim";
-import type { CalculationRow, DataLayer, OrgUnit } from "./tools";
+import type { AdminData, CalculationRow, DataLayer, OrgUnit, Person, RecordRow } from "./tools";
 
 // Every database read the chat tools make (.grill/chat-analyst-decisions.md, deviation D34). They run as
 // the `chat_reader` role (migration 0042) through CHAT_DATABASE_URL — a role that can select a named list
@@ -212,4 +212,96 @@ export async function allowedUnits(session: ActiveSession): Promise<OrgUnit[]> {
     join public.org_units o on o.id = t.descendant_id
     where uoa.user_id = ${session.userId} and uoa.revoked_at is null and o.deleted_at is null
     order by o.name limit ${MAX_UNITS}`;
+}
+
+/**
+ * What only an Admin's questions read (.grill/chat-admin-access-decisions.md): people, and who submitted
+ * and approved each record. `chat_reader` cannot see these tables and still cannot — these fixed queries
+ * run on the app's own connection, in read-only transactions, and the caller hands this to the tools only
+ * when the session is an Admin's.
+ */
+export function adminData(): AdminData {
+  const read = <T>(query: (tx: postgres.TransactionSql) => Promise<T>) =>
+    db().begin("read only", async (tx) => {
+      await tx`set local statement_timeout = '10s'`;
+      return query(tx);
+    }) as Promise<T>;
+  // A search term is matched as text, never as a pattern.
+  const like = (value: string) => `%${value.replace(/[\\%_]/g, "\\$&")}%`;
+
+  return {
+    people: async ({ search, role, nodeId, limit }) => {
+      const rows = await read(
+        (tx) => tx<(Person & { total: number })[]>`
+          select u.display_name as name, u.email, u.employee_id as "employeeId", u.is_active as active,
+                 coalesce((select json_agg(json_build_object('role', r.name, 'orgUnit', o.name)
+                                           order by o.name, r.name)
+                           from public.user_org_assignments a
+                           join public.roles r on r.id = a.role_id
+                           join public.org_units o on o.id = a.org_unit_id
+                           where a.user_id = u.id and a.revoked_at is null), '[]'::json) as assignments,
+                 count(*) over ()::int as total
+          from public.users u
+          where u.deleted_at is null
+            ${
+              search
+                ? tx`and (u.display_name ilike ${like(search)} or u.email ilike ${like(search)}
+                          or u.employee_id ilike ${like(search)})`
+                : tx``
+            }
+            ${
+              role || nodeId
+                ? tx`and exists (
+                    select 1 from public.user_org_assignments a
+                    join public.roles r on r.id = a.role_id
+                    where a.user_id = u.id and a.revoked_at is null
+                      ${role ? tx`and (lower(r.code) = lower(${role}) or r.name ilike ${like(role)})` : tx``}
+                      ${
+                        nodeId
+                          ? tx`and exists (select 1 from public.org_unit_tree t
+                                           where t.ancestor_id = ${nodeId} and t.descendant_id = a.org_unit_id)`
+                          : tx``
+                      })`
+                : tx``
+            }
+          order by u.display_name limit ${limit}`,
+      );
+      return { total: rows[0]?.total ?? 0, rows };
+    },
+
+    records: async ({ nodeId, periodIds, metricId, limit }) => {
+      const rows = await read(
+        (tx) => tx<(RecordRow & { total: number })[]>`
+          select r.org_unit_id as "orgUnitId", p.label as "periodLabel", m.name as metric,
+                 r.activity_value_verified::float as value, r.activity_unit as unit,
+                 case when r.data_quality_state = 'rejected' then 'rejected'
+                      when r.approval_status = 'returned' or r.validation_status = 'returned' then 'returned'
+                      when r.approval_status = 'approved' then 'approved'
+                      when r.approval_status = 'review_pending' then 'awaiting_approval'
+                      when r.validation_status = 'failed' then 'failed'
+                      when r.validation_status = 'flagged' then 'flagged'
+                      when r.verification_status = 'user_verified' then 'verified'
+                      when r.verification_status = 'ocr_completed' then 'needs_verification'
+                      else 'processing' end as status,
+                 s.display_name as "submittedBy",
+                 (select d.display_name from public.approvals ap
+                  join public.users d on d.id = ap.decided_by
+                  where ap.esg_record_id = r.id and ap.action = 'approved'
+                  order by ap.decided_at desc limit 1) as "approvedBy",
+                 (select doc.file_name from public.esg_record_documents erd
+                  join public.documents doc on doc.id = erd.document_id and doc.deleted_at is null
+                  where erd.esg_record_id = r.id and erd.is_primary limit 1) as "fileName",
+                 count(*) over ()::int as total
+          from public.esg_records r
+          join public.org_unit_tree t on t.descendant_id = r.org_unit_id and t.ancestor_id = ${nodeId}
+          join public.reporting_periods p on p.id = r.reporting_period_id
+          join public.esg_metrics m on m.id = r.metric_id
+          join public.users s on s.id = r.submitted_by
+          where r.reporting_period_id in ${tx(periodIds.length ? periodIds : NONE)}
+            ${metricId ? tx`and r.metric_id = ${metricId}` : tx``}
+          order by p.start_date desc, m.name, r.created_at desc limit ${limit}`,
+      );
+      return { total: rows[0]?.total ?? 0, rows };
+    },
+  };
 }

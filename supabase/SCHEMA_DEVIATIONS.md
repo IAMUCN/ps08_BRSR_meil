@@ -491,6 +491,18 @@ through RLS; here the server has always read through its own connection and chec
 and the consolidation views are closed to the browser role on purpose, so scope stays in server code and the
 role bounds what can be reached at all. Decision: `.grill/chat-analyst-decisions.md`; overview: `CHATBOT.md`.
 
+## D35 — A report run may cover a custom range of reporting periods (migration `0043`)
+
+**Schema:** §13.1 gives `report_runs` one `reporting_period_id`; D17 added `financial_year`.
+
+**Now:** two more columns, `period_from` and `period_to` (dates). A run covers exactly one of: a reporting
+period, a financial year, or a range — every reporting period lying wholly between the two dates. The check
+constraint `report_runs_one_coverage` was replaced to say so (both dates or neither, start not after end).
+
+**Why:** the owner asked for reports over a custom period (2026-10-11). Records belong to reporting periods,
+so a range of periods is the only custom period that reports exactly what was recorded. Decision:
+`.grill/chat-admin-access-decisions.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

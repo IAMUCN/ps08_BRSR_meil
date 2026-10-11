@@ -226,6 +226,19 @@ _Last updated: 2026-10-11._
   required field read, document type chosen; the faint Men figure is misread on purpose), the sheets against
   `importOrder` and `canBeChildOf`, Ruff. **Not run:** set 2 through OCR (same layouts), any upload or import
   through the app. **The owner does the rest:** creates the two periods, imports org units and users, uploads.
+- **Reports for a custom period, and the chatbot for Admins (2026-10-11, owner's request), uncommitted;
+  migration `0043` NOT on hosted** (`.grill/chat-admin-access-decisions.md`, D35, A34): `report_runs` gains
+  `period_from` / `period_to`; Reports → Covering has _Custom period_ (From period, To period); the page
+  reads `org`, `period`, `fy`, `from`, `to` from its address. The chatbot has three Admin-only tools
+  (`list_people`, `list_records`, `open_report_page`) that run on the app's own connection, read-only;
+  `chat_reader` is unchanged and a non-Admin's chatbot is unchanged. Checked: web unit 158/158, database
+  252/252, lint, typecheck, format, production build, and 27/27 through the app's code on the local database.
+  **Not run:** a browser view (form, the panel going to the page), a question through the real model, a
+  custom report rendered to PDF, the end-to-end suite. **With this code and without `0043` on hosted, the
+  Reports page and report generation fail on the owner's dev server** ("column rr.period_from does not
+  exist") — ask for the push.
+- **The test data is committed and on `ucn` `main`** (`47b23c7`, merge `cba4238`, 2026-10-11); only
+  `test data/_backup/` is ignored. `origin` (MACRO72) does not have these commits.
 - **The `agentation` widget is committed now** (it is in `apps/web/package.json` on `main`; the working tree was
   clean at the start of the 2026-10-11 session and `pnpm format:check` passes).
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
@@ -237,7 +250,9 @@ _Last updated: 2026-10-11._
 | Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
 | NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
 | Chatbot branch on MACRO72's repo | The owner pushed `feature-chat-analyst` straight to `ucn` `main` (2026-10-11). `origin` has neither the branch nor a pull request; `gh` is not installed. A pull request must say that the feature role built UI (`UI_NOTES.md`). |
-| Commit the 2026-10-11 work | Template without ids, the two test-data scripts, `.gitignore`, the docs. Not committed: the owner has not asked. |
+| Push migration `0043` to hosted | Needed before the Reports page works with the custom-period code (uncommitted). Additive: two nullable columns and a replaced check constraint. |
+| Commit the custom-period and Admin-chatbot work | Not committed: the owner has not asked. |
+| Chatbot: how far "full access" goes | An Admin can ask about people and who submitted or approved records. Not included: audit trail, document text, written disclosures; and a non-Admin sees no people even inside their own scope. Employee names and emails in an Admin's answer go to the AI service. |
 | Admin answers to complete | BRSR Disclosures holds only what meil.in states. Reporting boundary, contact person, assurance, PPP rate and every answer not on the website are empty. R-22's factor value came from a search summary. |
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
@@ -254,7 +269,7 @@ _Last updated: 2026-10-11._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D35** and **A34**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D36** and **A35**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -411,6 +426,14 @@ _Last updated: 2026-10-11._
   `calculations` and `audit_logs` refuse deletes for every role.
 - **Running the worker's OCR on files without the database:** `OcrEngine(Path("models"))`, `to_page_images`,
   `extract_fields` with `FieldSpec`s (about 10 s a page; output is buffered until the end when redirected).
+- **`pnpm exec` installs missing dependencies first** (it added `jszip`, already in `package.json`, to
+  `node_modules`); harmless, but it takes half a minute and prints an install log.
+- **Month names from `toLocaleDateString` differ between Node versions** ("Sep" / "Sept"); `rangeLabel`
+  writes them out.
+- **Python for one-off edit scripts:** there is no `python` on the path; use
+  `apps/ocr-worker/.venv/Scripts/python.exe`.
+- **The hosted worker container was found exited with code 137** (out of memory) on 2026-10-11 and was
+  started again after the local checks.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

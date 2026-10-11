@@ -13,7 +13,8 @@ everyone else's pages alike. Every role that existed when migration `0042` ran h
 for a role, or ticks it for a new role, on Admin → Roles & Permissions (the Admin role always holds every
 permission). Without it the buttons are not shown and the server refuses every chat procedure. What a person
 can ask about is still their org scope: every org unit for an Admin, their assignments and everything
-beneath for anyone else.
+beneath for anyone else. **An Admin also gets three lookups nobody else has** — people, individual records
+with who submitted and approved them, and opening the Reports page (see "Admin only" below).
 
 ## The one rule
 
@@ -106,8 +107,10 @@ host. A question can take up to 60 seconds; the host's function time limit must 
 
 Each question sends to the AI service: the question, up to 10 earlier messages of the same conversation, and
 the results of the lookups — org unit names, period labels, metric names, summed figures, calculation factors
-and their sources. It never receives user names or emails, document text, OCR output, invoice numbers, file
-names, audit entries or written BRSR disclosures: the database role cannot read them. NVIDIA's hosted
+and their sources. **For an Admin's question it can also receive people's names, email addresses, employee
+ids, roles and org units, and the file name of a record's document** (the Admin-only lookups). For everyone
+else it never receives those. It never receives document text, OCR output, invoice numbers, audit entries or
+written BRSR disclosures, whoever asks. NVIDIA's hosted
 endpoints are a trial service with rate limits; read their terms on submitted prompts before relying on it.
 
 ## The approved tools
@@ -125,6 +128,20 @@ argument, a wrong type or a tool not on the list is refused and the refusal is h
 | `rank_org_units` | `parent?`, `type?`, `period`, `metric?`, `scope?`, `measure?`, `limit?` | Org units beneath one, highest first (up to 20 of 500). |
 | `get_completeness` | `org_unit?`, `period` | Expected and missing submissions; records by status (up to 24 periods). |
 | `explain_calculation` | `org_unit?`, `period`, `metric` | Input, factor with version and source, formula, result (up to 5 records). |
+
+**Admin only** (`.grill/chat-admin-access-decisions.md`). Offered to the model, and run, only when the
+session is an Admin's; for anyone else a request for one is answered like a tool that does not exist.
+
+| Tool | Arguments | Gives |
+|---|---|---|
+| `list_people` | `search?`, `role?`, `org_unit?` | Name, email, employee id, roles, org units, active or not (up to 50). |
+| `list_records` | `org_unit?`, `period`, `metric?` | Each record: value, status, submitted by, approved by, file name (up to 50). |
+| `open_report_page` | `org_unit?`, `period` | A link to Reports with the org unit and period selected; the panel goes there. |
+
+These run as fixed queries on the app's own connection in read-only transactions (`adminData` in
+`lib/chat/data.ts`), not as `chat_reader`, which still cannot read users. `open_report_page` generates
+nothing: a financial year opens as a financial year, one reporting period as one period, anything else as a
+custom range, and the person presses Generate.
 
 - `org_unit` is a name or code. It is looked up **only among the org units the person may see**, so one
   outside their scope reads exactly like one that does not exist. Left out, it means the person's own unit;
@@ -158,8 +175,9 @@ to the model, 900 output tokens, 2,000 characters of question.
 
 ## What it will not do
 
-Write anything, approve or reject, upload, generate the official BRSR report (it points to Admin → Reports),
-run SQL or code, or answer about people, documents and written disclosures.
+Write anything, approve or reject, upload, generate the official BRSR report (for an Admin it opens the
+Reports page with the period selected; the person generates), run SQL or code, or answer about document
+text and written disclosures. It answers about people for an Admin only.
 
 ## Read-only and authorization, layer by layer
 
@@ -175,7 +193,10 @@ run SQL or code, or answer about people, documents and written disclosures.
    who submitted, verified or created something.
 6. **Output:** the model's text is printed as text; tables and charts come from a validated schema.
 7. **Saved conversations** are private to their owner; Admins cannot read them. An answer about an org unit
-   the reader can no longer see is withheld, and is not sent to the model as context either.
+   the reader can no longer see, or one made with an Admin-only lookup by someone who is no longer an Admin,
+   is withheld, and is not sent to the model as context either.
+8. **Admin-only lookups** exist only when the server handed the tools an Admin's data access (`ctx.admin`),
+   which it does from the session, never from the browser or the model.
 
 This differs from "read through RLS" in the brief: the application's server has always read through its own
 connection and checked scope in code (deviation D1), and the consolidation views are closed to the browser

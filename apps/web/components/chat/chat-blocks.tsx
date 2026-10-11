@@ -1,3 +1,5 @@
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { cn } from "cn";
 import { formatNumber, type Block } from "@/lib/chat/blocks";
 
@@ -17,6 +19,16 @@ export function ChatBlocks({ blocks }: { blocks: Block[] }) {
 
 function ChatBlock({ block }: { block: Block }) {
   switch (block.type) {
+    case "link":
+      return (
+        <Link
+          href={block.href}
+          className="flex items-center justify-between gap-2 rounded-md border bg-card px-3 py-2 text-sm leading-5 font-medium text-primary-text underline-offset-4 hover:underline"
+        >
+          {block.label}
+          <ArrowRight className="size-4 shrink-0" aria-hidden />
+        </Link>
+      );
     case "stats":
       return (
         <dl className="grid grid-cols-2 gap-2">

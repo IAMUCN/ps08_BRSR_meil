@@ -32,3 +32,15 @@ full-screen cover below that. Open or closed is kept in `localStorage` (`tracees
 - **If the width changes,** change `PANE_WIDTH` and the class `lg:w-[420px]` together.
 - **Known rough edges:** a record drawer docked at 1900px opens over the pane (both sit at the right); toasts
   appear over the pane's bottom corner; viewed at 1366px and 390px in the Corporate theme only.
+
+## 2026-10-11 — Custom period on Reports; a link block in the chat panel
+
+Built by the feature session at the owner's request (A34).
+
+- `app/admin/reports/report-form.tsx`: a third radio, _Custom period_, with two `NativeSelect`s; the form
+  takes a `preset` prop and the page passes one from the address (`key` on the form re-creates it when the
+  address changes).
+- `components/chat/chat-blocks.tsx`: a new block type `link`, drawn as a bordered row with an arrow.
+  `chat-launcher.tsx` calls `router.push` when an answer carries one.
+- **Not viewed in a browser.** Check the form's wrapping with five controls in a row, and the link row in the
+  Special and Dark themes.

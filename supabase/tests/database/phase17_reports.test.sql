@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(12);
 
 -- Its own user, so the test also passes on a fresh database (CI), where nobody has been provisioned yet.
 insert into auth.users (id, email) values ('00000017-0000-4000-8000-0000000000aa', 'phase17@fixture.test');
@@ -22,6 +22,25 @@ select throws_ok(
            (select id from public.reporting_periods limit 1), 2026, 'brsr'$$,
   '23514', null,
   'but never both');
+
+-- D35 (migration 0043): or a custom range of reporting periods, given by both of its dates.
+select lives_ok(
+  $$insert into public.report_runs (requested_by, org_unit_id, period_from, period_to, report_type)
+    select (select id from public.users limit 1), (select id from public.org_units limit 1),
+           '2026-07-01', '2026-09-30', 'brsr'$$,
+  'a report may cover a custom range');
+select throws_ok(
+  $$insert into public.report_runs (requested_by, org_unit_id, period_from, report_type)
+    select (select id from public.users limit 1), (select id from public.org_units limit 1),
+           '2026-07-01', 'brsr'$$,
+  '23514', null,
+  'a range needs both dates');
+select throws_ok(
+  $$insert into public.report_runs (requested_by, org_unit_id, period_from, period_to, financial_year, report_type)
+    select (select id from public.users limit 1), (select id from public.org_units limit 1),
+           '2026-09-30', '2026-07-01', null, 'brsr'$$,
+  '23514', null,
+  'that do not end before they start');
 
 select is((select public from storage.buckets where id = 'reports'), false,
   'the reports bucket is private');

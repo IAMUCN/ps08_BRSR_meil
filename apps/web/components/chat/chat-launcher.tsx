@@ -9,6 +9,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -57,6 +58,7 @@ export function ChatLauncher() {
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [messages, setMessages] = useState<ChatMessageView[]>([]);
+  const router = useRouter();
   const [draft, setDraft] = useState("");
   /** The question being answered, shown until its answer arrives. */
   const [pending, setPending] = useState<string | null>(null);
@@ -154,6 +156,9 @@ export function ChatLauncher() {
     setConversationId(result.data.conversation.id);
     setMessages((current) => [...current, ...result.data.messages]);
     setConversations(null);
+    // "Show me the report for…": the answer carries the Reports page with that selection; go there.
+    const link = result.data.messages.flatMap((m) => m.blocks).find((b) => b.type === "link");
+    if (link) router.push(link.href);
   };
 
   const submit = (event: FormEvent) => {

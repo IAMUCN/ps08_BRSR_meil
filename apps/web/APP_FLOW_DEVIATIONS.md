@@ -581,3 +581,21 @@ children of one chosen unit only.
   carries the instructions and example, and a reference sheet lists levels and existing org units as the
   hierarchy stands at download, each unit indented under its parent.
 - **Preview** on screen shows the level's name and the parent each row will sit under.
+
+## A34 — Reports for a custom period; the chatbot opens the Reports page and, for an Admin, answers about people
+
+**App Flow §2.2 / §4.10:** a report is generated for a period and an org scope. **A32:** the chatbot knows
+nothing about people and only points to Admin → Reports.
+
+**Now (owner's request, 2026-10-11; `.grill/chat-admin-access-decisions.md`):**
+
+- **Reports → Covering** has a third choice, _Custom period_, with a From period and a To period. The report
+  covers every reporting period between them and is named by its dates. It is built like a single-period
+  report: no previous-year column, no turnover or intensity.
+- **The Reports page reads a selection from its address** (`org`, and `period`, `fy` or `from` + `to`); a
+  value that is not on the form's lists is ignored.
+- **The chatbot, for an Admin,** has three more lookups: people (name, email, employee id, roles, org units),
+  individual records with who submitted and approved them, and "open the Reports page" — the answer carries
+  a link and the panel goes there at once with the org unit and period selected. Nothing is generated until
+  the person presses the button.
+- **For everyone else** those three do not exist; their chatbot is unchanged.
