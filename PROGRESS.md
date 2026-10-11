@@ -41,7 +41,7 @@ Big rules that shape everything:
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
 | `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D34) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A32) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A33) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `ASSURANCE.md` | How the system supports assurance on BRSR Core KPIs: controls, KPI-by-KPI status, an assurer's walkthrough |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
@@ -703,6 +703,14 @@ Not run: end-to-end, a browser view. The three-plant demonstration data is the o
   app with the real model and the local database, 28/28; the browser bundle searched for the key. **Not
   run:** the end-to-end suite; the rate limit and the 90-day removal; the Special and Dark themes and the
   docked panel; anything on the hosted project.
+
+**Bulk-import templates; a whole branch of org units from one sheet (2026-10-11).** Decisions:
+`.grill/bulk-import-decisions.md` (last section), A33. The org-unit sheet gained a Parent code column, so one
+sheet creates several levels; the server creates parents first and refuses a row whose parent or code is
+ambiguous. Both templates now keep the sheet to fill in free of example rows and list levels and existing
+org units as the hierarchy stands at download. Checks: web unit 127/127, lint, typecheck, format; templates
+generated and read back and a 12-row sheet imported through the real procedure on local, 31/31. Not run: the
+production build, the screens in a browser. Committed on `feature-chat-analyst`, not pushed.
 
 ## 4. What comes next
 

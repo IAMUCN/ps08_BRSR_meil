@@ -155,6 +155,32 @@ _Last updated: 2026-10-11._
   The owner's dev server has the NVIDIA key but no `CHAT_DATABASE_URL`, so the chatbot is off there and the
   top bar is unchanged. A local user `chat.pm@traceesg.test` (Project Manager, Project X) was created for
   the browser check; its password was not kept.
+- **Chat pane docked "like Copilot in Edge" (2026-10-11, owner's request), committed 2026-10-11, not pushed on
+  `feature-chat-analyst`:** `chat-launcher.tsx` (an `<aside>` instead of the Sheet, body padding, open state
+  in `localStorage`), and the page's name sent to the model from a fixed server list (`routers/chat.ts`,
+  `orchestrate.ts`, `actions.ts`). Checked: format, lint, typecheck, web unit 124/124, production build, a
+  real-browser pass in Edge 19/19 on the built app (docking, page still usable, stays open across pages and a
+  reload, Escape, phone width, and the `chat.use` gate: without the permission no button is shown). One
+  line of the system prompt was reworded after that pass; unit tests and static checks were re-run, the build
+  and browser pass were not. A second local user, `chat.pm2@traceesg.test`, exists for that check.
+- **Bulk-import templates and a whole branch of org units from one sheet (2026-10-11, owner's request, A33),
+  committed 2026-10-11, not pushed on `feature-chat-analyst`:** `lib/bulk-import/xlsx.ts` (both templates rewritten),
+  `lib/org/rules.ts` (`treeOrder`, `importOrder`), `organization.bulkImport` (a `parentCode` per row,
+  parents first, repeated codes refused), `users.bulkImportOptions` (scope list in tree order with level and
+  parent), the two bulk-import components and their two pages. No migration, no new dependency (`exceljs`
+  IS used now — by the templates). Checked: format, lint, typecheck, web unit 127/127 (3 new); both templates
+  generated as real files and read back, and a 12-row sheet imported through the real procedure on the local
+  database, 34/34; the Parent code cell is a pick-list of every existing unit (CODE — Name, or Name — id:… for a
+  unit with no code) that still accepts a typed code. On hosted only MEIL has a code (DrillMac, Drilling and
+  Olectra were created without one), which is how the missing-parents bug was found. The employee template had the same fault (scope list showed MEIL only): its
+  Organization Scope list now holds every in-scope unit, and `users.bulkImport` resolves `id:…` references; checked
+  with a real two-account import on the local stack, 7/7 (accounts and unit removed again) (created units removed again). **Not run:** the production build; the screens in a browser
+  (the download button, the preview table, the results table); nothing on hosted. This work is unrelated to
+  the chatbot and sits on its branch only because that was the branch checked out.
+- **Organization tree guide lines (2026-10-11, owner’s page feedback), committed 2026-10-11, not pushed:** `org-manager.tsx` draws a
+  vertical line from each parent with a tick to each child (CSS only, `BRANCH`). Lint and typecheck pass; **not
+  viewed in a browser** by the agent (no local Admin password). The lines use `--border`, which is pale in the
+  Special theme.
 - **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
   org unit, one open period `AUG26`, three users at the group. Needs, in order: a second Admin invited
   by the owner for the agent (see §2); then the factor script and an org tree.
@@ -184,7 +210,7 @@ _Last updated: 2026-10-11._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D35** and **A33**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D35** and **A34**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -259,7 +285,8 @@ _Last updated: 2026-10-11._
 - **`@sentry/nextjs` 11 collects cookies, headers, bodies, user details and local variables by default**
   (`dataCollection`; the old `sendDefaultPii` option is gone). `instrumentation.ts` switches each off — keep it that
   way when touching the Sentry setup.
-- **`exceljs` is installed but unused** (only `xlsx` is imported); remove it when convenient.
+- **`exceljs` writes the bulk-import templates** (dropdowns, styling); `xlsx` reads the filled sheets. Both are
+  needed.
 - **Line endings:** git warns "LF will be replaced by CRLF" on this Windows checkout; harmless.
 - **A local env file written by Python on Windows gets CRLF line endings**; exported into a shell, every value ends in a
   carriage return (the browser path then "is not found"). Strip the trailing carriage returns with `sed`. Load it with a `read` loop,
@@ -326,6 +353,14 @@ _Last updated: 2026-10-11._
   statement inside a helper that switches role and returns the error code (`chat_analyst.test.sql`).
 - **The schema smoke test lists every public table:** a migration that adds one must add it to
   `phase2_smoke.test.sql`.
+- **Running a tRPC procedure without the app:** with the scratchpad loader hook (`@/` → `apps/web`,
+  `server-only` → nothing, `next/x` → `next/x.js`) and placeholder `NEXT_PUBLIC_SUPABASE_*` values,
+  `createCallerFactory(router)({ session: { status: "active", session } })` runs a real procedure against the
+  local database from plain Node. That is how the bulk import was checked.
+- **Two side panels on one page stack and jam.** A docked panel is non-modal and does not close on a click
+  elsewhere, so opening a second one leaves the first open underneath and its button does nothing. A page with
+  more than one `Sheet` must close the others when it opens one (`show()` in `users-manager.tsx`; also fixed in
+  `periods-manager.tsx`, 2026-10-11). Users’ bulk import is a side panel now, not a fold-out.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands
