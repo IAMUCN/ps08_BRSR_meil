@@ -227,16 +227,14 @@ _Last updated: 2026-10-11._
   `importOrder` and `canBeChildOf`, Ruff. **Not run:** set 2 through OCR (same layouts), any upload or import
   through the app. **The owner does the rest:** creates the two periods, imports org units and users, uploads.
 - **Reports for a custom period, and the chatbot for Admins (2026-10-11, owner's request), committed 2026-10-11 and merged with `main` (`7dcb16e`: landing and sign-in redesign, emissions forecast and its chatbot tool `explain_forecast` — 9 tools, 12 for an Admin; web unit 169/169, lint, typecheck, format after the merge; build and database tests not re-run), not pushed;
-  migration `0043` NOT on hosted** (`.grill/chat-admin-access-decisions.md`, D35, A34): `report_runs` gains
+  migration `0043` pushed to hosted 2026-10-11 (owner's go-ahead; 43 migrations, both columns nullable, the constraint replaced, no report runs there)** (`.grill/chat-admin-access-decisions.md`, D35, A34): `report_runs` gains
   `period_from` / `period_to`; Reports → Covering has _Custom period_ (From period, To period); the page
   reads `org`, `period`, `fy`, `from`, `to` from its address. The chatbot has three Admin-only tools
   (`list_people`, `list_records`, `open_report_page`) that run on the app's own connection, read-only;
   `chat_reader` is unchanged and a non-Admin's chatbot is unchanged. Checked: web unit 158/158, database
   252/252, lint, typecheck, format, production build, and 27/27 through the app's code on the local database.
   **Not run:** a browser view (form, the panel going to the page), a question through the real model, a
-  custom report rendered to PDF, the end-to-end suite. **With this code and without `0043` on hosted, the
-  Reports page and report generation fail on the owner's dev server** ("column rr.period_from does not
-  exist") — ask for the push.
+  custom report rendered to PDF, the end-to-end suite.
 - **The test data is committed and on `ucn` `main`** (`47b23c7`, merge `cba4238`, 2026-10-11); only
   `test data/_backup/` is ignored. `origin` (MACRO72) does not have these commits.
 - **The `agentation` widget is committed now** (it is in `apps/web/package.json` on `main`; the working tree was
@@ -250,7 +248,6 @@ _Last updated: 2026-10-11._
 | Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
 | NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
 | Chatbot branch on MACRO72's repo | The owner pushed `feature-chat-analyst` straight to `ucn` `main` (2026-10-11). `origin` has neither the branch nor a pull request; `gh` is not installed. A pull request must say that the feature role built UI (`UI_NOTES.md`). |
-| Push migration `0043` to hosted | Needed before the Reports page works with the custom-period code (uncommitted). Additive: two nullable columns and a replaced check constraint. |
 | Chatbot: how far "full access" goes | An Admin can ask about people and who submitted or approved records. Not included: audit trail, document text, written disclosures; and a non-Admin sees no people even inside their own scope. Employee names and emails in an Admin's answer go to the AI service. |
 | Admin answers to complete | BRSR Disclosures holds only what meil.in states. Reporting boundary, contact person, assurance, PPP rate and every answer not on the website are empty. R-22's factor value came from a search summary. |
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
