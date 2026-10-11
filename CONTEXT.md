@@ -205,7 +205,7 @@ _Last updated: 2026-10-11._
   viewed in a browser** by the agent (no local Admin password). The lines use `--border`, which is pale in the
   Special theme.
 - **`feature-chat-analyst` was pushed to `ucn` (`IAMUCN/ps08_BRSR_meil`) `main` by the owner on 2026-10-11**
-  (`dba8fa1`); `origin` (MACRO72) does not have it. Everything below this line is **uncommitted**.
+  (`dba8fa1`); `origin` (MACRO72) does not have it. Everything below this line was committed later on 2026-10-11 (not pushed) unless it says otherwise.
 - **No ids in the bulk-import templates (2026-10-11, owner's request), uncommitted:** an org unit with no code is
   listed by its name and matched by name on the server (`unitByRef`, `lib/org/rules.ts`; `users.ts`,
   `organization.ts`, `xlsx.ts`); a name several units share is refused. Checked: format, lint, typecheck, web
@@ -226,7 +226,7 @@ _Last updated: 2026-10-11._
   required field read, document type chosen; the faint Men figure is misread on purpose), the sheets against
   `importOrder` and `canBeChildOf`, Ruff. **Not run:** set 2 through OCR (same layouts), any upload or import
   through the app. **The owner does the rest:** creates the two periods, imports org units and users, uploads.
-- **Reports for a custom period, and the chatbot for Admins (2026-10-11, owner's request), uncommitted;
+- **Reports for a custom period, and the chatbot for Admins (2026-10-11, owner's request), committed 2026-10-11 and merged with `main` (`7dcb16e`: landing and sign-in redesign, emissions forecast and its chatbot tool `explain_forecast` — 9 tools, 12 for an Admin; web unit 169/169, lint, typecheck, format after the merge; build and database tests not re-run), not pushed;
   migration `0043` NOT on hosted** (`.grill/chat-admin-access-decisions.md`, D35, A34): `report_runs` gains
   `period_from` / `period_to`; Reports → Covering has _Custom period_ (From period, To period); the page
   reads `org`, `period`, `fy`, `from`, `to` from its address. The chatbot has three Admin-only tools
@@ -251,7 +251,6 @@ _Last updated: 2026-10-11._
 | NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
 | Chatbot branch on MACRO72's repo | The owner pushed `feature-chat-analyst` straight to `ucn` `main` (2026-10-11). `origin` has neither the branch nor a pull request; `gh` is not installed. A pull request must say that the feature role built UI (`UI_NOTES.md`). |
 | Push migration `0043` to hosted | Needed before the Reports page works with the custom-period code (uncommitted). Additive: two nullable columns and a replaced check constraint. |
-| Commit the custom-period and Admin-chatbot work | Not committed: the owner has not asked. |
 | Chatbot: how far "full access" goes | An Admin can ask about people and who submitted or approved records. Not included: audit trail, document text, written disclosures; and a non-Admin sees no people even inside their own scope. Employee names and emails in an Admin's answer go to the AI service. |
 | Admin answers to complete | BRSR Disclosures holds only what meil.in states. Reporting boundary, contact person, assurance, PPP rate and every answer not on the website are empty. R-22's factor value came from a search summary. |
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |

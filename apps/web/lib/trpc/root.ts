@@ -20,6 +20,7 @@ import { validationRouter } from "@/lib/trpc/routers/validation";
 import { verificationRouter } from "@/lib/trpc/routers/verification";
 import { rolesRouter } from "@/lib/trpc/routers/roles";
 import { scopeRouter } from "@/lib/trpc/routers/scope";
+import { forecastRouter } from "@/lib/trpc/routers/forecast";
 import { simulatorRouter } from "@/lib/trpc/routers/simulator";
 import { deadlinesRouter } from "@/lib/trpc/routers/deadlines";
 import { usersRouter } from "@/lib/trpc/routers/users";
@@ -44,6 +45,7 @@ export const appRouter = router({
   approvals: approvalsRouter,
   factors: factorsRouter,
   scope: scopeRouter,
+  forecast: forecastRouter,
   simulator: simulatorRouter,
   deadlines: deadlinesRouter,
   brsr: brsrRouter,

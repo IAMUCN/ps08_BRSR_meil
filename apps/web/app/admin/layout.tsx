@@ -27,6 +27,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/scope-1", label: "Scope 1", icon: "scope1" },
   { href: "/admin/scope-2", label: "Scope 2", icon: "scope2" },
   { href: "/admin/scope-3", label: "Scope 3", icon: "scope3" },
+  { href: "/admin/forecast", label: "Emissions Forecast", icon: "forecast" },
   { href: "/admin/simulator", label: "Reduction Simulator", icon: "simulator" },
 ];
 

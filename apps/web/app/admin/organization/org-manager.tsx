@@ -68,6 +68,8 @@ export function OrgManager({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // Which add form the side panel shows; closed until one of the two buttons is pressed.
   const [adding, setAdding] = useState<"one" | "many" | null>(null);
+  // Which Expected-submissions sections are open: collapsed on load, kept while another unit is picked.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
   function select(id: string) {
     router.replace(`${pathname}?node=${id}`, { scroll: false });
@@ -141,82 +143,104 @@ export function OrgManager({
   }
 
   return (
-    // Tree | the selected unit. The add forms open in a side panel; while it is docked (1900px and up) the
-    // page makes room for it instead of sitting underneath.
-    <div
-      className={cn(
-        "grid items-start gap-6 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]",
-        adding && "min-[1900px]:pr-[clamp(20rem,calc(100vw-98.5rem),40rem)]",
-      )}
-    >
-      {selected ? (
-        <div className="flex flex-wrap justify-end gap-2 lg:col-span-2">
-          <Button type="button" variant="outline" onClick={() => setAdding("one")}>
-            <Plus aria-hidden />
-            Add a unit
-          </Button>
-          <Button type="button" variant="outline" onClick={() => setAdding("many")}>
-            <FileSpreadsheet aria-hidden />
-            Add from a spreadsheet
-          </Button>
-        </div>
-      ) : null}
-      <section
-        aria-label="Organization tree"
-        // Stays in view while the panels beside it scroll.
-        className="rounded-md border bg-card p-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
-      >
-        <h2 className="px-2 pt-1 pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Organization tree
-        </h2>
-        {root ? <ul>{renderNode(root, 0)}</ul> : null}
-      </section>
-      {selected ? (
-        <NodeDetail
-          key={selected.id}
-          node={selected}
-          nodes={nodes}
-          levels={levels}
-          onChanged={() => router.refresh()}
-        />
-      ) : (
-        <p className="text-sm text-muted-foreground">No organization root exists yet.</p>
-      )}
-      {selected ? (
-        <Sheet open={adding !== null} onOpenChange={(open) => (open ? null : setAdding(null))}>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>
-                {adding === "many"
-                  ? "Add several units from a spreadsheet"
-                  : `Add a unit under ${selected.name}`}
-              </SheetTitle>
-              <SheetDescription>
-                {adding === "many"
-                  ? "Download the template, list the new units, and upload it."
-                  : `Creates a new company, business unit, project or other level directly beneath ${selected.name}. To add under a different unit, select it in the tree first.`}
-              </SheetDescription>
-            </SheetHeader>
-            <div className="overflow-y-auto px-4 pb-6">
-              {adding ? (
-                <AddChildren
-                  key={selected.id}
-                  mode={adding}
-                  node={selected}
-                  nodes={nodes}
-                  levels={levels}
-                  onChanged={() => router.refresh()}
-                  onSelect={(id) => {
-                    setAdding(null);
-                    select(id);
-                  }}
-                />
-              ) : null}
+    <>
+      <div className="mb-6">
+        <h1 className="text-[32px] leading-10 font-semibold">Organization</h1>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-4">
+          <p className="max-w-2xl text-sm leading-5 text-muted-foreground">
+            The central repository for your companies, subsidiaries, and project sites. Select any
+            unit to view details, configure required ESG submissions, and manage reporting
+            permissions, or add new units individually or from a spreadsheet.
+          </p>
+          {selected ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" onClick={() => setAdding("one")}>
+                <Plus aria-hidden />
+                Add a unit
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setAdding("many")}>
+                <FileSpreadsheet aria-hidden />
+                Add from a spreadsheet
+              </Button>
             </div>
-          </SheetContent>
-        </Sheet>
-      ) : null}
-    </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Tree | the selected unit. The add forms open in a side panel; while it is docked (1900px and up) the
+          page makes room for it instead of sitting underneath. */}
+      <div
+        className={cn(
+          "grid items-start gap-6 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]",
+          adding && "min-[1900px]:pr-[clamp(20rem,calc(100vw-98.5rem),40rem)]",
+        )}
+      >
+        <section
+          aria-label="Organization hierarchy"
+          // Stays in view while the panels beside it scroll.
+          className="rounded-md border bg-card p-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
+        >
+          <h2 className="px-2 pt-1 pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Organization hierarchy
+          </h2>
+          {root ? <ul>{renderNode(root, 0)}</ul> : null}
+        </section>
+        {selected ? (
+          <NodeDetail
+            key={selected.id}
+            node={selected}
+            nodes={nodes}
+            levels={levels}
+            openGroups={openGroups}
+            onToggleGroup={(group, open) =>
+              setOpenGroups((prev) => {
+                const next = new Set(prev);
+                if (open) next.add(group);
+                else next.delete(group);
+                return next;
+              })
+            }
+            onChanged={() => router.refresh()}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">No organization root exists yet.</p>
+        )}
+        {selected ? (
+          <Sheet open={adding !== null} onOpenChange={(open) => (open ? null : setAdding(null))}>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>
+                  {adding === "many"
+                    ? "Add several units from a spreadsheet"
+                    : `Add a unit under ${selected.name}`}
+                </SheetTitle>
+                <SheetDescription>
+                  {adding === "many"
+                    ? "Download the template, list the new units, and upload it."
+                    : `Creates a new company, business unit, project or other level directly beneath ${selected.name}. To add under a different unit, select it in the tree first.`}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="overflow-y-auto px-4 pb-6">
+                {adding ? (
+                  <AddChildren
+                    key={selected.id}
+                    mode={adding}
+                    node={selected}
+                    nodes={nodes}
+                    levels={levels}
+                    onChanged={() => router.refresh()}
+                    onSelect={(id) => {
+                      setAdding(null);
+                      select(id);
+                    }}
+                  />
+                ) : null}
+              </div>
+            </SheetContent>
+          </Sheet>
+        ) : null}
+      </div>
+    </>
   );
 }
 
@@ -258,7 +282,7 @@ function AddChildren({
         toast.error(result.error);
         return;
       }
-      toast.success("Node added");
+      toast.success("Unit added");
       setChildName("");
       setChildCode("");
       onSelect(result.data.id);
@@ -337,11 +361,15 @@ function NodeDetail({
   node,
   nodes,
   levels,
+  openGroups,
+  onToggleGroup,
   onChanged,
 }: {
   node: OrgUnitRow;
   nodes: OrgUnitRow[];
   levels: OrgLevel[];
+  openGroups: Set<string>;
+  onToggleGroup: (group: string, open: boolean) => void;
   onChanged: () => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -352,6 +380,7 @@ function NodeDetail({
   const [name, setName] = useState(node.name);
   const [code, setCode] = useState(node.code ?? "");
   const [newParentId, setNewParentId] = useState("");
+  const newParentName = nodes.find((n) => n.id === newParentId)?.name ?? "the new parent";
   const [moveOpen, setMoveOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [impact, setImpact] = useState<Impact | null>(null);
@@ -417,7 +446,8 @@ function NodeDetail({
                 </>
               ) : null}
               {" · "}
-              {node.activeAssignments} active assignment{node.activeAssignments === 1 ? "" : "s"}
+              {node.activeAssignments} {node.activeAssignments === 1 ? "person" : "people"} assigned
+              here
             </p>
           </div>
           {node.status === "inactive" ? (
@@ -451,24 +481,31 @@ function NodeDetail({
           </Button>
         </form>
 
-        <ExpectationsCard orgUnitId={node.id} nodeName={node.name} />
+        <ExpectationsCard
+          orgUnitId={node.id}
+          nodeName={node.name}
+          openGroups={openGroups}
+          onToggleGroup={onToggleGroup}
+        />
       </div>
 
       {node.parentId ? (
         <div className="rounded-md border bg-card p-6">
-          <h3 className="text-base leading-6 font-semibold">Move under a different parent</h3>
+          <h3 className="text-base leading-6 font-semibold">Move to a different parent</h3>
           <p className="mt-1 text-sm leading-5 text-muted-foreground">
-            Moving changes which users can see this node and everything below it.
+            Choose the company or unit {node.name} should belong to, for example MEIL as the parent
+            of a subsidiary. Everything under {node.name} moves with it, and what people can see
+            changes with it.
           </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
             <div className="space-y-2">
-              <Label htmlFor="new-parent">New parent</Label>
+              <Label htmlFor="new-parent">Move to (new parent)</Label>
               <NativeSelect
                 id="new-parent"
                 value={newParentId}
                 onChange={(e) => setNewParentId(e.target.value)}
               >
-                <option value="">Select a parent…</option>
+                <option value="">Select the new parent…</option>
                 {moveTargets.map((target) => (
                   <option key={target.id} value={target.id}>
                     {target.name} ({levelLabel(levels, target.unitType)})
@@ -491,12 +528,12 @@ function NodeDetail({
       {node.parentId ? (
         <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">
-            {deactivating ? "Deactivate" : "Reactivate"}
+            {deactivating ? "Deactivate this unit" : "Reactivate this unit"}
           </h3>
           <p className="mt-1 text-sm leading-5 text-muted-foreground">
             {deactivating
-              ? "Freezes this node and everything below it: no new uploads, assignments or child nodes. History stays readable."
-              : "Allows new activity again (unless a parent is still inactive)."}
+              ? "Stops all new activity in this unit and everything under it: no new uploads, no new people assigned and no new units added. Past data stays visible and nothing is deleted. You can reactivate it later."
+              : "Lets this unit take new uploads, people and units again (unless a unit above it is still inactive)."}
           </p>
           <Button
             type="button"
@@ -505,7 +542,7 @@ function NodeDetail({
             disabled={pending}
             onClick={openStatusDialog}
           >
-            {deactivating ? "Deactivate node" : "Reactivate node"}
+            {deactivating ? "Deactivate this unit" : "Reactivate this unit"}
           </Button>
         </div>
       ) : null}
@@ -513,13 +550,13 @@ function NodeDetail({
       <ConfirmDialog
         open={moveOpen}
         onOpenChange={setMoveOpen}
-        title={`Move ${node.name}?`}
-        confirmLabel="Move node"
+        title={`Move ${node.name} to ${newParentName}?`}
+        confirmLabel="Move"
         pending={pending}
         onConfirm={() =>
           run(
             () => moveOrgUnitAction({ id: node.id, newParentId }),
-            "Node moved",
+            "Moved",
             () => {
               setMoveOpen(false);
               setNewParentId("");
@@ -527,11 +564,30 @@ function NodeDetail({
           )
         }
       >
-        <p>
-          {node.name} and all of its descendants will move under{" "}
-          <strong>{nodes.find((n) => n.id === newParentId)?.name}</strong>. Users assigned above the
-          old location lose visibility; users assigned above the new location gain it.
-        </p>
+        <div className="space-y-3">
+          <p>
+            <strong>{node.name}</strong>, together with everything under it, will move
+            {parent ? (
+              <>
+                {" "}
+                from <strong>{parent.name}</strong>
+              </>
+            ) : null}{" "}
+            to <strong>{newParentName}</strong>.
+          </p>
+          <ul className="list-disc space-y-1 pl-5">
+            {parent ? (
+              <li>
+                People assigned to {parent.name} will no longer see {node.name} or anything under
+                it.
+              </li>
+            ) : null}
+            <li>
+              People assigned to {newParentName} will be able to see {node.name} and everything
+              under it.
+            </li>
+          </ul>
+        </div>
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -545,7 +601,7 @@ function NodeDetail({
           run(
             () =>
               setOrgUnitStatusAction({ id: node.id, status: deactivating ? "inactive" : "active" }),
-            deactivating ? "Node deactivated" : "Node reactivated",
+            deactivating ? "Unit deactivated" : "Unit reactivated",
             () => setStatusOpen(false),
           )
         }
@@ -554,9 +610,9 @@ function NodeDetail({
           <p>Checking impact…</p>
         ) : (
           <ul className="list-disc space-y-1 pl-5">
-            <li>{impact.descendants} descendant node(s)</li>
-            <li>{impact.activeAssignments} active user assignment(s) in this subtree</li>
-            <li>{impact.inProgressRecords} in-progress record(s)</li>
+            <li>{impact.descendants} unit(s) under it will also be deactivated</li>
+            <li>{impact.activeAssignments} people assigned here or below</li>
+            <li>{impact.inProgressRecords} submission(s) still in progress</li>
           </ul>
         )}
       </ConfirmDialog>
@@ -565,7 +621,17 @@ function NodeDetail({
 }
 
 /** Expected submissions (D16): what this node must file each period — the Control Tower's denominators. */
-function ExpectationsCard({ orgUnitId, nodeName }: { orgUnitId: string; nodeName: string }) {
+function ExpectationsCard({
+  orgUnitId,
+  nodeName,
+  openGroups,
+  onToggleGroup,
+}: {
+  orgUnitId: string;
+  nodeName: string;
+  openGroups: Set<string>;
+  onToggleGroup: (group: string, open: boolean) => void;
+}) {
   // `rows` is what the boxes show; `saved` is what the server holds. Nothing is written until Save.
   const [rows, setRows] = useState<OrgExpectation[] | null>(null);
   const [saved, setSaved] = useState<Map<string, boolean>>(new Map());
@@ -630,19 +696,26 @@ function ExpectationsCard({ orgUnitId, nodeName }: { orgUnitId: string; nodeName
       {rows === null ? (
         <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
       ) : (
-        <div className="mt-4 space-y-5">
+        <div className="mt-4">
           {groups.map((group) => {
             const inGroup = rows.filter((r) => (r.scopeName ?? OTHER) === group);
             const categories = [...new Set(inGroup.map((r) => r.categoryName))];
             return (
-              <section key={group} aria-label={group}>
-                <h4 className="border-b pb-1 text-sm leading-5 font-semibold">
+              // Native toggle, like the Hierarchy levels card; its open state lives in OrgManager.
+              <details
+                key={group}
+                open={openGroups.has(group)}
+                onToggle={(e) => onToggleGroup(group, e.currentTarget.open)}
+                aria-label={group}
+                className="border-b first:border-t"
+              >
+                <summary className="cursor-pointer py-3 text-sm leading-5 font-semibold">
                   {group}
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
                     {inGroup.filter((r) => r.expected).length} of {inGroup.length} expected
                   </span>
-                </h4>
-                <div className="mt-3 grid items-start gap-x-8 gap-y-4 sm:grid-cols-2">
+                </summary>
+                <div className="grid pb-3 items-start gap-x-8 gap-y-4 sm:grid-cols-2">
                   {categories.map((category) => (
                     // A plain group, not a fieldset: a legend sits off the grid line and the two columns
                     // then start at different heights.
@@ -677,10 +750,10 @@ function ExpectationsCard({ orgUnitId, nodeName }: { orgUnitId: string; nodeName
                     </div>
                   ))}
                 </div>
-              </section>
+              </details>
             );
           })}
-          <div className="flex flex-wrap items-center gap-3 border-t pt-4">
+          <div className="flex flex-wrap items-center gap-3 pt-4">
             <Button type="button" disabled={pending || changed.length === 0} onClick={save}>
               {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
               Save expected submissions

@@ -696,6 +696,7 @@ test("only the approved tools exist, and their arguments are checked strictly", 
   assert.deepEqual(Object.keys(TOOLS).sort(), [
     "compare",
     "explain_calculation",
+    "explain_forecast",
     "get_completeness",
     "get_totals",
     "get_trend",
@@ -706,7 +707,7 @@ test("only the approved tools exist, and their arguments are checked strictly", 
     "open_report_page",
     "rank_org_units",
   ]);
-  assert.equal(toolSpecs().length, 8);
+  assert.equal(toolSpecs().length, 9);
   for (const name of [
     "run_sql",
     "execute",
@@ -908,7 +909,7 @@ test("a model that is rate limited, missing or broken gives way to the next on t
         assert.equal(String(url), "https://nim.test/v1/chat/completions");
         assert.equal(new Headers(init?.headers).get("authorization"), "Bearer nvapi-SECRET-KEY");
         assert.equal(body.max_tokens, 900);
-        assert.equal(body.tools.length, 8);
+        assert.equal(body.tools.length, 9);
         return body.model === "first" ? failure.clone() : said("<think>hmm</think>Hello");
       },
     });
@@ -1215,7 +1216,7 @@ const PEOPLE: AdminData = {
 test("people, record detail and the report page are an Admin's: for anyone else the tools do not exist", async () => {
   const names = (isAdmin: boolean) => toolSpecs(isAdmin).map((t) => t.function.name);
   assert.deepEqual([...ADMIN_TOOLS].sort(), ["list_people", "list_records", "open_report_page"]);
-  assert.equal(names(true).length, 11);
+  assert.equal(names(true).length, 12);
   assert.ok(names(false).every((name) => !ADMIN_TOOLS.has(name)));
 
   // Not an Admin: refused exactly like a tool that was never written, even with valid arguments.
@@ -1277,4 +1278,44 @@ test("the report page opens with the period asked for: a year, one period, or a 
   ]) {
     assert.equal(blocksSchema.safeParse([{ type: "link", label: "x", href: bad }]).success, false);
   }
+});
+
+test("explain_forecast: projects emissions using real backtested models or reports insufficient data honestly", async () => {
+  const { ctx } = PROJECT_X_MANAGER();
+
+  // 1. Scope 2 has 4 historical periods: mar, apr, aug, sep -> can forecast!
+  const scope2Forecast = await call(ctx, "explain_forecast", {
+    org_unit: "Project X",
+    scope: "SCOPE_2",
+    periods_ahead: 2,
+  });
+
+  const s2Data = dataOf(scope2Forecast);
+  assert.equal(s2Data.can_forecast, undefined); // undefined when canForecast is true
+  assert.equal(s2Data.scope, "Scope 2 (Indirect Electricity & Steam)");
+  assert.ok(s2Data.predictions.length === 2);
+  assert.equal(s2Data.disclaimer, "Statistical estimates only — not official BRSR figures.");
+  assert.ok(scope2Forecast.blocks.some((b) => b.type === "stats"));
+  assert.ok(scope2Forecast.blocks.some((b) => b.type === "chart"));
+  assert.ok(scope2Forecast.blocks.some((b) => b.type === "table"));
+
+  // 2. Scope 1 has only 1 period (September) -> reports insufficient data honestly!
+  const scope1Forecast = await call(ctx, "explain_forecast", {
+    org_unit: "Project X",
+    scope: "SCOPE_1",
+    periods_ahead: 2,
+  });
+
+  const s1Data = dataOf(scope1Forecast);
+  assert.equal(s1Data.can_forecast, false);
+  assert.ok(s1Data.reason?.includes("Insufficient historical observations"));
+  assert.ok(scope1Forecast.blocks.some((b) => b.type === "note" && b.tone === "warning"));
+
+  // 3. Unauthorized org unit is refused
+  await assert.rejects(async () => {
+    await call(ctx, "explain_forecast", {
+      org_unit: "Project Z", // Project Z is outside Project X manager's access
+      scope: "TOTAL",
+    });
+  }, /in this person's scope/i);
 });

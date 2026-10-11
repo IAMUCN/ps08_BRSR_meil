@@ -1,4 +1,4 @@
-import { Flame, FolderOpen, Link2, Zap } from "lucide-react";
+import { Flame, FolderOpen, Link2, TrendingUp, Zap } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
@@ -9,10 +9,22 @@ import { SimulatorClient } from "./simulator-client";
 
 export const metadata: Metadata = { title: "Carbon Reduction Simulator · TraceESG" };
 
-export default async function CarbonReductionSimulatorPage() {
+export default async function CarbonReductionSimulatorPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    org?: string;
+    fromForecast?: string;
+    forecastTco2e?: string;
+    scope?: string;
+  }>;
+}) {
   await requireAdminSession();
   const caller = await api();
   const options = await caller.simulator.options();
+  const params = searchParams ? await searchParams : {};
+  const isFromForecast = params.fromForecast === "1";
+  const initialOrg = params.org ?? options.defaultOrgUnitId;
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -40,6 +52,12 @@ export default async function CarbonReductionSimulatorPage() {
               </Link>
             </Button>
             <Button asChild variant="outline" size="sm">
+              <Link href="/admin/forecast">
+                <TrendingUp className="size-4" aria-hidden />
+                Emissions Forecast
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
               <Link href="/admin/reports/bundle">
                 <FolderOpen className="size-4" aria-hidden />
                 Evidence Bundle
@@ -49,7 +67,21 @@ export default async function CarbonReductionSimulatorPage() {
         }
       />
 
-      <SimulatorClient options={options} />
+      <SimulatorClient
+        options={{
+          ...options,
+          defaultOrgUnitId: initialOrg,
+        }}
+        forecastContext={
+          isFromForecast
+            ? {
+                isForecast: true,
+                forecastTco2e: params.forecastTco2e ? Number(params.forecastTco2e) : null,
+                scope: params.scope ?? null,
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

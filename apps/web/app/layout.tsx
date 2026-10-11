@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Lora } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
+import { CustomCursor } from "@/components/ui/custom-cursor";
 import { DEFAULT_THEME, THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { Agentation } from "agentation";
 import "./globals.css";
@@ -13,6 +14,12 @@ const inter = Inter({
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+});
+
+const lora = Lora({
+  variable: "--font-heading-serif",
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -28,12 +35,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       data-theme={DEFAULT_THEME}
       suppressHydrationWarning
-      className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${lora.variable} h-full antialiased custom-cursor-enabled`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">
+        <CustomCursor />
+        <CustomCursor />
         {children}
         <Toaster />
         {process.env.NODE_ENV === "development" && <Agentation endpoint="http://localhost:4747" />}
