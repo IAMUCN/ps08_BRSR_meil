@@ -1207,14 +1207,10 @@ test("explain_forecast: projects emissions using real backtested models or repor
   assert.ok(scope1Forecast.blocks.some((b) => b.type === "note" && b.tone === "warning"));
 
   // 3. Unauthorized org unit is refused
-  await assert.rejects(
-    async () => {
-      await call(ctx, "explain_forecast", {
-        org_unit: "Project Z", // Project Z is outside Project X manager's access
-        scope: "TOTAL",
-      });
-    },
-    /in this person's scope/i,
-  );
+  await assert.rejects(async () => {
+    await call(ctx, "explain_forecast", {
+      org_unit: "Project Z", // Project Z is outside Project X manager's access
+      scope: "TOTAL",
+    });
+  }, /in this person's scope/i);
 });
-

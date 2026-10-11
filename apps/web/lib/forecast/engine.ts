@@ -75,10 +75,7 @@ export type ForecastPoint = {
 };
 
 export type SelectedModelType =
-  | "linear_trend"
-  | "exponential_smoothing"
-  | "naive_baseline"
-  | "none";
+  "linear_trend" | "exponential_smoothing" | "naive_baseline" | "none";
 
 export type ForecastResult = {
   scopeTarget: ForecastScopeTarget;
@@ -109,7 +106,10 @@ export type ForecastResult = {
 /**
  * Normalizes any quantity into metric tonnes of CO2 equivalent (tCO2e).
  */
-export function toTonnesCo2e(value: number | null | undefined, unit: string | null | undefined): number {
+export function toTonnesCo2e(
+  value: number | null | undefined,
+  unit: string | null | undefined,
+): number {
   if (value === null || value === undefined || isNaN(value)) return 0;
   const cleanUnit = (unit ?? "").trim().toLowerCase();
   if (cleanUnit === "kgco2e" || cleanUnit === "kg") {
@@ -121,7 +121,9 @@ export function toTonnesCo2e(value: number | null | undefined, unit: string | nu
 /**
  * Detects the reporting cadence from chronological observations and period durations.
  */
-export function detectReportingFrequency(observations: HistoricalObservation[]): ReportingFrequency {
+export function detectReportingFrequency(
+  observations: HistoricalObservation[],
+): ReportingFrequency {
   if (observations.length === 0) return "IRREGULAR";
 
   // Check individual period durations (endDate - startDate in days)
@@ -262,7 +264,10 @@ export function assessDataCoverage(
 /**
  * Computes standard forecast error metrics (MAE, RMSE, MAPE).
  */
-export function computeErrorMetrics(actuals: number[], predicted: number[]): { mae: number; rmse: number; mape: number } {
+export function computeErrorMetrics(
+  actuals: number[],
+  predicted: number[],
+): { mae: number; rmse: number; mape: number } {
   if (actuals.length === 0 || actuals.length !== predicted.length) {
     return { mae: 0, rmse: 0, mape: 0 };
   }
@@ -289,10 +294,7 @@ export function computeErrorMetrics(actuals: number[], predicted: number[]): { m
   const n = actuals.length;
   const mae = Math.round((absErrorSum / n) * 1000) / 1000;
   const rmse = Math.round(Math.sqrt(sqErrorSum / n) * 1000) / 1000;
-  const mape =
-    nonZeroCount > 0
-      ? Math.round((pctErrorSum / nonZeroCount) * 10) / 10
-      : 0;
+  const mape = nonZeroCount > 0 ? Math.round((pctErrorSum / nonZeroCount) * 10) / 10 : 0;
 
   return { mae, rmse, mape };
 }
@@ -564,10 +566,27 @@ export function estimateFuturePeriod(
   if (frequency === "MONTHLY") {
     const futureDate = new Date(lastEnd);
     futureDate.setMonth(futureDate.getMonth() + stepAhead);
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     const label = `${monthNames[futureDate.getMonth()]} ${futureDate.getFullYear()} (Est)`;
-    const start = new Date(futureDate.getFullYear(), futureDate.getMonth(), 1).toISOString().split("T")[0];
-    const end = new Date(futureDate.getFullYear(), futureDate.getMonth() + 1, 0).toISOString().split("T")[0];
+    const start = new Date(futureDate.getFullYear(), futureDate.getMonth(), 1)
+      .toISOString()
+      .split("T")[0];
+    const end = new Date(futureDate.getFullYear(), futureDate.getMonth() + 1, 0)
+      .toISOString()
+      .split("T")[0];
     return { label, startDate: start, endDate: end };
   }
 
@@ -591,8 +610,12 @@ export function estimateFuturePeriod(
   }
 
   // Fallback for irregular cadence: 30 days ahead
-  const startFallback = new Date(lastEnd.getTime() + stepAhead * 30 * 86400000).toISOString().split("T")[0];
-  const endFallback = new Date(lastEnd.getTime() + (stepAhead * 30 + 30) * 86400000).toISOString().split("T")[0];
+  const startFallback = new Date(lastEnd.getTime() + stepAhead * 30 * 86400000)
+    .toISOString()
+    .split("T")[0];
+  const endFallback = new Date(lastEnd.getTime() + (stepAhead * 30 + 30) * 86400000)
+    .toISOString()
+    .split("T")[0];
   return {
     label: `Period +${stepAhead} (Est)`,
     startDate: startFallback,
@@ -647,8 +670,7 @@ export function generateForecast({
       categoryName,
       unit: "tCO2e",
       canForecast: false,
-      insufficientDataReason:
-        `Insufficient historical observations (${sorted.length} period(s) found). Time-series backtesting requires a minimum of 3-4 consecutive periods with approved calculations.`,
+      insufficientDataReason: `Insufficient historical observations (${sorted.length} period(s) found). Time-series backtesting requires a minimum of 3-4 consecutive periods with approved calculations.`,
       assessment,
       selectedModel: "none",
       modelName: "None (Insufficient Data)",

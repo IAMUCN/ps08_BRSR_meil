@@ -101,7 +101,19 @@ export async function getEmissionsForecast(
   // 4. Assess availability across Scope 1, Scope 2, Scope 3, and Total
   const scopeMap = new Map<
     ForecastScopeTarget,
-    { name: string; periods: Map<string, { approvedTco2e: number; pendingTco2e: number; appRecords: number; pendRecords: number; notCalc: number }> }
+    {
+      name: string;
+      periods: Map<
+        string,
+        {
+          approvedTco2e: number;
+          pendingTco2e: number;
+          appRecords: number;
+          pendRecords: number;
+          notCalc: number;
+        }
+      >;
+    }
   >();
 
   const targetDefs: Array<{ code: ForecastScopeTarget; name: string }> = [

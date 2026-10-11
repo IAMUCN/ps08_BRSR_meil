@@ -1168,7 +1168,8 @@ export const TOOLS = {
           startDate: p.start,
           endDate: p.end,
           valueTco2e: em?.approved ?? 0,
-          approvedRecordCount: line?.reduce((sum, l) => sum + (l.result.figures[0]?.records ?? 0), 0) ?? 0,
+          approvedRecordCount:
+            line?.reduce((sum, l) => sum + (l.result.figures[0]?.records ?? 0), 0) ?? 0,
           pendingRecordCount: 0,
           uncalculatedRecordCount: 0,
         };
@@ -1267,12 +1268,14 @@ export const TOOLS = {
         title: `${scopeName} observations and predictions`,
         columns: ["Period", "Classification", "Value", "95% Interval"],
         rows: [
-          ...forecast.historical.slice(-6).map((h) => [
-            h.periodLabel,
-            "Approved actual",
-            `${formatNumber(h.valueTco2e)} ${unitLabel}`,
-            "—",
-          ]),
+          ...forecast.historical
+            .slice(-6)
+            .map((h) => [
+              h.periodLabel,
+              "Approved actual",
+              `${formatNumber(h.valueTco2e)} ${unitLabel}`,
+              "—",
+            ]),
           ...forecast.predictions.map((p) => [
             p.periodLabel,
             "Forecast estimate",

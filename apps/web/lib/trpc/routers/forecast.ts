@@ -74,7 +74,8 @@ export const forecastRouter = router({
         if (!allowed?.ok) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "You are not authorized to view emissions forecast data for this organization unit.",
+            message:
+              "You are not authorized to view emissions forecast data for this organization unit.",
           });
         }
       }

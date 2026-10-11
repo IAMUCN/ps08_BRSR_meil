@@ -219,12 +219,17 @@ export function SimulatorClient({
                 Simulating reductions against a forward-looking emissions forecast baseline{" "}
                 {forecastContext?.forecastTco2e ? (
                   <>
-                    (<strong className="text-foreground">{forecastContext.forecastTco2e} tCO₂e</strong>)
+                    (
+                    <strong className="text-foreground">
+                      {forecastContext.forecastTco2e} tCO₂e
+                    </strong>
+                    )
                   </>
                 ) : (
                   ""
                 )}
-                . This baseline is explicitly an estimate for decarbonization planning and is kept separate from official historical reporting figures.
+                . This baseline is explicitly an estimate for decarbonization planning and is kept
+                separate from official historical reporting figures.
               </p>
             </div>
           </div>

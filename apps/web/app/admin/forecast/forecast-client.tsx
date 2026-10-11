@@ -67,7 +67,11 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
         if (result.ok) {
           setForecastData(result.data);
           // If no target was explicitly set, adopt recommended scope
-          if (!target && result.data.recommendedScope && result.data.recommendedScope !== scopeTarget) {
+          if (
+            !target &&
+            result.data.recommendedScope &&
+            result.data.recommendedScope !== scopeTarget
+          ) {
             setScopeTarget(result.data.recommendedScope);
           }
         } else {
@@ -154,7 +158,10 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
 
             {/* Forecast Horizon Selector */}
             <div className="flex items-center gap-2">
-              <label htmlFor="forecast-horizon" className="text-xs font-medium text-muted-foreground">
+              <label
+                htmlFor="forecast-horizon"
+                className="text-xs font-medium text-muted-foreground"
+              >
                 Horizon:
               </label>
               <NativeSelect
@@ -220,7 +227,10 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
       {/* 2. Statutory / Regulatory Estimation Notice */}
       <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-900 dark:text-amber-200">
         <div className="flex items-start gap-2.5">
-          <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+          <AlertCircle
+            className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
+            aria-hidden
+          />
           <div className="space-y-1">
             <p className="font-semibold tracking-wide uppercase">
               Statistical Projection · Not Official BRSR Figures
@@ -280,7 +290,9 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
                         : "text-emerald-600 dark:text-emerald-400"
                     }
                   >
-                    {projectedChangePercent > 0 ? `+${projectedChangePercent}%` : `${projectedChangePercent}%`}
+                    {projectedChangePercent > 0
+                      ? `+${projectedChangePercent}%`
+                      : `${projectedChangePercent}%`}
                   </span>
                 ) : null}
                 <span>vs. latest observed</span>
@@ -298,7 +310,8 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
                 <span className="ml-1 text-xs font-normal text-muted-foreground">error</span>
               </div>
               <div className="mt-1 text-[11px] text-muted-foreground">
-                {result?.validationMetrics && result.validationMetrics.relativeImprovementPercent > 0
+                {result?.validationMetrics &&
+                result.validationMetrics.relativeImprovementPercent > 0
                   ? `+${result.validationMetrics.relativeImprovementPercent}% better than naive`
                   : "Baseline benchmark"}
               </div>
@@ -316,9 +329,7 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
                   : "—"}
                 <span className="ml-1 text-xs font-normal text-muted-foreground">tCO₂e</span>
               </div>
-              <div className="mt-1 text-[11px] text-muted-foreground">
-                Expected range (±1.96σ)
-              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">Expected range (±1.96σ)</div>
             </div>
           </div>
 
@@ -331,8 +342,8 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
               Statistical Model & Chronological Backtesting Evaluation
             </h3>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Candidate statistical models are evaluated chronologically on past holdout periods
-              to confirm predictive validity before producing forecasts.
+              Candidate statistical models are evaluated chronologically on past holdout periods to
+              confirm predictive validity before producing forecasts.
             </p>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
@@ -343,7 +354,10 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
                   {result?.modelName ?? "—"}
                 </div>
                 <div className="mt-2 text-[11px] text-muted-foreground">
-                  Cadence: <strong className="text-foreground">{result?.assessment.detectedFrequency}</strong>
+                  Cadence:{" "}
+                  <strong className="text-foreground">
+                    {result?.assessment.detectedFrequency}
+                  </strong>
                 </div>
               </div>
 
@@ -374,7 +388,9 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
                 <div className="mt-1 space-y-1">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">MAE (Selected):</span>
-                    <span className="font-mono font-medium">{result?.validationMetrics?.mae} tCO₂e</span>
+                    <span className="font-mono font-medium">
+                      {result?.validationMetrics?.mae} tCO₂e
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">MAE (Naive Baseline):</span>
@@ -384,7 +400,9 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">RMSE (Selected):</span>
-                    <span className="font-mono font-medium">{result?.validationMetrics?.rmse} tCO₂e</span>
+                    <span className="font-mono font-medium">
+                      {result?.validationMetrics?.rmse} tCO₂e
+                    </span>
                   </div>
                 </div>
               </div>
@@ -423,7 +441,9 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
                     <th className="px-3 py-2.5 text-left font-medium uppercase">Period</th>
                     <th className="px-3 py-2.5 text-left font-medium uppercase">Dates</th>
                     <th className="px-3 py-2.5 text-left font-medium uppercase">Classification</th>
-                    <th className="px-3 py-2.5 text-right font-medium uppercase">Emissions (tCO₂e)</th>
+                    <th className="px-3 py-2.5 text-right font-medium uppercase">
+                      Emissions (tCO₂e)
+                    </th>
                     <th className="px-3 py-2.5 text-right font-medium uppercase">80% Interval</th>
                     <th className="px-3 py-2.5 text-right font-medium uppercase">95% Interval</th>
                     <th className="px-3 py-2.5 text-center font-medium uppercase">Records</th>
@@ -460,9 +480,7 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
                       key={pred.periodIndex}
                       className="border-t border-table-border bg-primary/5 hover:bg-primary/10"
                     >
-                      <td className="px-3 py-2.5 font-medium text-primary">
-                        {pred.periodLabel}
-                      </td>
+                      <td className="px-3 py-2.5 font-medium text-primary">{pred.periodLabel}</td>
                       <td className="px-3 py-2.5 font-mono text-muted-foreground">
                         {pred.estimatedStartDate} to {pred.estimatedEndDate}
                       </td>
@@ -703,9 +721,7 @@ function ForecastTrajectoryChart({
   const getY = (val: number) => paddingTop + chartH - (val / Math.max(1, maxVal)) * chartH;
 
   // Build actuals path
-  const actualIndices = allPoints
-    .map((p, idx) => ({ p, idx }))
-    .filter((x) => x.p.actual !== null);
+  const actualIndices = allPoints.map((p, idx) => ({ p, idx })).filter((x) => x.p.actual !== null);
   const actualPath = actualIndices
     .map((x, i) => `${i === 0 ? "M" : "L"} ${getX(x.idx)} ${getY(x.p.actual!)}`)
     .join(" ");
@@ -759,7 +775,9 @@ function ForecastTrajectoryChart({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="h-0.5 w-4 border-t-2 border-dashed border-amber-500" aria-hidden />
-            <span className="font-medium text-amber-600 dark:text-amber-400">Forecast Estimate</span>
+            <span className="font-medium text-amber-600 dark:text-amber-400">
+              Forecast Estimate
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="size-3 rounded bg-amber-500/20" aria-hidden />
@@ -910,7 +928,9 @@ function ForecastTrajectoryChart({
               y={svgHeight - paddingBottom + 18}
               textAnchor="middle"
               className={`text-[10px] ${
-                p.isForecast ? "fill-amber-600 dark:fill-amber-400 font-semibold" : "fill-muted-foreground"
+                p.isForecast
+                  ? "fill-amber-600 dark:fill-amber-400 font-semibold"
+                  : "fill-muted-foreground"
               }`}
             >
               {p.label}
