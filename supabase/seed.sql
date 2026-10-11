@@ -38,3 +38,7 @@ from (values
 ) as e (org_code, metric_code)
 join public.org_units o on o.code = e.org_code
 join public.esg_metrics m on m.code = e.metric_code;
+
+-- Local only: the chat tools' read-only role (migration 0042) needs a password to sign in with. Hosted and
+-- production set their own by hand; this file never runs there.
+alter role chat_reader login password 'chat_reader_local';

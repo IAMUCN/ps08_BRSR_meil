@@ -73,17 +73,22 @@ export function OrgManager({
     router.replace(`${pathname}?node=${id}`, { scroll: false });
   }
 
+  // Guide lines (owner's page feedback, 2026-10-11): each unit hangs from a vertical line that drops from
+  // its parent's arrow, joined by a short horizontal tick at the middle of its row (rows are 36px high). On
+  // the last unit of a branch the vertical line stops at the tick, so a line never runs on past the branch.
+  const BRANCH =
+    "relative pl-2 before:absolute before:top-[18px] before:left-0 before:h-px before:w-2.5 before:bg-muted-foreground/70 after:absolute after:top-0 after:bottom-0 after:left-0 after:w-px after:bg-muted-foreground/70 last:after:bottom-auto last:after:h-[18px]";
+
   function renderNode(node: OrgUnitRow, depth: number) {
     const children = childrenByParent.get(node.id) ?? [];
     const open = !collapsed.has(node.id);
     return (
-      <li key={node.id}>
+      <li key={node.id} className={depth > 0 ? BRANCH : undefined}>
         <div
           className={cn(
-            "flex h-9 items-center gap-1 rounded-sm pr-2",
+            "flex h-9 items-center gap-1 rounded-sm pr-2 pl-1",
             selected?.id === node.id ? "bg-table-row-hover" : "hover:bg-muted",
           )}
-          style={{ paddingLeft: `${depth * 16 + 4}px` }}
         >
           {children.length > 0 ? (
             <button
@@ -129,7 +134,7 @@ export function OrgManager({
           </button>
         </div>
         {children.length > 0 && open ? (
-          <ul>{children.map((child) => renderNode(child, depth + 1))}</ul>
+          <ul className="ml-4">{children.map((child) => renderNode(child, depth + 1))}</ul>
         ) : null}
       </li>
     );

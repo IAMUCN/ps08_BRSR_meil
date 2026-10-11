@@ -12,6 +12,7 @@ import { reportingPeriodsRouter } from "@/lib/trpc/routers/reporting-periods";
 import { approvalsRouter } from "@/lib/trpc/routers/approvals";
 import { auditRouter } from "@/lib/trpc/routers/audit";
 import { brsrRouter } from "@/lib/trpc/routers/brsr";
+import { chatRouter } from "@/lib/trpc/routers/chat";
 import { consolidationRouter } from "@/lib/trpc/routers/consolidation";
 import { recordsRouter } from "@/lib/trpc/routers/records";
 import { reportsRouter } from "@/lib/trpc/routers/reports";
@@ -50,6 +51,7 @@ export const appRouter = router({
   records: recordsRouter,
   reports: reportsRouter,
   audit: auditRouter,
+  chat: chatRouter,
 });
 
 export type AppRouter = typeof appRouter;

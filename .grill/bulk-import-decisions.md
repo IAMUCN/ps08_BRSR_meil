@@ -73,3 +73,43 @@ team, so neither Supabase's invite-link nor reset-link email works for a real (n
 - Forcing existing accounts (created before migration `0029`) to backfill an `employee_id`.
 - A dropdown/data-validation constraint inside the downloadable `.xlsx` template (SheetJS's free `xlsx`
   package can't write those) — a second "Valid codes" sheet lists them instead.
+
+## 2026-10-11 — Templates that follow the hierarchy; a whole branch from one sheet
+
+The owner asked for the bulk-import template to be "properly aligned and up to date with the organization
+hierarchy", and, asked which of three readings was meant, chose a whole tree in one sheet.
+
+- Decision: the org-unit sheet has a fourth column, **Parent code**. Empty: the row goes directly under the
+  unit chosen on screen. Filled: the code of an existing org unit, or of another row of the same sheet.
+  Reason: one sheet could only create direct children of one unit, so a subsidiary with its projects and
+  sites needed a sheet per level. Alternative considered: keep one parent per sheet and only tidy the file.
+- Decision: the server creates rows parents-first, whatever order the sheet lists them in
+  (`importOrder`, `lib/org/rules.ts`); each row is still its own transaction with the existing checks
+  (scope, frozen parent, level order, unique code, audit entry).
+- Decision: a row is refused, with the reason, when its parent code exists nowhere, when its parent row was
+  refused, or when its code is used by more than one row of the sheet — in the last case every row with that
+  code and every row naming it. Reason: found while testing — with a repeated code the wrong row could be
+  created first and the rows beneath attach to it. Alternative considered: first row wins.
+- Decision: the **Level** column (was "Type") takes a level's code or its name, in any letter case. Its
+  dropdown lists the levels configured at the moment of download that can sit beneath the chosen unit. A
+  sheet from the old template (column "Type", no parent column) still imports.
+- Decision: the sheet people fill in holds headings only; the example moved to a "How to fill in" sheet.
+  Reason: both templates carried an example row on the data sheet, and a row left there would have created a
+  real org unit — or, in the employee template, a real account for jane.doe@example.com.
+- Decision: a "Hierarchy" sheet (org units) and an "Organization" sheet (employees) list the existing org
+  units in tree order, indented under their parents, with level and parent code. Org units with no code are
+  named as not usable in a sheet. Reason: the reference was a flat alphabetical list with no levels.
+- Surfaced assumption: a parent code may name any existing org unit, not only one beneath the unit chosen on
+  screen; the person's scope is what limits it.
+- Out of scope: creating users and org units from one file; moving or renaming existing org units by sheet;
+  a dropdown on Parent code (it may name a row that does not exist yet).
+
+## 2026-10-11 (later): no ids in the templates
+
+- Decision: an org unit that has no code is listed in both templates by its **name** alone, and the server
+  matches it by name (`unitByRef`, `lib/org/rules.ts`): code first, then name, in any letter case. Reason:
+  the owner asked for the "Name — id:…" text to go; an id means nothing to the person filling the sheet.
+  Alternative considered: hide the id in a lookup sheet (still fragile when a cell is typed by hand).
+- Decision: when several org units share that name, the row is refused and the message asks for codes.
+  Reason: the sheet must not guess which unit was meant.
+- A sheet downloaded from the earlier template ("Name — id:…") still imports.

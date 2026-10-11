@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-09 — Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
+_Last updated: 2026-10-11 — hosted cleared and given MEIL's Admin inputs, two sets of test data generated (uncommitted); the ESG data analyst chatbot is committed on branch `feature-chat-analyst` (`67700f8`, not pushed); migration `0042` is on hosted (2026-10-11), the read-only role has no password there yet. Before that: Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
 merged); the second audit's follow-up work (migrations `0038`–`0039`, fuller report with SDG tags, 28 sourced factors on local) is committed locally, not
 pushed; migrations `0038`–`0039` are on hosted (2026-10-09), the factors and demo data are not; Phase 21 (deployment) comes after, hosting to be decided by the owner._
 
@@ -36,12 +36,12 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format (`0001`–`0040`, all pushed to hosted) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format (`0001`–`0042`, all pushed to hosted) |
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D33) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A30) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D34) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A33) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `ASSURANCE.md` | How the system supports assurance on BRSR Core KPIs: controls, KPI-by-KPI status, an assurer's walkthrough |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
@@ -83,6 +83,7 @@ may run in parallel with Phases 3–5.
 | — | Audit fixes P2 (calculation guard, audit context and order, security headers, evidence fingerprint, hierarchy levels, several evidence files) and P3 | Done, on branch `feature` | `23e1925` |
 | — | Second audit follow-up: remaining activities, air emissions, fuller SEBI report tables, sourced factors on local (migration `0038`) | Done locally, committed, **not pushed, not on hosted** | — |
 | — | Full BRSR format in the report: 146 questions, typed disclosures, all 17 SDGs (migration `0040`); owner's page feedback | Done, **uncommitted**; `0040` on hosted | — |
+| — | ESG data analyst chatbot: read-only tools, NVIDIA NIM, saved conversations (migration `0042`) | Done, on branch `feature-chat-analyst` (not pushed); `0042` on hosted | `67700f8` |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -683,7 +684,52 @@ the Control Tower shows KPI trends across financial years; Admins can send remin
 Reports has Past reports and a full-year Evidence list (A29). Checks: web unit 98/98, lint, typecheck, format.
 Not run: end-to-end, a browser view. The three-plant demonstration data is the owner's to build.
 
+**ESG data analyst chatbot (2026-10-11).** Decisions: `.grill/chat-analyst-decisions.md`; overview:
+`CHATBOT.md`. The owner asked for a chatbot that answers questions about the ESG data a person may see.
+- **A language model words the answer; the application supplies every figure.** The model (NVIDIA NIM, or
+  any OpenAI-style endpoint) may ask for eight approved read-only tools — totals, comparison, trend, ranking,
+  completeness, calculation explanation, and two lists. Each resolves org units only inside the person's
+  scope, read from the database for that question, and computes with the consolidation rules.
+- **Migration `0042`** (D34): a database role `chat_reader` that can select a named list of tables and
+  nothing else, two server-only tables for saved conversations (private, 90 days, deletable), and the
+  permission `chat.use`, held by every existing role and changed per role on Roles & Permissions.
+- **Screen** (A32): an _Ask_ button in the top bar and a floating button, opening a side panel with the
+  wording, figures, tables and charts drawn by the app. Built by the feature session at the owner's request;
+  `UI_NOTES.md` tells the ui role what was touched.
+- **Models:** `NVIDIA_NIM_MODEL` is a list tried in order; six models on the owner's account pass a
+  tool-calling probe. One audit entry per question, without its text. 20 questions per person per 10 minutes.
+- Checks: web unit 124/124 (26 new), database 249/249 (24 new), lint, typecheck, format, production build;
+  the tool's totals against `consolidateNodes` and raw SQL, 39/39; a real-browser pass in Edge on the built
+  app with the real model and the local database, 28/28; the browser bundle searched for the key. **Not
+  run:** the end-to-end suite; the rate limit and the 90-day removal; the Special and Dark themes and the
+  docked panel; anything on the hosted project.
+
+**Bulk-import templates; a whole branch of org units from one sheet (2026-10-11).** Decisions:
+`.grill/bulk-import-decisions.md` (last section), A33. The org-unit sheet gained a Parent code column, so one
+sheet creates several levels; the server creates parents first and refuses a row whose parent or code is
+ambiguous. Both templates now keep the sheet to fill in free of example rows and list levels and existing
+org units as the hierarchy stands at download. Checks: web unit 127/127, lint, typecheck, format; templates
+generated and read back and a 12-row sheet imported through the real procedure on local, 31/31. Not run: the
+production build, the screens in a browser. Committed on `feature-chat-analyst`, not pushed.
+
+**Hosted cleared, MEIL's Admin inputs, test data (2026-10-11).** Decisions: `.grill/demo-data-decisions.md`.
+The owner asked for a clean site, MEIL's details in the Admin's written inputs and two folders of sample data.
+The hosted test data was removed in one transaction (a copy of each row kept locally; accounts, audit log and
+configuration stay). Entered through the Admin procedures: 23 BRSR Disclosure answers taken from meil.in and
+its published annual return and CSR summary, the published turnover under FY 2022-23, and 29 conversion
+factors with sources. `test data/` (git-ignored) holds two sets — org-unit and employee sheets, a document for
+each of the 47 activities, a multi-bill PDF, a manifest — made by `apps/ocr-worker/scripts/make_test_data.py`.
+The bulk-import templates no longer show ids: an org unit with no code is listed and matched by its name.
+Checks: web unit 128/128, lint, typecheck, format, Ruff; the worker's real OCR on all 63 single documents of
+set 1; the sheets against the hierarchy rules. Not run: an import or upload through the app, the build.
+Uncommitted.
+
 ## 4. What comes next
+
+**Chatbot, to finish:** push `feature-chat-analyst` and open its pull request; on hosted (migration `0042` is there since 2026-10-11) the owner sets a password for `chat_reader`, then try its connection through the pooler; set the four variables for the owner's dev server. Review NVIDIA's terms before real MEIL figures go through the free endpoints.
+
+**Demo on hosted, the owner's steps:** create the August and September 2026 periods, import the org units and the
+users from `test data/` (typing the email addresses), upload the documents, approve, generate the report.
 
 **Before Phase 21:** run the end-to-end suite and click
 through BRSR Disclosures. Make the hosted project ready for the demo (the owner chose hosted). In order: push the

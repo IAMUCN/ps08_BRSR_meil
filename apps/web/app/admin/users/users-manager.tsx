@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Loader2, Search, UserPlus, Users } from "lucide-react";
+import { Loader2, Search, UserPlus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -146,7 +146,15 @@ export function UsersManager({
   levels: OrgLevel[];
   bulkImportOptions: {
     roles: { code: string; name: string }[];
-    orgUnits: { code: string; name: string; unitType: string }[];
+    orgUnits: {
+      code: string;
+      name: string;
+      unitType: string;
+      level: string;
+      parentCode: string | null;
+      depth: number;
+    }[];
+    withoutCode: string[];
   };
 }) {
   const router = useRouter();
@@ -155,6 +163,14 @@ export function UsersManager({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [managedId, setManagedId] = useState<string | null>(null);
+  // One side panel at a time. They dock in the same place on a wide screen and do not close when the page
+  // is clicked, so opening a second one over the first left the first "open" underneath: its button then
+  // did nothing (owner's page feedback, 2026-10-11).
+  const show = (panel: "invite" | "bulk" | { user: string }) => {
+    setInviteOpen(panel === "invite");
+    setBulkOpen(panel === "bulk");
+    setManagedId(typeof panel === "object" ? panel.user : null);
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -203,27 +219,38 @@ export function UsersManager({
             <option value="deactivated">Deactivated</option>
           </NativeSelect>
         </div>
-        <Button variant="outline" className="ml-auto" onClick={() => setBulkOpen((open) => !open)}>
+        <Button variant="outline" className="ml-auto" onClick={() => show("bulk")}>
           <Users aria-hidden />
           Bulk import
-          {bulkOpen ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
         </Button>
-        <Button onClick={() => setInviteOpen(true)}>
+        <Button onClick={() => show("invite")}>
           <UserPlus aria-hidden />
           Invite user
         </Button>
       </div>
 
-      {bulkOpen ? (
-        <div className="mb-4">
-          <EmployeeBulkImport
-            roles={bulkImportOptions.roles}
-            orgUnits={bulkImportOptions.orgUnits}
-            importAction={bulkImportUsersAction}
-            onImported={() => router.refresh()}
-          />
-        </div>
-      ) : null}
+      {/* In the side panel like Invite user (owner's page feedback, 2026-10-11): on a wide screen it docks in
+          the empty space at the right and the user list stays in view. */}
+      <Sheet open={bulkOpen} onOpenChange={setBulkOpen}>
+        <SheetContent className="w-[640px] max-w-full">
+          <SheetHeader>
+            <SheetTitle>Bulk import</SheetTitle>
+            <SheetDescription>
+              Create several accounts at once from a filled-in spreadsheet. Download the template
+              first; it lists the roles and org units as they are now.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="overflow-y-auto px-4 pb-6">
+            <EmployeeBulkImport
+              roles={bulkImportOptions.roles}
+              orgUnits={bulkImportOptions.orgUnits}
+              withoutCode={bulkImportOptions.withoutCode}
+              importAction={bulkImportUsersAction}
+              onImported={() => router.refresh()}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <div className="overflow-x-auto rounded-md border border-table-border">
         <table className="w-full border-collapse text-sm">
@@ -282,7 +309,7 @@ export function UsersManager({
                     )}
                   </td>
                   <td className="px-3 py-3 text-right">
-                    <Button variant="ghost" size="sm" onClick={() => setManagedId(user.id)}>
+                    <Button variant="ghost" size="sm" onClick={() => show({ user: user.id })}>
                       Manage
                     </Button>
                   </td>
