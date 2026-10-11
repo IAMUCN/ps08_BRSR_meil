@@ -16,6 +16,7 @@ import {
   type PeriodSpec,
 } from "./analysis.ts";
 import { formatNumber, type Block } from "./blocks.ts";
+import { generateForecast, type HistoricalObservation } from "../forecast/engine.ts";
 
 // --- What a tool is given ---------------------------------------------------------------------------------
 
@@ -1125,6 +1126,198 @@ export const TOOLS = {
             result: `${r.resultValue} ${r.resultUnit}`,
             engine: r.engineVersion,
           })),
+        },
+        blocks,
+        orgUnitIds: [unit.id],
+      };
+    },
+  }),
+
+  explain_forecast: tool({
+    description:
+      "Explain the emissions forecast and chronological backtest results for an org unit. Projects future emissions for Scope 1, Scope 2, Scope 3, or Total emissions using validated statistical time-series models with 80% and 95% uncertainty intervals.",
+    schema: z.strictObject({
+      org_unit: orgUnit,
+      scope: z
+        .enum(["SCOPE_1", "SCOPE_2", "SCOPE_3", "TOTAL"])
+        .optional()
+        .describe("Scope to forecast: SCOPE_1, SCOPE_2, SCOPE_3, or TOTAL (default)"),
+      periods_ahead: z
+        .number()
+        .int()
+        .min(1)
+        .max(4)
+        .optional()
+        .describe("Number of future periods ahead to forecast (1 to 4, default 2)"),
+    }),
+    async run(a, ctx) {
+      const unit = resolveUnit(ctx, a.org_unit);
+      const scopeCode = a.scope && a.scope !== "TOTAL" ? a.scope : undefined;
+      const metrics = (await ctx.data.metrics({ scopeCode })).filter((m) => m.scopeCode);
+      const periods = ctx.periods;
+      const { lines } = await measureLines(ctx, [unit.id], periods, metrics, true);
+
+      // Build HistoricalObservation[] for each period
+      const targetCode = a.scope ?? "TOTAL";
+      const historical: HistoricalObservation[] = periods.map((p) => {
+        const line = lines.get(`${unit.id}|${p.id}`);
+        const em = emissionsOf(line ?? [], scopeCode);
+        return {
+          periodId: p.id,
+          periodLabel: p.label,
+          startDate: p.start,
+          endDate: p.end,
+          valueTco2e: em?.approved ?? 0,
+          approvedRecordCount: line?.reduce((sum, l) => sum + (l.result.figures[0]?.records ?? 0), 0) ?? 0,
+          pendingRecordCount: 0,
+          uncalculatedRecordCount: 0,
+        };
+      });
+
+      const scopeName =
+        targetCode === "SCOPE_1"
+          ? "Scope 1 (Direct Emissions)"
+          : targetCode === "SCOPE_2"
+            ? "Scope 2 (Indirect Electricity & Steam)"
+            : targetCode === "SCOPE_3"
+              ? "Scope 3 (Value Chain)"
+              : "Total Emissions (Scope 1 + 2 + 3)";
+
+      const forecast = generateForecast({
+        historical,
+        scopeTarget: targetCode,
+        scopeName,
+        horizonPeriods: a.periods_ahead ?? 2,
+        totalConfiguredPeriods: periods.length,
+      });
+
+      const blocks: Block[] = [];
+      const unitLabel = "tCO2e";
+
+      if (!forecast.canForecast) {
+        blocks.push(
+          note(
+            forecast.insufficientDataReason ?? "Insufficient historical data for forecasting.",
+            "warning",
+          ),
+        );
+        blocks.push(sourceBlock(unit, "All configured periods"));
+        return {
+          data: {
+            org_unit: unit.name,
+            scope: scopeName,
+            can_forecast: false,
+            reason: forecast.insufficientDataReason,
+            recommendations: forecast.recommendations,
+          },
+          blocks,
+          orgUnitIds: [unit.id],
+        };
+      }
+
+      // Stats block
+      const lastObs = forecast.historical[forecast.historical.length - 1];
+      const nextPred = forecast.predictions[0];
+      blocks.push({
+        type: "stats",
+        items: [
+          {
+            label: "Latest observed",
+            value: formatNumber(lastObs.valueTco2e),
+            unit: unitLabel,
+            sub: lastObs.periodLabel,
+          },
+          {
+            label: `Forecast (${nextPred.periodLabel})`,
+            value: formatNumber(nextPred.predictedTco2e),
+            unit: unitLabel,
+            sub: "Statistical estimate",
+          },
+          {
+            label: "Backtest error (MAPE)",
+            value: `${forecast.validationMetrics?.mape ?? 0}%`,
+            unit: "",
+            sub: forecast.modelName,
+          },
+          {
+            label: "95% prediction interval",
+            value: `${nextPred.confidenceInterval95.lower.toFixed(1)}–${nextPred.confidenceInterval95.upper.toFixed(1)}`,
+            unit: unitLabel,
+            sub: "Expected range",
+          },
+        ],
+      });
+
+      // Chart block
+      const chartPoints = [
+        ...forecast.historical.map((h) => ({ label: h.periodLabel, value: h.valueTco2e })),
+        ...forecast.predictions.map((p) => ({ label: p.periodLabel, value: p.predictedTco2e })),
+      ];
+      blocks.push({
+        type: "chart",
+        kind: "line",
+        title: `${scopeName} forecast · ${unit.name}`,
+        unit: unitLabel,
+        points: chartPoints.slice(-36),
+      });
+
+      // Table block
+      blocks.push({
+        type: "table",
+        title: `${scopeName} observations and predictions`,
+        columns: ["Period", "Classification", "Value", "95% Interval"],
+        rows: [
+          ...forecast.historical.slice(-6).map((h) => [
+            h.periodLabel,
+            "Approved actual",
+            `${formatNumber(h.valueTco2e)} ${unitLabel}`,
+            "—",
+          ]),
+          ...forecast.predictions.map((p) => [
+            p.periodLabel,
+            "Forecast estimate",
+            `${formatNumber(p.predictedTco2e)} ${unitLabel}`,
+            `${p.confidenceInterval95.lower.toFixed(1)} – ${p.confidenceInterval95.upper.toFixed(1)} ${unitLabel}`,
+          ]),
+        ],
+      });
+
+      blocks.push(
+        note(
+          "Statistical projection for scenario planning. Not an official BRSR filing. Explore reduction scenarios in the Carbon Reduction Simulator.",
+          "info",
+        ),
+      );
+      blocks.push(
+        sourceBlock(
+          unit,
+          `${forecast.trainingWindow?.startPeriod} to ${forecast.predictions[forecast.predictions.length - 1]?.periodLabel}`,
+        ),
+      );
+
+      return {
+        data: {
+          org_unit: unit.name,
+          scope: scopeName,
+          selected_model: forecast.modelName,
+          cadence: forecast.assessment.detectedFrequency,
+          validation_mape: forecast.validationMetrics?.mape,
+          validation_mae: forecast.validationMetrics?.mae,
+          baseline_mae: forecast.validationMetrics?.baselineMae,
+          training_window: forecast.trainingWindow,
+          backtest_window: forecast.backtestWindow,
+          latest_observed: {
+            period: lastObs.periodLabel,
+            value: lastObs.valueTco2e,
+            unit: unitLabel,
+          },
+          predictions: forecast.predictions.map((p) => ({
+            period: p.periodLabel,
+            predicted_value: p.predictedTco2e,
+            ci80: p.confidenceInterval80,
+            ci95: p.confidenceInterval95,
+          })),
+          disclaimer: "Statistical estimates only — not official BRSR figures.",
         },
         blocks,
         orgUnitIds: [unit.id],

@@ -13,6 +13,7 @@ import {
   RotateCcw,
   Sliders,
   TrendingDown,
+  TrendingUp,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
@@ -37,9 +38,22 @@ export type SimulatorOptions = {
   defaultPeriodId: string | null;
 };
 
+export type ForecastContext = {
+  isForecast: boolean;
+  forecastTco2e: number | null;
+  scope: string | null;
+};
+
 const PRESETS = [5, 10, 15, 20, 25];
 
-export function SimulatorClient({ options }: { options: SimulatorOptions }) {
+export function SimulatorClient({
+  options,
+  forecastContext,
+}: {
+  options: SimulatorOptions;
+  forecastContext?: ForecastContext;
+}) {
+  const [isForecastMode, setIsForecastMode] = useState(forecastContext?.isForecast ?? false);
   const [orgUnitId, setOrgUnitId] = useState(
     options.defaultOrgUnitId ?? options.orgUnits[0]?.id ?? "",
   );
@@ -186,6 +200,51 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
           <strong className="font-semibold text-foreground">ICAI SSAE 3000 / SEBI Core</strong>
         </div>
       </div>
+
+      {/* A.2 Forecast-Predicted Baseline Notice */}
+      {isForecastMode && (
+        <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/10 p-4 text-xs text-foreground sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2.5">
+            <TrendingUp className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold tracking-wide uppercase text-primary">
+                  Predicted Baseline Scenario (Statistical Estimate)
+                </span>
+                <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                  Analytical Layer
+                </span>
+              </div>
+              <p className="mt-1 text-muted-foreground">
+                Simulating reductions against a forward-looking emissions forecast baseline{" "}
+                {forecastContext?.forecastTco2e ? (
+                  <>
+                    (<strong className="text-foreground">{forecastContext.forecastTco2e} tCO₂e</strong>)
+                  </>
+                ) : (
+                  ""
+                )}
+                . This baseline is explicitly an estimate for decarbonization planning and is kept separate from official historical reporting figures.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsForecastMode(false)}
+              className="h-7 text-[11px]"
+            >
+              Switch to Official Baseline
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="h-7 text-[11px]">
+              <Link href={`/admin/forecast?org=${orgUnitId}`}>View Forecast</Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* B. Scenario Selectors Card */}
       <div className="rounded-lg border border-border bg-card p-5 shadow-xs">
@@ -496,14 +555,16 @@ export function SimulatorClient({ options }: { options: SimulatorOptions }) {
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <Layers className="size-3.5 text-muted-foreground" aria-hidden />
-            Baseline Category Emissions
+            {isForecastMode ? "Predicted Baseline (Estimate)" : "Baseline Category Emissions"}
           </div>
           <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
             {simulation ? `${simulation.categoryBaseline.toFixed(2)}` : "—"}
             <span className="ml-1 text-xs font-normal text-muted-foreground">tCO₂e</span>
           </div>
           <div className="mt-1 text-[11px] text-muted-foreground">
-            Org Total: {simulation ? `${simulation.orgBaseline.toFixed(2)} tCO₂e` : "—"}
+            {isForecastMode
+              ? `Forecasted Org Total: ${simulation ? `${simulation.orgBaseline.toFixed(2)} tCO₂e (Estimate)` : "—"}`
+              : `Org Total: ${simulation ? `${simulation.orgBaseline.toFixed(2)} tCO₂e` : "—"}`}
           </div>
         </div>
 
