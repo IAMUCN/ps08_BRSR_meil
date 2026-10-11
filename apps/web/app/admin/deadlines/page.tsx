@@ -20,7 +20,7 @@ export default async function DeadlinesPage() {
     <div className="max-w-7xl space-y-6">
       <PageHeader
         title="Reporting Deadlines & Escalation Engine"
-        description="Monitor statutory BRSR reporting deadlines, identify upcoming and overdue tasks, and execute deterministic multi-tier escalations across MEIL projects."
+        description="Monitor the submission deadlines set for each reporting period, identify upcoming and overdue tasks, and execute deterministic multi-tier escalations across MEIL projects."
         action={
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline" size="sm">

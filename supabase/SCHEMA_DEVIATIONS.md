@@ -531,6 +531,27 @@ once at the group, and for more than one group (2026-10-11). Decision:
 
 **Why:** Roadmap requirement for Carbon Markets - Credit Tracking & Double-Counting Prevention and Internal Carbon Pricing CapEx Evaluator for SEBI BRSR net emissions reporting.
 
+## D38 — Data isolation rules enforced by the database for every writer (migration `0047`)
+
+**Schema says:** nothing on these points; RLS scopes the browser roles and the application is trusted for the rest.
+
+**Built:** six additions, none of which changes a legitimate workflow (database audit of 2026-10-12,
+`DATABASE_AUDIT_2026-10-12.md`):
+
+- `esg_records.org_unit_id` / `submitted_by` and `documents.org_unit_id` / `uploaded_by` cannot change once filed.
+- An evidence link (`esg_record_documents`) must join a record and a document of the same org unit.
+- A carbon-credit batch cannot have more retired and transferred than it holds; a retirement must name its
+  period, beneficiary and scope, a transfer its counterparty (constraints added `NOT VALID`); one active
+  internal carbon price per org unit.
+- `chat_reader` no longer reads the four carbon tables (no chatbot lookup uses them).
+- `org_settings` is readable by Admins only (it now holds turnover, assurance details and rate limits).
+- Browser roles lose the unused `MAINTAIN` privilege; trigger functions are not executable by them; every
+  function in `public` has a fixed search path.
+
+**Why:** the application's own connection and the service role bypass RLS, so rules about ownership and the
+ledger have to live in triggers and constraints to hold for every writer. Each section of the migration lists
+its own undo.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

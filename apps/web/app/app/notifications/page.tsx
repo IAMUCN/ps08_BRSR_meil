@@ -50,6 +50,7 @@ export default async function NotificationsPage({ searchParams }: PageProps<"/ap
 
       {items.length === 0 ? (
         <EmptyState
+          nested
           icon={BellOff}
           title="No notifications yet"
           message={

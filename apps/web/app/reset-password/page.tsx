@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/auth/auth-card";
+import { PASSWORD_SETUP_COOKIE } from "@/lib/auth/password-setup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { SetPasswordForm } from "./set-password-form";
 
@@ -13,6 +15,8 @@ export default async function ResetPasswordPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?reason=link_invalid");
+  // A session alone is not enough: this page never asks for the current password.
+  if (!(await cookies()).has(PASSWORD_SETUP_COOKIE)) redirect("/login?reason=link_invalid");
 
   return (
     <AuthCard title="Set your password" description={`For ${user.email ?? "your account"}`}>

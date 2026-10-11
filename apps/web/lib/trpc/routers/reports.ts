@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { after } from "next/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import { assertOrgScope, scopedOrgUnitIds } from "@/lib/auth/scope";
 import { loadCalculationsById } from "@/lib/calculation/lookup";
 import type { CalculationState } from "@/lib/calculation/trace";
 import {
@@ -16,11 +17,11 @@ import { expireStaleRuns, runReport } from "@/lib/reports/generate";
 import { REPORT_INPUTS_KEY, type FyInputs } from "@/lib/reports/inputs";
 import { loadReportInputs, type Snapshot } from "@/lib/reports/snapshot";
 import { getBundlePreview, type BundlePreview } from "@/lib/reports/bundle";
-import { adminProcedure, permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
+import { adminProcedure, permissionProcedure, router } from "@/lib/trpc/init";
 
 // Reports (03_APP_FLOW.md §2.2 Reports / Report Detail, §4.10; .grill/phase-17-reporting-decisions.md).
 // Generating needs `report.generate`; a requester who is not an Admin may only report inside their own
-// assignments. The job runs after the response.
+// assignments, and reads past runs under the same limit. The job runs after the response.
 
 const generateProcedure = permissionProcedure("report.generate");
 
@@ -272,8 +273,9 @@ export const reportsRouter = router({
       return { runId };
     }),
 
-  list: generateProcedure.query(async (): Promise<ReportRunRow[]> => {
+  list: generateProcedure.query(async ({ ctx }): Promise<ReportRunRow[]> => {
     await expireStaleRuns();
+    const scope = await scopedOrgUnitIds(db(), ctx.session);
     const rows = await db()<
       {
         id: string;
@@ -297,6 +299,7 @@ export const reportsRouter = router({
       join public.org_units o on o.id = rr.org_unit_id
       join public.users u on u.id = rr.requested_by
       left join public.reporting_periods p on p.id = rr.reporting_period_id
+      where (${scope}::uuid[] is null or rr.org_unit_id = any(${scope}::uuid[]))
       order by rr.requested_at desc
       limit 100`;
     return rows.map((r) => ({
@@ -313,7 +316,8 @@ export const reportsRouter = router({
 
   get: generateProcedure
     .input(z.object({ id: z.uuid() }))
-    .query(async ({ input }): Promise<ReportRunRow & { snapshot: Snapshot | null }> => {
+    .query(async ({ ctx, input }): Promise<ReportRunRow & { snapshot: Snapshot | null }> => {
+      const scope = await scopedOrgUnitIds(db(), ctx.session);
       const runs = await db()<
         {
           id: string;
@@ -338,7 +342,8 @@ export const reportsRouter = router({
         join public.org_units o on o.id = rr.org_unit_id
         join public.users u on u.id = rr.requested_by
         left join public.reporting_periods p on p.id = rr.reporting_period_id
-        where rr.id = ${input.id}`;
+        where rr.id = ${input.id}
+          and (${scope}::uuid[] is null or rr.org_unit_id = any(${scope}::uuid[]))`;
       const r = runs[0];
       if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Report not found." });
       return {
@@ -362,6 +367,7 @@ export const reportsRouter = router({
     .input(z.object({ recordId: z.uuid(), calculationId: z.uuid().nullable() }))
     .query(
       async ({
+        ctx,
         input,
       }): Promise<{
         available: boolean;
@@ -369,9 +375,11 @@ export const reportsRouter = router({
         recalculatedSince: boolean;
       }> => {
         const sql = db();
+        const scope = await scopedOrgUnitIds(sql, ctx.session);
         const [record] = await sql<{ current: string | null }[]>`
           select (select id from public.calculations where esg_record_id = r.id and is_current) as current
-          from public.esg_records r where r.id = ${input.recordId}`;
+          from public.esg_records r where r.id = ${input.recordId}
+            and (${scope}::uuid[] is null or r.org_unit_id = any(${scope}::uuid[]))`;
         if (!record) return { available: false, calculation: null, recalculatedSince: false };
         if (!input.calculationId) {
           return { available: true, calculation: null, recalculatedSince: false };
@@ -389,7 +397,7 @@ export const reportsRouter = router({
   /**
    * Preview records, calculations, and supporting documents in scope before downloading the bundle.
    */
-  bundlePreview: protectedProcedure
+  bundlePreview: generateProcedure
     .input(
       z.object({
         orgUnitId: z.string().uuid(),
@@ -398,21 +406,7 @@ export const reportsRouter = router({
       }),
     )
     .query(async ({ ctx, input }): Promise<BundlePreview> => {
-      if (!ctx.session.isAdmin) {
-        const sql = db();
-        const [inScope] = await sql<{ ok: boolean }[]>`
-          select exists (
-            select 1 from public.user_org_assignments uoa
-            join public.org_unit_tree t on t.ancestor_id = uoa.org_unit_id
-            where uoa.user_id = ${ctx.session.userId} and uoa.revoked_at is null
-              and t.descendant_id = ${input.orgUnitId}) as ok`;
-        if (!inScope?.ok) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "You can only preview evidence inside your own assigned scope.",
-          });
-        }
-      }
+      await assertOrgScope(db(), ctx.session, input.orgUnitId);
       return getBundlePreview(input);
     }),
 });

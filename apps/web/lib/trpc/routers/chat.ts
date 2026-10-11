@@ -7,6 +7,7 @@ import { adminData, allowedUnits, chatConfig, dataLayer } from "@/lib/chat/data"
 import { createModelCaller, PROVIDER_MESSAGES, ProviderError } from "@/lib/chat/nim";
 import {
   answerQuestion,
+  auditLookups,
   historyMessages,
   LIMITS,
   systemPrompt,
@@ -289,7 +290,7 @@ export const chatRouter = router({
             entityId: conversation.id,
             userId,
             newValue: {
-              lookups: answer.toolCalls,
+              lookups: auditLookups(answer.toolCalls),
               org_unit_ids: answer.orgUnitIds,
               model: answer.model,
             },

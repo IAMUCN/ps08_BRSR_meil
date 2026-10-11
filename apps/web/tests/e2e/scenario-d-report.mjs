@@ -118,7 +118,7 @@ const gasSum = (code) =>
   s.breakups.gases.filter((g) => g.scopeCode === code).reduce((sum, g) => sum + g.tCo2e, 0);
 check(
   "the break-up by gas adds up to each scope's total",
-  s.version === 3 &&
+  s.version >= 3 &&
     ["SCOPE_1", "SCOPE_2", "SCOPE_3"].every((c) => close(gasSum(c), tonnesOf(s.scopes, c), 1e-6)),
   JSON.stringify(s.breakups?.gases),
 );

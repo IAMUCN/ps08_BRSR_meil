@@ -86,7 +86,7 @@ function buildDeadlineEmailHtml(params: {
             <td style="padding: 4px 0; color: #0f172a;">${escapeHtml(params.categoryName)}</td>
           </tr>
           <tr>
-            <td style="padding: 4px 0; color: #64748b;"><strong>Statutory Due Date:</strong></td>
+            <td style="padding: 4px 0; color: #64748b;"><strong>Due Date (set by your Admin):</strong></td>
             <td style="padding: 4px 0; color: #0f172a;"><strong>${escapeHtml(params.dueDateFormatted)}</strong></td>
           </tr>
           <tr>
@@ -579,7 +579,7 @@ export async function executeEscalationSweep(input: {
         ? `[Urgent: Escalation L${escalationLevel}] ${task.metricName} is overdue`
         : `[Deadline Reminder] ${task.metricName} due for ${task.periodName}`;
 
-      const noticeMessage = `${task.metricName} (${task.orgUnitName}) for ${task.periodName} is ${urgencyText}. Statutory deadline: ${task.dueDate}. [Stage: ${stage}]`;
+      const noticeMessage = `${task.metricName} (${task.orgUnitName}) for ${task.periodName} is ${urgencyText}. Due date: ${task.dueDate}. [Stage: ${stage}]`;
 
       const notificationType = isEscalation ? "deadline_escalated" : "deadline_reminder";
 

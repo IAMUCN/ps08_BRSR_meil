@@ -150,11 +150,16 @@ export function InfrastructureSection() {
             <button
               key={idx}
               onClick={() => setActiveIndex(idx)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                activeIndex === idx ? "w-6 bg-[#313490]" : "w-2 bg-slate-300"
-              }`}
+              className="group grid h-6 min-w-6 place-items-center"
               aria-label={`Select ${cat.name}`}
-            />
+              aria-current={activeIndex === idx ? "true" : undefined}
+            >
+              <span
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  activeIndex === idx ? "w-6 bg-[#313490]" : "w-2 bg-slate-300"
+                }`}
+              />
+            </button>
           ))}
         </div>
       </div>

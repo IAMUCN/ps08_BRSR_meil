@@ -64,7 +64,7 @@ export function NotificationBell({ viewAllHref }: { viewAllHref?: string }) {
           ) : null}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-0">
+      <PopoverContent aria-label="Notifications" className="w-96 p-0">
         <div className="border-b px-4 py-3">
           <h2 className="text-sm leading-5 font-semibold">Notifications</h2>
         </div>

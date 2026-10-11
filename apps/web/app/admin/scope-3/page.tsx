@@ -32,6 +32,7 @@ export default async function ScopeThreePage({ searchParams }: PageProps<"/admin
         />
       ) : (
         <EmptyState
+          nested
           icon={Link2}
           title="Nothing to total yet"
           message="Scope 3 figures appear once a reporting period exists and records in an enabled category have been calculated."

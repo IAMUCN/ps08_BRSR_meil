@@ -113,7 +113,7 @@ export function ReportForm({
       </div>
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Covering</legend>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
           <label className="flex items-center gap-1.5">
             <input
               type="radio"

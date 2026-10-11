@@ -54,6 +54,15 @@ Nothing was asked back; the points below were decided by the feature session and
 - Should the Admin's access also cover the audit trail, document text and written disclosures?
 - NVIDIA's terms on submitted prompts, now that personal data can be in them.
 
+## Changed on 2026-10-12 (chatbot audit, `CHATBOT_AUDIT_2026-10-12.md`)
+- Email addresses, employee ids and document file names are no longer sent to the AI service. The Admin still
+  sees them: the application draws them in the table beneath the answer, which never passes the model. The
+  model receives names, roles, org units and who submitted or approved a record. Reason: the wording of an
+  answer does not need contact details, and a file name is text typed by whoever uploaded the document.
+  To go back, restore the three fields in the `data` of `list_people` and `list_records` (`lib/chat/tools.ts`).
+- The audit entry of a question records which lookups ran and for which org unit, period and metric, without
+  the words searched for (a person's name or email would otherwise sit in a log that cannot be erased).
+
 ## Out of scope
 - The chatbot generating a report by itself.
 - Any change to `chat_reader` or to what a non-Admin can ask.

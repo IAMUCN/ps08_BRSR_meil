@@ -1220,7 +1220,7 @@ export const TOOLS = {
   list_people: tool({
     adminOnly: true,
     description:
-      "The people with an account: name, email, employee id, roles, org units, active or deactivated. Use for any question about employees, users, who holds a role or who works where.",
+      "The people with an account: name, roles, org units, active or deactivated. Use for any question about employees, users, who holds a role or who works where. Email addresses and employee ids are in the table the application shows the person beneath your answer; you are not given them, so point to the table for those.",
     schema: z.strictObject({
       search: z
         .string()
@@ -1248,12 +1248,12 @@ export const TOOLS = {
       const list = (p: Person, key: "role" | "orgUnit") =>
         [...new Set(p.assignments.map((x) => x[key]))].join(", ") || "—";
       return {
+        // What leaves for the AI service is what wording an answer needs. Email addresses and employee ids
+        // stay here: the table below is drawn by the application for the Admin and never passes the model.
         data: {
           total,
           people: rows.map((p) => ({
             name: p.name,
-            email: p.email,
-            employee_id: p.employeeId,
             status: p.active ? "active" : "deactivated",
             assignments: p.assignments,
           })),
@@ -1284,7 +1284,7 @@ export const TOOLS = {
   list_records: tool({
     adminOnly: true,
     description:
-      "The individual records of one org unit (and everything beneath it) over a period: value, status, who submitted it, who approved it and the document's file name. Use for 'who uploaded', 'who approved', 'which records'.",
+      "The individual records of one org unit (and everything beneath it) over a period: value, status, who submitted it and who approved it. Use for 'who uploaded', 'who approved', 'which records'. Each document's file name is in the table the application shows beneath your answer; you are not given it.",
     schema: z.strictObject({ org_unit: orgUnit, period, metric }),
     async run(a, ctx) {
       const unit = resolveUnit(ctx, a.org_unit);
@@ -1311,7 +1311,7 @@ export const TOOLS = {
             status: status(r.status),
             submitted_by: r.submittedBy,
             approved_by: r.approvedBy,
-            document: r.fileName,
+            // The file name is typed by whoever uploaded it: it is shown in the table, not sent to the model.
           })),
         },
         blocks: [
@@ -1329,6 +1329,7 @@ export const TOOLS = {
               "Status",
               "Submitted by",
               "Approved by",
+              "Document",
             ],
             rows: rows.map((r) => [
               unitName(r.orgUnitId),
@@ -1338,6 +1339,7 @@ export const TOOLS = {
               status(r.status),
               r.submittedBy,
               r.approvedBy ?? "—",
+              r.fileName?.slice(0, 200) ?? "—",
             ]),
           },
           ...(when.note ? [note(when.note)] : []),

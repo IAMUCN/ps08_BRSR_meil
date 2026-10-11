@@ -31,7 +31,7 @@ export default async function ConversionFactorsPage() {
           />
           <div>
             <p className="text-sm font-medium">No factors configured yet</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-foreground">
               Scope 1, Scope 2 and Scope 3 calculations cannot run until a factor exists for each
               activity. Add one below, with the source you verified it against.
             </p>

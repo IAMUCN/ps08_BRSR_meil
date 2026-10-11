@@ -32,6 +32,7 @@ export default async function ScopeTwoPage({ searchParams }: PageProps<"/admin/s
         />
       ) : (
         <EmptyState
+          nested
           icon={Zap}
           title="Nothing to total yet"
           message="Scope 2 figures appear once a reporting period exists and electricity records have been calculated."

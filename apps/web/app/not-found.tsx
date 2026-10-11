@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 // UI brief §15.3: say what happened and what to do next. "/" sends a signed-in user to their own dashboard.
 export default function NotFound() {
   return (
-    <main className="flex flex-1 items-center justify-center p-6">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="flex flex-1 items-center justify-center p-6 outline-none"
+    >
       <div className="max-w-md rounded-md border bg-card p-6 text-center">
         <FileQuestion
           className="mx-auto size-12 text-muted-foreground"

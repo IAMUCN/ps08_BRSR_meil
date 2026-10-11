@@ -3,7 +3,7 @@ import { Inter, JetBrains_Mono, Lora } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { CustomCursor } from "@/components/ui/custom-cursor";
 import { DEFAULT_THEME, THEME_BOOT_SCRIPT } from "@/lib/theme";
-import { Agentation } from "agentation";
+import { FeedbackWidget } from "@/components/dev/feedback-widget";
 import "./globals.css";
 
 const inter = Inter({
@@ -41,11 +41,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">
-        <CustomCursor />
+        <a
+          href="#main-content"
+          className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:top-2 focus-visible:left-2 focus-visible:z-[100] focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:shadow-md focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Skip to main content
+        </a>
         <CustomCursor />
         {children}
         <Toaster />
-        {process.env.NODE_ENV === "development" && <Agentation endpoint="http://localhost:4747" />}
+        {process.env.NODE_ENV === "development" && <FeedbackWidget />}
       </body>
     </html>
   );

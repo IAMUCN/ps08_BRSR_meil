@@ -269,7 +269,7 @@ export function UploadForm({
             ).map(([value, title, hint]) => (
               <label
                 key={value}
-                className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface-elevated p-3 text-sm leading-5 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
+                className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface-elevated p-3 text-sm leading-5 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:[&_.text-muted-foreground]:text-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
               >
                 <input
                   type="radio"

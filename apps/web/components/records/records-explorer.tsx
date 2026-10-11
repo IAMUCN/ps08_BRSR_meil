@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { csvSafeText } from "@/lib/csv";
 import { formatQuantity } from "@/lib/calculation/trace";
 import type { RecordRow } from "@/lib/records/search";
 import type { ContextOptions } from "@/lib/trpc/routers/records";
@@ -246,7 +247,7 @@ function valueOf(row: RecordRow) {
 }
 
 const csvCell = (v: string | number | null) => {
-  const text = v === null ? "" : String(v);
+  const text = v === null ? "" : typeof v === "string" ? csvSafeText(v) : String(v);
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 

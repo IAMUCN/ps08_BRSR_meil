@@ -37,6 +37,14 @@ export function safeNextPath(value: string | null | undefined): string | null {
   if (!value || value.length > 512) return null;
   if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return null;
   if ([...value].some((char) => char.charCodeAt(0) < 0x20)) return null;
+  // "/app/../auth/signout" starts with /app but is another page once the browser resolves it.
+  let decoded = value;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+  if (/(^|[\\/])\.{1,2}([\\/?#]|$)/.test(decoded) || decoded.includes("\\")) return null;
   if (!isUnder(value, "/admin") && !isUnder(value, "/app")) return null;
   return value;
 }

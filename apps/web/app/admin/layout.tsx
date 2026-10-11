@@ -55,7 +55,9 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       <Sidebar items={ADMIN_NAV} label="Admin navigation" />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar session={session} profileHref="/admin/profile" />
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main id="main-content" tabIndex={-1} className="flex-1 p-4 outline-none md:p-6">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import { inOrgScope } from "@/lib/auth/scope";
 import { getSessionContext } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { generateAuditEvidenceBundle } from "@/lib/reports/bundle";
@@ -38,21 +39,17 @@ export async function GET(request: Request) {
   const { orgUnitId, periodId, financialYear } = parsed.data;
   const sql = db();
 
-  // Authorize scope: Admins can access all org units; non-admins only their assigned tree
-  if (!session.session.isAdmin) {
-    const [inScope] = await sql<{ ok: boolean }[]>`
-      select exists (
-        select 1 from public.user_org_assignments uoa
-        join public.org_unit_tree t on t.ancestor_id = uoa.org_unit_id
-        where uoa.user_id = ${session.session.userId} and uoa.revoked_at is null
-          and t.descendant_id = ${orgUnitId}) as ok`;
-
-    if (!inScope?.ok) {
-      return NextResponse.json(
-        { error: "Forbidden: You are not authorized to export evidence for this organization." },
-        { status: 403 },
-      );
-    }
+  // The bundle carries audit entries and people's names, so it needs the reporting permission as well as
+  // org scope: Admins reach every org unit, anyone else only their assigned tree.
+  const { isAdmin, permissions } = session.session;
+  if (
+    (!isAdmin && !permissions.includes("report.generate")) ||
+    !(await inOrgScope(sql, session.session, orgUnitId))
+  ) {
+    return NextResponse.json(
+      { error: "Forbidden: You are not authorized to export evidence for this organization." },
+      { status: 403 },
+    );
   }
 
   try {
@@ -94,13 +91,8 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    // The cause stays in the server log: database and storage error text is not for the browser.
     console.error("Bundle generation failed:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to generate evidence bundle",
-        message: error instanceof Error ? error.message : "Internal error",
-      },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to generate evidence bundle" }, { status: 500 });
   }
 }

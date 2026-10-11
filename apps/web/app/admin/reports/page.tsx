@@ -90,7 +90,7 @@ export default async function ReportsPage({
           reported&rdquo;.{" "}
           <Link
             href={`/admin/disclosures?year=${inputsYear}`}
-            className="font-medium text-primary-text underline-offset-4 hover:underline"
+            className="font-medium text-foreground underline underline-offset-4"
           >
             Answer them on BRSR Disclosures
           </Link>
@@ -106,6 +106,7 @@ export default async function ReportsPage({
 
       {runs.length === 0 ? (
         <EmptyState
+          nested
           icon={FileText}
           title="No reports generated yet"
           message="Choose a scope and a period, financial year or custom period above."

@@ -66,7 +66,7 @@ export function TraceabilitySection() {
         </SectionHeading>
 
         <div className="grid items-center gap-10 lg:grid-cols-12">
-          <BlurFade inView className="lg:col-span-5">
+          <BlurFade inView className="min-w-0 lg:col-span-5">
             <ul className="space-y-5 text-sm leading-relaxed text-slate-600">
               <li>
                 <strong className="block text-base font-semibold text-slate-900">
@@ -89,7 +89,7 @@ export function TraceabilitySection() {
             </ul>
           </BlurFade>
 
-          <BlurFade inView delay={0.1} className="lg:col-span-7">
+          <BlurFade inView delay={0.1} className="min-w-0 lg:col-span-7">
             <div className="mb-3 flex items-center justify-between">
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
                 Illustrative example

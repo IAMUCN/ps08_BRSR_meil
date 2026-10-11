@@ -36,7 +36,7 @@ export function RolesManager({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(260px,320px)_1fr]">
-      <section aria-label="Roles" className="space-y-3">
+      <section aria-label="Roles" className="min-w-0 space-y-3">
         <ul className="divide-y rounded-md border bg-card">
           {matrix.roles.map((role) => (
             <li key={role.id}>
@@ -45,7 +45,7 @@ export function RolesManager({
                 onClick={() => router.replace(`${pathname}?role=${role.id}`, { scroll: false })}
                 aria-current={selected?.id === role.id ? "true" : undefined}
                 className={cn(
-                  "flex w-full items-center justify-between gap-2 px-3 py-3 text-left text-sm",
+                  "flex w-full flex-wrap items-center justify-between gap-2 px-3 py-3 text-left text-sm",
                   selected?.id === role.id ? "bg-table-row-hover" : "hover:bg-muted",
                 )}
               >
@@ -127,7 +127,7 @@ function RolePermissions({
   }
 
   return (
-    <section aria-labelledby="role-heading" className="rounded-md border bg-card p-6">
+    <section aria-labelledby="role-heading" className="min-w-0 rounded-md border bg-card p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 id="role-heading" className="text-xl leading-7 font-semibold">

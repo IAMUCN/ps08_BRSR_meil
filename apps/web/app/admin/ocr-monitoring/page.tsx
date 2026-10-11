@@ -51,6 +51,7 @@ export default async function OcrMonitoringPage() {
 
       {jobs.length === 0 ? (
         <EmptyState
+          nested
           icon={ScanText}
           title="No jobs processed yet"
           message="Jobs appear here as soon as documents are uploaded."

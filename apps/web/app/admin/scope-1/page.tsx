@@ -32,6 +32,7 @@ export default async function ScopeOnePage({ searchParams }: PageProps<"/admin/s
         />
       ) : (
         <EmptyState
+          nested
           icon={Flame}
           title="Nothing to total yet"
           message="Scope 1 figures appear once a reporting period exists and records have been calculated."

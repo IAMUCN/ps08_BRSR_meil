@@ -26,6 +26,30 @@ export const LIMITS = {
 
 export type SavedToolCall = { name: string; args: unknown };
 
+// Arguments that carry words someone typed (a name or email being searched for). The audit log is permanent,
+// so it records that the lookup was made and with which org unit, period and metric — not those words.
+const FREE_TEXT_ARGUMENTS = new Set(["search", "role"]);
+
+/** The lookups of an answer as the audit trail records them. */
+export function auditLookups(calls: SavedToolCall[]): SavedToolCall[] {
+  return calls.map((call) => ({
+    name: call.name,
+    args:
+      call.args && typeof call.args === "object" && !Array.isArray(call.args)
+        ? Object.fromEntries(
+            Object.entries(call.args).filter(([key]) => !FREE_TEXT_ARGUMENTS.has(key)),
+          )
+        : {},
+  }));
+}
+
+// Wording that says something was done to the data. The assistant has no tool that changes anything, so
+// such a sentence is always wrong; the note below it says so whatever the model wrote.
+const CLAIMS_A_CHANGE =
+  /\b(?:i(?:'ve| have)?|has been|have been|was|were|is now|are now)\b[^.!?\n]{0,60}\b(?:updated|deleted|approved|rejected|modified|changed|removed|created|uploaded|saved|submitted|corrected|edited)\b/i;
+
+export const claimsAChange = (text: string) => CLAIMS_A_CHANGE.test(text);
+
 export type Answer = {
   text: string;
   blocks: Block[];
@@ -82,7 +106,7 @@ export function systemPrompt(context: {
       ? [
           "- You can only read. You cannot change, approve, upload or delete anything, and you cannot generate the BRSR report yourself.",
           "- When the person wants to see, open, generate or download a report for any period, call open_report_page with that period: the application takes them to the Reports page with it selected, and they press Generate there. Say that this is what happened.",
-          "- This person is an Admin. For questions about employees and accounts (names, emails, roles, where they work) call list_people; for who submitted or approved which record call list_records. You have no document text, invoice text or written BRSR disclosures.",
+          "- This person is an Admin. For questions about employees and accounts (names, roles, where they work) call list_people; for who submitted or approved which record call list_records. Email addresses, employee ids and document file names appear in the table shown beneath your answer and are not given to you: point to the table for them. You have no document text, invoice text or written BRSR disclosures.",
         ]
       : [
           "- You can only read. You cannot change, approve, upload or delete anything, and you cannot create the official BRSR report: an Admin does that on the Reports page.",
@@ -218,7 +242,7 @@ export async function answerQuestion(input: {
     if (blocks.length === 0) throw new ProviderError("bad_response");
     text = "Here is what the data shows.";
   }
-  const kept = blocks.slice(0, MAX_BLOCKS - 1);
+  const kept = blocks.slice(0, MAX_BLOCKS - 2);
   if (unmatchedNumbers(text, `${input.question} ${input.system} ${shown}`).length) {
     kept.push({
       type: "note",
@@ -226,6 +250,13 @@ export async function answerQuestion(input: {
       text: toolCalls.length
         ? "Some figures in the wording above could not be matched to the data. Rely on the tables and charts, which come straight from the records."
         : "This answer was not taken from the records. Treat any figure in it as unverified.",
+    });
+  }
+  if (claimsAChange(text)) {
+    kept.push({
+      type: "note",
+      tone: "warning",
+      text: "The assistant can only read. Nothing was changed, approved, uploaded or deleted by this conversation, whatever the wording above says.",
     });
   }
   return {

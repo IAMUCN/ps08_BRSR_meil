@@ -1,6 +1,6 @@
 "use server";
 
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -99,15 +99,19 @@ export async function verifyOtpAndSetPassword(
     select id from public.users where lower(email) = ${email} and is_active and deleted_at is null`;
   if (!user) return { error: AUTH_MESSAGES.otpInvalid };
 
-  const [otp] = await db()<{ id: string; code_hash: string; expires_at: Date; attempts: number }[]>`
-    select id, code_hash, expires_at, attempts from public.password_reset_otps
-    where user_id = ${user.id} and consumed_at is null
-    order by created_at desc limit 1`;
-  if (!otp || otp.expires_at < new Date() || otp.attempts >= limits.otp_max_attempts) {
-    return { error: AUTH_MESSAGES.otpInvalid };
-  }
-  if (createHash("sha256").update(code).digest("hex") !== otp.code_hash) {
-    await db()`update public.password_reset_otps set attempts = attempts + 1 where id = ${otp.id}`;
+  // Every guess, right or wrong, first takes one of the code's attempts in a single statement: requests
+  // sent side by side cannot all read the same count and slip past the limit.
+  const [otp] = await db()<{ id: string; code_hash: string }[]>`
+    update public.password_reset_otps set attempts = attempts + 1
+    where id = (select id from public.password_reset_otps
+                where user_id = ${user.id} and consumed_at is null
+                order by created_at desc limit 1)
+      and expires_at > now() and attempts < ${limits.otp_max_attempts}
+    returning id, code_hash`;
+  if (!otp) return { error: AUTH_MESSAGES.otpInvalid };
+  const given = createHash("sha256").update(code).digest();
+  const stored = Buffer.from(otp.code_hash, "hex");
+  if (given.length !== stored.length || !timingSafeEqual(given, stored)) {
     return { error: AUTH_MESSAGES.otpInvalid };
   }
 

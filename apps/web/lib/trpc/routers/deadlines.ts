@@ -6,7 +6,7 @@ import {
   executeEscalationSweep,
   sendManualTaskReminder,
 } from "@/lib/deadlines/service";
-import { adminProcedure, protectedProcedure, router } from "@/lib/trpc/init";
+import { adminProcedure, router } from "@/lib/trpc/init";
 
 const filterSchema = z
   .object({
@@ -22,9 +22,10 @@ const filterSchema = z
 
 export const deadlinesRouter = router({
   /**
-   * Retrieves evaluated reporting deadlines, tasks, and summary KPIs.
+   * Retrieves evaluated reporting deadlines, tasks, and summary KPIs. Admin only: the tasks name the owners
+   * and escalation recipients of every org unit, with their email addresses.
    */
-  list: protectedProcedure.input(filterSchema).query(async ({ input }) => {
+  list: adminProcedure.input(filterSchema).query(async ({ input }) => {
     const sql = db();
     return getDeadlineData(sql, input);
   }),
@@ -32,7 +33,7 @@ export const deadlinesRouter = router({
   /**
    * Retrieves summary KPIs for reporting deadlines.
    */
-  kpis: protectedProcedure
+  kpis: adminProcedure
     .input(
       z
         .object({

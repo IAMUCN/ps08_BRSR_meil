@@ -65,3 +65,29 @@ test("postLoginPath honours a safe, permitted next path and otherwise lands by r
   assert.equal(postLoginPath("//evil.test", ["admin"]), "/admin");
   assert.equal(postLoginPath(null, ["admin"]), "/admin");
 });
+
+// Validation run of 2026-10-12: "/app/../x" starts with /app, and a browser resolves it to /x.
+test("a return path with dot segments is refused, encoded or not", () => {
+  for (const path of [
+    "/app/../../evil",
+    "/app/../auth/signout",
+    "/admin/../api/reports/bundle",
+    "/app/./../admin",
+    "/app/%2e%2e/admin",
+    "/app/%2E%2E%2Fauth/signout",
+    "/app/..",
+    "/app/..?x=1",
+    "/app/%zz",
+  ]) {
+    assert.equal(safeNextPath(path), null, path);
+  }
+  for (const path of [
+    "/app",
+    "/app/submissions?tab=processing",
+    "/admin/reports?org=1&from=2026-08-01&to=2026-09-30",
+    "/app/verify/3f6c0c1e-0000-4000-8000-000000000001",
+    "/app/upload?note=see..below",
+  ]) {
+    assert.equal(safeNextPath(path), path, path);
+  }
+});
