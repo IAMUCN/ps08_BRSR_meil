@@ -31,3 +31,11 @@ export async function reportInputsAction(input: { financialYear: number }) {
 export async function saveReportInputsAction(input: { financialYear: number } & FyInputs) {
   return runAction((api) => api.reports.saveInputs(input));
 }
+
+export async function bundlePreviewAction(input: {
+  orgUnitId: string;
+  periodId?: string;
+  financialYear?: number;
+}) {
+  return runAction((api) => api.reports.bundlePreview(input));
+}

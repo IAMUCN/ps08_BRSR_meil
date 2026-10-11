@@ -35,3 +35,6 @@ npm-debug.log*
 pnpm-debug.log*
 .DS_Store
 Thumbs.db
+
+# The copy of rows deleted from hosted on 2026-10-11 stays on this machine
+/test data/_backup/

@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-10-10._
+_Last updated: 2026-10-11._
 
 ---
 
@@ -130,21 +130,115 @@ _Last updated: 2026-10-10._
   the record panel in two columns when expanded; whole rows clickable in the panel-opening tables.
   Typecheck, lint, format pass; **not viewed in a browser** — the docking is CSS and Radix behaviour that only
   a real screen confirms.
-- **Uncommitted (2026-10-10, owner's page feedback, A31):** Organization page — the add forms open in the side
+- **Committed and pushed on `feature` (2026-10-10, owner's page feedback, A31; `5b3188c`):** Organization page — the add forms open in the side
   panel from two buttons, the unit and its expected submissions are one tile, and the ticks are written by a
   Save button (Clear all unticks). Typecheck, lint, format pass; **not viewed in a browser**.
+- **Audit Evidence Bundle (2026-10-10, PS-08 deliverable, branch `feature/hackathon-deliverables`):**
+  End-to-end cryptographic audit evidence package generation and streaming download.
+  - Backend collection & packaging service: `apps/web/lib/reports/bundle.ts` & `apps/web/lib/reports/bundle-utils.ts`
+  - Secure streaming API: `apps/web/app/api/reports/bundle/route.ts` with org authorization check, audit logging (`report.evidence_bundle_exported`), and anti-sniffing headers
+  - tRPC procedure & Server Action: `reports.bundlePreview` in `apps/web/lib/trpc/routers/reports.ts` and `bundlePreviewAction` in `apps/web/app/admin/reports/actions.ts`
+  - Interactive Preview & Download UI: `apps/web/app/admin/reports/bundle/` (with entry points from Reports and Evidence list)
+  - Deterministic Lineage: connects reported BRSR metric -> calculation run -> factor version -> activity record -> OCR extraction -> physical evidence document
+  - Integrity & Assurance: SHA-256 fingerprint verification against original upload hash, `manifest.json`, `checksums.sha256`, and explicit `limitations/missing-evidence.csv`
+  - Verification: 105/105 web unit tests pass (7 new tests in `apps/web/tests/bundle.test.ts`), 44/44 OCR worker tests pass, Next.js production build (`next build`) passes cleanly.
+- **Carbon Reduction Simulator (2026-10-11, PS-08 deliverable, branch `feature/hackathon-deliverables`):**
+  Interactive decision-support simulator for exploring hypothetical emissions-reduction scenarios.
+  - Pure calculation engine: `apps/web/lib/simulator/engine.ts` ($A = B \times r / 100$, $P = B - A$, $P_{org} = B_{total} - A$, overall % reduction)
+  - Server baseline query: `apps/web/lib/simulator/service.ts` querying `public.consolidation_records` across Scope 1, 2, and 3
+  - tRPC router & Server Action: `simulator.options` and `simulator.baseline` in `apps/web/lib/trpc/routers/simulator.ts` and `simulatorBaselineAction` in `apps/web/app/admin/simulator/actions.ts`
+  - Admin UI & Navigation: `/admin/simulator` with persistent `SIMULATION — NOT OFFICIAL BRSR DATA` disclaimer, interactive synchronized slider & numeric inputs, 4 KPI cards, responsive baseline-vs-projected trajectory chart, 3 standard comparison scenarios (5%, 15%, 25%) + custom, and action templates
+  - Non-destructive & Auditable: Read-only simulation leaves all official records, calculations, and approvals untouched
+  - Verification: 113/113 web unit tests pass (8 new tests in `apps/web/tests/simulator.test.ts`), typecheck clean, lint clean, production build cleanly generates `/admin/simulator` route.
 - **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
   org unit, one open period `AUG26`, three users at the group. Needs, in order: a second Admin invited
   by the owner for the agent (see §2); then the factor script and an org tree.
 - **Uncommitted, not from the feature sessions:** `apps/web/app/layout.tsx`, `apps/web/package.json` and
   `pnpm-lock.yaml` changed at 18:17–18:21 on 2026-10-07 (a development-only `agentation` widget). It fails `pnpm format:check` (`app/layout.tsx`). Left out of
   every commit; ask the owner.
+- **ESG data analyst chatbot (2026-10-11, owner's request), committed on branch `feature-chat-analyst`
+  (`67700f8`), not pushed to GitHub, no pull request yet**
+  (cut from `main` at `9b0f2b8`; `feature` had nothing `main` lacked). Overview `CHATBOT.md`, decisions
+  `.grill/chat-analyst-decisions.md`, D34, A32, `UI_NOTES.md`. Migration `0042` (role `chat_reader`, two
+  conversation tables, permission `chat.use`) was **pushed to hosted on 2026-10-11** (owner's go-ahead) and
+  checked there: 42 migrations, `chat_reader` exists without a login and with no privilege but SELECT, cannot
+  read users, the audit log, documents, OCR fields or conversations, the two tables have RLS and no browser
+  grants, all 8 roles hold `chat.use`, the 11 records and 4 org units untouched. **`chat_reader` has no
+  password on hosted yet**, so the chatbot is still off there. New files: `apps/web/lib/chat/*`,
+  `lib/trpc/routers/chat.ts`, `components/chat/*`, `tests/chat.test.ts`,
+  `supabase/tests/database/chat_analyst.test.sql`; touched: `top-bar.tsx` (one line), `rate-limit.ts`,
+  `root.ts`, `.env.example`, `seed.sql`, `phase2_smoke.test.sql`. No new dependency. Availability is the
+  permission `chat.use` (17 permissions now; every existing role holds it; added to `0042` after the browser
+  pass, so the permission gate itself was checked by database tests only). Checked: web unit
+  124/124, database 249/249, lint, typecheck, format, production build, totals against `consolidateNodes`
+  39/39, a real-browser pass in Edge on the built app with the real model 28/28. **Not run:** the end-to-end
+  suite, the rate limit, the 90-day removal, the other two themes, the docked panel, anything on hosted. One
+  small change (figures in the wording regrouped the Indian way) was made after the build and the browser
+  pass; unit tests, lint, typecheck and format were re-run after it, the build and the browser pass were not.
+  The owner's dev server has the NVIDIA key but no `CHAT_DATABASE_URL`, so the chatbot is off there and the
+  top bar is unchanged. A local user `chat.pm@traceesg.test` (Project Manager, Project X) was created for
+  the browser check; its password was not kept.
+- **Chat pane docked "like Copilot in Edge" (2026-10-11, owner's request), committed 2026-10-11, not pushed on
+  `feature-chat-analyst`:** `chat-launcher.tsx` (an `<aside>` instead of the Sheet, body padding, open state
+  in `localStorage`), and the page's name sent to the model from a fixed server list (`routers/chat.ts`,
+  `orchestrate.ts`, `actions.ts`). Checked: format, lint, typecheck, web unit 124/124, production build, a
+  real-browser pass in Edge 19/19 on the built app (docking, page still usable, stays open across pages and a
+  reload, Escape, phone width, and the `chat.use` gate: without the permission no button is shown). One
+  line of the system prompt was reworded after that pass; unit tests and static checks were re-run, the build
+  and browser pass were not. A second local user, `chat.pm2@traceesg.test`, exists for that check.
+- **Bulk-import templates and a whole branch of org units from one sheet (2026-10-11, owner's request, A33),
+  committed 2026-10-11, not pushed on `feature-chat-analyst`:** `lib/bulk-import/xlsx.ts` (both templates rewritten),
+  `lib/org/rules.ts` (`treeOrder`, `importOrder`), `organization.bulkImport` (a `parentCode` per row,
+  parents first, repeated codes refused), `users.bulkImportOptions` (scope list in tree order with level and
+  parent), the two bulk-import components and their two pages. No migration, no new dependency (`exceljs`
+  IS used now — by the templates). Checked: format, lint, typecheck, web unit 127/127 (3 new); both templates
+  generated as real files and read back, and a 12-row sheet imported through the real procedure on the local
+  database, 34/34; the Parent code cell is a pick-list of every existing unit (CODE — Name, or Name — id:… for a
+  unit with no code) that still accepts a typed code. On hosted only MEIL has a code (DrillMac, Drilling and
+  Olectra were created without one), which is how the missing-parents bug was found. The employee template had the same fault (scope list showed MEIL only): its
+  Organization Scope list now holds every in-scope unit, and `users.bulkImport` resolves `id:…` references; checked
+  with a real two-account import on the local stack, 7/7 (accounts and unit removed again) (created units removed again). **Not run:** the production build; the screens in a browser
+  (the download button, the preview table, the results table); nothing on hosted. This work is unrelated to
+  the chatbot and sits on its branch only because that was the branch checked out.
+- **Organization tree guide lines (2026-10-11, owner’s page feedback), committed 2026-10-11, not pushed:** `org-manager.tsx` draws a
+  vertical line from each parent with a tick to each child (CSS only, `BRANCH`). Lint and typecheck pass; **not
+  viewed in a browser** by the agent (no local Admin password). The lines use `--border`, which is pale in the
+  Special theme.
+- **`feature-chat-analyst` was pushed to `ucn` (`IAMUCN/ps08_BRSR_meil`) `main` by the owner on 2026-10-11**
+  (`dba8fa1`); `origin` (MACRO72) does not have it. Everything below this line is **uncommitted**.
+- **No ids in the bulk-import templates (2026-10-11, owner's request), uncommitted:** an org unit with no code is
+  listed by its name and matched by name on the server (`unitByRef`, `lib/org/rules.ts`; `users.ts`,
+  `organization.ts`, `xlsx.ts`); a name several units share is refused. Checked: format, lint, typecheck, web
+  unit 128/128 (1 new). **Not run:** an import through the procedure, the screens in a browser, the build.
+- **Hosted was cleared and given MEIL's Admin inputs on 2026-10-11** (owner's request, each group confirmed;
+  `.grill/demo-data-decisions.md`). Gone: all records, documents and files, OCR / validation / approval rows,
+  notifications, the saved chat, the 0.02 factor, `AUG26`, DrillMac / Drilling / Olectra, the role "test".
+  Kept: the three accounts, the audit log (append-only), all configuration. Entered through the Admin
+  procedures by script, as the one Admin account: 23 BRSR Disclosure answers for FY 2026-27 (only what meil.in
+  or its published annual return and CSR summary state), turnover for FY 2022-23, and 29 conversion factors
+  (the 28 sourced ones plus zero for renewable electricity). Hosted now has **one org unit (MEIL), no period,
+  three users**. Rows deleted are copied in `test data/_backup/`.
+- **Two sets of test data** in `test data/` (git-ignored; `README.md` there says how to use them), made by
+  `apps/ocr-worker/scripts/make_test_data.py` and `apps/web/scripts/test-data-sheets.mjs`: per set a filled
+  org-unit sheet, an employee sheet with the Email column empty (the owner types addresses and imports), one
+  document for each of the 47 activities, a multi-bill PDF and a manifest. Set 1 is August 2026, set 2
+  September 2026. Checked: the worker's real OCR and extraction on all 63 single documents of set 1 (every
+  required field read, document type chosen; the faint Men figure is misread on purpose), the sheets against
+  `importOrder` and `canBeChildOf`, Ruff. **Not run:** set 2 through OCR (same layouts), any upload or import
+  through the app. **The owner does the rest:** creates the two periods, imports org units and users, uploads.
+- **The `agentation` widget is committed now** (it is in `apps/web/package.json` on `main`; the working tree was
+  clean at the start of the 2026-10-11 session and `pnpm format:check` passes).
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
+| Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
+| NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
+| Chatbot branch on MACRO72's repo | The owner pushed `feature-chat-analyst` straight to `ucn` `main` (2026-10-11). `origin` has neither the branch nor a pull request; `gh` is not installed. A pull request must say that the feature role built UI (`UI_NOTES.md`). |
+| Commit the 2026-10-11 work | Template without ids, the two test-data scripts, `.gitignore`, the docs. Not committed: the owner has not asked. |
+| Admin answers to complete | BRSR Disclosures holds only what meil.in states. Reporting boundary, contact person, assurance, PPP rate and every answer not on the website are empty. R-22's factor value came from a search summary. |
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
 | Hosted demo setup | The owner chose hosted for the demo (2026-10-08). Waiting on: (1) go-ahead to replace the hosted worker container with the `rules-12` image; (2) a second Admin invited from Admin → Users for the agent — the provisioning script refuses a second Admin by design and the owner's password must not be reset; (3) the owner's review of the factor table in `.grill/audit-2-decisions.md`. |
@@ -160,7 +254,7 @@ _Last updated: 2026-10-10._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D34** and **A32**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D35** and **A34**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -235,7 +329,8 @@ _Last updated: 2026-10-10._
 - **`@sentry/nextjs` 11 collects cookies, headers, bodies, user details and local variables by default**
   (`dataCollection`; the old `sendDefaultPii` option is gone). `instrumentation.ts` switches each off — keep it that
   way when touching the Sentry setup.
-- **`exceljs` is installed but unused** (only `xlsx` is imported); remove it when convenient.
+- **`exceljs` writes the bulk-import templates** (dropdowns, styling); `xlsx` reads the filled sheets. Both are
+  needed.
 - **Line endings:** git warns "LF will be replaced by CRLF" on this Windows checkout; harmless.
 - **A local env file written by Python on Windows gets CRLF line endings**; exported into a shell, every value ends in a
   carriage return (the browser path then "is not found"). Strip the trailing carriage returns with `sed`. Load it with a `read` loop,
@@ -285,6 +380,37 @@ _Last updated: 2026-10-10._
   `@/` and `server-only`) runs `buildSnapshot` and `renderReportHtml` against the local database read-only.
 - **The repository's SEBI Annexure I is the 2021 format;** the L&T FY2025-26 report follows the one in
   force. Take question numbers and wording from the L&T report.
+- **A branch called `feature` exists, so `feature/<topic>` cannot be created** (git cannot hold both); use
+  `feature-<topic>`.
+- **A shell heredoc eats backslashes**: a regular expression written through one lost every `\d` and `\*`
+  (twice). Put code with backslashes in a file with the file tool, or edit in place.
+- **Local auth without the full stack:** `npx supabase stop`, then `npx supabase start -x
+  studio,imgproxy,mailpit,realtime,storage-api,edge-runtime,logflare,vector,postgres-meta,supavisor` starts
+  the database, auth and the gateway only (about 1.6 GB stayed free beside the dev server). With that, a
+  production build into `NEXT_DIST_DIR=.next-e2e` and `next start -p 3100` gave a real browser check.
+- **`chat_reader` has no password after `npx supabase migration up`** (the seed sets it only on a reset):
+  `alter role chat_reader login password 'chat_reader_local'` once on the local database.
+- **NVIDIA's model list includes models the account cannot call** (they answer 404 "not found for account"),
+  and one key does not switch models by itself. Probe a model with a tool call before adding it to
+  `NVIDIA_NIM_MODEL`.
+- **pgTAP cannot be called while acting as a role without access to the `extensions` schema:** run the
+  statement inside a helper that switches role and returns the error code (`chat_analyst.test.sql`).
+- **The schema smoke test lists every public table:** a migration that adds one must add it to
+  `phase2_smoke.test.sql`.
+- **Running a tRPC procedure without the app:** with the scratchpad loader hook (`@/` → `apps/web`,
+  `server-only` → nothing, `next/x` → `next/x.js`) and placeholder `NEXT_PUBLIC_SUPABASE_*` values,
+  `createCallerFactory(router)({ session: { status: "active", session } })` runs a real procedure against the
+  local database from plain Node. That is how the bulk import was checked.
+- **Two side panels on one page stack and jam.** A docked panel is non-modal and does not close on a click
+  elsewhere, so opening a second one leaves the first open underneath and its button does nothing. A page with
+  more than one `Sheet` must close the others when it opens one (`show()` in `users-manager.tsx`; also fixed in
+  `periods-manager.tsx`, 2026-10-11). Users’ bulk import is a side panel now, not a fold-out.
+- **OCR does not detect a lone digit on a line** ("Fatalities: 0" comes back empty). Sample documents print
+  "0 Nos". A document type needs two of its keywords on the page or the person must pick it.
+- **Users cannot be deleted once the audit log names them** (foreign key, append-only log); deactivate instead.
+  `calculations` and `audit_logs` refuse deletes for every role.
+- **Running the worker's OCR on files without the database:** `OcrEngine(Path("models"))`, `to_page_images`,
+  `extract_fields` with `FieldSpec`s (about 10 s a page; output is buffered until the end when redirected).
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

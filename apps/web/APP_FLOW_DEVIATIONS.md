@@ -541,3 +541,43 @@ three-column layout in A30.
 - **One tile for the selected unit:** its name and code, then its expected submissions.
 - **Expected submissions** are no longer written tick by tick: _Save expected submissions_ writes the changed
   ticks, _Clear all_ unticks every box (still needs Save), and the number of unsaved changes is shown.
+
+## A32 — ESG data analyst: a chat panel on every signed-in page
+
+Decision: `.grill/chat-analyst-decisions.md` (owner's request, 2026-10-11). `03_APP_FLOW.md` and the UI brief
+have no chatbot. Overview: `CHATBOT.md`.
+
+- **Entry points:** an _Ask_ button in the top bar of both shells and a round button at the bottom right of
+  the page. Both open the same side panel (`components/ui/sheet.tsx`, so it docks on wide screens). Neither
+  is shown when the chatbot is not configured, or to a person whose role lacks the `chat.use` permission
+  (every existing role holds it; an Admin changes that on Roles & Permissions).
+- **The panel:** example questions, the conversation, a question box (Enter sends), _New conversation_ and
+  _Saved_. An answer is the model's wording as plain text, then figures, tables and charts built by the server,
+  a line saying which org unit, period and record statuses it covers, and the date it was produced.
+- **Charts** are drawn by the app (bars and an SVG line); the app has no charting library.
+- **Read-only:** nothing can be changed from the panel. Asked for the official BRSR report, it points to
+  Admin → Reports.
+- **Saved conversations** are private to their owner, kept 90 days, deletable. Admins see one audit entry
+  per question (`chat.question_answered`) without the question's text.
+- **One primary button per page (UI brief §18):** the panel's Send button and the floating button are not
+  styled as primary buttons.
+- **A docked pane, not an overlay (amended 2026-10-11, owner's request: "like Copilot in Edge").** On a screen
+  1024px or wider the pane sits at the right, full height, 420px wide; the page narrows to make room, there
+  is no backdrop and the page stays usable. It stays open from page to page and after a reload (remembered in
+  the browser), and closes with its Close button, Escape or the top-bar button. Below 1024px it covers the
+  screen. It no longer uses `components/ui/sheet.tsx`. The model is also told which page is open, chosen
+  from a fixed list by the server.
+
+## A33 — Bulk import: a whole branch of org units from one sheet; templates that show the hierarchy
+
+Decision: `.grill/bulk-import-decisions.md` (owner's request, 2026-10-11). Amends A20, which created direct
+children of one chosen unit only.
+
+- **Org units:** columns Code, Name, Level, Parent code. A row with no parent code goes under the unit chosen
+  on screen; a row with one goes under that org unit — existing, or another row — so one sheet builds
+  several levels. Rows are created parents-first; each row still succeeds or fails by itself and the results
+  list says why.
+- **Both templates:** the first sheet has headings only (styled, kept in view), a "How to fill in" sheet
+  carries the instructions and example, and a reference sheet lists levels and existing org units as the
+  hierarchy stands at download, each unit indented under its parent.
+- **Preview** on screen shows the level's name and the parent each row will sit under.

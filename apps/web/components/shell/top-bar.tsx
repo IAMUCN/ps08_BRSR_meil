@@ -1,10 +1,12 @@
 import { LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
+import { ChatLauncher } from "@/components/chat/chat-launcher";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { signOutAction } from "@/lib/auth/actions";
 import type { ActiveSession } from "@/lib/auth/session";
+import { chatConfig } from "@/lib/chat/data";
 
 /**
  * Top bar (03_APP_FLOW.md §1). The org/period context switcher arrives with its data (Phase 16) —
@@ -24,6 +26,7 @@ export function TopBar({
   return (
     <header className="flex h-14 shrink-0 items-center justify-end gap-2 border-b bg-header px-4 text-header-foreground md:gap-4 md:px-6">
       <ThemeToggle current={session.theme} />
+      {session.permissions.includes("chat.use") && chatConfig() ? <ChatLauncher /> : null}
       <NotificationBell viewAllHref={notificationsHref} />
       <p className="hidden text-right text-sm leading-5 md:block">
         <span className="font-semibold">{session.displayName}</span>

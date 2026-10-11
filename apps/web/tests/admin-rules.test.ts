@@ -5,8 +5,11 @@ import {
   canBeChildOf,
   checkMove,
   descendantIds,
+  importOrder,
   isFrozen,
   reachableNodeIds,
+  treeOrder,
+  unitByRef,
   type OrgLevel,
   type OrgNode,
 } from "../lib/org/rules.ts";
@@ -224,4 +227,82 @@ test("admin role only at root; lockout guards", () => {
     { ok: true },
     "non-admin targets are unaffected by the last-Admin rule",
   );
+});
+
+// --- Bulk import of a whole branch (bulk-import-decisions.md) ---------------------------------------------
+
+test("tree order lists every unit under its parent, siblings by name, with its depth", () => {
+  const unit = (id: string, parentId: string | null, name: string) => ({ id, parentId, name });
+  const ordered = treeOrder([
+    unit("s2", "p1", "Site B"),
+    unit("p2", "sub", "Project Z"),
+    unit("sub", "root", "Subsidiary"),
+    unit("p1", "sub", "Project A"),
+    unit("s1", "p1", "Site A"),
+    // Its parent is outside the list (a scope that starts below the root): it starts its own branch.
+    unit("far", "elsewhere", "Another branch"),
+  ]);
+  assert.deepEqual(
+    ordered.map((n) => [n.name, n.depth]),
+    [
+      ["Another branch", 0],
+      ["Subsidiary", 0],
+      ["Project A", 1],
+      ["Site A", 2],
+      ["Site B", 2],
+      ["Project Z", 1],
+    ],
+  );
+});
+
+test("import order puts every row after the row it names as parent, whatever the sheet's order", () => {
+  const row = (code: string | null, parentCode: string | null = null) => ({ code, parentCode });
+  const { ordered, orphans } = importOrder(
+    [
+      row("SITE-1", "PRJ-1"), // its parent comes two rows later
+      row("DEPT-1", "SITE-1"),
+      row("PRJ-1", "SUB-A"), // under an org unit that exists already
+      row("PRJ-2"), // no parent: under the unit chosen on screen
+      row(null, "PRJ-2"), // a row without a code can still have a parent
+    ],
+    new Set(["SUB-A"]),
+  );
+  assert.deepEqual(
+    ordered.map((r) => r.code),
+    ["PRJ-1", "PRJ-2", null, "SITE-1", "DEPT-1"],
+  );
+  assert.deepEqual(orphans, []);
+});
+
+test("import order sets aside rows whose parent can never exist", () => {
+  const row = (code: string | null, parentCode: string | null = null) => ({ code, parentCode });
+  const { ordered, orphans } = importOrder(
+    [
+      row("OK"),
+      row("LOST", "NO-SUCH-CODE"),
+      row("UNDER-LOST", "LOST"), // its parent is itself an orphan
+      row("SELF", "SELF"),
+      row("A", "B"), // a circle
+      row("B", "A"),
+    ],
+    new Set(),
+  );
+  assert.deepEqual(
+    ordered.map((r) => r.code),
+    ["OK"],
+  );
+  assert.deepEqual(orphans.map((r) => r.code).sort(), ["A", "B", "LOST", "SELF", "UNDER-LOST"]);
+});
+
+test("a sheet names an org unit by its code, or by its name when it has none", () => {
+  const units = [
+    { code: "MEIL", name: "Megha Engineering" },
+    { code: null, name: "Olectra" },
+    { code: null, name: "Drilling" },
+    { code: null, name: "drilling" },
+  ];
+  assert.equal(unitByRef(units, "meil"), units[0]);
+  assert.equal(unitByRef(units, " olectra "), units[1]);
+  assert.equal(unitByRef(units, "Drilling"), "ambiguous"); // two units share the name: never guess
+  assert.equal(unitByRef(units, "No such unit"), undefined);
 });

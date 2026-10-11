@@ -1,6 +1,7 @@
 // Client-side .xlsx template/parse helpers for bulk import (bulk-import-decisions.md). Browser-only —
 // no file ever needs to reach the server as bytes; parsed rows go to the tRPC mutation as JSON, which
 // re-validates everything server-side (never trust client-parsed input).
+import type { Worksheet } from "exceljs";
 import * as XLSX from "xlsx";
 
 function triggerDownload(bytes: BlobPart, filename: string) {
@@ -13,6 +14,44 @@ function triggerDownload(bytes: BlobPart, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// Matches the server's bulk-import row cap (the bulkImport inputs in lib/trpc/routers).
+const MAX_IMPORT_ROWS = 500;
+
+/** A table's heading row: bold on a tint, so it reads as a heading in any spreadsheet program. */
+function heading(sheet: Worksheet, rowNumber: number, columns: number) {
+  for (let column = 1; column <= columns; column++) {
+    const cell = sheet.getCell(rowNumber, column);
+    cell.font = { bold: true };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE4E6F1" } };
+    cell.alignment = { vertical: "middle" };
+  }
+}
+
+/** The sheet people type into: styled headings, kept in view while scrolling, and nothing else in it. */
+function dataSheet(sheet: Worksheet, columns: { header: string; width: number }[]) {
+  sheet.columns = columns;
+  heading(sheet, 1, columns.length);
+  sheet.views = [{ state: "frozen", ySplit: 1 }];
+}
+
+/** A list where the hierarchy shows: each level is indented under its parent. */
+const indented = (name: string, depth: number) => `${"    ".repeat(depth)}${name}`;
+
+function dropdown(sheet: Worksheet, column: number, range: string, title: string, error: string) {
+  for (let row = 2; row <= MAX_IMPORT_ROWS + 1; row++) {
+    sheet.getCell(row, column).dataValidation = {
+      type: "list",
+      allowBlank: false,
+      formulae: [range],
+      showErrorMessage: true,
+      errorTitle: title,
+      error,
+    };
+  }
+}
+
+// --- Employees ---------------------------------------------------------------------------------------------
+
 export const EMPLOYEE_HEADERS = [
   "Employee ID",
   "Name",
@@ -21,28 +60,67 @@ export const EMPLOYEE_HEADERS = [
   "Organization Scope",
 ] as const;
 
-// Matches the server's bulk-import row cap (lib/trpc/routers/users.ts bulkImport input).
-const MAX_IMPORT_ROWS = 500;
+/**
+ * The org unit an Organization Scope cell names: its code, or its name for a unit that has no code; the
+ * server resolves either. A sheet from an earlier template may still say "Name — id:…", read as "id:…".
+ */
+export function scopeRefOf(cell: string): string {
+  const id = /id:([0-9a-f-]{36}) *$/i.exec(cell)?.[1];
+  return id ? `id:${id}` : cell;
+}
+
+export type ScopeOption = {
+  code: string;
+  name: string;
+  /** The level's name, the parent's code and the depth in the tree, when the server supplied them. */
+  level?: string;
+  parentCode?: string | null;
+  depth?: number;
+};
 
 /**
  * The plain "xlsx" package (SheetJS Community Edition) can read data validation but has no
- * write support for it, so the Role column needs "exceljs" instead — the only already-reasonable
+ * write support for it, so the dropdowns need "exceljs" instead — the only already-reasonable
  * way to ship a real in-cell dropdown that keeps the Admin role (never assignable by bulk import)
  * off the list.
+ *
+ * `orgUnits` arrives in tree order, so the reference sheet reads as the organization hierarchy does today.
+ * The first sheet holds headings only: an example row left in by mistake would become a real account.
  */
 export async function downloadEmployeeTemplate(
   roles: { code: string; name: string }[],
-  orgUnits: { code: string; name: string }[],
+  orgUnits: ScopeOption[],
+  withoutCode: string[] = [],
 ) {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
 
   const sheet = wb.addWorksheet("Employees");
-  sheet.columns = EMPLOYEE_HEADERS.map((header) => ({
-    header,
-    width: Math.max(header.length + 4, 18),
-  }));
-  sheet.addRow([
+  dataSheet(
+    sheet,
+    EMPLOYEE_HEADERS.map((header) => ({
+      header,
+      width: header === "Email" ? 34 : header === "Organization Scope" ? 48 : 24,
+    })),
+  );
+
+  const help = wb.addWorksheet("How to fill in");
+  help.columns = [{ width: 24 }, { width: 24 }, { width: 34 }, { width: 24 }, { width: 24 }];
+  for (const line of [
+    'Fill the "Employees" sheet, one person per row, starting on row 2. Keep the headings as they are.',
+    "Role and Organization Scope are dropdowns. They take the values listed on the next two sheets.",
+    "An org unit that has no code is listed by its name; pick it from the list as it is.",
+    "Organization Scope is the org unit the person works at; they see that unit and everything beneath it.",
+    "Employee ID, Name and Email are all required. An employee ID and an email can each be used only once.",
+    `At most ${MAX_IMPORT_ROWS} rows per sheet. Each row is created by itself: one bad row does not stop the others.`,
+    "",
+    "Example (do not copy the values):",
+  ]) {
+    help.addRow([line]);
+  }
+  help.addRow([...EMPLOYEE_HEADERS]);
+  heading(help, help.rowCount, EMPLOYEE_HEADERS.length);
+  help.addRow([
     "EMP1001",
     "Jane Doe",
     "jane.doe@example.com",
@@ -50,76 +128,204 @@ export async function downloadEmployeeTemplate(
     orgUnits[0]?.code ?? "",
   ]);
 
-  const refSheet = wb.addWorksheet("Valid codes");
-  refSheet.columns = [{ width: 24 }, { width: 40 }];
-  refSheet.addRow(["Role code", "Role name"]);
-  roles.forEach((r) => refSheet.addRow([r.code, r.name]));
-  const lastRoleRow = refSheet.rowCount;
-  refSheet.addRow(["", ""]);
-  refSheet.addRow(["Organization Scope code", "Name"]);
-  const firstOrgRow = refSheet.rowCount + 1;
-  orgUnits.forEach((o) => refSheet.addRow([o.code, o.name]));
-  const lastOrgRow = refSheet.rowCount;
+  const roleSheet = wb.addWorksheet("Roles");
+  roleSheet.columns = [{ width: 28 }, { width: 40 }];
+  roleSheet.addRow(["Role code", "Role name"]);
+  heading(roleSheet, 1, 2);
+  roles.forEach((r) => roleSheet.addRow([r.code, r.name]));
 
-  const roleColumnIndex = EMPLOYEE_HEADERS.indexOf("Role") + 1;
-  const scopeColumnIndex = EMPLOYEE_HEADERS.indexOf("Organization Scope") + 1;
-  for (let row = 2; row <= MAX_IMPORT_ROWS + 1; row++) {
-    if (orgUnits.length > 0) {
-      sheet.getCell(row, scopeColumnIndex).dataValidation = {
-        type: "list",
-        allowBlank: false,
-        formulae: [`'Valid codes'!$A$${firstOrgRow}:$A$${lastOrgRow}`],
-        showErrorMessage: true,
-        errorTitle: "Invalid organization scope",
-        error: "Pick an organization scope code from the dropdown list.",
-      };
-    }
-    sheet.getCell(row, roleColumnIndex).dataValidation = {
-      type: "list",
-      allowBlank: false,
-      formulae: [`'Valid codes'!$A$2:$A$${lastRoleRow}`],
-      showErrorMessage: true,
-      errorTitle: "Invalid role",
-      error: "Pick a role from the dropdown list.",
-    };
+  const orgSheet = wb.addWorksheet("Organization");
+  orgSheet.columns = [{ width: 52 }, { width: 48 }, { width: 22 }, { width: 24 }];
+  orgSheet.addRow([
+    "Organization Scope (use this value)",
+    "Org unit (indented under its parent)",
+    "Level",
+    "Under",
+  ]);
+  heading(orgSheet, 1, 4);
+  orgUnits.forEach((o) =>
+    orgSheet.addRow([o.code, indented(o.name, o.depth ?? 0), o.level ?? "", o.parentCode ?? ""]),
+  );
+  const lastOrgRow = orgSheet.rowCount;
+  if (withoutCode.length > 0) {
+    orgSheet.addRow([]);
+    orgSheet.addRow([
+      "Not listed: these org units have no code, so a sheet cannot name them. Give them a code on the Organization page first.",
+    ]);
+    withoutCode.forEach((name) => orgSheet.addRow(["", name]));
+  }
+
+  dropdown(
+    sheet,
+    EMPLOYEE_HEADERS.indexOf("Role") + 1,
+    `'Roles'!$A$2:$A$${Math.max(2, roleSheet.rowCount)}`,
+    "Invalid role",
+    'Pick a role code from the dropdown list (see the "Roles" sheet).',
+  );
+  if (orgUnits.length > 0) {
+    dropdown(
+      sheet,
+      EMPLOYEE_HEADERS.indexOf("Organization Scope") + 1,
+      `'Organization'!$A$2:$A$${lastOrgRow}`,
+      "Invalid organization scope",
+      'Pick an organization scope code from the dropdown list (see the "Organization" sheet).',
+    );
   }
 
   triggerDownload(await wb.xlsx.writeBuffer(), "employee-bulk-import-template.xlsx");
 }
 
-export const ORG_UNIT_HEADERS = ["Code", "Name", "Type"] as const;
+// --- Org units ---------------------------------------------------------------------------------------------
 
-/** Like the employee template's Role column: Type is a dropdown of the levels allowed under the parent. */
+export const ORG_UNIT_HEADERS = ["Code", "Name", "Level", "Parent code"] as const;
+/**
+ * A Parent code picked from the template's list reads "CODE — Name" so a person can recognise the unit; only
+ * the part before this separator is the code. A code cannot contain it (letters, digits, - and _ only).
+ */
+export const PARENT_SEPARATOR = " — ";
+/**
+ * The parent a cell names. Picked from the list it is "CODE — Name", or just the name for an org unit that
+ * has no code (the server matches it by name); typed by hand it is a bare code. A sheet from an earlier
+ * template may still say "Name — id:…".
+ */
+export function parentOf(cell: string): { parentCode: string; parentId?: string } {
+  const id = /id:([0-9a-f-]{36}) *$/i.exec(cell)?.[1];
+  return id
+    ? { parentCode: "", parentId: id }
+    : { parentCode: cell.split(PARENT_SEPARATOR)[0].trim() };
+}
+/** The heading the Level column had before the sheet could hold a whole tree; still read. */
+export const LEGACY_LEVEL_HEADER = "Type";
+
+export type ExistingUnit = {
+  id: string;
+  code: string | null;
+  name: string;
+  level: string;
+  parentCode: string | null;
+  depth: number;
+};
+
+/**
+ * One sheet for a whole branch of the organization: a row names its parent by code — an org unit that
+ * exists already, or another row of the same sheet — and a row with no parent goes directly under the unit
+ * chosen on screen. Levels and existing units are written as they are configured at the moment of download.
+ */
 export async function downloadOrgUnitTemplate(
-  parentName: string,
-  childTypes: { value: string; label: string }[],
+  parent: { name: string; code: string | null; level: string },
+  /** The levels that can sit beneath the chosen unit, in hierarchy order. */
+  levels: { code: string; label: string }[],
+  /** Org units the person may add under, in tree order. */
+  existing: ExistingUnit[],
 ) {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
 
   const sheet = wb.addWorksheet("New org units");
-  sheet.columns = ORG_UNIT_HEADERS.map((header) => ({
-    header,
-    width: Math.max(header.length + 4, 18),
-  }));
-  sheet.addRow(["PRJ-NEW", "New Project", childTypes[0]?.value ?? ""]);
+  dataSheet(sheet, [
+    { header: ORG_UNIT_HEADERS[0], width: 20 },
+    { header: ORG_UNIT_HEADERS[1], width: 40 },
+    { header: ORG_UNIT_HEADERS[2], width: 24 },
+    { header: ORG_UNIT_HEADERS[3], width: 44 },
+  ]);
 
-  const refSheet = wb.addWorksheet("Valid codes");
-  refSheet.columns = [{ width: 24 }, { width: 40 }];
-  refSheet.addRow([`Direct children of "${parentName}" only`, ""]);
-  refSheet.addRow(["Type value", "Label"]);
-  childTypes.forEach((t) => refSheet.addRow([t.value, t.label]));
+  const help = wb.addWorksheet("How to fill in");
+  help.columns = [{ width: 20 }, { width: 40 }, { width: 24 }, { width: 22 }, { width: 60 }];
+  for (const line of [
+    'Fill the "New org units" sheet, one org unit per row, starting on row 2. Keep the headings as they are.',
+    `Parent code left empty: the row is created directly under "${parent.name}" (${parent.level}), the unit chosen on screen.`,
+    "Parent code filled in: pick an org unit that exists already from the cell's dropdown list, or type the Code of another row in this sheet (the list is only a suggestion, so typing is allowed). An org unit that has no code can be picked from the list too; it is listed by its name. That is how one sheet builds several levels at once; the order of the rows does not matter.",
+    "Level is a dropdown of the levels configured today. A unit's level must come after its parent's level; levels may be skipped.",
+    "Code is letters, numbers, hyphens and underscores, and must be new. It is required for a row that other rows name as their parent.",
+    `At most ${MAX_IMPORT_ROWS} rows per sheet. A row whose parent could not be created is not created either; the results say which.`,
+    "",
+    "Example (do not copy the values):",
+  ]) {
+    help.addRow([line]);
+  }
+  help.addRow([...ORG_UNIT_HEADERS, "What it does"]);
+  heading(help, help.rowCount, ORG_UNIT_HEADERS.length + 1);
+  const [first, second] = levels;
+  if (first) {
+    help.addRow([
+      "EX-A",
+      `Example ${first.label}`,
+      first.code,
+      "",
+      `A ${first.label} directly under ${parent.name}`,
+    ]);
+    const below = second ?? first;
+    if (second) {
+      help.addRow([
+        "EX-A-1",
+        `Example ${below.label}`,
+        below.code,
+        "EX-A",
+        `A ${below.label} under the row above`,
+      ]);
+    }
+    const deeper = existing.find((u) => u.code && u.code !== parent.code);
+    if (deeper?.code && second) {
+      help.addRow([
+        "EX-B",
+        `Another ${below.label}`,
+        below.code,
+        deeper.code,
+        `Under the existing org unit ${deeper.name.trim()}, if its level comes before ${below.label}`,
+      ]);
+    }
+  }
 
-  const typeColumnIndex = ORG_UNIT_HEADERS.indexOf("Type") + 1;
-  for (let row = 2; row <= MAX_IMPORT_ROWS + 1; row++) {
-    sheet.getCell(row, typeColumnIndex).dataValidation = {
-      type: "list",
-      allowBlank: false,
-      formulae: [`'Valid codes'!$A$3:$A$${refSheet.rowCount}`],
-      showErrorMessage: true,
-      errorTitle: "Invalid type",
-      error: `Pick a type allowed under ${parentName} from the dropdown list.`,
-    };
+  const ref = wb.addWorksheet("Hierarchy");
+  ref.columns = [{ width: 24 }, { width: 48 }, { width: 22 }, { width: 24 }];
+  ref.addRow([`Levels that can be added beneath ${parent.name}, in order`]);
+  ref.addRow(["Level (use this value)", "Level name"]);
+  heading(ref, 2, 2);
+  levels.forEach((l) => ref.addRow([l.code, l.label]));
+  const lastLevelRow = Math.max(3, ref.rowCount);
+  ref.addRow([]);
+  ref.addRow(["Org units that exist today (use the code as a Parent code)"]);
+  ref.addRow(["Code", "Org unit (indented under its parent)", "Level", "Under"]);
+  heading(ref, ref.rowCount, 4);
+  existing.forEach((u) =>
+    ref.addRow([u.code ?? "(no code)", indented(u.name, u.depth), u.level, u.parentCode ?? ""]),
+  );
+
+  dropdown(
+    sheet,
+    ORG_UNIT_HEADERS.indexOf("Level") + 1,
+    `'Hierarchy'!$A$3:$A$${lastLevelRow}`,
+    "Invalid level",
+    'Pick a level from the dropdown list (see the "Hierarchy" sheet).',
+  );
+
+  // Parent code: a list of the org units that exist today to pick from. It only suggests — no error on
+  // another value — because a parent may also be a row of this sheet that does not exist yet.
+  // Every existing unit can be picked, with or without a code.
+  const parents = existing;
+  ref.getColumn(6).width = 52;
+  ref.getCell(1, 6).value = "Parent code choices (the list in the Parent code column)";
+  ref.getCell(1, 6).font = { bold: true };
+  parents.forEach((u, index) => {
+    ref.getCell(index + 2, 6).value = u.code ? `${u.code}${PARENT_SEPARATOR}${u.name}` : u.name;
+  });
+  if (parents.length > 0) {
+    const parentColumn = ORG_UNIT_HEADERS.indexOf("Parent code") + 1;
+    for (let row = 2; row <= MAX_IMPORT_ROWS + 1; row++) {
+      sheet.getCell(row, parentColumn).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: [`'Hierarchy'!$F$2:$F$${parents.length + 1}`],
+        showErrorMessage: false,
+        showInputMessage: true,
+        promptTitle: "Parent",
+        prompt:
+          `Pick an existing org unit, or type the Code of another row. Empty = under ${parent.name}.`.slice(
+            0,
+            250,
+          ),
+      };
+    }
   }
 
   triggerDownload(await wb.xlsx.writeBuffer(), "org-unit-bulk-import-template.xlsx");

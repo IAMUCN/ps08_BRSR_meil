@@ -466,6 +466,31 @@ rate uses 1,000,000. The result's unit is the metric's own when the scale is not
 **Why:** safety incidents (BRSR P3-E11) are a rate per million person-hours; a new formula type would have
 repeated the percentage's roll-up rule. Decision: `.grill/safety-and-water-discharge-decisions.md`.
 
+## D34 — A read-only database role and saved conversations for the ESG data analyst
+
+**Schema says:** nothing; `05_BACKEND_SCHEMA.md` has no chatbot, and §3 names two database roles for the
+application (the browser's and the server's).
+
+**Implemented (migration `0042`):**
+
+- A third role, `chat_reader`, used only by the chatbot's lookups through `CHAT_DATABASE_URL`. It holds
+  `SELECT` on a named list — reporting periods, scopes, metrics, formulas, field requirements, calculations
+  and their inputs, conversion factors, validation results, the two consolidation views, and the columns of
+  org units, records, factor versions and expected submissions that do not name a person — and a
+  `SELECT … USING (true)` policy on each of those tables. Its transactions are read-only by default and time
+  out after 10 seconds. It has no password in the migration; one is set by hand where the chatbot is used.
+- Two server-only tables, `chat_conversations` and `chat_messages` (RLS on, no policies, no browser grants,
+  no access for `chat_reader`): a person's saved questions and answers, kept 90 days from the last message.
+- A permission, `chat.use`, held by every role that existed when the migration ran; an Admin grants or
+  removes it per role on Roles & Permissions.
+
+**Why:** the owner chose the strongest separation for a feature that hands a language model a way to ask for
+data: whatever the model is talked into, the database refuses writes and holds nothing about people,
+documents, OCR text, the audit log, settings or reports for it. The brief for the feature asked for reads
+through RLS; here the server has always read through its own connection and checked org scope in code (D1),
+and the consolidation views are closed to the browser role on purpose, so scope stays in server code and the
+role bounds what can be reached at all. Decision: `.grill/chat-analyst-decisions.md`; overview: `CHATBOT.md`.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

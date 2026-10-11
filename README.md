@@ -53,6 +53,82 @@ All design and build decisions come from the documents in `ps_documents/implemen
   plain `pnpm` command is on your PATH; the root scripts call `pnpm` internally, so they need it.
 - **Python 3.12** for the OCR worker — PaddlePaddle does **not** publish wheels for Python 3.14
 
+## For collaborators — getting started
+
+You need Node.js 22.18+ and, for a local database or OCR worker, Docker Desktop. No key or password is in this
+repository; never commit one (see [Secrets](#secrets)). Work on your own branch (`ui/<topic>` or
+`feature/<topic>`) and open a pull request — the rules are in `CLAUDE.md`.
+
+### Option A — the shared hosted project (the owner's env files)
+
+Use this when you need the shared data and real emails.
+
+1. Get two files **privately from the owner** and put them at exactly these paths (both are git-ignored):
+
+   | File            | Place it at               | Used by        |
+   | --------------- | ------------------------- | -------------- |
+   | web env file    | `apps/web/.env.local`     | the website    |
+   | worker env file | `apps/ocr-worker/.env`    | the OCR worker |
+
+2. In `apps/web/.env.local`, change `CHROMIUM_EXECUTABLE_PATH` to the Edge or Chrome on **your** machine
+   (for example `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`); report PDFs fail otherwise.
+3. Start the website:
+
+   ```bash
+   corepack enable     # once per machine
+   pnpm install
+   pnpm dev            # http://localhost:3000
+   ```
+
+4. Ask the owner for a login (accounts are created by an Admin; there is no sign-up).
+
+While you use these files:
+
+- **Do not start an OCR worker.** One worker already serves the hosted database; a second one competes for the
+  same jobs. Your uploads are read by the owner's worker, and wait in "Processing" while it is off.
+- **The data is shared.** What you upload, edit or delete is seen by everyone at once. Do not run
+  `pnpm db:reset`, `supabase db push` or any script that writes to the database.
+- **Emails are real** and are sent from the owner's Brevo account.
+- **The files give full access** to the database and the stored evidence. Do not paste them into chat, email,
+  screenshots or an issue, and delete them when your work is done.
+
+### Option B — everything on your own machine
+
+Use this for layout and styling work; it needs no key from anyone.
+
+```bash
+corepack enable
+pnpm install
+pnpm db:start                                   # local Supabase in Docker: migrations and seed data
+pnpm exec supabase status -o env                # prints the local keys
+cp apps/web/.env.example apps/web/.env.local    # fill it as described under "Web app" below
+pnpm --filter web provision-user --email admin@example.com --name "Test Admin" --role admin --org-code MEIL
+pnpm dev                                        # http://localhost:3000
+```
+
+Also set `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence`, `SUPABASE_STORAGE_BUCKET_REPORTS=reports` and
+`CHROMIUM_EXECUTABLE_PATH`. Emails land in the local inbox at http://127.0.0.1:55324; Brevo is optional (without
+it, password-reset codes and bulk-import emails are not sent). The database starts with the seed hierarchy only,
+and emissions calculate once you enter factors at `/admin/conversion-factors`.
+
+For your own OCR worker (optional — without it uploads stay in "Processing"), create
+`apps/ocr-worker/.env.docker` (git-ignored):
+
+```
+NEXT_PUBLIC_SUPABASE_URL=http://host.docker.internal:55321
+DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:55322/postgres
+SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from the status output>
+SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence
+```
+
+```bash
+docker build -t traceesg-ocr-worker apps/ocr-worker     # about 2.3 GB; the models are downloaded at build time
+docker run -d --name traceesg-ocr-worker-local --env-file apps/ocr-worker/.env.docker traceesg-ocr-worker:latest
+```
+
+The model runs on your CPU inside that container (about 2 GB of memory, roughly 10 seconds a page); nothing is
+sent to an outside service.
+
 ## Web app (`apps/web`)
 
 ```bash
@@ -77,6 +153,13 @@ Root commands:
 | `pnpm test` | Unit tests (Node's built-in test runner) | `corepack pnpm -r test` |
 | `pnpm format` / `pnpm format:check` | Prettier write / check for `apps/web` | `corepack pnpm --filter web format:check` |
 | `pnpm build` | Production build of `apps/web` | `corepack pnpm --filter web build` |
+
+### ESG data analyst (chatbot)
+
+A read-only assistant behind the _Ask_ button; see [`CHATBOT.md`](CHATBOT.md) for how it works, what it
+sends to the AI service and how to test it. It is off until `NVIDIA_NIM_API_KEY`, `NVIDIA_NIM_MODEL` and
+`CHAT_DATABASE_URL` are set in `apps/web/.env.local`. Locally, after `pnpm db:reset`:
+`CHAT_DATABASE_URL=postgresql://chat_reader:chat_reader_local@127.0.0.1:55322/postgres`.
 
 ## Database (`supabase/`)
 

@@ -12,6 +12,7 @@ import { reportingPeriodsRouter } from "@/lib/trpc/routers/reporting-periods";
 import { approvalsRouter } from "@/lib/trpc/routers/approvals";
 import { auditRouter } from "@/lib/trpc/routers/audit";
 import { brsrRouter } from "@/lib/trpc/routers/brsr";
+import { chatRouter } from "@/lib/trpc/routers/chat";
 import { consolidationRouter } from "@/lib/trpc/routers/consolidation";
 import { recordsRouter } from "@/lib/trpc/routers/records";
 import { reportsRouter } from "@/lib/trpc/routers/reports";
@@ -19,6 +20,8 @@ import { validationRouter } from "@/lib/trpc/routers/validation";
 import { verificationRouter } from "@/lib/trpc/routers/verification";
 import { rolesRouter } from "@/lib/trpc/routers/roles";
 import { scopeRouter } from "@/lib/trpc/routers/scope";
+import { simulatorRouter } from "@/lib/trpc/routers/simulator";
+import { deadlinesRouter } from "@/lib/trpc/routers/deadlines";
 import { usersRouter } from "@/lib/trpc/routers/users";
 
 export const appRouter = router({
@@ -41,11 +44,14 @@ export const appRouter = router({
   approvals: approvalsRouter,
   factors: factorsRouter,
   scope: scopeRouter,
+  simulator: simulatorRouter,
+  deadlines: deadlinesRouter,
   brsr: brsrRouter,
   consolidation: consolidationRouter,
   records: recordsRouter,
   reports: reportsRouter,
   audit: auditRouter,
+  chat: chatRouter,
 });
 
 export type AppRouter = typeof appRouter;

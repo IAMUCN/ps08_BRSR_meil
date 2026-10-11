@@ -1,4 +1,4 @@
-import { FolderOpen } from "lucide-react";
+import { Archive, FolderOpen } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cn } from "cn";
@@ -51,9 +51,17 @@ export default async function ReportEvidencePage({
         title="Evidence"
         description="Every document behind the records of a financial year: the original bill, invoice or certificate each figure was read from, and any supporting files."
         action={
-          <Button asChild variant="outline">
-            <Link href="/admin/reports">Back to Reports</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href="/admin/reports">Back to Reports</Link>
+            </Button>
+            <Button asChild variant="default">
+              <Link href="/admin/reports/bundle">
+                <Archive aria-hidden />
+                Export Evidence Bundle
+              </Link>
+            </Button>
+          </div>
         }
       />
       <nav aria-label="Financial year" className="flex flex-wrap gap-1 border-b">

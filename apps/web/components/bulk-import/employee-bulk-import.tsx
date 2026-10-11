@@ -11,6 +11,8 @@ import {
   downloadEmployeeTemplate,
   EMPLOYEE_HEADERS,
   parseSheetRows,
+  scopeRefOf,
+  type ScopeOption,
 } from "@/lib/bulk-import/xlsx";
 import type { BulkImportRowResult } from "@/lib/trpc/routers/users";
 
@@ -29,11 +31,14 @@ type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 export function EmployeeBulkImport({
   roles,
   orgUnits,
+  withoutCode,
   importAction,
   onImported,
 }: {
   roles: Option[];
-  orgUnits: Option[];
+  orgUnits: ScopeOption[];
+  /** Org units in scope that have no code and so cannot be named in a sheet. */
+  withoutCode?: string[];
   importAction: (input: {
     rows: ParsedRow[];
   }) => Promise<ActionResult<{ results: BulkImportRowResult[] }>>;
@@ -58,7 +63,7 @@ export function EmployeeBulkImport({
             displayName: r[EMPLOYEE_HEADERS[1]] ?? "",
             email: r[EMPLOYEE_HEADERS[2]] ?? "",
             roleCode: r[EMPLOYEE_HEADERS[3]] ?? "",
-            orgUnitCode: r[EMPLOYEE_HEADERS[4]] ?? "",
+            orgUnitCode: scopeRefOf(r[EMPLOYEE_HEADERS[4]] ?? ""),
           })),
         );
       })
@@ -103,7 +108,7 @@ export function EmployeeBulkImport({
           type="button"
           variant="outline"
           onClick={() =>
-            downloadEmployeeTemplate(roles, orgUnits).catch(() =>
+            downloadEmployeeTemplate(roles, orgUnits, withoutCode).catch(() =>
               toast.error("Couldn't generate the template — try again."),
             )
           }

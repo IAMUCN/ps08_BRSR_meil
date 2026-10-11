@@ -70,7 +70,14 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
   return (
     <>
       <div className="mb-4 flex justify-end">
-        <Button onClick={() => setCreateOpen(true)}>
+        {/* One side panel at a time: they dock in the same place and do not close on a click elsewhere, so
+            a second one opened over the first would leave the first open underneath and its button dead. */}
+        <Button
+          onClick={() => {
+            setWindowPeriod(null);
+            setCreateOpen(true);
+          }}
+        >
           <CalendarPlus aria-hidden />
           Create period
         </Button>
@@ -128,7 +135,14 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => setWindowPeriod(period)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setCreateOpen(false);
+                          setWindowPeriod(period);
+                        }}
+                      >
                         Edit window
                       </Button>
                       {period.status === "draft" ? (
