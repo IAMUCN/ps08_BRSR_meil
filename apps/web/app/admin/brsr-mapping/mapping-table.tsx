@@ -114,7 +114,7 @@ export function MappingTable({ view }: { view: MappingsView }) {
                     return (
                       <Fragment key={indicator.id}>
                         {principle !== null ? (
-                          <tr className="border-t border-table-border bg-table-header/60">
+                          <tr className="border-t border-table-border bg-table-header/15 text-foreground">
                             <th
                               colSpan={5}
                               scope="colgroup"
@@ -239,7 +239,7 @@ export function MappingTable({ view }: { view: MappingsView }) {
                             Principle {principle}: {PRINCIPLE_TITLES[principle - 1]}
                           </li>
                         ) : null}
-                        <li className="flex items-start justify-between gap-3 py-2 text-sm leading-5">
+                        <li className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2 text-sm leading-5">
                           <span>
                             <span className="mr-2 rounded-sm border border-brsr-badge bg-brsr-badge/15 px-1.5 font-mono text-xs whitespace-nowrap">
                               {q.code}

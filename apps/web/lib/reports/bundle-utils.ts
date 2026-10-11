@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { csvSafeText } from "../csv.ts";
 
 /**
  * Strips dangerous path traversal, control, and filesystem reserved characters.
@@ -35,7 +36,7 @@ export function toCsv(
 ): string {
   const escapeCell = (val: unknown): string => {
     if (val === null || val === undefined) return "";
-    const str = String(val);
+    const str = typeof val === "string" ? csvSafeText(val) : String(val);
     if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
       return `"${str.replace(/"/g, '""')}"`;
     }

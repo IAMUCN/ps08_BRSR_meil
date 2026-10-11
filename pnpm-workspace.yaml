@@ -2,6 +2,15 @@ packages:
   - apps/web
   - packages/*
 
+# Advisories accepted for now (DEPENDENCY_AUDIT_2026-10-12.md). Remove an entry when a fixed version exists.
+auditConfig:
+  ignoreGhsas:
+    # braces <= 3.0.3 (stack exhaustion on deeply nested patterns): no fixed version. Reached only through
+    # the shadcn command-line tool's file globbing at build time, never with input from a user.
+    - GHSA-vfj7-8cjw-p6xm
+    # uuid < 11.1.1 (bounds check when a buffer is passed to v3/v5/v6): inside exceljs, which calls v4 only.
+    - GHSA-w5hq-g745-h8pq
+
 allowBuilds:
   sharp: false
   unrs-resolver: false

@@ -75,3 +75,61 @@ Built by the feature session at the owner's request. `components/records/records
 field on its own row at the top of the filter bar (prop `search`), applied 450 ms after typing stops or on
 Enter; a Clear filters button at the right of the bar, disabled when nothing narrows the list. The link in
 the empty-table message is gone. Not viewed in a browser.
+
+## 2026-10-12 — Defect fixes from the UI audit (`UI_AUDIT_2026-10-12.md`)
+
+Made by the feature session during the audit the owner asked for; no restyling, defects only. Verified in Edge
+at 1440, 820 and 390px on the local stack (117 screenshots per pass).
+
+- `app/globals.css`: a table scroll box (`.overflow-x-auto`) is `position: relative`. A screen-reader-only
+  label inside a table header was escaping the box and making whole pages scroll sideways on a phone.
+- `components/shell/empty-state.tsx`: new `nested` prop. Under a `PageHeader` pass it, so the title is an
+  `h2`; without it the title stays the page's `h1`. Eleven pages now pass `nested`.
+- `app/admin/deadlines/deadlines-client.tsx`, `app/admin/carbon-credits/carbon-credits-client.tsx`: table
+  headers use `bg-table-header text-table-header-foreground` like every other table (the pinned first cell
+  was unreadable); emoji replaced by lucide icons in the status colours; `aria-label` on the search fields
+  and filters; the tab row wraps; the due date does not wrap. Deadline dates are no longer called
+  "statutory" (also `app/admin/deadlines/page.tsx`).
+- `app/admin/simulator/simulator-client.tsx`, `app/admin/brsr-mapping/mapping-table.tsx`: three rows may wrap.
+- `components/landing/landing-page.tsx`: `overflow-x-clip` on the root; `traceability-section.tsx`: grid
+  children get `min-w-0`. `registry/magicui/pixel-image.tsx`: the pieces have empty alt text.
+- `app/layout.tsx`: `<CustomCursor />` was mounted twice; now once.
+- Earlier the same day (security audit): `app/admin/audit-trail/audit-view.tsx` and
+  `components/records/records-explorer.tsx` — CSV cells that start like a formula are neutralised.
+
+Left for the ui role and the owner (reasons in the report): the site-wide custom cursor, the hero card deck,
+card captions that read as results, the jargon and one-off styling of Deadlines and Carbon credits, the pill
+button on sign-in, em dashes in copy, small touch targets, the browser icon.
+
+## 2026-10-12 — Accessibility fixes (`ACCESSIBILITY_AUDIT_2026-10-12.md`)
+
+Made by the feature session during the WCAG audit the owner asked for. Verified with `pnpm --filter web
+test:a11y` (axe-core plus scripted keyboard, dialog, reflow and target-size checks in Edge, three themes).
+
+- `app/layout.tsx`: a "Skip to main content" link is the first Tab stop. Every `<main>` has
+  `id="main-content" tabIndex={-1}` (both shell layouts, landing, auth card, auth slider, not-found). A new
+  page's main region needs the same id.
+- `components/ui/sheet.tsx`: a side panel returns focus to whatever had it when the panel opened.
+- **Colour rule for the newer Admin pages:** no raw palette text classes (`text-amber-600`,
+  `dark:text-…`) — the `dark:` variants never apply (themes are `data-theme`) and small text fails contrast.
+  Use `text-status-success` / `-warning` / `-error`, `text-primary-text`, `text-foreground`. On a tinted
+  surface (`bg-…/5`, `/10`, `/20`) text takes `text-foreground`; add
+  `[&_.text-muted-foreground]:text-foreground` to the tinted container. Applied to Deadlines, Carbon credits,
+  Forecast, Simulator, the Conversion Factors and Reports notices, the chosen upload mode, and the BRSR
+  Mapping group rows (`bg-table-header/15 text-foreground`).
+- `components/shell/notification-bell.tsx`: the pop-up is named. `components/landing/infrastructure-section.tsx`:
+  carousel dots sit in 24px buttons with `aria-current`. `components/auth/auth-slider.tsx`: three links are
+  24px high.
+- Narrow screens: `app/globals.css` lets a button's label wrap below 360px; fixed-width fields on Users and
+  Audit Trail give way (`max-w-[calc(100vw-7rem)]`); rows wrap on Reports, Simulator, Deadlines, Carbon
+  credits, Roles; the Organization tree scrolls inside its box.
+- Still open for the ui role: Roles & Permissions and BRSR Disclosures at 320px, text alternatives for the
+  Forecast and Simulator charts, field-level error association on Admin forms, the custom cursor.
+
+## 2026-10-12 — Feedback widget loads in development only
+
+`app/layout.tsx` no longer imports `agentation` directly; `components/dev/feedback-widget.tsx` loads it with
+`next/dynamic` from a branch a production build removes. Its code used to end up in the production bundle
+(never rendered). Checked: no file of a production build mentions it; a development server still references it.
+Also from the validation stage: `app/admin/reports/bundle/bundle-client.tsx`
+uses the standard table header tokens.

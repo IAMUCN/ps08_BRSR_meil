@@ -2,13 +2,17 @@ import "server-only";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import { assertOrgScope, inOrgScope as inScope, scopedOrgUnitIds } from "@/lib/auth/scope";
 import { registryEnum, creditStatusEnum, targetScopeEnum } from "@/lib/carbon-credits/engine";
 import { db } from "@/lib/db";
-import { permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
+import { permissionProcedure, router } from "@/lib/trpc/init";
 
 const view = permissionProcedure("carbon_credit.view");
 const manage = permissionProcedure("carbon_credit.manage");
 const icpManage = permissionProcedure("icp.manage");
+
+// These procedures read and write through lib/db.ts, which bypasses RLS, and the three permissions are held
+// below the group (a Project Manager holds carbon_credit.view): every one stays inside the caller's org scope.
 
 export { registryEnum, creditStatusEnum, targetScopeEnum };
 
@@ -28,14 +32,15 @@ export const carbonCreditsRouter = router({
   /**
    * Helper options for UI selectors (org units and active reporting periods).
    */
-  options: protectedProcedure.query(async () => {
+  options: view.query(async ({ ctx }) => {
     const sql = db();
+    const scope = await scopedOrgUnitIds(sql, ctx.session);
 
     const [orgUnits, periods] = await Promise.all([
       sql<{ id: string; name: string; code: string; unit_type: string }[]>`
         select id, name, code, unit_type
         from public.org_units
-        where deleted_at is null
+        where deleted_at is null and (${scope}::uuid[] is null or id = any(${scope}::uuid[]))
         order by name asc
       `,
       sql<
@@ -75,8 +80,9 @@ export const carbonCreditsRouter = router({
         })
         .optional(),
     )
-    .query(async ({ input }): Promise<CarbonCreditSummary> => {
+    .query(async ({ ctx, input }): Promise<CarbonCreditSummary> => {
       const sql = db();
+      const scope = await scopedOrgUnitIds(sql, ctx.session);
 
       const [creditsAgg, transactionsAgg, icpPrice, byRegistry, byStatus] = await Promise.all([
         sql<
@@ -92,6 +98,7 @@ export const carbonCreditsRouter = router({
             count(*)::text as batch_count
           from public.carbon_credits
           where (${input?.orgUnitId ?? null}::uuid is null or org_unit_id = ${input?.orgUnitId ?? null}::uuid)
+            and (${scope}::uuid[] is null or org_unit_id = any(${scope}::uuid[]))
         `,
         sql<
           {
@@ -100,10 +107,12 @@ export const carbonCreditsRouter = router({
           }[]
         >`
           select
-            coalesce(sum(case when transaction_type = 'RETIREMENT' then quantity_tco2e else 0 end), 0)::text as total_retired,
-            coalesce(sum(case when transaction_type = 'TRANSFER' then quantity_tco2e else 0 end), 0)::text as total_transferred
-          from public.carbon_credit_transactions
-          where (${input?.orgUnitId ?? null}::uuid is null or beneficiary_org_unit_id = ${input?.orgUnitId ?? null}::uuid)
+            coalesce(sum(case when tx.transaction_type = 'RETIREMENT' then tx.quantity_tco2e else 0 end), 0)::text as total_retired,
+            coalesce(sum(case when tx.transaction_type = 'TRANSFER' then tx.quantity_tco2e else 0 end), 0)::text as total_transferred
+          from public.carbon_credit_transactions tx
+          join public.carbon_credits c on c.id = tx.credit_id
+          where (${input?.orgUnitId ?? null}::uuid is null or tx.beneficiary_org_unit_id = ${input?.orgUnitId ?? null}::uuid)
+            and (${scope}::uuid[] is null or c.org_unit_id = any(${scope}::uuid[]))
         `,
         sql<
           {
@@ -115,6 +124,7 @@ export const carbonCreditsRouter = router({
           from public.internal_carbon_prices
           where is_active = true
             and (${input?.orgUnitId ?? null}::uuid is null or org_unit_id = ${input?.orgUnitId ?? null}::uuid)
+            and (${scope}::uuid[] is null or org_unit_id = any(${scope}::uuid[]))
           order by effective_from desc
           limit 1
         `,
@@ -122,12 +132,14 @@ export const carbonCreditsRouter = router({
           select registry::text, coalesce(sum(quantity_tco2e), 0)::text as total
           from public.carbon_credits
           where (${input?.orgUnitId ?? null}::uuid is null or org_unit_id = ${input?.orgUnitId ?? null}::uuid)
+            and (${scope}::uuid[] is null or org_unit_id = any(${scope}::uuid[]))
           group by registry
         `,
         sql<{ status: string; total: string }[]>`
           select status::text, coalesce(sum(quantity_tco2e), 0)::text as total
           from public.carbon_credits
           where (${input?.orgUnitId ?? null}::uuid is null or org_unit_id = ${input?.orgUnitId ?? null}::uuid)
+            and (${scope}::uuid[] is null or org_unit_id = any(${scope}::uuid[]))
           group by status
         `,
       ]);
@@ -168,8 +180,9 @@ export const carbonCreditsRouter = router({
         })
         .optional(),
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const sql = db();
+      const scope = await scopedOrgUnitIds(sql, ctx.session);
 
       const rows = await sql<
         {
@@ -223,6 +236,7 @@ export const carbonCreditsRouter = router({
         left join public.documents d on d.id = c.evidence_document_id
         left join public.carbon_credit_transactions tx on tx.credit_id = c.id
         where (${input?.orgUnitId ?? null}::uuid is null or c.org_unit_id = ${input?.orgUnitId ?? null}::uuid)
+          and (${scope}::uuid[] is null or c.org_unit_id = any(${scope}::uuid[]))
           and (${input?.status ?? null}::text is null or c.status::text = ${input?.status ?? null}::text)
           and (${input?.registry ?? null}::text is null or c.registry::text = ${input?.registry ?? null}::text)
           and (${input?.vintageYear ?? null}::int is null or c.vintage_year = ${input?.vintageYear ?? null}::int)
@@ -287,6 +301,7 @@ export const carbonCreditsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const sql = db();
+      await assertOrgScope(sql, ctx.session, input.orgUnitId);
 
       return await sql.begin(async (tx) => {
         const [inserted] = await tx<{ id: string }[]>`
@@ -350,17 +365,20 @@ export const carbonCreditsRouter = router({
             quantity_tco2e: string;
             status: string;
             vintage_year: number;
+            org_unit_id: string;
           }[]
         >`
-          select id, quantity_tco2e::text, status::text, vintage_year
+          select id, quantity_tco2e::text, status::text, vintage_year, org_unit_id
           from public.carbon_credits
           where id = ${input.creditId}
           for update
         `;
 
-        if (!credit) {
+        // A batch outside the caller's scope reads as missing.
+        if (!credit || !(await inScope(tx, ctx.session, credit.org_unit_id))) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Carbon credit batch not found." });
         }
+        await assertOrgScope(tx, ctx.session, input.beneficiaryOrgUnitId);
 
         // Guard: Transferred credits can NEVER be retired for internal claims
         if (credit.status === "TRANSFERRED") {
@@ -456,15 +474,16 @@ export const carbonCreditsRouter = router({
             id: string;
             quantity_tco2e: string;
             status: string;
+            org_unit_id: string;
           }[]
         >`
-          select id, quantity_tco2e::text, status::text
+          select id, quantity_tco2e::text, status::text, org_unit_id
           from public.carbon_credits
           where id = ${input.creditId}
           for update
         `;
 
-        if (!credit) {
+        if (!credit || !(await inScope(tx, ctx.session, credit.org_unit_id))) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Carbon credit batch not found." });
         }
 
@@ -536,8 +555,9 @@ export const carbonCreditsRouter = router({
         reportingPeriodId: z.string().uuid().optional(),
       }),
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const sql = db();
+      await assertOrgScope(sql, ctx.session, input.orgUnitId);
 
       // 1. Fetch Gross Scope 1, 2, 3 emissions from approved records
       const grossEmissions = await sql<
@@ -618,7 +638,20 @@ export const carbonCreditsRouter = router({
           and c.org_unit_id = ${input.orgUnitId}
       `;
 
-      // 4. Net positions
+      // 4. The check itself: no batch held by this org unit may have more retired and transferred than it
+      // holds. Computed from the ledger on every call — never a fixed answer.
+      const [overdrawn] = await sql<{ n: number }[]>`
+        select count(*)::int as n from (
+          select c.id
+          from public.carbon_credits c
+          join public.carbon_credit_transactions tx on tx.credit_id = c.id
+          where c.org_unit_id = ${input.orgUnitId}
+          group by c.id, c.quantity_tco2e
+          having sum(tx.quantity_tco2e) > c.quantity_tco2e + 0.0001
+        ) over_allocated`;
+      const overdrawnBatches = overdrawn?.n ?? 0;
+
+      // 5. Net positions
       const netScope1 = Math.max(0, grossScope1 - offsetScope1);
       const netScope2 = Math.max(0, grossScope2 - offsetScope2);
       const netScope3 = Math.max(0, grossScope3 - offsetScope3);
@@ -649,10 +682,12 @@ export const carbonCreditsRouter = router({
           status: "PERMANENTLY_EXCLUDED",
         },
         doubleCountingIntegrityCheck: {
-          passed: true,
-          claimDisclosuresValid: true,
+          passed: overdrawnBatches === 0,
+          claimDisclosuresValid: overdrawnBatches === 0,
           message:
-            "Reconciliation verified: All retired offsets possess valid registry linkage. No transferred credits are counted in corporate net claims.",
+            overdrawnBatches === 0
+              ? "Ledger check passed: no batch held by this org unit has more retired and transferred than it holds, and transferred credits are not counted in the net figures."
+              : `Ledger check failed: ${overdrawnBatches} batch(es) held by this org unit have more retired and transferred than they hold. Review the ledger before using the net figures.`,
         },
       };
     }),
@@ -669,8 +704,9 @@ export const carbonCreditsRouter = router({
         })
         .optional(),
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const sql = db();
+      const scope = await scopedOrgUnitIds(sql, ctx.session);
 
       const rows = await sql<
         {
@@ -702,6 +738,7 @@ export const carbonCreditsRouter = router({
         from public.internal_carbon_prices p
         join public.org_units ou on ou.id = p.org_unit_id
         where (${input?.orgUnitId ?? null}::uuid is null or p.org_unit_id = ${input?.orgUnitId ?? null}::uuid)
+          and (${scope}::uuid[] is null or p.org_unit_id = any(${scope}::uuid[]))
         order by p.effective_from desc
       `;
 
@@ -736,6 +773,7 @@ export const carbonCreditsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const sql = db();
+      await assertOrgScope(sql, ctx.session, input.orgUnitId);
 
       return await sql.begin(async (tx) => {
         // Deactivate previous price for this unit
@@ -793,6 +831,7 @@ export const carbonCreditsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const sql = db();
+      await assertOrgScope(sql, ctx.session, input.orgUnitId);
 
       // 1. Get active shadow price
       const [icp] = await sql<
@@ -844,7 +883,8 @@ export const carbonCreditsRouter = router({
 
       // 3. Persist evaluation if shadowPriceId exists
       if (shadowPriceId) {
-        await sql`
+        await sql.begin(async (tx) => {
+          const [saved] = await tx<{ id: string }[]>`
           insert into public.capex_carbon_evaluations (
             org_unit_id, project_name, baseline_annual_emissions_tco2e,
             projected_annual_emissions_tco2e, capex_amount, operational_annual_savings,
@@ -854,7 +894,21 @@ export const carbonCreditsRouter = router({
             ${input.projectedAnnualEmissionsTco2e}, ${input.capexAmount}, ${input.operationalAnnualSavings},
             ${input.projectLifespanYears}, ${shadowPriceId}, ${ctx.session.userId}
           )
+          returning id
         `;
+          await writeAudit(tx, {
+            eventType: "icp.capex_evaluated",
+            entityType: "capex_carbon_evaluations",
+            entityId: saved.id,
+            userId: ctx.session.userId,
+            newValue: {
+              orgUnitId: input.orgUnitId,
+              projectName: input.projectName,
+              capexAmount: input.capexAmount,
+              carbonPriceId: shadowPriceId,
+            },
+          });
+        });
       }
 
       return {

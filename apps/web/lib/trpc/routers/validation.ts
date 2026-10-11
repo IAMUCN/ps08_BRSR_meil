@@ -3,12 +3,14 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { submitForApproval } from "@/lib/approvals/workflow";
 import { writeAudit } from "@/lib/audit";
+import { scopedOrgUnitIds } from "@/lib/auth/scope";
 import { db } from "@/lib/db";
 import type { Outcome, RuleType } from "@/lib/validation/checks";
 import { permissionProcedure, router } from "@/lib/trpc/init";
 
 // Admin Validation Queue (03_APP_FLOW.md §2.2): records that failed validation or were flagged.
-// Decisions: .grill/phase-8-validation-engine-decisions.md. `validation.review` is Admin-held (migration 0009).
+// Decisions: .grill/phase-8-validation-engine-decisions.md. `validation.review` is Admin-held (migration 0009);
+// were it given to another role, its holder reviews only inside their own org scope.
 
 const review = permissionProcedure("validation.review");
 export const REVIEW_REASON_MIN = 10;
@@ -35,8 +37,9 @@ export type QueueRow = {
 
 export const validationRouter = router({
   /** Flagged and failed records with their latest validation run, newest first. */
-  queue: review.query(async (): Promise<QueueRow[]> => {
+  queue: review.query(async ({ ctx }): Promise<QueueRow[]> => {
     const sql = db();
+    const scope = await scopedOrgUnitIds(sql, ctx.session);
     const rows = await sql<
       {
         record_id: string;
@@ -81,6 +84,7 @@ export const validationRouter = router({
         where esg_record_id = r.id order by verified_at desc limit 1
       ) v on true
       where r.validation_status in ('flagged', 'failed') and r.data_quality_state <> 'rejected'
+        and (${scope}::uuid[] is null or r.org_unit_id = any(${scope}::uuid[]))
       order by v.verified_at desc nulls last
       limit 500`;
     return rows.map((r) => ({
@@ -115,6 +119,7 @@ export const validationRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const scope = await scopedOrgUnitIds(db(), ctx.session);
       await db().begin(async (tx) => {
         const [record] = await tx<
           {
@@ -132,6 +137,7 @@ export const validationRouter = router({
           left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
           left join public.documents d on d.id = erd.document_id
           where r.id = ${input.recordId}
+            and (${scope}::uuid[] is null or r.org_unit_id = any(${scope}::uuid[]))
           for update of r`;
         if (!record) {
           throw new TRPCError({ code: "NOT_FOUND", message: "That record no longer exists." });

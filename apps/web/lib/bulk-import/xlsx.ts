@@ -3,6 +3,7 @@
 // re-validates everything server-side (never trust client-parsed input).
 import type { Worksheet } from "exceljs";
 import * as XLSX from "xlsx";
+import { csvSafeText } from "../csv.ts";
 import { tidy } from "../org/rules.ts";
 
 function triggerDownload(bytes: BlobPart, filename: string) {
@@ -457,7 +458,7 @@ export async function downloadOrgHierarchy(
 /** Same download-link trick as the audit trail's CSV export (app/admin/audit-trail/audit-view.tsx). */
 export function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]) {
   const cell = (v: unknown) => {
-    const s = String(v);
+    const s = typeof v === "string" ? csvSafeText(v) : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lines = [headers, ...rows].map((r) => r.map(cell).join(","));

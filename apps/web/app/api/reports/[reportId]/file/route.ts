@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { scopedOrgUnitIds } from "@/lib/auth/scope";
 import { getSessionContext } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { reportsBucket } from "@/lib/reports/generate";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 // A generated report's PDF (App Flow §2.2 "download report file"). Private like evidence: every request
-// re-checks the session and the `report.generate` permission; never cached.
+// re-checks the session, the `report.generate` permission and the caller's org scope; never cached.
 
 export async function GET(
   request: Request,
@@ -23,10 +24,12 @@ export async function GET(
   if (!z.uuid().safeParse(reportId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  const scope = await scopedOrgUnitIds(db(), session.session);
   const [run] = await db()<{ storage_path: string | null; org_unit_name: string }[]>`
     select rr.storage_path, o.name as org_unit_name
     from public.report_runs rr join public.org_units o on o.id = rr.org_unit_id
-    where rr.id = ${reportId} and rr.status = 'completed'`;
+    where rr.id = ${reportId} and rr.status = 'completed'
+      and (${scope}::uuid[] is null or rr.org_unit_id = any(${scope}::uuid[]))`;
   if (!run?.storage_path) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { data, error } = await createSupabaseAdminClient()

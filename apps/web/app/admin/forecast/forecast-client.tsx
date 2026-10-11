@@ -207,14 +207,14 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
                 }}
                 className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                   scopeTarget === sc.code
-                    ? "border-primary bg-primary/10 text-primary"
+                    ? "border-primary bg-primary/10 text-primary-text"
                     : "border-border bg-card text-muted-foreground hover:bg-muted"
                 }`}
               >
                 <span>{sc.name.split(" ")[0]}</span>
                 <span className="font-mono font-semibold">({sc.periodsWithData} periods)</span>
                 {sc.isRecommended && (
-                  <span className="rounded bg-emerald-500/10 px-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                  <span className="rounded bg-emerald-500/10 px-1 text-[10px] text-foreground">
                     Recommended
                   </span>
                 )}
@@ -225,12 +225,9 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
       </div>
 
       {/* 2. Statutory / Regulatory Estimation Notice */}
-      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-900 dark:text-amber-200">
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
         <div className="flex items-start gap-2.5">
-          <AlertCircle
-            className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
-            aria-hidden
-          />
+          <AlertCircle className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden />
           <div className="space-y-1">
             <p className="font-semibold tracking-wide uppercase">
               Statistical Projection · Not Official BRSR Figures
@@ -273,11 +270,11 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
 
             {/* Card 2: Next Period Forecast */}
             <div className="rounded-lg border border-border bg-card p-4">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
-                <TrendingUp className="size-3.5 text-primary" aria-hidden />
+              <div className="flex items-center gap-1.5 text-xs font-medium text-primary-text">
+                <TrendingUp className="size-3.5 text-primary-text" aria-hidden />
                 Next Period Forecast
               </div>
-              <div className="mt-2 text-2xl font-bold tracking-tight text-primary">
+              <div className="mt-2 text-2xl font-bold tracking-tight text-primary-text">
                 {nextForecast ? `${nextForecast.predictedTco2e.toFixed(2)}` : "—"}
                 <span className="ml-1 text-xs font-normal text-muted-foreground">tCO₂e</span>
               </div>
@@ -285,9 +282,7 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
                 {projectedChangePercent !== null ? (
                   <span
                     className={
-                      projectedChangePercent > 0
-                        ? "text-rose-600 dark:text-rose-400"
-                        : "text-emerald-600 dark:text-emerald-400"
+                      projectedChangePercent > 0 ? "text-status-error" : "text-status-success"
                     }
                   >
                     {projectedChangePercent > 0
@@ -480,14 +475,16 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
                       key={pred.periodIndex}
                       className="border-t border-table-border bg-primary/5 hover:bg-primary/10"
                     >
-                      <td className="px-3 py-2.5 font-medium text-primary">{pred.periodLabel}</td>
+                      <td className="px-3 py-2.5 font-medium text-primary-text">
+                        {pred.periodLabel}
+                      </td>
                       <td className="px-3 py-2.5 font-mono text-muted-foreground">
                         {pred.estimatedStartDate} to {pred.estimatedEndDate}
                       </td>
                       <td className="px-3 py-2.5">
                         <StatusBadge tone="warning">Statistical Estimate</StatusBadge>
                       </td>
-                      <td className="px-3 py-2.5 text-right font-mono font-bold text-primary">
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-primary-text">
                         {pred.predictedTco2e.toFixed(2)}
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-foreground">
@@ -513,7 +510,7 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
             <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Sliders className="size-4 text-primary" aria-hidden />
+                  <Sliders className="size-4 text-primary-text" aria-hidden />
                   <h4 className="text-sm font-semibold text-foreground">
                     Analytical Bridge: Explore in Reduction Simulator
                   </h4>
@@ -775,9 +772,7 @@ function ForecastTrajectoryChart({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="h-0.5 w-4 border-t-2 border-dashed border-amber-500" aria-hidden />
-            <span className="font-medium text-amber-600 dark:text-amber-400">
-              Forecast Estimate
-            </span>
+            <span className="font-medium text-status-warning">Forecast Estimate</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="size-3 rounded bg-amber-500/20" aria-hidden />

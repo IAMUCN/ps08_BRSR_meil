@@ -16,38 +16,45 @@ export function checkRoleAtNode(roleCode: string, orgUnitType: string): RuleChec
   return { ok: true };
 }
 
-/** First name, letters only, capitalized — for a memorable default password. */
-function firstNameToken(displayName: string): string {
-  const first = displayName.trim().split(/\s+/)[0] ?? "";
-  const letters = first.replace(/[^A-Za-z]/g, "") || "User";
-  return letters[0]!.toUpperCase() + letters.slice(1).toLowerCase();
+// No look-alikes (0/O, 1/l/I), so a password read off an email or a results sheet is typed correctly.
+const UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const LOWER = "abcdefghijkmnopqrstuvwxyz";
+const DIGITS = "23456789";
+const SPECIAL = "!@#$%*?";
+const INITIAL_PASSWORD_LENGTH = 16;
+
+/** An unbiased integer in [0, max) from the platform's cryptographic generator. */
+function secureRandomInt(max: number): number {
+  const limit = Math.floor(0x1_0000_0000 / max) * max;
+  const buffer = new Uint32Array(1);
+  do {
+    globalThis.crypto.getRandomValues(buffer);
+  } while (buffer[0]! >= limit);
+  return buffer[0]! % max;
 }
 
-// A fixed, harmless filler for whichever policy rule the name/employee ID alone doesn't happen to cover
-// (e.g. a one-letter name has no lowercase remainder; an all-letters employee ID has no digit).
-const RULE_FILLER: Record<string, string> = {
-  uppercase: "X",
-  lowercase: "x",
-  number: "7",
-  special: "!",
-};
-
 /**
- * A default password for a bulk-created account (no invite email is sent — bulk-import-decisions.md):
- * "<FirstName>@<EmployeeId>", topped up to satisfy every rule in lib/auth/password-policy.ts (never just
- * the length minimum). `random` is injectable for deterministic tests; defaults to `Math.random`.
+ * The initial password of a bulk-created account (no invite email is sent — bulk-import-decisions.md).
+ * Random, from a cryptographic source: it used to be "<FirstName>@<EmployeeId>", which a colleague could
+ * guess (SECURITY_AUDIT_2026-10-12.md). Always satisfies every rule in lib/auth/password-policy.ts.
+ * `randomInt` is injectable for deterministic tests only.
  */
-export function generateDefaultPassword(
-  displayName: string,
-  employeeId: string,
-  random: () => number = Math.random,
+export function generateInitialPassword(
+  randomInt: (max: number) => number = secureRandomInt,
 ): string {
-  let password = `${firstNameToken(displayName)}@${employeeId}`;
-  for (const rule of PASSWORD_RULES) {
-    if (rule.id !== "length" && !rule.test(password)) password += RULE_FILLER[rule.id];
+  const pick = (set: string) => set[randomInt(set.length)]!;
+  const all = UPPER + LOWER + DIGITS + SPECIAL;
+  const chars = [pick(UPPER), pick(LOWER), pick(DIGITS), pick(SPECIAL)];
+  while (chars.length < Math.max(INITIAL_PASSWORD_LENGTH, PASSWORD_MIN_LENGTH))
+    chars.push(pick(all));
+  // Fisher–Yates, so the four guaranteed characters are not always at the front.
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j]!, chars[i]!];
   }
-  while (password.length < PASSWORD_MIN_LENGTH) {
-    password += Math.floor(random() * 10);
+  const password = chars.join("");
+  if (!PASSWORD_RULES.every((rule) => rule.test(password))) {
+    throw new Error("generated password does not meet the policy");
   }
   return password;
 }

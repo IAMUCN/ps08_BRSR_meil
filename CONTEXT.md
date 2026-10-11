@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-10-11._
+_Last updated: 2026-10-12._
 
 ---
 
@@ -295,12 +295,107 @@ _Last updated: 2026-10-11._
   role's folder a third of the bills are single PDFs, a third are images (JPG and PNG in turn) and the rest
   are pages of one multi-bill PDF; `make_test_data.py` and `test data/README.md` changed. Set 1: 30 PDFs, 21 images, 6 multi-bill PDFs; set 2: 40, 27, 6. Ruff passes; no file was put
   through OCR or uploaded.
+- **Security audit of 2026-10-12, fixes uncommitted on branch `feature-security-audit-fixes`** (cut from `main`
+  at `d7add8c`; no migration, nothing pushed, nothing on hosted). Report with every finding, fix, test and open
+  item: [`SECURITY_AUDIT_2026-10-12.md`](SECURITY_AUDIT_2026-10-12.md). Fixed: deadlines reads are Admin-only;
+  org scope on carbon credits, Control Tower figures, report reads and the evidence bundle (new
+  `lib/auth/scope.ts`); the bundle read a table that does not exist (`audit_log`) and now needs
+  `report.generate`; bulk-import passwords are random; the reset code's attempts are claimed atomically;
+  `/reset-password` works only right after an emailed link (marker cookie); session cookies are HttpOnly; CSV
+  exports neutralise formulas; the carbon "integrity check" is computed; Next 16.3.5 → 16.3.8. Checked: web
+  unit 188/188, lint, typecheck, format, production build, the changed queries on the local database 17/17.
+  **Not run:** the end-to-end suite, any browser pass — sign-in / refresh / sign-out, an invite link
+  and one bundle download must be tried in a browser before merging. Two ui-lane files got one line each (CSV).
+- **Database audit of 2026-10-12, same branch, uncommitted; migration `0047` is on the LOCAL database only, NOT
+  on hosted** ([`DATABASE_AUDIT_2026-10-12.md`](DATABASE_AUDIT_2026-10-12.md): table map, data-access matrix,
+  findings, rollback; D38). `0047` adds no table or column: ownership columns of records and documents cannot
+  change, an evidence link stays inside one org unit, a carbon batch cannot be over-drawn, `org_settings` is
+  Admin-only, `chat_reader` loses the carbon tables, unused privileges are revoked. The validation queue is
+  scope-checked. New tests: `supabase/tests/database/audit_3_data_isolation.test.sql` (41) and
+  `pnpm --filter web test:isolation` (the real procedures called as a Project X user with a sibling
+  project's ids, 107/107). Checked: database 312/312, web unit 188/188, lint, typecheck, format. **Not run:**
+  `0047` on a fresh database, the end-to-end suite, anything on hosted.
+- **Chatbot audit of 2026-10-12, same branch, uncommitted, no migration**
+  ([`CHATBOT_AUDIT_2026-10-12.md`](CHATBOT_AUDIT_2026-10-12.md): threat model, findings, evidence). The design held under
+  every test. Changed: email addresses, employee ids and document file names are no longer sent to the AI
+  service (the Admin still sees them in the table the app draws; the records table gained a Document column);
+  the audit entry of a question no longer holds the words searched for; wording that claims a change gets a
+  "can only read" note. New: `pnpm --filter web test:chatbot` — the real `chat.send` on the local database
+  with a scripted hostile model in place of the provider, 49/49. Checked: web unit 191/191, cross-project
+  107/107, database 312/312, lint, typecheck, format. **Not run:** the real NVIDIA model, the panel in a
+  browser, anything on hosted.
+- **Privacy and compliance audit of 2026-10-12, same branch, uncommitted**
+  ([`COMPLIANCE_AUDIT_2026-10-12.md`](COMPLIANCE_AUDIT_2026-10-12.md): 20 areas, personal-data map, claims checked;
+  `docs/PRIVACY_NOTICE_DRAFT.md` is a draft for a lawyer, not a policy). One code change: deadline dates are no
+  longer called "statutory" (email, notice, Deadlines page — two one-line edits in the ui lane). Everything
+  else waits on facts the code does not hold. Contrast was computed from colour values; **no browser,
+  keyboard or screen-reader pass was made.**
+- **UI audit of 2026-10-12, same branch, uncommitted** ([`UI_AUDIT_2026-10-12.md`](UI_AUDIT_2026-10-12.md); changes listed
+  in `UI_NOTES.md`). The built app was driven in Edge on the local stack: 39 routes at 1440, 820 and 390px,
+  signed out, as an Admin and as a Project Manager; no console error on any route. Ten defects fixed, none a
+  restyle: pages scrolling sideways on phones (14 cases, one of 3px left), an unreadable first table-header
+  cell on Deadlines and Carbon credits, double top headings on empty pages, emoji icons, unlabelled filters,
+  32 announced image pieces on the landing page, the cursor mounted twice. **This pass also confirmed in a
+  browser what the security audit had left open: sign-in, the HttpOnly Secure session cookie and sign-out
+  work.** Not seen: the Special and Dark themes, open side panels and dialogs, pages with real data, a
+  screen reader. Still open from the security audit: an invite link end to end, one bundle download.
+- **Accessibility audit of 2026-10-12 (WCAG 2.2 AA target), same branch, uncommitted**
+  ([`ACCESSIBILITY_AUDIT_2026-10-12.md`](ACCESSIBILITY_AUDIT_2026-10-12.md), changes in `UI_NOTES.md`). New test
+  `pnpm --filter web test:a11y` (axe-core in Edge on 31 routes in all three themes, plus keyboard, skip
+  link, dialogs, reflow at 320px, target size, reduced motion): first pass 99 passed / 36 failed, last full
+  run 185 passed / 0 failed / 2 known open (Roles & Permissions and BRSR Disclosures at 320px). Fixed: skip
+  link, contrast on the four newest Admin pages and on tinted surfaces, focus returning from side panels,
+  a named notifications pop-up, small targets, reflow on eight pages. New dev dependency `axe-core`.
+  **No screen reader was used and no person tested**; the report's section 6 is the manual script. Not in CI.
+- **Dependency and production-configuration audit of 2026-10-12, same branch, uncommitted**
+  ([`DEPENDENCY_AUDIT_2026-10-12.md`](DEPENDENCY_AUDIT_2026-10-12.md): inventory, findings, deployment checklist split into
+  code and dashboards). Advisories in what ships went from 14 to 2, both without a fix and recorded with reasons
+  in `pnpm-workspace.yaml` (`auditConfig.ignoreGhsas`). Changed: `xlsx` now installs from SheetJS's own site
+  (0.20.3, hash pinned); `sharp`, `source-map-js`, `@modelcontextprotocol/sdk` refreshed in the lockfile;
+  `X-Powered-By` removed; API answers are `private, no-store`; CI has a read-only token, a pinned third-party
+  action and an advisory gate (**the changed workflow has not run on GitHub**); the worker `Dockerfile` upgrades
+  pip last (verified under a throwaway tag — **`traceesg-ocr-worker:latest` and the hosted container were not
+  rebuilt or replaced**). Retested: unit 194/194, build, cross-project 107/107, chatbot 49/49, browser checks
+  131/131. Nothing was changed in any dashboard or on hosted. A second pass added `app/robots.ts`, removed
+  `@types/jszip`, and stopped the worker's error reports from carrying stack-frame variables
+  (`worker/logs.py`; Ruff and worker unit 44/44 run inside the existing image — needs an image rebuild to
+  take effect).
+- **Validation of all the audit fixes, 2026-10-12, same branch, uncommitted**
+  ([`VALIDATION_REPORT_2026-10-12.md`](VALIDATION_REPORT_2026-10-12.md): every test with expected, actual, limits). Run on the
+  local stack through the real app: end-to-end suite **342/342 over nine scripts** (new
+  `tests/e2e/audit-regression.mjs`, 108 checks, is the ninth), cross-project 107/107, chatbot 49/49,
+  accessibility 185 passed / 0 failed / 2 known open, database 312/312 on the working database **and on a
+  fresh one** (all 47 migrations), unit 195/195, lint, typecheck, format, build, advisory gate. Four more
+  defects found and fixed: **the evidence bundle had never worked against the real schema** (six queries
+  with columns that do not exist — now generates 36 files with verified checksums); a return path with `..`
+  accepted after sign-in; a stale end-to-end expectation (snapshot version 3, the code is at 4 — also wrong
+  on `main`); one more unreadable table header that only shows with data. No regression from the fixes was
+  found. Not run: the real AI model, email delivery, anything on hosted, the changed CI workflow, a rebuilt
+  worker image, the OCR harness. The local database now holds the suites' accounts and records.
+- **Final verification of the audit, 2026-10-12** ([`FINAL_VERIFICATION_2026-10-12.md`](FINAL_VERIFICATION_2026-10-12.md) — start
+  here; it has the totals by severity, a status per requirement and the release checklist). Every fix was
+  re-read in the source and every suite re-run on the final tree: unit 195/195, database 312/312,
+  end-to-end 344/344 over nine scripts, cross-project 107/107, chatbot 49/49, accessibility 185 / 0 / 2 known
+  open, lint, typecheck, format, build, advisory gate. One more item found and fixed: the development
+  feedback widget's code was in the production bundle (`components/dev/feedback-widget.tsx` now loads it in
+  development only). Open: 2 Medium (client address for rate limits, inline scripts in the CSP), 18 Low,
+  and everything about hosting, legal documents and a human accessibility pass. **All of the 2026-10-12 audit work (every "uncommitted" entry above from that
+  date) was committed as `d4e214c` on `feature-security-audit-fixes` and the branch pushed to both `ucn` and
+  `origin` on 2026-10-12 at the owner's request. No pull request is open yet and CI has not run. Hosted is
+  untouched; migration `0047` is local only; the worker image is not rebuilt.**
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
+| Dependency and deployment decisions | Confirm `xlsx` from the vendor's site (or read sheets with `exceljs` and drop `.xls`); `apps/web/.env.production.local` holds the full hosted settings and is read by `next build` / `next start` on this machine — delete or keep deliberately; rebuild the worker image when convenient. Dashboard checklist: `DEPENDENCY_AUDIT_2026-10-12.md` section 6. |
+| Accessibility decisions | The custom cursor hides the system pointer on every page (a barrier for people who enlarge or recolour it); chart text alternatives on Forecast and Simulator; field-level errors on Admin forms; session time-out without warning; who does the manual keyboard and screen-reader pass. `ACCESSIBILITY_AUDIT_2026-10-12.md` sections 4 and 6. |
+| Design decisions from the UI audit | The site-wide custom cursor (the audit's rules say remove, the landing brief says keep); the hero card deck and the two captions that read as results; renaming and restyling Deadlines and Carbon credits to match the rest; the pill button on sign-in; an em-dash copy pass; the browser icon colour. `UI_AUDIT_2026-10-12.md`. |
+| Privacy and compliance decisions | Operator's legal name, address and privacy contact; legal basis and notice for employees; retention periods (audit log with IP addresses, documents and OCR text, notifications, reports); how people ask for access or erasure; processor terms (Supabase, Brevo, AI provider); landing wording ("Portfolio-Wide Deployment for MEIL", "by MEIL. All rights reserved" against the GPL-2.0 licence file, the FAQ's absolute "No"); the source of the six landing photographs; the Rs 2,500 carbon price and its stated source; a recipient for "Request a demo". List: `COMPLIANCE_AUDIT_2026-10-12.md` section 8. |
+| Chatbot: contact details no longer go to the AI service | Changed on 2026-10-12 against the 2026-10-11 "full access for Admins" decision: the model gets names, roles and org units; email, employee id and file names stay in the table. Confirm, or say to restore (`.grill/chat-admin-access-decisions.md`). |
+| Push migration `0047` to hosted | No table or column changes and the worker is unaffected, so the container need not be replaced. First run the read-only check in `DATABASE_AUDIT_2026-10-12.md` §5 on hosted (expect 0). |
+| Security audit follow-ups | Reset the passwords of accounts already created by bulk import (they were guessable). Decide: bulk import with no password at all (first sign-in by emailed code); what the carbon pages show when no price is configured (today an invented 2,500). Open items F-08, F-10 and the `xlsx` replacement are in `SECURITY_AUDIT_2026-10-12.md`. |
 | Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
 | NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
 | Chatbot branch on MACRO72's repo | The owner pushed `feature-chat-analyst` straight to `ucn` `main` (2026-10-11). `origin` has neither the branch nor a pull request; `gh` is not installed. A pull request must say that the feature role built UI (`UI_NOTES.md`). |
@@ -322,7 +417,7 @@ _Last updated: 2026-10-11._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D37** and **A36**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D39** and **A36**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -497,6 +592,53 @@ _Last updated: 2026-10-11._
   both set folders before regenerating: files left from an earlier run (or restored by a pull) stay beside the
   new ones and the same bill then exists twice.
 - **This checkout had no `ucn` remote** until 2026-10-11 (`git remote add ucn https://github.com/IAMUCN/ps08_BRSR_meil.git`).
+- **Anything read through `lib/db.ts` bypasses RLS**: a procedure that takes an org unit, record or report id
+  must check the caller's scope itself (`lib/auth/scope.ts`). The 2026-10-12 audit found five routers that did not.
+- **Session cookies are HttpOnly** (`lib/supabase/cookie-options.ts`): never add a Supabase client in the
+  browser without revisiting that. `/reset-password` refuses a session without the marker cookie that
+  `/auth/confirm` sets.
+- **The local database in this checkout had no migration `0046`** until 2026-10-12 (`npx supabase migration up --local`).
+- **A record's or document's org unit and submitter cannot be changed** (migration `0047`), an evidence link must
+  stay inside one org unit, and a carbon batch cannot be over-drawn — fixtures and scripts that did otherwise
+  now fail with 42501 or 23514.
+- **Calling procedures from plain Node:** `apps/web/tests/isolation/hooks.mjs` is the loader (`@/`, `server-only`,
+  `next/*`); run with `--conditions=react-server`. Compare a thrown error by `error.name === "TRPCError"`, not
+  `instanceof` (the app loads its own copy of the class).
+- **`pnpm --filter web test:chatbot` leaves four accounts behind** on the local database
+  (`chat-audit.*@traceesg.test`, deactivated): the audit log names them and cannot be cleaned. `test:chatbot`
+  also sets the local `chat_reader` password and replaces `fetch`, so no request reaches the real provider.
+- **An absolutely positioned child escapes an `overflow-x-auto` box that is not positioned** (an `sr-only` label in a
+  table header widened whole pages on phones). The global rule in `globals.css` now makes those boxes
+  `position: relative`; keep it.
+- **Git Bash rewrites arguments that look like paths** (`/admin/users` became a Windows path): prefix the command
+  with `MSYS_NO_PATHCONV=1`. `node --env-file` cannot be used with `next build` (it lands in `NODE_OPTIONS`); load
+  the file in a small wrapper instead.
+- **Chrome reports boxes for content inside a closed `<details>`** but no text, so a script that looks for
+  unnamed controls raises false alarms there.
+- **Raw palette text colours fail contrast and ignore the theme** (`dark:` never applies; themes are `data-theme`).
+  Use the status and text tokens; on a tinted surface use `text-foreground` (rule in `UI_NOTES.md`).
+- **Running the browser checks** (`test:a11y`, the UI screenshots): start the local stack without storage,
+  build with a local env file and `NEXT_DIST_DIR=.next-e2e`, `next start -p 3100`; afterwards delete
+  `apps/web/.next-e2e` (lint scans it and fails) and `git checkout apps/web/tsconfig.json`.
+- **`pnpm audit --prod --audit-level=high` is a CI gate now.** A new advisory fails the web job; an accepted one
+  goes under `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml` with its reason.
+- **`.next/dev` holds a development server's output, source maps included;** a production build's browser files
+  are in `.next/static` and have none. Check the right folder before reporting exposed maps.
+- **A production build made on this machine reads `apps/web/.env.production.local`** (hosted values). For a local
+  test, export local values first: real environment variables win over the file.
+- **The end-to-end suite needs the mail catcher:** starting the local stack with `-x mailpit` makes every script
+  fail at set-up ("The invite email could not be sent"). Keep `storage-api` and the mail catcher running.
+- **This machine has Python 3.12 on the PATH but no worker venv:** `E2E_PYTHON` can point at any Python with
+  `pypdfium2`, `pillow` and `numpy` for the suite's sample documents.
+- **A fresh-database check without touching the working one:** copy `supabase/` elsewhere, change `project_id`
+  in the copy's `config.toml`, `supabase start --workdir <copy>`, `supabase test db --workdir <copy>`,
+  `supabase stop --no-backup --workdir <copy>` (the working stack must be stopped: same ports).
+- **`supabase start` prints the local keys.** They are the CLI's fixed demo values, the same on every machine —
+  not secrets, but do not mistake them for the hosted ones.
+- **Signing out ends every session of that person** (all devices). A test that signs an account out must use an
+  account nothing else is signed in with.
+- **A unit test of helpers does not show a feature works.** The evidence bundle had 7 passing unit tests and
+  six queries against columns that do not exist; only a run against the database showed it.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

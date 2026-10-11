@@ -198,7 +198,7 @@ export function UsersManager({
             />
             <Input
               id="user-search"
-              className="w-72 pl-8"
+              className="w-72 max-w-[calc(100vw-7rem)] pl-8"
               placeholder="Name, email, role or node"
               value={query}
               onChange={(e) => setQuery(e.target.value)}

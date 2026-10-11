@@ -21,7 +21,7 @@ function ForgotPanel({ onBack }: { onBack: () => void }) {
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline md:hidden"
+        className="inline-flex min-h-6 items-center gap-1 text-sm font-medium text-primary hover:underline md:hidden"
       >
         <ArrowLeft className="h-4 w-4" /> Back to sign in
       </button>
@@ -45,12 +45,16 @@ export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: Rea
         </Link>
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-[#313490]"
+          className="inline-flex min-h-6 items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-[#313490]"
         >
           <ArrowLeft className="h-4 w-4" /> Back to home
         </Link>
       </header>
-      <main className="flex flex-1 items-start justify-center p-4 pb-12 sm:p-6 md:items-center">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex flex-1 items-start justify-center p-4 pb-12 outline-none sm:p-6 md:items-center"
+      >
         <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl border bg-card shadow-lg">
           <div className="relative min-h-[640px] w-full text-card-foreground md:min-h-[600px]">
             {/* Sign-in panel */}
@@ -68,7 +72,7 @@ export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: Rea
               <button
                 type="button"
                 onClick={() => setMode("forgot")}
-                className="mt-4 self-start text-sm font-medium text-primary underline-offset-4 hover:underline"
+                className="mt-4 min-h-6 self-start text-sm font-medium text-primary underline-offset-4 hover:underline"
               >
                 Forgot password?
               </button>

@@ -10,6 +10,7 @@ export function EmptyState({
   message,
   action,
   link,
+  nested,
 }: {
   icon: LucideIcon;
   title: string;
@@ -17,11 +18,14 @@ export function EmptyState({
   action?: ReactNode;
   /** The usual next action: a page to go to. */
   link?: { href: string; label: string };
+  /** Shown beneath the page's own header: the title is then a second-level heading, not the page's. */
+  nested?: boolean;
 }) {
+  const Heading = nested ? "h2" : "h1";
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
       <Icon className="size-12 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-      <h1 className="text-xl leading-7 font-semibold">{title}</h1>
+      <Heading className="text-xl leading-7 font-semibold">{title}</Heading>
       <p className="max-w-sm text-sm leading-5 text-muted-foreground">{message}</p>
       {action}
       {link ? (

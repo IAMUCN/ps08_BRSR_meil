@@ -16,7 +16,7 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { permissionProcedure, router } from "@/lib/trpc/init";
 import type { ActiveSession } from "@/lib/auth/session";
-import { checkAdminRemoval, checkRoleAtNode, generateDefaultPassword } from "@/lib/users/rules";
+import { checkAdminRemoval, checkRoleAtNode, generateInitialPassword } from "@/lib/users/rules";
 
 const userManage = permissionProcedure("user.manage");
 // Handing out or taking away a role is Admin-only, whoever else holds user.manage: otherwise a person who
@@ -540,7 +540,7 @@ function rowFailed(row: number, r: BulkImportRow, error: string): BulkImportRowR
 
 /**
  * One row of a bulk-import sheet, isolated so one bad row can't take down the rest of the batch. The
- * account is created directly with a generated default password (no invite link), then a credentials
+ * account is created directly with a random initial password (no invite link), then a credentials
  * email is attempted — if Brevo isn't configured yet, or the send fails, the row still counts as created
  * and the password comes back in the result so it can be shared by hand instead (bulk-import-decisions.md).
  */
@@ -605,7 +605,7 @@ async function importOneEmployee(
   if (!reachable.has(orgUnit.id))
     return rowFailed(rowNum, row, `"${row.orgUnitCode}" is outside your scope.`);
 
-  const password = generateDefaultPassword(row.displayName, row.employeeId);
+  const password = generateInitialPassword();
   const auth = createSupabaseAdminClient().auth.admin;
   const { data, error } = await auth.createUser({
     email: row.email,

@@ -6,6 +6,7 @@ import { Fragment, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { csvSafeText } from "@/lib/csv";
 import type { AuditEvent } from "@/lib/trpc/routers/audit";
 
 // Audit Trail (03_APP_FLOW.md §2.2): filter by user, record, action and date range; each event expands in
@@ -77,7 +78,11 @@ export function AuditFilters({
       </label>
       <label className={label}>
         Record id
-        <Input placeholder="uuid" className="w-72 font-mono text-xs" {...field("id")} />
+        <Input
+          placeholder="uuid"
+          className="w-72 max-w-[calc(100vw-7rem)] font-mono text-xs"
+          {...field("id")}
+        />
       </label>
       <label className={label}>
         From
@@ -93,7 +98,9 @@ export function AuditFilters({
 }
 
 const csvCell = (v: unknown) => {
-  const text = v === null || v === undefined ? "" : typeof v === "string" ? v : JSON.stringify(v);
+  const text = csvSafeText(
+    v === null || v === undefined ? "" : typeof v === "string" ? v : JSON.stringify(v),
+  );
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 

@@ -5,6 +5,7 @@ import { loadCalculations } from "@/lib/calculation/lookup";
 import type { CalculationState } from "@/lib/calculation/trace";
 import { financialYearOf, financialYearRange } from "@/lib/consolidation/aggregate";
 import { writeAudit } from "@/lib/audit";
+import { assertOrgScope } from "@/lib/auth/scope";
 import {
   missingSubmissionOwners,
   missingSubmissions,
@@ -128,18 +129,25 @@ export const recordsRouter = router({
   /** The Control Tower for one node and period, with the picker's options. */
   summary: permissionProcedure("monitoring.view")
     .input(contextInput)
-    .query(async ({ input }): Promise<{ context: ContextOptions; summary: Summary | null }> => {
-      const context = await resolveContext(input.orgUnitId, input.periodId);
-      return {
-        context,
-        summary: context.periodId ? await summary(db(), context.orgUnitId, context.periodId) : null,
-      };
-    }),
+    .query(
+      async ({ ctx, input }): Promise<{ context: ContextOptions; summary: Summary | null }> => {
+        const context = await resolveContext(input.orgUnitId, input.periodId);
+        // monitoring.view can be held below the group: the figures stay inside the holder's own scope.
+        await assertOrgScope(db(), ctx.session, context.orgUnitId);
+        return {
+          context,
+          summary: context.periodId
+            ? await summary(db(), context.orgUnitId, context.periodId)
+            : null,
+        };
+      },
+    ),
 
   /** The headline figures of each financial year for the node and everything beneath it. */
   kpiTrends: permissionProcedure("monitoring.view")
     .input(z.object({ orgUnitId: z.uuid() }))
-    .query(async ({ input }): Promise<KpiTrends> => {
+    .query(async ({ ctx, input }): Promise<KpiTrends> => {
+      await assertOrgScope(db(), ctx.session, input.orgUnitId);
       const rows = await db()<
         {
           financial_year: number;

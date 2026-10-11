@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   TrendingUp,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -326,9 +327,9 @@ export function CarbonCreditsClient({
     <div className="space-y-6">
       {/* 4 Header Metric KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-emerald-500/20 bg-emerald-500/5">
+        <Card className="border-emerald-500/20 bg-emerald-500/5 [&_.text-muted-foreground]:text-foreground">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-foreground">
               <Leaf className="size-4" />
               Active Available Inventory
             </CardDescription>
@@ -342,9 +343,9 @@ export function CarbonCreditsClient({
           </CardContent>
         </Card>
 
-        <Card className="border-purple-500/20 bg-purple-500/5">
+        <Card className="border-purple-500/20 bg-purple-500/5 [&_.text-muted-foreground]:text-foreground">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-purple-700 dark:text-purple-400">
+            <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-foreground">
               <ShieldCheck className="size-4" />
               Retired for BRSR Offsets
             </CardDescription>
@@ -358,9 +359,9 @@ export function CarbonCreditsClient({
           </CardContent>
         </Card>
 
-        <Card className="border-amber-500/20 bg-amber-500/5">
+        <Card className="border-amber-500/20 bg-amber-500/5 [&_.text-muted-foreground]:text-foreground">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+            <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-foreground">
               <ShieldAlert className="size-4" />
               Transferred / Sold (Surrendered)
             </CardDescription>
@@ -374,9 +375,9 @@ export function CarbonCreditsClient({
           </CardContent>
         </Card>
 
-        <Card className="border-blue-500/20 bg-blue-500/5">
+        <Card className="border-blue-500/20 bg-blue-500/5 [&_.text-muted-foreground]:text-foreground">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400">
+            <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-foreground">
               <Coins className="size-4" />
               Corporate Shadow Carbon Price
             </CardDescription>
@@ -393,7 +394,7 @@ export function CarbonCreditsClient({
 
       {/* Tabs Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-3">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant={activeTab === "inventory" ? "default" : "outline"}
             size="sm"
@@ -420,7 +421,7 @@ export function CarbonCreditsClient({
           </Button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={refreshAll} disabled={isPending}>
             <RefreshCw className={`size-3.5 ${isPending ? "animate-spin" : ""}`} />
             Refresh
@@ -441,6 +442,7 @@ export function CarbonCreditsClient({
             <div className="relative min-w-[220px] flex-1">
               <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
               <Input
+                aria-label="Search batches by project, registry ID or serial range"
                 placeholder="Search by project, registry ID, or serial range..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -448,7 +450,11 @@ export function CarbonCreditsClient({
               />
             </div>
             <div className="w-44">
-              <NativeSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <NativeSelect
+                aria-label="Batch status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
                 <option value="ALL">All Statuses</option>
                 <option value="MINTED">Minted (In Stock)</option>
                 <option value="RETIRED">Retired (Claimed)</option>
@@ -457,6 +463,7 @@ export function CarbonCreditsClient({
             </div>
             <div className="w-48">
               <NativeSelect
+                aria-label="Registry"
                 value={registryFilter}
                 onChange={(e) => setRegistryFilter(e.target.value)}
               >
@@ -472,7 +479,7 @@ export function CarbonCreditsClient({
           <Card>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="border-b bg-muted/40 text-xs font-medium uppercase text-muted-foreground">
+                <thead className="bg-table-header text-xs font-medium text-table-header-foreground uppercase">
                   <tr>
                     <th className="px-4 py-3">Project / Origin</th>
                     <th className="px-4 py-3">Registry & ID</th>
@@ -513,7 +520,7 @@ export function CarbonCreditsClient({
                         </td>
                         <td className="px-4 py-3.5 font-medium">{b.vintageYear}</td>
                         <td className="px-4 py-3.5 text-right">
-                          <div className="font-bold text-emerald-600 dark:text-emerald-400">
+                          <div className="font-bold text-status-success">
                             {b.remainingTco2e.toLocaleString()} tCO₂e
                           </div>
                           <div className="text-xs text-muted-foreground">
@@ -539,7 +546,7 @@ export function CarbonCreditsClient({
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="h-7 text-xs border-purple-500/40 text-purple-700 hover:bg-purple-50 dark:text-purple-300"
+                                  className="h-7 text-xs border-purple-500/40 text-primary-text hover:bg-purple-50"
                                   onClick={() => {
                                     setActiveCredit(b);
                                     setRetireForm((prev) => ({
@@ -554,7 +561,7 @@ export function CarbonCreditsClient({
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="h-7 text-xs border-amber-500/40 text-amber-700 hover:bg-amber-50 dark:text-amber-300"
+                                  className="h-7 text-xs border-amber-500/40 text-status-warning hover:bg-amber-50"
                                   onClick={() => {
                                     setActiveCredit(b);
                                     setTransferForm((prev) => ({
@@ -640,7 +647,7 @@ export function CarbonCreditsClient({
 
             <Badge
               variant="outline"
-              className="border-emerald-500/50 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20"
+              className="border-emerald-500/50 text-status-success bg-emerald-50 dark:bg-emerald-950/20"
             >
               <ShieldCheck className="size-3.5 mr-1" />
               GHG Protocol & SEBI BRSR Compliant
@@ -690,12 +697,12 @@ export function CarbonCreditsClient({
             </div>
 
             {/* 2. Retired Offsets */}
-            <Card className="lg:col-span-2 border-purple-500/30 bg-purple-500/5">
+            <Card className="lg:col-span-2 border-purple-500/30 bg-purple-500/5 [&_.text-muted-foreground]:text-foreground">
               <CardHeader className="pb-3">
-                <CardDescription className="text-xs font-semibold uppercase text-purple-700 dark:text-purple-400">
+                <CardDescription className="text-xs font-semibold uppercase text-primary-text">
                   2. Verified Retired Offsets
                 </CardDescription>
-                <CardTitle className="text-2xl font-bold text-purple-700 dark:text-purple-400">
+                <CardTitle className="text-2xl font-bold text-primary-text">
                   {reconciliation.offsets.total.toLocaleString()}{" "}
                   <span className="text-sm font-normal text-muted-foreground">tCO₂e</span>
                 </CardTitle>
@@ -732,10 +739,10 @@ export function CarbonCreditsClient({
             {/* 3. Net Carbon Position */}
             <Card className="lg:col-span-2 border-emerald-500/30 bg-emerald-500/5">
               <CardHeader className="pb-3">
-                <CardDescription className="text-xs font-semibold uppercase text-emerald-700 dark:text-emerald-400">
+                <CardDescription className="text-xs font-semibold uppercase text-status-success">
                   3. Net BRSR Carbon Position
                 </CardDescription>
-                <CardTitle className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+                <CardTitle className="text-2xl font-bold text-status-success">
                   {reconciliation.net.total.toLocaleString()}{" "}
                   <span className="text-sm font-normal text-muted-foreground">tCO₂e</span>
                 </CardTitle>
@@ -767,7 +774,7 @@ export function CarbonCreditsClient({
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Card className="border-emerald-500/30">
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base text-emerald-700 dark:text-emerald-400">
+                <CardTitle className="flex items-center gap-2 text-base text-status-success">
                   <CheckCircle2 className="size-5" />
                   Anti-Double-Counting Guard Rail Verified
                 </CardTitle>
@@ -786,7 +793,7 @@ export function CarbonCreditsClient({
 
             <Card className="border-amber-500/30">
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base text-amber-700 dark:text-amber-400">
+                <CardTitle className="flex items-center gap-2 text-base text-status-warning">
                   <ShieldAlert className="size-5" />
                   Transferred Credits Isolation Guard
                 </CardTitle>
@@ -800,11 +807,11 @@ export function CarbonCreditsClient({
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Volume Surrendered & Sold:</span>
-                  <span className="font-bold text-amber-700 dark:text-amber-400">
+                  <span className="font-bold text-status-warning">
                     {reconciliation.transferredExclusions.quantityTco2e.toLocaleString()} tCO₂e
                   </span>
                 </div>
-                <div className="rounded border border-amber-500/20 bg-amber-500/10 p-2.5 text-amber-800 dark:text-amber-200">
+                <div className="rounded border border-amber-500/20 bg-amber-500/10 p-2.5 text-status-warning">
                   Status: <strong>PERMANENTLY EXCLUDED</strong>. Title to these environmental
                   attributes has passed to the external buyers. The system guarantees 0% double
                   claiming.
@@ -947,7 +954,7 @@ export function CarbonCreditsClient({
                         <CardDescription className="text-xs">
                           Annual Carbon Value Generated
                         </CardDescription>
-                        <CardTitle className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                        <CardTitle className="text-xl font-bold text-primary-text">
                           ₹{capexResult.annualCarbonValue.toLocaleString()}{" "}
                           <span className="text-xs font-normal text-muted-foreground">/ yr</span>
                         </CardTitle>
@@ -963,7 +970,7 @@ export function CarbonCreditsClient({
                         <CardDescription className="text-xs">
                           Lifetime Carbon Avoided
                         </CardDescription>
-                        <CardTitle className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
+                        <CardTitle className="text-xl font-bold text-status-success">
                           {capexResult.lifetimeCarbonAvoidedTco2e.toLocaleString()}{" "}
                           <span className="text-xs font-normal text-muted-foreground">tCO₂e</span>
                         </CardTitle>
@@ -991,7 +998,8 @@ export function CarbonCreditsClient({
                       {capexResult.paybackAccelerationYears &&
                         capexResult.paybackAccelerationYears > 0 && (
                           <Badge className="bg-emerald-600 text-white text-xs">
-                            ⚡ {capexResult.paybackAccelerationYears} Years Faster Payback
+                            <Zap aria-hidden />
+                            {capexResult.paybackAccelerationYears} Years Faster Payback
                           </Badge>
                         )}
                     </div>
@@ -1005,7 +1013,7 @@ export function CarbonCreditsClient({
                       </div>
                       <div>
                         <div className="text-muted-foreground">Carbon-Adjusted NPV:</div>
-                        <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                        <div className="text-sm font-bold text-status-success">
                           ₹{capexResult.carbonAdjustedNpv.toLocaleString()}
                         </div>
                       </div>
@@ -1032,7 +1040,7 @@ export function CarbonCreditsClient({
                 </CardHeader>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="border-b bg-muted/30 text-muted-foreground">
+                    <thead className="bg-table-header text-table-header-foreground">
                       <tr>
                         <th className="px-3 py-2">Entity</th>
                         <th className="px-3 py-2">Shadow Price</th>
@@ -1044,7 +1052,7 @@ export function CarbonCreditsClient({
                       {initialIcpPrices.map((p) => (
                         <tr key={p.id}>
                           <td className="px-3 py-2 font-medium">{p.orgUnitName}</td>
-                          <td className="px-3 py-2 font-bold text-blue-600 dark:text-blue-400">
+                          <td className="px-3 py-2 font-bold text-primary-text">
                             ₹{p.shadowPricePerTco2e.toLocaleString()} / tCO₂e
                           </td>
                           <td className="px-3 py-2 text-muted-foreground">
@@ -1314,7 +1322,7 @@ export function CarbonCreditsClient({
 
           {activeCredit && (
             <form onSubmit={handleTransferSubmit} className="space-y-3 text-xs">
-              <div className="rounded border border-amber-500/20 bg-amber-500/10 p-2 text-xs text-amber-900 dark:text-amber-200">
+              <div className="rounded border border-amber-500/20 bg-amber-500/10 p-2 text-xs text-amber-900">
                 <strong>Anti-Double-Counting Notice:</strong> Once transferred, this volume cannot
                 be counted in MEIL or subsidiary emissions reduction claims.
               </div>

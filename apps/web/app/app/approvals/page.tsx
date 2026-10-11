@@ -23,6 +23,7 @@ export default async function ApprovalsPage() {
       />
       {rows.length === 0 ? (
         <EmptyState
+          nested
           icon={ClipboardCheck}
           title="Nothing awaiting your approval"
           message="Validated records appear here as soon as they pass validation."

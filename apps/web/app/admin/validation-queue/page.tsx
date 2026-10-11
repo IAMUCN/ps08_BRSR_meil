@@ -22,6 +22,7 @@ export default async function ValidationQueuePage() {
       />
       {rows.length === 0 ? (
         <EmptyState
+          nested
           icon={ShieldCheck}
           title="No records need validation review"
           message="Everything confirmed so far passed validation."

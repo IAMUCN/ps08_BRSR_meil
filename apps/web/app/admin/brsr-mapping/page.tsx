@@ -71,6 +71,7 @@ export default async function BrsrMappingPage({ searchParams }: PageProps<"/admi
         <ReadinessTree view={readiness} loadRecord={recordTraceAction} />
       ) : (
         <EmptyState
+          nested
           icon={ListTree}
           title="No reporting period yet"
           message="Readiness is shown per reporting period. Create one under Reporting Periods."

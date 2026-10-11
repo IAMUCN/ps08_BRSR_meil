@@ -19,7 +19,7 @@ import {
 import { parentsOf } from "../lib/bulk-import/xlsx.ts";
 import { PASSWORD_RULES } from "../lib/auth/password-policy.ts";
 import { checkPeriodDates, checkTransition } from "../lib/periods/rules.ts";
-import { checkAdminRemoval, checkRoleAtNode, generateDefaultPassword } from "../lib/users/rules.ts";
+import { checkAdminRemoval, checkRoleAtNode, generateInitialPassword } from "../lib/users/rules.ts";
 
 // The seeded levels (migration 0037) plus one an Admin added between Region and Project.
 const LEVELS: OrgLevel[] = [
@@ -178,30 +178,23 @@ test("bulk import: reachable nodes and default passwords", () => {
     "overlapping assignments de-duplicate",
   );
 
-  assert.equal(
-    generateDefaultPassword("Ravi Kumar", "EMP1042", () => 0),
-    "Ravi@EMP1042",
-    "already 12 characters — no padding needed",
-  );
-  assert.equal(
-    generateDefaultPassword("ravi", "1", () => 0),
-    "Ravi@1000000",
-  );
-  assert.equal(
-    generateDefaultPassword("  ", "42", () => 0.9),
-    "User@4299999",
-    "an unusable name falls back to a fixed token",
-  );
-  assert.ok(generateDefaultPassword("A", "1").length >= 12, "always meets the 12-char minimum");
-  assert.equal(
-    generateDefaultPassword("A", "EMP", () => 0),
-    "A@EMPx700000",
-    "fills in a missing lowercase letter and digit when the name/id alone don't supply one",
-  );
+  // Initial passwords of bulk-created accounts: random, never derived from the person's details.
+  const passwords = Array.from({ length: 200 }, () => generateInitialPassword());
   assert.ok(
-    PASSWORD_RULES.every((rule) => rule.test(generateDefaultPassword("A", "EMP"))),
-    "the generated password always satisfies every policy rule, not just length",
+    passwords.every((p) => p.length === 16 && PASSWORD_RULES.every((rule) => rule.test(p))),
+    "every generated password is 16 characters and satisfies every policy rule",
   );
+  assert.equal(new Set(passwords).size, passwords.length, "no two generated passwords are alike");
+  assert.ok(
+    passwords.every((p) => !/[0O1lI]/.test(p)),
+    "look-alike characters are never used",
+  );
+  let calls = 0;
+  generateInitialPassword((max) => {
+    calls++;
+    return max - 1;
+  });
+  assert.ok(calls >= 16, "every character and every shuffle step draws from the random source");
 });
 
 test("admin role only at root; lockout guards", () => {

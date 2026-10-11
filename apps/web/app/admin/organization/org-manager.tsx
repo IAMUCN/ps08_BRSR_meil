@@ -285,7 +285,7 @@ export function OrgManager({
         <section
           aria-label="Organization hierarchy"
           // Stays in view while the panels beside it scroll.
-          className="rounded-md border bg-card p-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
+          className="min-w-0 overflow-x-auto rounded-md border bg-card p-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
         >
           <h2 className="px-2 pt-1 pb-2 text-xs font-bold tracking-wide text-foreground uppercase">
             Organization hierarchy

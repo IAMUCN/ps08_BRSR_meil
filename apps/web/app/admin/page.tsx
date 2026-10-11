@@ -101,6 +101,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
           description="Reporting readiness across the organization."
         />
         <EmptyState
+          nested
           icon={TrendingUp}
           title="No activity yet"
           message="Create a reporting period and the organization hierarchy to start collecting submissions."
