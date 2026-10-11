@@ -4,7 +4,9 @@ import { runAction } from "@/lib/trpc/server";
 import type { OrgUnitType } from "@/lib/org/rules";
 
 export async function createOrgUnitAction(input: {
-  parentId: string;
+  /** Null: a new group, a separate organization with its own tree. */
+  parentId: string | null;
+  alsoUnder?: string[];
   unitType: OrgUnitType;
   name: string;
   code: string;
@@ -18,6 +20,26 @@ export async function updateOrgUnitAction(input: { id: string; name: string; cod
 
 export async function moveOrgUnitAction(input: { id: string; newParentId: string }) {
   return runAction((api) => api.organization.move(input));
+}
+
+export async function addOrgUnitParentAction(input: { id: string; parentId: string }) {
+  return runAction((api) => api.organization.addParent(input));
+}
+
+export async function removeOrgUnitParentAction(input: { id: string; parentId: string }) {
+  return runAction((api) => api.organization.removeParent(input));
+}
+
+export async function setOrgUnitParentsAction(input: { id: string; alsoUnder: string[] }) {
+  return runAction((api) => api.organization.setParents(input));
+}
+
+export async function orgUnitDeleteCheckAction(input: { id: string }) {
+  return runAction((api) => api.organization.deleteCheck(input));
+}
+
+export async function deleteOrgUnitAction(input: { id: string }) {
+  return runAction((api) => api.organization.delete(input));
 }
 
 export async function setOrgUnitStatusAction(input: { id: string; status: "active" | "inactive" }) {

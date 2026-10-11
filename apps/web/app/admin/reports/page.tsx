@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { requireAdminSession } from "@/lib/auth/session";
 import { financialYearLabel } from "@/lib/consolidation/aggregate";
 import { api } from "@/lib/trpc/server";
-import { ReportForm } from "./report-form";
+import { ReportForm, type ReportPreset } from "./report-form";
 import { ReportInputsForm } from "./report-inputs-form";
 import { RunsTable } from "./runs-table";
 
@@ -19,8 +19,21 @@ const RECENT = 5;
 
 // 03_APP_FLOW.md §2.2 Reports and §4.10: a parameter form and every run, successful or failed, kept for
 // traceability (.grill/phase-17-reporting-decisions.md).
-export default async function ReportsPage() {
-  const [, caller] = await Promise.all([requireAdminSession(), api()]);
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [, caller, params] = await Promise.all([requireAdminSession(), api(), searchParams]);
+  // A selection in the address (the chatbot's "open the report page" link); the form checks each value.
+  const param = (name: string) => (typeof params[name] === "string" ? params[name] : undefined);
+  const preset: ReportPreset = {
+    orgUnitId: param("org"),
+    periodId: param("period"),
+    financialYear: param("fy") ? Number(param("fy")) : undefined,
+    from: param("from"),
+    to: param("to"),
+  };
   const [options, runs] = await Promise.all([caller.reports.options(), caller.reports.list()]);
   const inputsYear = options.defaultFinancialYear ?? options.financialYears[0]?.startYear ?? null;
   const inputs =
@@ -40,7 +53,7 @@ export default async function ReportsPage() {
       <AutoRefresh active={running} />
       <PageHeader
         title="Reports"
-        description="Consolidated BRSR reports from approved records, for any part of the organization and a period or financial year. Every reported value drills down to its original document."
+        description="Consolidated BRSR reports from approved records, for any part of the organization and a period, a financial year or a custom range of periods. Every reported value drills down to its original document."
         action={
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
@@ -66,7 +79,7 @@ export default async function ReportsPage() {
           </div>
         }
       />
-      <ReportForm options={options} />
+      <ReportForm key={JSON.stringify(preset)} options={options} preset={preset} />
       {inputsYear !== null && unanswered > 0 ? (
         <p
           role="status"
@@ -95,7 +108,7 @@ export default async function ReportsPage() {
         <EmptyState
           icon={FileText}
           title="No reports generated yet"
-          message="Choose a scope and a period or financial year above."
+          message="Choose a scope and a period, financial year or custom period above."
         />
       ) : (
         <section aria-labelledby="recent-reports" className="space-y-2">

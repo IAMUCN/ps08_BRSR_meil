@@ -581,3 +581,39 @@ children of one chosen unit only.
   carries the instructions and example, and a reference sheet lists levels and existing org units as the
   hierarchy stands at download, each unit indented under its parent.
 - **Preview** on screen shows the level's name and the parent each row will sit under.
+
+## A34 — Reports for a custom period; the chatbot opens the Reports page and, for an Admin, answers about people
+
+**App Flow §2.2 / §4.10:** a report is generated for a period and an org scope. **A32:** the chatbot knows
+nothing about people and only points to Admin → Reports.
+
+**Now (owner's request, 2026-10-11; `.grill/chat-admin-access-decisions.md`):**
+
+- **Reports → Covering** has a third choice, _Custom period_, with a From period and a To period. The report
+  covers every reporting period between them and is named by its dates. It is built like a single-period
+  report: no previous-year column, no turnover or intensity.
+- **The Reports page reads a selection from its address** (`org`, and `period`, `fy` or `from` + `to`); a
+  value that is not on the form's lists is ignored.
+- **The chatbot, for an Admin,** has three more lookups: people (name, email, employee id, roles, org units),
+  individual records with who submitted and approved them, and "open the Reports page" — the answer carries
+  a link and the panel goes there at once with the org unit and period selected. Nothing is generated until
+  the person presses the button.
+- **For everyone else** those three do not exist; their chatbot is unchanged.
+
+## A35 — Organization: a unit under several parents, more than one group, delete; the chat pane's header
+
+**App Flow:** §2.2 Organization is one tree under one root; a unit is deactivated, never deleted.
+
+**Now (owner's page feedback, 2026-10-11; `.grill/shared-org-units-decisions.md`, D36):**
+
+- **Also under another parent.** A unit below group level can be placed under further parents. It is drawn
+  under each, marked "Shared" where the parent is not its main one; both parents' people see it; its figures
+  count in full in each parent and once in the group above them.
+- **A new group.** Add a unit offers "On its own, as a new group": a separate tree, managed by the same
+  Admins.
+- **Delete this unit** removes an unused unit and the units under it after the word `delete` is typed; the
+  dialog says what stands in the way when it has been used. Deactivating a unit with units under it asks for
+  the word `deactivate`.
+- **Bulk import** has an Also under column for the other parents of a shared unit.
+- **Chat pane:** a coloured header bar as tall as the top bar, a one-line question box that grows, and the
+  suggested questions at the foot of the pane.

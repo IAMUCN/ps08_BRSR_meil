@@ -6,6 +6,7 @@ import {
   CalendarRange,
   Calculator,
   ClipboardCheck,
+  Coins,
   Flame,
   FileStack,
   FileText,
@@ -59,6 +60,7 @@ const ICONS = {
   deadlines: AlarmClock,
   reports: FileText,
   audit: History,
+  carbon: Coins,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;

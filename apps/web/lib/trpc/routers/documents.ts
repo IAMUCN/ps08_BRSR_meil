@@ -7,6 +7,7 @@ import type { ActiveSession } from "@/lib/auth/session";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
 import { uploadTargets } from "@/lib/documents/rules";
 import { loadLevels } from "@/lib/org/levels";
+import { loadOrgNodes } from "@/lib/org/nodes";
 import { levelLabel, type OrgNode } from "@/lib/org/rules";
 import {
   DEFAULT_ACCEPTED_MIME_TYPES,
@@ -72,15 +73,8 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
     select id, label from public.reporting_periods where status = 'open'`;
   const levels = await loadLevels(sql);
 
-  const nodeRows = await sql<
-    { id: string; parent_id: string | null; unit_type: string; status: string; name: string }[]
-  >`select id, parent_id, unit_type, status, name from public.org_units where deleted_at is null`;
-  const nodes: OrgNode[] = nodeRows.map((r) => ({
-    id: r.id,
-    parentId: r.parent_id,
-    unitType: r.unit_type as OrgNode["unitType"],
-    status: r.status as OrgNode["status"],
-  }));
+  const nodeRows = await loadOrgNodes(sql);
+  const nodes: OrgNode[] = nodeRows;
 
   // Admin works in /admin and does not upload (03_APP_FLOW.md §2.3 "All non-admin roles").
   const assignments = await sql<{ org_unit_id: string; role_id: string }[]>`
@@ -141,8 +135,8 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
     .map((n) => ({
       orgUnitId: n.id,
       name: n.name,
-      unitType: n.unit_type,
-      unitTypeLabel: levelLabel(levels, n.unit_type),
+      unitType: n.unitType,
+      unitTypeLabel: levelLabel(levels, n.unitType),
       categories: targetMap.get(n.id)!.map((id) => {
         const { name, metrics } = categoriesById.get(id)!;
         return { id, name, metrics };

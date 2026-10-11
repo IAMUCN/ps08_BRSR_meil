@@ -4,6 +4,7 @@ import {
   financialYearLabel,
   financialYearOf,
   financialYearRange,
+  rangeLabel,
 } from "@/lib/consolidation/aggregate";
 import { db } from "@/lib/db";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -78,11 +79,14 @@ export async function runReport(runId: string): Promise<void> {
       org_unit_id: string;
       reporting_period_id: string | null;
       financial_year: number | null;
+      period_from: string | null;
+      period_to: string | null;
     }[]
   >`
     update public.report_runs set status = 'generating'
     where id = ${runId} and status = 'pending'
-    returning requested_by, org_unit_id, reporting_period_id, financial_year`;
+    returning requested_by, org_unit_id, reporting_period_id, financial_year,
+              period_from::text, period_to::text`;
   if (!run) return; // already taken, finished or expired
 
   try {
@@ -95,12 +99,14 @@ export async function runReport(runId: string): Promise<void> {
       );
     }
 
-    const periodsOf = async (financialYear: number) => {
-      const { from, to } = financialYearRange(financialYear);
-      return (
+    const between = async (from: string, to: string) =>
+      (
         await sql<{ id: string }[]>`
           select id from public.reporting_periods where start_date >= ${from} and end_date <= ${to}`
       ).map((p) => p.id);
+    const periodsOf = (financialYear: number) => {
+      const { from, to } = financialYearRange(financialYear);
+      return between(from, to);
     };
     let periodIds: string[];
     let label: string;
@@ -114,6 +120,12 @@ export async function runReport(runId: string): Promise<void> {
         periodIds: await periodsOf(run.financial_year - 1),
         label: financialYearLabel(run.financial_year - 1),
       };
+    } else if (run.period_from && run.period_to) {
+      // A custom range (D35): like a single period, no previous-year column and no yearly inputs; the
+      // written disclosures are those of the financial year the range starts in.
+      periodIds = await between(run.period_from, run.period_to);
+      label = rangeLabel(run.period_from, run.period_to);
+      disclosureYear = financialYearOf(run.period_from);
     } else {
       const [period] = await sql<{ label: string; start_date: string }[]>`
         select label, start_date::text from public.reporting_periods

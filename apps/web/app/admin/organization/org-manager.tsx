@@ -1,8 +1,16 @@
 "use client";
 
-import { ChevronDown, ChevronRight, FileSpreadsheet, Loader2, Plus } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Download,
+  FileSpreadsheet,
+  Link2,
+  Loader2,
+  Plus,
+} from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -11,6 +19,7 @@ import { OrgUnitBulkImport } from "@/components/bulk-import/org-unit-bulk-import
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Sheet,
   SheetContent,
@@ -20,24 +29,35 @@ import {
 } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { bulkImportOrgUnitsAction } from "@/lib/bulk-import/actions";
+import { downloadOrgHierarchy } from "@/lib/bulk-import/xlsx";
 import {
   allowedChildTypes,
+  checkAlsoUnder,
   checkMove,
   isFrozen,
   levelLabel,
+  canBeChildOf,
+  rootOf,
+  ROOT_LEVEL,
   type OrgLevel,
   type OrgUnitType,
 } from "@/lib/org/rules";
-import type { OrgExpectation, OrgUnitRow } from "@/lib/trpc/routers/organization";
+import type { OrgDeleteCheck, OrgExpectation, OrgUnitRow } from "@/lib/trpc/routers/organization";
 import {
   createOrgUnitAction,
+  deleteOrgUnitAction,
   orgExpectationsAction,
   setExpectationAction,
   moveOrgUnitAction,
+  orgUnitDeleteCheckAction,
   orgUnitImpactAction,
+  setOrgUnitParentsAction,
   setOrgUnitStatusAction,
   updateOrgUnitAction,
 } from "./actions";
+
+/** The room a docked side panel takes at 1900px and wider (components/ui/sheet.tsx). */
+const DOCKED_ROOM = "min-[1900px]:pr-[clamp(20rem,calc(100vw-98.5rem),40rem)]";
 
 type Impact = { descendants: number; activeAssignments: number; inProgressRecords: number };
 
@@ -53,14 +73,19 @@ export function OrgManager({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const root = nodes.find((n) => n.parentId === null) ?? null;
+  // Every group is the top of its own tree (owner's decision 2026-10-11): usually one, sometimes several.
+  const roots = nodes.filter((n) => n.parentId === null);
+  const root = roots[0] ?? null;
   const selected = nodes.find((n) => n.id === selectedId) ?? root;
 
+  // A unit is drawn under its main parent and under every unit it also sits under (migration 0044).
   const childrenByParent = useMemo(() => {
     const map = new Map<string, OrgUnitRow[]>();
     for (const node of nodes) {
-      if (!node.parentId) continue;
-      map.set(node.parentId, [...(map.get(node.parentId) ?? []), node]);
+      for (const parentId of [node.parentId, ...node.alsoUnder]) {
+        if (!parentId) continue;
+        map.set(parentId, [...(map.get(parentId) ?? []), node]);
+      }
     }
     return map;
   }, [nodes]);
@@ -71,9 +96,64 @@ export function OrgManager({
   // Which Expected-submissions sections are open: collapsed on load, kept while another unit is picked.
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
-  function select(id: string) {
+  // The hierarchy as a spreadsheet in the bulk-import columns: edit it and upload it again.
+  function exportHierarchy() {
+    const ref = (id: string | null) => {
+      const unit = nodes.find((n) => n.id === id);
+      return unit ? (unit.code ?? unit.name) : "";
+    };
+    // In the order of the tree on screen. A shared unit is listed under each of its parents (owner's page
+    // feedback, 2026-10-11), each row naming all of them, with or without a code; what sits under it is
+    // listed once, under its main parent.
+    const rows: OrgUnitRow[] = [];
+    const visit = (node: OrgUnitRow) => {
+      if (node.parentId !== null) rows.push(node);
+      for (const child of childrenByParent.get(node.id) ?? []) {
+        if (child.parentId === node.id) visit(child);
+        else rows.push(child);
+      }
+    };
+    roots.forEach(visit);
+    downloadOrgHierarchy(
+      rows.map((n) => ({
+        code: n.code,
+        name: n.name,
+        level: n.unitType,
+        parents: [n.parentId, ...n.alsoUnder].map(ref).filter(Boolean),
+      })),
+      levels.map((l) => ({ code: l.code, label: l.label })),
+    ).catch(() => toast.error("Couldn't create the spreadsheet — try again."));
+  }
+
+  // Which drawing of the selected unit is meant: a shared unit is drawn under each parent, and only the one
+  // that was clicked, or jumped to from the Shared list, is highlighted. Null (a fresh page): all of them.
+  const [place, setPlace] = useState<{ id: string; under: string | null } | null>(null);
+  const rowId = (id: string, under: string | null) => `org-row-${under ?? "top"}-${id}`;
+
+  function select(id: string, under: string | null = null) {
+    setPlace({ id, under });
     router.replace(`${pathname}?node=${id}`, { scroll: false });
   }
+
+  // From the Shared list: go to where the unit sits under that parent — open every unit above it, select
+  // it there and bring that row into view.
+  function goTo(id: string, under: string) {
+    const above = new Set<string>();
+    for (let at = nodes.find((n) => n.id === under); at && !above.has(at.id);) {
+      above.add(at.id);
+      at = nodes.find((n) => n.id === at!.parentId);
+    }
+    setCollapsed((prev) => new Set([...prev].filter((open) => !above.has(open))));
+    select(id, under);
+  }
+  useEffect(() => {
+    if (!place) return;
+    // After the branch has opened.
+    const frame = requestAnimationFrame(() =>
+      document.getElementById(rowId(place.id, place.under))?.scrollIntoView({ block: "nearest" }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [place]);
 
   // Guide lines (owner's page feedback, 2026-10-11): each unit hangs from a vertical line that drops from
   // its parent's arrow, joined by a short horizontal tick at the middle of its row (rows are 36px high). On
@@ -81,15 +161,25 @@ export function OrgManager({
   const BRANCH =
     "relative pl-2 before:absolute before:top-[18px] before:left-0 before:h-px before:w-2.5 before:bg-muted-foreground/70 after:absolute after:top-0 after:bottom-0 after:left-0 after:w-px after:bg-muted-foreground/70 last:after:bottom-auto last:after:h-[18px]";
 
-  function renderNode(node: OrgUnitRow, depth: number) {
+  // `under` is the unit this row is drawn beneath: a shared unit appears once under each of its parents,
+  // and is marked where that parent is not its main one.
+  function renderNode(node: OrgUnitRow, depth: number, under: OrgUnitRow | null = null) {
     const children = childrenByParent.get(node.id) ?? [];
     const open = !collapsed.has(node.id);
+    // Shared = it sits under more than one parent; the tag shows wherever it is drawn (owner's page
+    // feedback, 2026-10-11), and says which parent this row is.
+    const shared = node.alsoUnder.length > 0 && under !== null;
+    const here = under?.id ?? null;
+    const current =
+      selected?.id === node.id &&
+      (place === null || place.id !== node.id || place.under === null || place.under === here);
     return (
       <li key={node.id} className={depth > 0 ? BRANCH : undefined}>
         <div
+          id={rowId(node.id, here)}
           className={cn(
-            "flex h-9 items-center gap-1 rounded-sm pr-2 pl-1",
-            selected?.id === node.id ? "bg-table-row-hover" : "hover:bg-muted",
+            "flex h-9 scroll-my-10 items-center gap-1 rounded-sm pr-2 pl-1",
+            current ? "bg-table-row-hover" : "hover:bg-muted",
           )}
         >
           {children.length > 0 ? (
@@ -118,8 +208,8 @@ export function OrgManager({
           )}
           <button
             type="button"
-            onClick={() => select(node.id)}
-            aria-current={selected?.id === node.id ? "true" : undefined}
+            onClick={() => select(node.id, here)}
+            aria-current={current ? "true" : undefined}
             className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
           >
             <span
@@ -134,9 +224,20 @@ export function OrgManager({
               {levelLabel(levels, node.unitType)}
             </span>
           </button>
+          {shared ? (
+            <SharedPlaces
+              name={node.name}
+              here={here}
+              parents={[node.parentId, ...node.alsoUnder].flatMap(
+                (id) => nodes.find((n) => n.id === id) ?? [],
+              )}
+              levels={levels}
+              onGo={(parentId) => goTo(node.id, parentId)}
+            />
+          ) : null}
         </div>
         {children.length > 0 && open ? (
-          <ul className="ml-4">{children.map((child) => renderNode(child, depth + 1))}</ul>
+          <ul className="ml-4">{children.map((child) => renderNode(child, depth + 1, node))}</ul>
         ) : null}
       </li>
     );
@@ -144,7 +245,9 @@ export function OrgManager({
 
   return (
     <>
-      <div className="mb-6">
+      {/* While the add panel is docked (1900px and up) the heading and its buttons make room for it too, so
+          Add from a spreadsheet and Export hierarchy stay in reach beside the open panel. */}
+      <div className={cn("mb-6", adding && DOCKED_ROOM)}>
         <h1 className="text-[32px] leading-10 font-semibold">Organization</h1>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-4">
           <p className="max-w-2xl text-sm leading-5 text-muted-foreground">
@@ -162,6 +265,10 @@ export function OrgManager({
                 <FileSpreadsheet aria-hidden />
                 Add from a spreadsheet
               </Button>
+              <Button type="button" variant="outline" onClick={exportHierarchy}>
+                <Download aria-hidden />
+                Export hierarchy
+              </Button>
             </div>
           ) : null}
         </div>
@@ -172,7 +279,7 @@ export function OrgManager({
       <div
         className={cn(
           "grid items-start gap-6 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]",
-          adding && "min-[1900px]:pr-[clamp(20rem,calc(100vw-98.5rem),40rem)]",
+          adding && DOCKED_ROOM,
         )}
       >
         <section
@@ -180,10 +287,10 @@ export function OrgManager({
           // Stays in view while the panels beside it scroll.
           className="rounded-md border bg-card p-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
         >
-          <h2 className="px-2 pt-1 pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <h2 className="px-2 pt-1 pb-2 text-xs font-bold tracking-wide text-foreground uppercase">
             Organization hierarchy
           </h2>
-          {root ? <ul>{renderNode(root, 0)}</ul> : null}
+          <ul>{roots.map((group) => renderNode(group, 0))}</ul>
         </section>
         {selected ? (
           <NodeDetail
@@ -210,14 +317,12 @@ export function OrgManager({
             <SheetContent>
               <SheetHeader>
                 <SheetTitle>
-                  {adding === "many"
-                    ? "Add several units from a spreadsheet"
-                    : `Add a unit under ${selected.name}`}
+                  {adding === "many" ? "Add several units from a spreadsheet" : "Add a unit"}
                 </SheetTitle>
                 <SheetDescription>
                   {adding === "many"
                     ? "Download the template, list the new units, and upload it."
-                    : `Creates a new company, business unit, project or other level directly beneath ${selected.name}. To add under a different unit, select it in the tree first.`}
+                    : `Creates a new company, business unit, project or other level directly beneath ${selected.name}, or a new group that stands on its own. To add under a different unit, select it in the tree first.`}
                 </SheetDescription>
               </SheetHeader>
               <div className="overflow-y-auto px-4 pb-6">
@@ -244,6 +349,180 @@ export function OrgManager({
   );
 }
 
+/**
+ * A unit's parents as a list of boxes to tick (owner's page feedback, 2026-10-11) — several can be chosen,
+ * which a dropdown cannot do. `fixed` is the parent that is not a choice here: always ticked.
+ */
+function ParentChecklist({
+  legend,
+  hint,
+  fixed,
+  fixedNote,
+  choices,
+  checked,
+  levels,
+  disabled,
+  onToggle,
+}: {
+  legend: string;
+  hint: string;
+  fixed: OrgUnitRow | undefined;
+  fixedNote: string;
+  choices: OrgUnitRow[];
+  checked: Set<string>;
+  levels: OrgLevel[];
+  disabled: boolean;
+  onToggle: (id: string, on: boolean) => void;
+}) {
+  const [filter, setFilter] = useState("");
+  const wanted = filter.trim().toLowerCase();
+  // Ticked ones stay in view whatever the filter says, so a choice is never hidden.
+  const shown = choices.filter(
+    (c) =>
+      !wanted ||
+      checked.has(c.id) ||
+      c.name.toLowerCase().includes(wanted) ||
+      c.code?.toLowerCase().includes(wanted),
+  );
+  const row = "grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-2 px-3 py-1.5 text-sm";
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm leading-5 font-medium">
+        {legend} ({checked.size + (fixed ? 1 : 0)} ticked)
+      </legend>
+      <p className="text-xs leading-4 text-muted-foreground">{hint}</p>
+      {choices.length > 8 ? (
+        <Input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by name or code…"
+          aria-label={`Filter the list of ${legend.toLowerCase()}`}
+        />
+      ) : null}
+      <div className="max-h-64 divide-y overflow-y-auto rounded-md border">
+        {fixed ? (
+          <label className={cn(row, "text-muted-foreground")}>
+            <input type="checkbox" checked disabled className="size-4" />
+            <span className="truncate text-foreground">{fixed.name}</span>
+            <span className="text-xs">{fixedNote}</span>
+          </label>
+        ) : null}
+        {shown.map((choice) => (
+          <label key={choice.id} className={cn(row, "cursor-pointer hover:bg-muted")}>
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={checked.has(choice.id)}
+              disabled={disabled}
+              onChange={(e) => onToggle(choice.id, e.target.checked)}
+            />
+            <span className="truncate">{choice.name}</span>
+            <span className="text-xs text-muted-foreground">
+              {levelLabel(levels, choice.unitType)}
+            </span>
+          </label>
+        ))}
+        {choices.length === 0 ? (
+          <p className="px-3 py-2 text-xs leading-4 text-muted-foreground">
+            No other unit can be a parent here: a parent must be at an earlier level, active and in
+            the same group.
+          </p>
+        ) : shown.length === 0 ? (
+          <p className="px-3 py-2 text-xs leading-4 text-muted-foreground">Nothing matches.</p>
+        ) : null}
+      </div>
+    </fieldset>
+  );
+}
+
+/**
+ * The Shared tag on a unit with more than one parent (owner's page feedback, 2026-10-11). Hovering it — or
+ * focusing or pressing it — opens the list of every unit it sits under; choosing one goes to the unit's
+ * place under that parent in the tree. With many subsidiaries that is the quick way to find the others.
+ */
+function SharedPlaces({
+  name,
+  here,
+  parents,
+  levels,
+  onGo,
+}: {
+  name: string;
+  /** The parent this row is drawn under. */
+  here: string | null;
+  parents: OrgUnitRow[];
+  levels: OrgLevel[];
+  onGo: (parentId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The list stays while the pointer travels from the tag to it; it closes shortly after leaving both.
+  const hold = () => {
+    if (closing.current) clearTimeout(closing.current);
+    closing.current = null;
+  };
+  const show = () => {
+    hold();
+    setOpen(true);
+  };
+  const leave = () => {
+    hold();
+    closing.current = setTimeout(() => setOpen(false), 180);
+  };
+  useEffect(() => hold, []);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        onMouseEnter={show}
+        onMouseLeave={leave}
+        // A press opens it too (touch, keyboard) and never closes what the pointer just opened.
+        onClick={(event) => {
+          event.preventDefault();
+          show();
+        }}
+        aria-label={`${name} is shared: show the ${parents.length} units it sits under`}
+        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary-text/60 bg-primary-text/10 px-1.5 text-[11px] leading-4 font-medium text-primary-text shadow-[0_0_8px_1px] shadow-primary-text/50 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <Link2 className="size-3" aria-hidden />
+        Shared
+      </PopoverTrigger>
+      <PopoverContent
+        side="right"
+        align="start"
+        className="w-72 p-1"
+        onMouseEnter={hold}
+        onMouseLeave={leave}
+        // Hovering must not pull the keyboard focus away from the tree.
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <p className="px-2 pt-1.5 pb-1 text-xs leading-4 text-muted-foreground">
+          {name} sits under {parents.length} units. Go to it under:
+        </p>
+        <ul>
+          {parents.map((parent) => (
+            <li key={parent.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onGo(parent.id);
+                }}
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted"
+              >
+                <span className="min-w-0 flex-1 truncate">{parent.name}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {parent.id === here ? "you are here" : levelLabel(levels, parent.unitType)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** Adding children to the selected node, one at a time or from a spreadsheet — the body of the side panel. */
 function AddChildren({
   mode,
@@ -267,14 +546,34 @@ function AddChildren({
   const [childType, setChildType] = useState<OrgUnitType | "">(childTypes[0] ?? "");
   const [childName, setChildName] = useState("");
   const [childCode, setChildCode] = useState("");
+  // A new group has no parent: a separate organization with its own tree (owner's decision 2026-10-11).
+  const [where, setWhere] = useState<"under" | "group">(
+    frozen || childTypes.length === 0 ? "group" : "under",
+  );
+  const asGroup = where === "group";
+  // Further parents for the new unit, ticked from a list (owner's page feedback, 2026-10-11): every active
+  // unit of this group whose level comes before the new unit's. The unit selected in the tree is always one.
+  const [extraParents, setExtraParents] = useState<Set<string>>(new Set());
+  const group = rootOf(node.id, nodes);
+  const parentChoices = childType
+    ? nodes.filter(
+        (n) =>
+          n.id !== node.id &&
+          canBeChildOf(levels, n.unitType, childType) &&
+          rootOf(n.id, nodes) === group &&
+          !isFrozen(n.id, nodes),
+      )
+    : [];
+  const ticked = parentChoices.filter((n) => extraParents.has(n.id)).map((n) => n.id);
 
   function onAddChild(event: FormEvent) {
     event.preventDefault();
-    if (!childType) return;
+    if (!asGroup && !childType) return;
     startTransition(async () => {
       const result = await createOrgUnitAction({
-        parentId: node.id,
-        unitType: childType,
+        parentId: asGroup ? null : node.id,
+        alsoUnder: asGroup ? [] : ticked,
+        unitType: asGroup ? ROOT_LEVEL : childType,
         name: childName,
         code: childCode,
       });
@@ -285,6 +584,7 @@ function AddChildren({
       toast.success("Unit added");
       setChildName("");
       setChildCode("");
+      setExtraParents(new Set());
       onSelect(result.data.id);
       onChanged();
     });
@@ -304,31 +604,52 @@ function AddChildren({
 
   return (
     <>
-      {frozen ? (
+      <div className="mb-3 space-y-2">
+        <Label htmlFor="child-where">Add where</Label>
+        <NativeSelect
+          id="child-where"
+          value={where}
+          onChange={(e) => setWhere(e.target.value as "under" | "group")}
+        >
+          <option value="under">Under {node.name}</option>
+          <option value="group">
+            On its own, as a new {levelLabel(levels, ROOT_LEVEL).toLowerCase()} (no parent)
+          </option>
+        </NativeSelect>
+        {asGroup ? (
+          <p className="text-xs leading-4 text-muted-foreground">
+            A new {levelLabel(levels, ROOT_LEVEL).toLowerCase()} is a separate organization with its
+            own tree and its own reports. The same Admins manage it.
+          </p>
+        ) : null}
+      </div>
+      {!asGroup && frozen ? (
         <p className="text-sm leading-5 text-muted-foreground">
           {node.name} is inactive{frozenByAncestor ? " because a unit above it is inactive" : ""} —
           nothing new can be added under it.
         </p>
-      ) : childTypes.length === 0 ? (
+      ) : !asGroup && childTypes.length === 0 ? (
         <p className="text-sm leading-5 text-muted-foreground">
           This is the lowest level; nothing can be added beneath it.
         </p>
       ) : (
         <form onSubmit={onAddChild} className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="child-type">Level</Label>
-            <NativeSelect
-              id="child-type"
-              value={childType}
-              onChange={(e) => setChildType(e.target.value as OrgUnitType)}
-            >
-              {childTypes.map((type) => (
-                <option key={type} value={type}>
-                  {levelLabel(levels, type)}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
+          {asGroup ? null : (
+            <div className="space-y-2">
+              <Label htmlFor="child-type">Level</Label>
+              <NativeSelect
+                id="child-type"
+                value={childType}
+                onChange={(e) => setChildType(e.target.value as OrgUnitType)}
+              >
+                {childTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {levelLabel(levels, type)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="child-name">Name</Label>
             <Input
@@ -347,6 +668,26 @@ function AddChildren({
               className="font-mono"
             />
           </div>
+          {asGroup ? null : (
+            <ParentChecklist
+              legend="Parents"
+              hint={`Tick every unit the new one belongs to. Leave only ${node.name} ticked for an ordinary unit; tick more for one that several units share, such as a project two subsidiaries run.`}
+              fixed={node}
+              fixedNote="selected in the tree"
+              choices={parentChoices}
+              checked={new Set(ticked)}
+              levels={levels}
+              disabled={pending}
+              onToggle={(id, on) =>
+                setExtraParents((prev) => {
+                  const next = new Set(prev);
+                  if (on) next.add(id);
+                  else next.delete(id);
+                  return next;
+                })
+              }
+            />
+          )}
           <Button type="submit" disabled={pending || childName.trim() === ""}>
             {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
             Add
@@ -384,6 +725,25 @@ function NodeDetail({
   const [moveOpen, setMoveOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [impact, setImpact] = useState<Impact | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletable, setDeletable] = useState<OrgDeleteCheck | null>(null);
+  // The checklist's ticks; nothing is written until Save parents.
+  const [tickedParents, setTickedParents] = useState<Set<string>>(new Set(node.alsoUnder));
+  const parentsChanged =
+    tickedParents.size !== node.alsoUnder.length ||
+    node.alsoUnder.some((id) => !tickedParents.has(id));
+  const alsoUnder = node.alsoUnder.flatMap((id) => nodes.find((n) => n.id === id) ?? []);
+  const extraParentTargets = nodes.filter(
+    (candidate) =>
+      checkAlsoUnder(node.id, candidate.id, nodes, levels).ok && !isFrozen(candidate.id, nodes),
+  );
+  // A group can be switched off only while another active group remains.
+  const canChangeStatus =
+    node.parentId !== null ||
+    node.status === "inactive" ||
+    nodes.some((n) => n.parentId === null && n.id !== node.id && n.status === "active");
 
   const moveTargets = nodes.filter(
     (candidate) =>
@@ -424,6 +784,16 @@ function NodeDetail({
     });
   }
 
+  function openDeleteDialog() {
+    setDeletable(null);
+    setDeleteOpen(true);
+    startTransition(async () => {
+      const result = await orgUnitDeleteCheckAction({ id: node.id });
+      if (result.ok) setDeletable(result.data);
+      else toast.error(result.error);
+    });
+  }
+
   const deactivating = node.status === "active";
 
   return (
@@ -438,7 +808,9 @@ function NodeDetail({
               {node.name}
             </h2>
             <p className="text-sm leading-5 text-muted-foreground">
-              {parent ? `Under ${parent.name}` : "Root organization"}
+              {parent
+                ? `Under ${[parent, ...alsoUnder].map((p) => p.name).join(" and ")}`
+                : "Group: the top of its own tree"}
               {node.code ? (
                 <>
                   {" · "}
@@ -528,6 +900,53 @@ function NodeDetail({
       {node.parentId ? (
         <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">
+            {alsoUnder.length > 0 ? `Parents (${alsoUnder.length + 1})` : "Parents"}
+          </h3>
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">
+            For a unit that belongs to more than one parent, such as a project two subsidiaries run.{" "}
+            {node.name} then appears under each of them, their people can see it, and its figures
+            count in full in each parent and once in the group above them — so those parents add up
+            to more than the group.
+          </p>
+          <div className="mt-4 space-y-3">
+            <ParentChecklist
+              legend="Parents"
+              hint="Tick every unit this one belongs to, then save."
+              fixed={parent}
+              fixedNote="moved and deactivated from here"
+              choices={[...alsoUnder, ...extraParentTargets]}
+              checked={tickedParents}
+              levels={levels}
+              disabled={pending}
+              onToggle={(id, on) =>
+                setTickedParents((prev) => {
+                  const next = new Set(prev);
+                  if (on) next.add(id);
+                  else next.delete(id);
+                  return next;
+                })
+              }
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending || !parentsChanged}
+              onClick={() =>
+                run(
+                  () => setOrgUnitParentsAction({ id: node.id, alsoUnder: [...tickedParents] }),
+                  "Parents saved",
+                )
+              }
+            >
+              Save parents
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {canChangeStatus ? (
+        <div className="rounded-md border bg-card p-6">
+          <h3 className="text-base leading-6 font-semibold">
             {deactivating ? "Deactivate this unit" : "Reactivate this unit"}
           </h3>
           <p className="mt-1 text-sm leading-5 text-muted-foreground">
@@ -546,6 +965,24 @@ function NodeDetail({
           </Button>
         </div>
       ) : null}
+
+      <div className="rounded-md border bg-card p-6">
+        <h3 className="text-base leading-6 font-semibold">Delete this unit</h3>
+        <p className="mt-1 text-sm leading-5 text-muted-foreground">
+          Removes {node.name} and every unit under it for good. Only possible while they are unused:
+          no person ever assigned, no document, no record and no report. A unit that has been used
+          is deactivated instead, so its history stays.
+        </p>
+        <Button
+          type="button"
+          variant="destructive"
+          className="mt-4"
+          disabled={pending}
+          onClick={openDeleteDialog}
+        >
+          Delete this unit
+        </Button>
+      </div>
 
       <ConfirmDialog
         open={moveOpen}
@@ -596,6 +1033,8 @@ function NodeDetail({
         title={deactivating ? `Deactivate ${node.name}?` : `Reactivate ${node.name}?`}
         confirmLabel={deactivating ? "Deactivate" : "Reactivate"}
         destructive={deactivating}
+        // A unit with units under it takes them all with it: the word has to be typed first.
+        requireTyped={deactivating && impact && impact.descendants > 0 ? "deactivate" : undefined}
         pending={pending || impact === null}
         onConfirm={() =>
           run(
@@ -614,6 +1053,51 @@ function NodeDetail({
             <li>{impact.activeAssignments} people assigned here or below</li>
             <li>{impact.inProgressRecords} submission(s) still in progress</li>
           </ul>
+        )}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Delete ${node.name}?`}
+        confirmLabel="Delete for good"
+        destructive
+        blocked={deletable === null || deletable.blockers.length > 0}
+        requireTyped={deletable && deletable.blockers.length === 0 ? "delete" : undefined}
+        pending={pending}
+        onConfirm={() =>
+          run(
+            () => deleteOrgUnitAction({ id: node.id }),
+            "Unit deleted",
+            () => {
+              setDeleteOpen(false);
+              // The unit is gone: show where it used to sit.
+              router.replace(node.parentId ? `${pathname}?node=${node.parentId}` : pathname, {
+                scroll: false,
+              });
+            },
+          )
+        }
+      >
+        {deletable === null ? (
+          <p>Checking whether it can be deleted…</p>
+        ) : deletable.blockers.length > 0 ? (
+          <>
+            <p>{node.name} cannot be deleted:</p>
+            <ul className="list-disc space-y-1 pl-5">
+              {deletable.blockers.map((blocker) => (
+                <li key={blocker}>{blocker}</li>
+              ))}
+            </ul>
+            <p>Deactivate it instead: that stops new activity and keeps the history.</p>
+          </>
+        ) : (
+          <p>
+            {deletable.units === 1
+              ? `${node.name} will be removed.`
+              : `${node.name} and the ${deletable.units - 1} unit(s) under it will be removed.`}{" "}
+            This cannot be undone. The audit trail keeps a note of what was deleted.
+          </p>
         )}
       </ConfirmDialog>
     </section>

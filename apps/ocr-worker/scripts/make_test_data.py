@@ -2,8 +2,10 @@
 
     python scripts/make_test_data.py --out "../../test data"
 
-Each set ("test data 1", "test data 2") holds: one document per ESG activity for three projects, a
-multi-bill PDF, `manifest.csv` (which file is uploaded where, by which role, as which activity, and
+Each set ("test data 1", "test data 2") holds: one document per ESG activity for three projects —
+in each role's folder a third are single PDFs, a third are images (JPG and PNG in turn) and the
+rest are pages of one multi-bill PDF — a further multi-bill PDF for a small project,
+`manifest.csv` (which file is uploaded where, by which role, as which activity, and
 the values printed on it), and `sheets.json` — the rows of the org-unit and employee bulk-import
 sheets, which `apps/web/scripts/test-data-sheets.mjs` turns into .xlsx files.
 
@@ -16,6 +18,7 @@ group companies and landmark projects (meil.in); every figure, vendor and person
 
 import argparse
 import csv
+import io
 import json
 import sys
 from dataclasses import dataclass
@@ -788,12 +791,38 @@ def bundle(pages: list[bytes]) -> bytes:
     return data
 
 
+def as_image(pdf: bytes, fmt: str) -> bytes:
+    """The one-page PDF as an image of the size it was drawn at (the samples are 150 dpi)."""
+    document = pdfium.PdfDocument(pdf)
+    image = document[0].render(scale=150 / 72).to_pil().convert("RGB")
+    document.close()
+    buffer = io.BytesIO()
+    image.save(buffer, format=fmt, **({"quality": 90} if fmt == "JPEG" else {}))
+    return buffer.getvalue()
+
+
+def apart(bills: list[dict]) -> list[dict]:
+    """Order a multi-bill PDF's pages so bills of one document type are not neighbours where that
+    can be avoided: consecutive bills of one type are proposed as a single bill."""
+    left, ordered = list(bills), []
+    while left:
+        last = ordered[-1]["Document type"] if ordered else None
+        pick = next((b for b in left if b["Document type"] != last), left[0])
+        left.remove(pick)
+        ordered.append(pick)
+    return ordered
+
+
 def write_set(set_number: int, root: Path) -> int:
     spec = SETS[set_number]
     folder = root / f"test data {set_number}"
     # Set 2 uploads for set 1's projects again (the next month) and for its own new units.
     submitting = [u for tree in (TREE_1, TREE_2)[:set_number] for u in tree if u.scale]
     manifest, seq = [], 0
+    # Per unit and role, in turn: a single PDF, an image, a page of that role's multi-bill PDF.
+    turn: dict[tuple[str, str], int] = {}
+    held: dict[tuple[str, str], list[dict]] = {}
+    image_count = 0
     for unit in submitting:
         if unit.code == "PRJ-GAYATHRI":
             continue
@@ -811,26 +840,61 @@ def write_set(set_number: int, root: Path) -> int:
                 "period": f"01-{spec['month']} to {spec['days']}-{spec['month']}",
             }
             data, expected = build(ctx)
+            group = (unit.code, activity.role)
+            position = turn.get(group, 0)
+            turn[group] = position + 1
+            row = {
+                "File": "",
+                "Reporting period": spec["label"],
+                "Org unit code": unit.code,
+                "Org unit": unit.name,
+                "Upload as role": ROLE_NAMES[activity.role],
+                "ESG activity": activity.name,
+                "Document type": activity.doc_type,
+                "Values printed": "; ".join(f"{k}={v}" for k, v in expected.items()),
+            }
+            if position % 3 == 2:
+                held.setdefault(group, []).append({**row, "data": data})
+                continue
+            extension = "pdf"
+            if position % 3 == 1:
+                image_count += 1
+                extension = "jpg" if image_count % 2 else "png"
+                data = as_image(data, "JPEG" if extension == "jpg" else "PNG")
             path = (
                 Path("documents")
                 / unit.code
                 / ROLE_NAMES[activity.role]
-                / f"{seq:03d} {activity.metric}.pdf"
+                / f"{seq:03d} {activity.metric}.{extension}"
             )
             (folder / path).parent.mkdir(parents=True, exist_ok=True)
             (folder / path).write_bytes(data)
-            manifest.append(
-                {
-                    "File": path.as_posix(),
-                    "Reporting period": spec["label"],
-                    "Org unit code": unit.code,
-                    "Org unit": unit.name,
-                    "Upload as role": ROLE_NAMES[activity.role],
-                    "ESG activity": activity.name,
-                    "Document type": activity.doc_type,
-                    "Values printed": "; ".join(f"{k}={v}" for k, v in expected.items()),
-                }
-            )
+            manifest.append({**row, "File": path.as_posix()})
+    for (code, role), bills in held.items():
+        bills = apart(bills)
+        single = len(bills) == 1
+        name = (
+            f"{bills[0]['ESG activity']}.pdf" if single else f"multi-bill ({len(bills)} bills).pdf"
+        )
+        path = Path("documents") / code / ROLE_NAMES[role] / name
+        data = bills[0]["data"] if single else bundle([b["data"] for b in bills])
+        (folder / path).write_bytes(data)
+        first = {k: v for k, v in bills[0].items() if k != "data"}
+        if single:
+            manifest.append({**first, "File": path.as_posix()})
+            continue
+        manifest.append(
+            {
+                **first,
+                "File": path.as_posix(),
+                "ESG activity": 'choose "A PDF with several bills"',
+                "Document type": f"({len(bills)} bills)",
+                "Values printed": " | ".join(
+                    f"page {n}: {b['ESG activity']} ({b['Values printed']})"
+                    for n, b in enumerate(bills, 1)
+                ),
+            }
+        )
     # One PDF holding three bills of different activities, all a Project Manager may upload.
     small = next(u for u in TREE_1 if u.code == "PRJ-GAYATHRI")
     pages, kinds = [], []

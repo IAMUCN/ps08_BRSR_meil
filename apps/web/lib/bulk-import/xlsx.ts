@@ -3,6 +3,7 @@
 // re-validates everything server-side (never trust client-parsed input).
 import type { Worksheet } from "exceljs";
 import * as XLSX from "xlsx";
+import { tidy } from "../org/rules.ts";
 
 function triggerDownload(bytes: BlobPart, filename: string) {
   const blob = new Blob([bytes], { type: "application/octet-stream" });
@@ -192,8 +193,70 @@ export function parentOf(cell: string): { parentCode: string; parentId?: string 
   const id = /id:([0-9a-f-]{36}) *$/i.exec(cell)?.[1];
   return id
     ? { parentCode: "", parentId: id }
-    : { parentCode: cell.split(PARENT_SEPARATOR)[0].trim() };
+    : { parentCode: tidy(cell.split(PARENT_SEPARATOR)[0]) };
 }
+/**
+ * Every parent a Parent code cell names (owner's page feedback, 2026-10-11): any number of them in the one
+ * cell, separated by commas (a semicolon or a line break is read too). Spaces around a name do not matter.
+ * The first is where the unit is created; the rest are the parents it also sits under.
+ *
+ * A unit with no code is named by its name, and a name may itself hold a comma ("Seetharampur plant,
+ * Telangana"). So the pieces between commas are put back together wherever they spell an existing unit's
+ * name — the longest such name first.
+ */
+export function parentsOf(
+  cell: string,
+  /** Names of the org units that exist, to recognise a name that holds a comma. */
+  knownNames: readonly string[] = [],
+): {
+  parentCode: string;
+  parentId?: string;
+  alsoUnder: string[];
+} {
+  // Commas compared without the spaces around them, so "plant , Telangana" is "plant, Telangana".
+  const key = (value: string) => tidy(value).toLowerCase().replace(/ ?, ?/g, ",");
+  const known = new Set(knownNames.map(key));
+  const pieces = cell.split(/[,;\n]/).map(tidy);
+  const parents: { parentCode: string; parentId?: string }[] = [];
+  for (let at = 0; at < pieces.length;) {
+    let end = at + 1;
+    for (let last = pieces.length; last > at + 1; last--) {
+      if (known.has(key(pieces.slice(at, last).join(",")))) {
+        end = last;
+        break;
+      }
+    }
+    // A value picked from the list reads "CODE — Name": whatever follows the code is its name, commas too.
+    const text = pieces.slice(at, end).join(", ");
+    if (end === at + 1 && text.includes(PARENT_SEPARATOR)) {
+      const next = pieces.findIndex((piece, i) => i > at && piece.includes(PARENT_SEPARATOR));
+      const stop = next < 0 ? pieces.length : next;
+      // Only when the pieces up to the next picked value are not themselves known codes or names.
+      if (
+        !pieces.slice(at + 1, stop).some((piece) => known.has(key(piece)) || /^[\w-]+$/.test(piece))
+      ) {
+        end = stop;
+      }
+    }
+    const one = parentOf(pieces.slice(at, end).join(", "));
+    if (one.parentCode || one.parentId) parents.push(one);
+    at = end;
+  }
+  const [first = { parentCode: "" }, ...others] = parents;
+  return {
+    ...first,
+    // Naming the same parent twice is one parent.
+    alsoUnder: [
+      ...new Set(others.map((p) => p.parentCode).filter((p) => p && p !== first.parentCode)),
+    ],
+  };
+}
+/**
+ * Two columns the template had for an hour on 2026-10-11, one further parent in each; still read.
+ */
+export const MORE_PARENT_HEADERS = ["Parent code 2", "Parent code 3"] as const;
+/** A column one day's template had for the further parents (2026-10-11); still read, as a list of codes. */
+export const LEGACY_ALSO_UNDER_HEADER = "Also under";
 /** The heading the Level column had before the sheet could hold a whole tree; still read. */
 export const LEGACY_LEVEL_HEADER = "Type";
 
@@ -235,6 +298,7 @@ export async function downloadOrgUnitTemplate(
     'Fill the "New org units" sheet, one org unit per row, starting on row 2. Keep the headings as they are.',
     `Parent code left empty: the row is created directly under "${parent.name}" (${parent.level}), the unit chosen on screen.`,
     "Parent code filled in: pick an org unit that exists already from the cell's dropdown list, or type the Code of another row in this sheet (the list is only a suggestion, so typing is allowed). An org unit that has no code can be picked from the list too; it is listed by its name. That is how one sheet builds several levels at once; the order of the rows does not matter.",
+    "A unit with more than one parent, such as a project two subsidiaries run: write every parent in the one Parent code cell, separated by commas, for example SUB-A, SUB-B. As many as it has. Spaces before or after a name do not matter. (The dropdown fills in one value; type a comma and the next code after it.) The unit then sits under each of them, and its figures count in full in every parent and once in the group above them. Moving or deactivating it later is done from the first parent listed.",
     "Level is a dropdown of the levels configured today. A unit's level must come after its parent's level; levels may be skipped.",
     "Code is letters, numbers, hyphens and underscores, and must be new. It is required for a row that other rows name as their parent.",
     `At most ${MAX_IMPORT_ROWS} rows per sheet. A row whose parent could not be created is not created either; the results say which.`,
@@ -262,6 +326,14 @@ export async function downloadOrgUnitTemplate(
         below.code,
         "EX-A",
         `A ${below.label} under the row above`,
+      ]);
+      help.addRow(["EX-C", `Second ${first.label}`, first.code, "", "Another row of the sheet"]);
+      help.addRow([
+        "EX-A-2",
+        `Shared ${below.label}`,
+        below.code,
+        "EX-A, EX-C",
+        `A ${below.label} with two parents: EX-A and EX-C`,
       ]);
     }
     const deeper = existing.find((u) => u.code && u.code !== parent.code);
@@ -320,7 +392,7 @@ export async function downloadOrgUnitTemplate(
         showInputMessage: true,
         promptTitle: "Parent",
         prompt:
-          `Pick an existing org unit, or type the Code of another row. Empty = under ${parent.name}.`.slice(
+          `Pick an existing org unit, or type the Code of another row. Several parents: write them all here with commas between. Empty = under ${parent.name}.`.slice(
             0,
             250,
           ),
@@ -329,6 +401,57 @@ export async function downloadOrgUnitTemplate(
   }
 
   triggerDownload(await wb.xlsx.writeBuffer(), "org-unit-bulk-import-template.xlsx");
+}
+
+export type HierarchyUnit = {
+  code: string | null;
+  name: string;
+  /** The level's code, as the Level column takes it. */
+  level: string;
+  /** How a sheet names each of its parents (code, or name when it has none), first the one it is managed from. */
+  parents: string[];
+};
+
+/**
+ * The organization as it stands, in the bulk-import sheet's own columns (owner's page feedback, 2026-10-11):
+ * edit it — new codes, names, parents — and upload it under Add from a spreadsheet. Groups are not rows (a
+ * sheet cannot create one); a unit directly under a group names that group as its parent. `units` arrives in
+ * the order of the tree on screen, a shared unit once under each parent.
+ */
+export async function downloadOrgHierarchy(
+  units: HierarchyUnit[],
+  levels: { code: string; label: string }[],
+) {
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet("New org units");
+  dataSheet(sheet, [
+    { header: ORG_UNIT_HEADERS[0], width: 20 },
+    { header: ORG_UNIT_HEADERS[1], width: 44 },
+    { header: ORG_UNIT_HEADERS[2], width: 24 },
+    { header: ORG_UNIT_HEADERS[3], width: 44 },
+  ]);
+  // A shared unit is listed under each parent, every such row naming all its parents.
+  units.forEach((u) => sheet.addRow([u.code ?? "", u.name, u.level, u.parents.join(", ")]));
+
+  const help = wb.addWorksheet("How to use");
+  help.columns = [{ width: 28 }, { width: 90 }];
+  for (const line of [
+    'The "New org units" sheet lists every org unit below group level as it stood when this file was exported, parents before their children.',
+    "To use it as a template: change the codes and names, add or remove rows, then upload it on Organization, Add from a spreadsheet.",
+    "A row whose Code already exists is refused (codes are unique), so uploading the sheet unchanged creates nothing. Rows without a code are created again.",
+    "Parent code names the parent: a Code of an existing org unit or of another row; a unit with no code is named by its name. Empty means directly under the unit chosen on screen.",
+    "A unit with more than one parent (a project two subsidiaries run) is listed under each of its parents, and each of those rows names every parent in Parent code, separated by commas, for example SUB-A, SUB-B. On upload, rows with the same Code, Name and Level are read as one unit; so are rows with no Code that have the same Name, Level and list of parents. What sits under a shared unit is listed once, under its first parent.",
+    `At most ${MAX_IMPORT_ROWS} rows per upload.`,
+    "",
+  ]) {
+    help.addRow([line]);
+  }
+  help.addRow(["Level (use this value)", "Level name"]);
+  heading(help, help.rowCount, 2);
+  levels.forEach((l) => help.addRow([l.code, l.label]));
+
+  triggerDownload(await wb.xlsx.writeBuffer(), "organization-hierarchy.xlsx");
 }
 
 /** Same download-link trick as the audit trail's CSV export (app/admin/audit-trail/audit-view.tsx). */

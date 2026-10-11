@@ -11,6 +11,8 @@ export async function generateReportAction(input: {
   orgUnitId: string;
   periodId?: string;
   financialYear?: number;
+  from?: string;
+  to?: string;
 }) {
   const result = await runAction((api) => api.reports.generate(input));
   if (result.ok) revalidatePath("/admin/reports");

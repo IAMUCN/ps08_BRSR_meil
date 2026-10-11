@@ -39,7 +39,26 @@ export type RecordFilters = {
   roleCode?: string;
   status?: Status;
   issue?: Issue;
+  /** Words typed in the search box: a record must contain every one of them somewhere (see below). */
+  text?: string;
 };
+
+/**
+ * The search box (owner's page feedback, 2026-10-11): each word must appear — letter case ignored — in the
+ * document's name, the metric or its code, the category, the org unit or its code, the period, the
+ * submitter, or the record's value or unit. Words are bound as values and their %, _ and \ are taken
+ * literally, so nothing typed can change the query.
+ */
+function textCondition(sql: Sql, text: string) {
+  const words = text.split(/\s+/).filter(Boolean).slice(0, 8);
+  return words.map((word) => {
+    const like = `%${word.replace(/[\\%_]/g, "\\$&")}%`;
+    return sql`and (d.file_name ilike ${like} or m.name ilike ${like} or m.code ilike ${like}
+      or cat.name ilike ${like} or o.name ilike ${like} or o.code ilike ${like} or p.label ilike ${like}
+      or u.display_name ilike ${like} or r.activity_unit ilike ${like} or c.result_unit ilike ${like}
+      or r.activity_value_verified::text ilike ${like} or c.result_value::text ilike ${like})`;
+  });
+}
 
 /** SQL condition for an issue, over `r` (esg_records) and `d` (its primary document). */
 export function issueCondition(sql: Sql, issue: Issue) {
@@ -126,7 +145,8 @@ export function recordsFrom(sql: Sql, f: RecordFilters) {
       ${f.metricCode ? sql`and m.code = ${f.metricCode}` : sql``}
       ${f.roleCode ? sql`and cat.owning_role_id = (select id from public.roles where code = ${f.roleCode})` : sql``}
       ${f.status ? sql`and ${statusCondition(sql, f.status)}` : sql``}
-      ${f.issue ? sql`and ${issueCondition(sql, f.issue)}` : sql``}`;
+      ${f.issue ? sql`and ${issueCondition(sql, f.issue)}` : sql``}
+      ${f.text ? textCondition(sql, f.text) : sql``}`;
 }
 
 export type RecordRow = {

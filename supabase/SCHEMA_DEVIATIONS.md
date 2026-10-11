@@ -491,6 +491,46 @@ through RLS; here the server has always read through its own connection and chec
 and the consolidation views are closed to the browser role on purpose, so scope stays in server code and the
 role bounds what can be reached at all. Decision: `.grill/chat-analyst-decisions.md`; overview: `CHATBOT.md`.
 
+## D35 — A report run may cover a custom range of reporting periods (migration `0043`)
+
+**Schema:** §13.1 gives `report_runs` one `reporting_period_id`; D17 added `financial_year`.
+
+**Now:** two more columns, `period_from` and `period_to` (dates). A run covers exactly one of: a reporting
+period, a financial year, or a range — every reporting period lying wholly between the two dates. The check
+constraint `report_runs_one_coverage` was replaced to say so (both dates or neither, start not after end).
+
+**Why:** the owner asked for reports over a custom period (2026-10-11). Records belong to reporting periods,
+so a range of periods is the only custom period that reports exactly what was recorded. Decision:
+`.grill/chat-admin-access-decisions.md`.
+
+## D36 — An org unit may have more than one parent; several groups (migration `0044`)
+
+**Schema:** §3 gives `org_units` one `parent_id`: a tree with one root.
+
+**Now:** `parent_id` is the unit's main parent; a new table `org_unit_parents (org_unit_id, parent_id)` holds
+each further parent. A trigger keeps the level rule for them (parent strictly earlier), keeps both in the
+same group and refuses a parent the unit already has. `org_unit_tree` follows both kinds of link, one row
+per ancestor–descendant pair; a new view `org_unit_links` lists every link; `my_org_unit_ids()` follows both.
+The table and views are closed to the browser; `chat_reader` may read them. More than one row may have no
+parent (several groups) — the schema always allowed it, the app now does.
+
+**Why:** the owner asked for a project run by two subsidiaries to sit under both, counted in full in each and
+once at the group, and for more than one group (2026-10-11). Decision:
+`.grill/shared-org-units-decisions.md`.
+
+## D37 — Carbon credits registry ledger, anti-double-counting reconciliation, and internal carbon pricing (migration `0046`)
+
+**Schema:** `05_BACKEND_SCHEMA.md` originally specified Scope 1/2/3 operational accounting without carbon market offsets or capital expenditure shadow pricing.
+
+**Implemented (migration `0046`):**
+- `carbon_credits`: Registry batches (India CCTS, Verra VCS, Gold Standard, I-REC, BEE ESCerts, Internal Shadow) with serial ranges, vintage, methodology, verifier, and lifecycle statuses (`MINTED`, `HELD`, `TRANSFERRED`, `RETIRED`).
+- `carbon_credit_transactions`: Append-only transactional ledger tracking internal retirements against reporting periods/scopes, and transfers to external counterparties. Immutability enforced via database trigger preventing any UPDATE or DELETE.
+- `internal_carbon_prices`: Enterprise and subsidiary shadow carbon pricing schedules per tCO2e (benchmark ₹2,500/tCO2e seeded for root entity).
+- `capex_carbon_evaluations`: Project proposals evaluating NPV, IRR, and payback with shadow price monetizing avoided emissions.
+- Three permissions: `carbon_credit.view`, `carbon_credit.manage`, `icp.manage`.
+
+**Why:** Roadmap requirement for Carbon Markets - Credit Tracking & Double-Counting Prevention and Internal Carbon Pricing CapEx Evaluator for SEBI BRSR net emissions reporting.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.

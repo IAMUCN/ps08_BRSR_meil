@@ -9,6 +9,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -31,6 +32,9 @@ const MAX_QUESTION = 2000;
 /** Width of the docked pane; the class lg:w-[420px] below must say the same. */
 const PANE_WIDTH = 420;
 const OPEN_KEY = "traceesg-chat-open";
+/** A ghost button on the coloured bar: the bar's own text colour, a light wash on hover. */
+const BAR_BUTTON =
+  "text-modal-header-foreground hover:bg-white/15 hover:text-modal-header-foreground aria-pressed:bg-white/20";
 
 const EXAMPLES = [
   "What are the total Scope 1 and Scope 2 emissions this financial year?",
@@ -57,6 +61,7 @@ export function ChatLauncher() {
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [messages, setMessages] = useState<ChatMessageView[]>([]);
+  const router = useRouter();
   const [draft, setDraft] = useState("");
   /** The question being answered, shown until its answer arrives. */
   const [pending, setPending] = useState<string | null>(null);
@@ -67,6 +72,13 @@ export function ChatLauncher() {
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
   }, [messages, pending, error]);
+  // One line until the question needs more, then it grows with the text (up to max-h-40).
+  useEffect(() => {
+    const box = input.current;
+    if (!box) return;
+    box.style.height = "auto";
+    box.style.height = `${box.scrollHeight + 2}px`;
+  }, [draft, open]);
 
   // Open or closed is remembered in this browser, so the pane is still there on the next page.
   const toggle = (next: boolean) => {
@@ -154,6 +166,9 @@ export function ChatLauncher() {
     setConversationId(result.data.conversation.id);
     setMessages((current) => [...current, ...result.data.messages]);
     setConversations(null);
+    // "Show me the report for…": the answer carries the Reports page with that selection; go there.
+    const link = result.data.messages.flatMap((m) => m.blocks).find((b) => b.type === "link");
+    if (link) router.push(link.href);
   };
 
   const submit = (event: FormEvent) => {
@@ -201,50 +216,47 @@ export function ChatLauncher() {
           }}
           className="fixed inset-0 z-50 flex flex-col bg-popover text-sm text-popover-foreground lg:left-auto lg:z-40 lg:w-[420px] lg:border-l"
         >
-          <div className="relative border-b p-4 pr-14">
-            <h2 className="font-heading text-base font-medium text-foreground">ESG data analyst</h2>
-            <p className="text-sm text-muted-foreground">
-              Ask about the ESG data you can see. Figures come from the records; an AI model writes
-              the wording. It cannot change anything.
-            </p>
+          {/* A bar as tall as the top bar (h-14), so the two line up (owner's page feedback, 2026-10-11). */}
+          <div className="flex h-14 shrink-0 items-center gap-1 bg-modal-header px-4 text-modal-header-foreground">
+            <h2 className="mr-auto font-heading text-base font-medium">ESG data analyst</h2>
+            {/* Icons only (owner's page feedback, 2026-10-11); the full wording shows on hover and is
+                read out by a screen reader. */}
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="absolute top-3 right-3"
+              className={BAR_BUTTON}
+              title="New conversation — start a fresh one; this one stays under Saved"
+              onClick={startNew}
+            >
+              <MessageSquarePlus aria-hidden />
+              <span className="sr-only">New conversation</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className={BAR_BUTTON}
+              title="Saved conversations — only you can see them; kept 90 days after their last message"
+              aria-pressed={showHistory}
+              onClick={() => {
+                setShowHistory((value) => !value);
+                if (!showHistory) void refreshConversations();
+              }}
+            >
+              <History aria-hidden />
+              <span className="sr-only">Saved conversations</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className={BAR_BUTTON}
               onClick={() => toggle(false)}
             >
               <X aria-hidden />
               <span className="sr-only">Close the ESG data analyst</span>
             </Button>
-            <div className="mt-2 flex gap-2">
-              {/* Icons only (owner's page feedback, 2026-10-11); the full wording shows on hover and is
-                  read out by a screen reader. */}
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                title="New conversation — start a fresh one; this one stays under Saved"
-                onClick={startNew}
-              >
-                <MessageSquarePlus aria-hidden />
-                <span className="sr-only">New conversation</span>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                title="Saved conversations — only you can see them; kept 90 days after their last message"
-                aria-pressed={showHistory}
-                onClick={() => {
-                  setShowHistory((value) => !value);
-                  if (!showHistory) void refreshConversations();
-                }}
-              >
-                <History aria-hidden />
-                <span className="sr-only">Saved conversations</span>
-              </Button>
-            </div>
           </div>
 
           {showHistory ? (
@@ -289,12 +301,14 @@ export function ChatLauncher() {
               )}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-4" role="log" aria-live="polite">
+            <div className="flex flex-1 flex-col overflow-y-auto p-4" role="log" aria-live="polite">
               {messages.length === 0 && !pending ? (
-                <div>
+                // At the foot of the pane, next to the question box (owner's page feedback, 2026-10-11).
+                <div className="mt-auto">
                   <p className="text-sm leading-5">
                     Ask a question about consumption, emissions, trends or data completeness for the
-                    parts of the organisation you can see. For example:
+                    parts of the organisation you can see. Figures come from the records; an AI
+                    model writes the wording. It cannot change anything. For example:
                   </p>
                   <ul className="mt-3 space-y-2">
                     {EXAMPLES.map((example) => (
@@ -364,9 +378,9 @@ export function ChatLauncher() {
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={onKeyDown}
                 maxLength={MAX_QUESTION}
-                rows={2}
+                rows={1}
                 placeholder="Ask about your ESG data…"
-                className="min-h-10 flex-1 resize-none rounded-sm border border-input bg-transparent px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="max-h-40 min-h-9 flex-1 resize-none rounded-sm border border-input bg-transparent px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
               <Button
                 type="submit"

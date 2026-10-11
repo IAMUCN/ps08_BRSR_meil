@@ -205,7 +205,7 @@ _Last updated: 2026-10-11._
   viewed in a browser** by the agent (no local Admin password). The lines use `--border`, which is pale in the
   Special theme.
 - **`feature-chat-analyst` was pushed to `ucn` (`IAMUCN/ps08_BRSR_meil`) `main` by the owner on 2026-10-11**
-  (`dba8fa1`); `origin` (MACRO72) does not have it. Everything below this line is **uncommitted**.
+  (`dba8fa1`); `origin` (MACRO72) does not have it. Everything below this line was committed later on 2026-10-11 (not pushed) unless it says otherwise.
 - **No ids in the bulk-import templates (2026-10-11, owner's request), uncommitted:** an org unit with no code is
   listed by its name and matched by name on the server (`unitByRef`, `lib/org/rules.ts`; `users.ts`,
   `organization.ts`, `xlsx.ts`); a name several units share is refused. Checked: format, lint, typecheck, web
@@ -226,8 +226,75 @@ _Last updated: 2026-10-11._
   required field read, document type chosen; the faint Men figure is misread on purpose), the sheets against
   `importOrder` and `canBeChildOf`, Ruff. **Not run:** set 2 through OCR (same layouts), any upload or import
   through the app. **The owner does the rest:** creates the two periods, imports org units and users, uploads.
+- **Reports for a custom period, and the chatbot for Admins (2026-10-11, owner's request), committed 2026-10-11 and merged with `main` (`7dcb16e`: landing and sign-in redesign, emissions forecast and its chatbot tool `explain_forecast` — 9 tools, 12 for an Admin; web unit 169/169, lint, typecheck, format after the merge; build and database tests not re-run), not pushed;
+  migration `0043` pushed to hosted 2026-10-11 (owner's go-ahead; 43 migrations, both columns nullable, the constraint replaced, no report runs there)** (`.grill/chat-admin-access-decisions.md`, D35, A34): `report_runs` gains
+  `period_from` / `period_to`; Reports → Covering has _Custom period_ (From period, To period); the page
+  reads `org`, `period`, `fy`, `from`, `to` from its address. The chatbot has three Admin-only tools
+  (`list_people`, `list_records`, `open_report_page`) that run on the app's own connection, read-only;
+  `chat_reader` is unchanged and a non-Admin's chatbot is unchanged. Checked: web unit 158/158, database
+  252/252, lint, typecheck, format, production build, and 27/27 through the app's code on the local database.
+  **Not run:** a browser view (form, the panel going to the page), a question through the real model, a
+  custom report rendered to PDF, the end-to-end suite.
+- **The test data is committed and on `ucn` `main`** (`47b23c7`, merge `cba4238`, 2026-10-11); only
+  `test data/_backup/` is ignored. `origin` (MACRO72) does not have these commits.
 - **The `agentation` widget is committed now** (it is in `apps/web/package.json` on `main`; the working tree was
   clean at the start of the 2026-10-11 session and `pnpm format:check` passes).
+- **Owner's page feedback of 2026-10-11 on Organization and the chat pane — committed (`db4f66b`) on branch
+  `feature-org-chat-feedback` and pushed to `ucn` `main` on 2026-10-11 at the owner's request (a fast-forward;
+  no pull request, CI not run); `origin` (MACRO72) does not have it; migration `0044` was pushed to hosted on 2026-10-11
+  (owner's go-ahead) and checked there: 44 migrations, the new table has RLS and no browser access, both views
+  closed to the browser and readable by `chat_reader`, the tree has no repeated pair, the 13 org units, 29
+  factors and the accounts untouched**
+  (`.grill/shared-org-units-decisions.md`, D36, A35, `UI_NOTES.md`). An org unit can sit under more than one
+  parent (full in each, once at the group — the owner's choice), there can be several groups (same Admins),
+  an unused unit can be deleted after typing `delete`, deactivating a unit with units under it asks for
+  `deactivate`, the bulk-import sheet has an Also under column, the chatbot's `list_org_units` takes `under`
+  (the wrong "projects under X" answer), and the chat pane has a coloured header bar, a one-line question
+  box and the suggestions at the foot. A second round the same day: the Shared tag glows and shows under every
+  parent, **Export hierarchy** downloads the tree in the bulk-import columns, and Also under is separated by
+  commas (format, lint, typecheck, unit tests re-run after it; the build, the database tests and the 25
+  procedure checks were not; the exported file was not opened). Checked: format, lint, typecheck, web unit 174/174 (5 new), database
+  271/271 (19 new), production build, and 25/25 through the real procedures on the local database (shared
+  totals at each level, bulk import, second group, delete; everything created was removed again, a test
+  user `shared.units.check@traceesg.test` stays). **Not run:** any of it in a browser, a question through
+  the real model, the end-to-end suite, the template downloaded and opened in Excel.
+- **Follow-up rounds of the same feedback, committed after `85446ef` and pushed to `ucn` `main` on 2026-10-11
+  (owner's request; production build passes; none of it viewed in a browser):** a shared unit's parents are written together —
+  Parent code takes every parent, comma separated, in the template, the import (`parentsOf`) and Export
+  hierarchy; the Also under column is gone (still read); the Organization card is "Parents". Checked: format,
+  lint, typecheck, web unit 175/175. Not run: the build, an import through the procedure, a browser view.
+  Also: Export hierarchy lists a shared unit under each parent, every such row naming all its
+  parents — units without a code included — and the import reads same-code same-name rows, or code-less rows
+  with the same name and parent list, as one unit (`mergeSharedRows`; web unit 176/176,
+  and 6/6 through the real procedure on the local database; the exported file itself was not opened).
+  Also: the template has pick-list columns Parent code 2 and Parent code 3 for further parents
+  (a spreadsheet pick-list cannot multi-select); static checks and unit tests only, the template was not
+  opened in Excel.
+  Also: hovering (or pressing) the Shared tag opens a list of the unit's parents, and choosing one
+  selects the unit at its place under that parent (`SharedPlaces`, `goTo` in `org-manager.tsx`); only the
+  drawing that was clicked is highlighted. Static checks and unit tests only — hover timing, the list's
+  position and the scroll need a real browser.
+  Also: migration `0045` renames the level "Subsidiary / Entity" to "Subsidiary" (label only);
+  **pushed to hosted 2026-10-11** on the owner's page feedback and read back there (45 migrations); database
+  tests 271/271 locally.
+- **Committed after `64d3579` and pushed to `ucn` `main` on 2026-10-11 (owner's page feedback):** the template is back to one Parent code
+  column taking any number of parents with commas (Parent code 2 / 3 removed, still read); codes and names
+  are matched ignoring extra spaces and case; the Organization heading makes room for the docked add panel.
+  Parents are chosen from a checkbox list on the page: in Add a unit and in the Parents card (Save parents;
+  `organization.setParents`, `create` takes `alsoUnder`). Checked: format, lint, typecheck, web unit
+  177/177; the two procedures 9/9 on the local database. After an org-unit sheet is uploaded, each preview row has a
+  Parents checklist (`row-parents-picker.tsx`) so several parents can be ticked instead of typed. Production
+  build passes after all of it. Not run: a browser view (the checklist opens in a popover inside the side
+  panel — check it there), the template opened in Excel.
+- **Committed and pushed to `ucn` `main` on 2026-10-11 (owner's page feedback on `/admin/data-explorer`):** a search box in the records
+  filter bar (Data Explorer and Submission Monitoring; URL param `q`, searched on the server in
+  `recordsFrom` — every word must appear in the document, metric, category, org unit, period, submitter,
+  value or unit) and Clear filters moved into the filter bar. Checked: format, lint, typecheck, web unit
+  177/177, production build, the query 12/12 on the local database. Not viewed in a browser.
+- **The test data was regenerated on 2026-10-11 with mixed formats, committed (`9ba9081`) and on `ucn` `main`** (owner's request): in each
+  role's folder a third of the bills are single PDFs, a third are images (JPG and PNG in turn) and the rest
+  are pages of one multi-bill PDF; `make_test_data.py` and `test data/README.md` changed. Set 1: 30 PDFs, 21 images, 6 multi-bill PDFs; set 2: 40, 27, 6. Ruff passes; no file was put
+  through OCR or uploaded.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -237,7 +304,8 @@ _Last updated: 2026-10-11._
 | Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
 | NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
 | Chatbot branch on MACRO72's repo | The owner pushed `feature-chat-analyst` straight to `ucn` `main` (2026-10-11). `origin` has neither the branch nor a pull request; `gh` is not installed. A pull request must say that the feature role built UI (`UI_NOTES.md`). |
-| Commit the 2026-10-11 work | Template without ids, the two test-data scripts, `.gitignore`, the docs. Not committed: the owner has not asked. |
+| Readings of the 2026-10-11 feedback to confirm | Suggested questions were moved to the **bottom** of the chat pane; "aligned with the navbar width" was read as the same **height**; sharing is allowed at every level below group. `.grill/shared-org-units-decisions.md`. |
+| Chatbot: how far "full access" goes | An Admin can ask about people and who submitted or approved records. Not included: audit trail, document text, written disclosures; and a non-Admin sees no people even inside their own scope. Employee names and emails in an Admin's answer go to the AI service. |
 | Admin answers to complete | BRSR Disclosures holds only what meil.in states. Reporting boundary, contact person, assurance, PPP rate and every answer not on the website are empty. R-22's factor value came from a search summary. |
 | Where to host the web app and the OCR worker | Vercel was planned for the web app. Worker needs a host with a long-running, always-on process (no sleeping tier), ~2 GB RAM, no web port. |
 | Delete the other Docker images? | Kept for now: the Supabase local-stack images (`public.ecr.aws/supabase/*`, needed by `pnpm db:start`/`db:test`) and the other project's `suraksha-backend` and `postgres:15-alpine` (plus its stopped containers and `suraksha_postgres_data` volume). Removing them is the owner's call. |
@@ -254,7 +322,7 @@ _Last updated: 2026-10-11._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D35** and **A34**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D37** and **A36**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -411,6 +479,24 @@ _Last updated: 2026-10-11._
   `calculations` and `audit_logs` refuse deletes for every role.
 - **Running the worker's OCR on files without the database:** `OcrEngine(Path("models"))`, `to_page_images`,
   `extract_fields` with `FieldSpec`s (about 10 s a page; output is buffered until the end when redirected).
+- **`pnpm exec` installs missing dependencies first** (it added `jszip`, already in `package.json`, to
+  `node_modules`); harmless, but it takes half a minute and prints an install log.
+- **Month names from `toLocaleDateString` differ between Node versions** ("Sep" / "Sept"); `rangeLabel`
+  writes them out.
+- **Python for one-off edit scripts:** there is no `python` on the path; use
+  `apps/ocr-worker/.venv/Scripts/python.exe`.
+- **The hosted worker container was found exited with code 137** (out of memory) on 2026-10-11 and was
+  started again after the local checks.
+- **A unit can have several parents and there can be several groups (migration `0044`).** Never walk
+  `org_units.parent_id` alone for scope or totals: use `org_unit_tree`, `org_unit_links`, or
+  `loadOrgNodes` + `descendantIds(…, "all")`. Main-parent-only walks are right for deactivation, move and
+  delete. Never assume one row with `parent_id is null`.
+- **The checkout at `D:\BRSR-MEIL` has no `apps/ocr-worker/.venv`** (seen 2026-10-11): the test-data
+  generator needs only `pypdfium2`, `pillow` and `numpy`, which a throw-away venv in the scratchpad gives.
+- **`test data/` is tracked now**, so regenerating it shows up in `git status` as changed and new files. Delete
+  both set folders before regenerating: files left from an earlier run (or restored by a pull) stay beside the
+  new ones and the same bill then exists twice.
+- **This checkout had no `ucn` remote** until 2026-10-11 (`git remote add ucn https://github.com/IAMUCN/ps08_BRSR_meil.git`).
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

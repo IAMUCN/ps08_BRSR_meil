@@ -8,7 +8,7 @@ person is invented.
 |---|---|---|
 | Reporting period | August 2026 | September 2026 |
 | Org units to import | Irrigation, Transportation and Power with their projects (12) | Drinking Water, Hydrocarbons, Manufacturing and five group companies (11) |
-| Documents | 63 single documents + 1 multi-bill PDF | 79 single documents + 1 multi-bill PDF |
+| Documents | 30 single PDFs, 21 images (JPG / PNG), 6 multi-bill PDFs | 40 single PDFs, 27 images (JPG / PNG), 6 multi-bill PDFs |
 | Who uploads | Polavaram, Zojila, Tuticorin; Gayathri Pump House (multi-bill) | the same four again (next month, about 7% higher) plus Uddanam and the Olectra plant |
 
 Set 2 repeats set 1's projects one month later, so comparisons, trends and the chatbot's "this month against last
@@ -40,6 +40,10 @@ month" have two months to work with.
 - `PRJ-POLAVARAM/HR/… WORKFORCE_GENDER.pdf` has a faint **Men** figure. OCR reads it with low confidence and may
   read it wrong; the verify screen makes the person check it. The right value is in the manifest.
 - `PRJ-GAYATHRI/Project Manager/multi-bill (3 bills in one PDF).pdf`: pick "A PDF with several bills" on Upload.
+- **Three kinds of file in each role's folder**, so every upload path gets tried: single-bill PDFs, single-bill
+  images (JPG and PNG), and one `multi-bill (N bills).pdf` holding the rest (upload it with "A PDF with several
+  bills" and confirm the split). No bill appears twice. The manifest lists a multi-bill PDF as one row, page by
+  page. The split screen may not name the less common activities (coal grades, purchased steam); pick them by hand.
 - PNG, purchased steam, purchased heat / cooling, waste and the three spend-based activities have **no
   conversion factor** (no published source). Their records show "Not calculated yet"; that is expected.
 - Air emissions, water, safety, workforce, procurement, CSR and fines need no factor.

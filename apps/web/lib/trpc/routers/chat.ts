@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { blocksSchema, type Block } from "@/lib/chat/blocks";
-import { allowedUnits, chatConfig, dataLayer } from "@/lib/chat/data";
+import { adminData, allowedUnits, chatConfig, dataLayer } from "@/lib/chat/data";
 import { createModelCaller, PROVIDER_MESSAGES, ProviderError } from "@/lib/chat/nim";
 import {
   answerQuestion,
@@ -12,7 +12,7 @@ import {
   systemPrompt,
   type SavedToolCall,
 } from "@/lib/chat/orchestrate";
-import { runTool, toolSpecs, type OrgUnit, type ToolContext } from "@/lib/chat/tools";
+import { ADMIN_TOOLS, runTool, toolSpecs, type OrgUnit, type ToolContext } from "@/lib/chat/tools";
 import { db } from "@/lib/db";
 import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 import { permissionProcedure, router } from "@/lib/trpc/init";
@@ -53,9 +53,12 @@ type MessageRow = {
 };
 
 /** A saved message as its owner may see it now, whatever they could see when it was written. */
-function view(row: MessageRow, units: OrgUnit[]): ChatMessageView {
+function view(row: MessageRow, units: OrgUnit[], isAdmin: boolean): ChatMessageView {
   const allowed = new Set(units.map((u) => u.id));
-  const hidden = row.org_unit_ids.some((id) => !allowed.has(id));
+  // An answer made with an Admin-only lookup (people, who submitted what) is an Admin's to read.
+  const hidden =
+    row.org_unit_ids.some((id) => !allowed.has(id)) ||
+    (!isAdmin && (row.tool_calls ?? []).some((c) => ADMIN_TOOLS.has(c.name)));
   const blocks = blocksSchema.safeParse(row.blocks ?? []);
   return {
     id: row.id,
@@ -130,7 +133,7 @@ export const chatRouter = router({
           order by m.created_at, m.role desc limit ${MAX_MESSAGES + 2}`,
         allowedUnits(ctx.session),
       ]);
-      return rows.map((row) => view(row, units));
+      return rows.map((row) => view(row, units, ctx.session.isAdmin));
     }),
 
   send: chatProcedure
@@ -203,7 +206,15 @@ export const chatRouter = router({
         // --- What the person may see, now ---------------------------------------------------------------
         const data = dataLayer(config.databaseUrl);
         const [units, periods] = await Promise.all([allowedUnits(ctx.session), data.periods()]);
-        const toolContext: ToolContext = { units, periods, today: todayInIndia(), data };
+        const isAdmin = ctx.session.isAdmin;
+        const toolContext: ToolContext = {
+          units,
+          periods,
+          today: todayInIndia(),
+          data,
+          // People and record-level detail are an Admin's; nobody else's question can reach them.
+          admin: isAdmin ? adminData() : undefined,
+        };
         const ids = new Set(units.map((u) => u.id));
         const system = systemPrompt({
           today: toolContext.today,
@@ -213,11 +224,12 @@ export const chatRouter = router({
             period: periods.find((p) => p.id === input.page?.periodId)?.label,
             name: pageName(input.page?.path),
           },
+          isAdmin,
         });
         // Earlier answers the person can no longer see are not context either.
         const history = historyMessages(
           earlier
-            .map((row) => ({ row, shown: view(row, units) }))
+            .map((row) => ({ row, shown: view(row, units, isAdmin) }))
             .filter(({ shown }) => !shown.hidden)
             .map(({ row }) => ({
               role: row.role,
@@ -234,7 +246,7 @@ export const chatRouter = router({
             history,
             callModel: createModelCaller({
               config,
-              tools: toolSpecs(),
+              tools: toolSpecs(isAdmin),
               onFailure: (model, reason) => console.warn(`chat: ${model} failed (${reason})`),
             }),
             runTool: (name, rawArguments) =>
@@ -291,7 +303,7 @@ export const chatRouter = router({
             // The question first, whatever order the rows came back in.
             messages: saved
               .sort((a, b) => (a.role === "user" ? -1 : b.role === "user" ? 1 : 0))
-              .map((row) => view(row, units)),
+              .map((row) => view(row, units, isAdmin)),
           };
         });
       },

@@ -22,9 +22,11 @@ import {
   unmatchedNumbers,
 } from "../lib/chat/orchestrate.ts";
 import {
+  ADMIN_TOOLS,
   runTool,
   TOOLS,
   toolSpecs,
+  type AdminData,
   type DataLayer,
   type Metric,
   type OrgUnit,
@@ -700,6 +702,9 @@ test("only the approved tools exist, and their arguments are checked strictly", 
     "get_trend",
     "list_metrics",
     "list_org_units",
+    "list_people",
+    "list_records",
+    "open_report_page",
     "rank_org_units",
   ]);
   assert.equal(toolSpecs().length, 9);
@@ -1175,6 +1180,106 @@ test("a quantity in a unit that cannot be converted is kept apart, never added i
   }
 });
 
+// --- Admin-only tools (.grill/chat-admin-access-decisions.md) ---------------------------------------------
+
+const PEOPLE: AdminData = {
+  people: async () => ({
+    total: 1,
+    rows: [
+      {
+        name: "Asha Rao",
+        email: "asha.rao@example.test",
+        employeeId: "E-1001",
+        active: true,
+        assignments: [{ role: "HR", orgUnit: "Project X" }],
+      },
+    ],
+  }),
+  records: async () => ({
+    total: 1,
+    rows: [
+      {
+        orgUnitId: "px",
+        periodLabel: "August 2026",
+        metric: "Grid Electricity",
+        value: 1200,
+        unit: "kWh",
+        status: "approved",
+        submittedBy: "Asha Rao",
+        approvedBy: "Admin One",
+        fileName: "bill.pdf",
+      },
+    ],
+  }),
+};
+
+test("people, record detail and the report page are an Admin's: for anyone else the tools do not exist", async () => {
+  const names = (isAdmin: boolean) => toolSpecs(isAdmin).map((t) => t.function.name);
+  assert.deepEqual([...ADMIN_TOOLS].sort(), ["list_people", "list_records", "open_report_page"]);
+  assert.equal(names(true).length, 12);
+  assert.ok(names(false).every((name) => !ADMIN_TOOLS.has(name)));
+
+  // Not an Admin: refused exactly like a tool that was never written, even with valid arguments.
+  const manager = PROJECT_X_MANAGER().ctx;
+  for (const [name, args] of [
+    ["list_people", {}],
+    ["list_records", { period: { preset: "this_month" } }],
+    ["open_report_page", { period: { preset: "this_month" } }],
+  ] as const) {
+    assert.equal(await refused(manager, name, args), `There is no tool called "${name}".`);
+  }
+  assert.match(
+    systemPrompt({ today: TODAY, ownUnits: [], page: {} }),
+    /no information about people/,
+  );
+  assert.match(
+    systemPrompt({ today: TODAY, ownUnits: [], page: {}, isAdmin: true }),
+    /list_people/,
+  );
+
+  const admin: ToolContext = { ...ADMIN().ctx, admin: PEOPLE };
+  const people = await call(admin, "list_people", { role: "hr" });
+  assert.equal(dataOf(people).people[0].email, "asha.rao@example.test");
+  const records = await call(admin, "list_records", { period: { label: "August 2026" } });
+  assert.equal(dataOf(records).records[0].submitted_by, "Asha Rao");
+});
+
+test("the report page opens with the period asked for: a year, one period, or a custom range", async () => {
+  const admin: ToolContext = { ...ADMIN().ctx, admin: PEOPLE };
+  const href = async (period: unknown, org_unit?: string) => {
+    const link = (await call(admin, "open_report_page", { period, org_unit })).blocks.find(
+      (b) => b.type === "link",
+    );
+    assert.ok(link?.type === "link");
+    return link.href;
+  };
+  assert.equal(
+    await href({ from: "2026-08-01", to: "2026-09-30" }),
+    "/admin/reports?org=g&from=2026-08-01&to=2026-09-30",
+  );
+  // Dates inside months are widened to the whole reporting periods they touch.
+  assert.equal(
+    await href({ from: "2026-08-15", to: "2026-10-05" }, "Project X"),
+    "/admin/reports?org=px&from=2026-08-01&to=2026-10-31",
+  );
+  assert.equal(await href({ label: "August 2026" }), "/admin/reports?org=g&period=aug");
+  assert.equal(await href({ financial_year: 2026 }), "/admin/reports?org=g&fy=2026");
+  assert.equal(await href({ preset: "previous_financial_year" }), "/admin/reports?org=g&fy=2025");
+  // Nothing to report on is said, not linked to.
+  assert.match(
+    await refused(admin, "open_report_page", { period: { from: "2024-01-01", to: "2024-02-01" } }),
+    /No reporting period/,
+  );
+  // Only the Reports page can ever be a link.
+  for (const bad of [
+    "https://evil.test/admin/reports?a=1",
+    "/admin/users?x=1",
+    "/admin/reports?a=<b>",
+  ]) {
+    assert.equal(blocksSchema.safeParse([{ type: "link", label: "x", href: bad }]).success, false);
+  }
+});
+
 test("explain_forecast: projects emissions using real backtested models or reports insufficient data honestly", async () => {
   const { ctx } = PROJECT_X_MANAGER();
 
@@ -1213,4 +1318,46 @@ test("explain_forecast: projects emissions using real backtested models or repor
       scope: "TOTAL",
     });
   }, /in this person's scope/i);
+});
+
+test("the units beneath a named unit are worked out by the tool, not left to the model", async () => {
+  const { ctx } = ADMIN();
+  const names = async (args: unknown) =>
+    dataOf(await call(ctx, "list_org_units", args)).org_units.map((u: { name: string }) => u.name);
+  // Project Z is another subsidiary's project: it must not appear under Subsidiary A.
+  assert.deepEqual(await names({ under: "Subsidiary A", type: "project" }), [
+    "Project X",
+    "Project Y",
+  ]);
+  assert.deepEqual(await names({ under: "Subsidiary A" }), [
+    "Project X",
+    "Project Y",
+    "Project X Site 1",
+  ]);
+  assert.deepEqual(await names({ under: "Subsidiary A", direct_only: true }), [
+    "Project X",
+    "Project Y",
+  ]);
+  assert.deepEqual(await names({ under: "Project Z" }), []);
+  // A unit outside the person's scope cannot be used to list what is beneath it.
+  assert.equal(
+    await refused(PROJECT_X_MANAGER().ctx, "list_org_units", { under: "Subsidiary B" }),
+    `No org unit called "Subsidiary B" is in this person's scope.`,
+  );
+});
+
+test("a project two subsidiaries share is listed under each of them", async () => {
+  const { ctx } = ADMIN();
+  // Project Z is Subsidiary B's; here it also sits under Subsidiary A (migration 0044).
+  ctx.units = ctx.units.map((u) => (u.id === "pz" ? { ...u, alsoUnder: ["sa"] } : u));
+  const under = async (parent: string) =>
+    dataOf(await call(ctx, "list_org_units", { under: parent, type: "project" })).org_units;
+  assert.deepEqual(
+    (await under("Subsidiary A")).map((u: { name: string }) => u.name),
+    ["Project X", "Project Y", "Project Z"],
+  );
+  assert.deepEqual(
+    (await under("Subsidiary B")).map((u: { name: string; parent: string }) => [u.name, u.parent]),
+    [["Project Z", "Subsidiary B and Subsidiary A"]],
+  );
 });

@@ -6,7 +6,12 @@
 import { z } from "zod";
 import { parseFormula } from "../calculation/formulas.ts";
 import { normalize } from "../calculation/units.ts";
-import { consolidate, type Consolidated, type MetricInfo } from "../consolidation/aggregate.ts";
+import {
+  consolidate,
+  financialYearOf,
+  type Consolidated,
+  type MetricInfo,
+} from "../consolidation/aggregate.ts";
 import {
   PRESETS,
   percentChange,
@@ -26,7 +31,14 @@ export type OrgUnit = {
   code: string | null;
   type: string;
   parentId: string | null;
+  /** Other units it also sits under (migration 0044): it belongs to, and counts in, each of them. */
+  alsoUnder?: string[];
 };
+
+/** Whether a unit sits directly under any of the given units, by its main parent or an extra one. */
+const sitsUnder = (u: OrgUnit, parents: { has(id: string): boolean }) =>
+  Boolean(u.parentId && parents.has(u.parentId)) ||
+  Boolean(u.alsoUnder?.some((p) => parents.has(p)));
 
 export type Metric = {
   id: string;
@@ -109,6 +121,44 @@ export type DataLayer = {
   ): Promise<{ total: number; rows: CalculationRow[] }>;
 };
 
+export type Person = {
+  name: string;
+  email: string;
+  employeeId: string | null;
+  active: boolean;
+  /** Current assignments: role name and org unit name. */
+  assignments: { role: string; orgUnit: string }[];
+};
+
+export type RecordRow = {
+  orgUnitId: string;
+  periodLabel: string;
+  metric: string;
+  value: number | null;
+  unit: string | null;
+  status: string;
+  submittedBy: string;
+  approvedBy: string | null;
+  fileName: string | null;
+};
+
+/** What only an Admin's questions may read: people, and who submitted and approved each record. */
+export type AdminData = {
+  /** `nodeId`: people assigned at that org unit or beneath it. */
+  people(filter: {
+    search?: string;
+    role?: string;
+    nodeId?: string;
+    limit: number;
+  }): Promise<{ total: number; rows: Person[] }>;
+  records(filter: {
+    nodeId: string;
+    periodIds: string[];
+    metricId?: string;
+    limit: number;
+  }): Promise<{ total: number; rows: RecordRow[] }>;
+};
+
 export type ToolContext = {
   /** Every org unit the signed-in person may see, resolved by the server for this request. */
   units: OrgUnit[];
@@ -116,6 +166,8 @@ export type ToolContext = {
   /** Today's date in India, ISO. */
   today: string;
   data: DataLayer;
+  /** Set by the server for an Admin and nobody else; without it the Admin-only tools do not exist. */
+  admin?: AdminData;
 };
 
 export type ToolResult = { data: unknown; blocks: Block[]; orgUnitIds: string[] };
@@ -386,6 +438,8 @@ const notCalculatedNote = (n: number) =>
 
 type Tool<S extends z.ZodType> = {
   description: string;
+  /** Offered to, and run for, an Admin only (`ctx.admin`). */
+  adminOnly?: true;
   schema: S;
   run(args: z.infer<S>, ctx: ToolContext): Promise<ToolResult>;
 };
@@ -394,20 +448,48 @@ const tool = <S extends z.ZodType>(t: Tool<S>) => t;
 export const TOOLS = {
   list_org_units: tool({
     description:
-      "The org units (group, subsidiaries, projects, sites...) this person may see. Use it to find the exact name before another tool.",
+      'The org units (group, subsidiaries, projects, sites...) this person may see. Use it to find the exact name before another tool. For what belongs to a unit ("the projects under X"), pass under: the answer then holds only units beneath X.',
     schema: z.strictObject({
       search: z.string().trim().max(80).optional().describe("Part of a name."),
       type: z.string().trim().max(40).optional().describe("A level, e.g. project or subsidiary."),
+      under: z
+        .string()
+        .trim()
+        .min(1)
+        .max(80)
+        .optional()
+        .describe("Name or code of an org unit: list only the units beneath it, at any depth."),
+      direct_only: z
+        .boolean()
+        .optional()
+        .describe("With under: only the units directly beneath it, not their own children."),
     }),
     async run(a, ctx) {
       const search = a.search?.toLowerCase();
+      // Membership is worked out here from the hierarchy, never left to the model to read off a list.
+      const beneath = new Set<string>();
+      if (a.under) {
+        let layer = [resolveUnit(ctx, a.under).id];
+        while (layer.length) {
+          const parents = new Set(layer);
+          const children = ctx.units.filter((u) => sitsUnder(u, parents) && !beneath.has(u.id));
+          for (const child of children) beneath.add(child.id);
+          layer = a.direct_only ? [] : children.map((u) => u.id);
+        }
+      }
       const found = ctx.units.filter(
         (u) =>
+          (!a.under || beneath.has(u.id)) &&
           (!search || u.name.toLowerCase().includes(search)) &&
           (!a.type || u.type === a.type.toLowerCase().replace(/ /g, "_")),
       );
       const shown = found.slice(0, MAX_TABLE_ROWS);
-      const parent = (u: OrgUnit) => ctx.units.find((p) => p.id === u.parentId)?.name ?? null;
+      // Every parent of a shared unit, main one first.
+      const parent = (u: OrgUnit) =>
+        [u.parentId, ...(u.alsoUnder ?? [])]
+          .map((id) => ctx.units.find((p) => p.id === id)?.name)
+          .filter(Boolean)
+          .join(" and ") || null;
       return {
         data: {
           total: found.length,
@@ -822,7 +904,7 @@ export const TOOLS = {
       for (let grew = true; grew;) {
         grew = false;
         for (const u of ctx.units) {
-          if (u.parentId && beneath.has(u.parentId) && !beneath.has(u.id)) {
+          if (sitsUnder(u, beneath) && !beneath.has(u.id)) {
             beneath.add(u.id);
             grew = true;
           }
@@ -831,7 +913,7 @@ export const TOOLS = {
       const candidates = ctx.units.filter((u) =>
         type
           ? beneath.has(u.id) && u.id !== parent.id && u.type === type
-          : u.parentId === parent.id,
+          : sitsUnder(u, new Set([parent.id])),
       );
       if (!candidates.length) {
         throw new ToolError(
@@ -1133,6 +1215,188 @@ export const TOOLS = {
     },
   }),
 
+  // --- Admin only (.grill/chat-admin-access-decisions.md) ------------------------------------------------
+
+  list_people: tool({
+    adminOnly: true,
+    description:
+      "The people with an account: name, email, employee id, roles, org units, active or deactivated. Use for any question about employees, users, who holds a role or who works where.",
+    schema: z.strictObject({
+      search: z
+        .string()
+        .trim()
+        .max(80)
+        .optional()
+        .describe("Part of a name, email or employee id."),
+      role: z.string().trim().max(60).optional().describe("A role's name or code, e.g. hr."),
+      org_unit: z
+        .string()
+        .trim()
+        .min(1)
+        .max(80)
+        .optional()
+        .describe("Only people assigned at this org unit or beneath it. Leave out for everyone."),
+    }),
+    async run(a, ctx) {
+      const unit = a.org_unit ? resolveUnit(ctx, a.org_unit) : undefined;
+      const { total, rows } = await ctx.admin!.people({
+        search: a.search,
+        role: a.role,
+        nodeId: unit?.id,
+        limit: MAX_TABLE_ROWS,
+      });
+      const list = (p: Person, key: "role" | "orgUnit") =>
+        [...new Set(p.assignments.map((x) => x[key]))].join(", ") || "—";
+      return {
+        data: {
+          total,
+          people: rows.map((p) => ({
+            name: p.name,
+            email: p.email,
+            employee_id: p.employeeId,
+            status: p.active ? "active" : "deactivated",
+            assignments: p.assignments,
+          })),
+        },
+        blocks: [
+          {
+            type: "table",
+            title:
+              total > rows.length
+                ? `People (first ${rows.length} of ${total})`
+                : `People (${total})`,
+            columns: ["Name", "Email", "Employee ID", "Role", "Org unit", "Status"],
+            rows: rows.map((p) => [
+              p.name,
+              p.email,
+              p.employeeId ?? "—",
+              list(p, "role"),
+              list(p, "orgUnit"),
+              p.active ? "Active" : "Deactivated",
+            ]),
+          },
+        ],
+        orgUnitIds: unit ? [unit.id] : [],
+      };
+    },
+  }),
+
+  list_records: tool({
+    adminOnly: true,
+    description:
+      "The individual records of one org unit (and everything beneath it) over a period: value, status, who submitted it, who approved it and the document's file name. Use for 'who uploaded', 'who approved', 'which records'.",
+    schema: z.strictObject({ org_unit: orgUnit, period, metric }),
+    async run(a, ctx) {
+      const unit = resolveUnit(ctx, a.org_unit);
+      const when = resolveWhen(ctx, a.period);
+      const [wanted] = a.metric ? await resolveMetrics(ctx, { metric: a.metric }) : [];
+      const { total, rows } = await ctx.admin!.records({
+        nodeId: unit.id,
+        periodIds: when.periods.map((p) => p.id),
+        metricId: wanted?.id,
+        limit: MAX_TABLE_ROWS,
+      });
+      const unitName = (id: string) => ctx.units.find((u) => u.id === id)?.name ?? "—";
+      const status = (s: string) => s.replace(/_/g, " ");
+      return {
+        data: {
+          org_unit: unit.name,
+          period: when.label,
+          total,
+          records: rows.map((r) => ({
+            org_unit: unitName(r.orgUnitId),
+            period: r.periodLabel,
+            metric: r.metric,
+            value: r.value === null ? null : `${r.value} ${r.unit ?? ""}`.trim(),
+            status: status(r.status),
+            submitted_by: r.submittedBy,
+            approved_by: r.approvedBy,
+            document: r.fileName,
+          })),
+        },
+        blocks: [
+          {
+            type: "table",
+            title:
+              total > rows.length
+                ? `Records (first ${rows.length} of ${total})`
+                : `Records (${total})`,
+            columns: [
+              "Org unit",
+              "Period",
+              "Metric",
+              "Value",
+              "Status",
+              "Submitted by",
+              "Approved by",
+            ],
+            rows: rows.map((r) => [
+              unitName(r.orgUnitId),
+              r.periodLabel,
+              r.metric,
+              r.value === null ? "—" : show(r.value, r.unit ?? ""),
+              status(r.status),
+              r.submittedBy,
+              r.approvedBy ?? "—",
+            ]),
+          },
+          ...(when.note ? [note(when.note)] : []),
+          {
+            type: "source",
+            text: `${unit.name} (${levelName(unit.type)}) and everything beneath it · ${when.label} · Every record, whatever its status.`,
+          },
+        ],
+        orgUnitIds: [unit.id],
+      };
+    },
+  }),
+
+  open_report_page: tool({
+    adminOnly: true,
+    description:
+      "Takes the person to the Reports page with an org unit and a period already selected, so they can generate or find the BRSR report. Use whenever they want to see, open, generate or download a report for a month, a financial year or any custom period.",
+    schema: z.strictObject({ org_unit: orgUnit, period }),
+    async run(a, ctx) {
+      const unit = resolveUnit(ctx, a.org_unit);
+      const when = resolveWhen(ctx, a.period);
+      const first = when.periods[0];
+      const last = when.periods[when.periods.length - 1];
+      if (!first) throw new ToolError(when.note ?? "No reporting period covers that.");
+      const year = financialYearOf(ctx.today);
+      const financialYear =
+        a.period.financial_year ??
+        (a.period.preset === "current_financial_year"
+          ? year
+          : a.period.preset === "previous_financial_year"
+            ? year - 1
+            : undefined);
+      // The Reports form's three kinds of coverage: a financial year, one period, or a custom range.
+      const selection =
+        financialYear !== undefined
+          ? `fy=${financialYear}`
+          : when.periods.length === 1
+            ? `period=${first.id}`
+            : `from=${first.start}&to=${last.end}`;
+      return {
+        data: {
+          opened: "the Reports page",
+          org_unit: unit.name,
+          period: when.label,
+          note: "The page is open with this selection. Nothing was generated: the person presses Generate BRSR report there. Earlier reports are listed below the form.",
+        },
+        blocks: [
+          {
+            type: "link",
+            label: `Reports · ${unit.name} · ${when.label}`,
+            href: `/admin/reports?org=${unit.id}&${selection}`,
+          },
+          ...(when.note ? [note(when.note)] : []),
+        ],
+        orgUnitIds: [unit.id],
+      };
+    },
+  }),
+
   explain_forecast: tool({
     description:
       "Explain the emissions forecast and chronological backtest results for an org unit. Projects future emissions for Scope 1, Scope 2, Scope 3, or Total emissions using validated statistical time-series models with 80% and 95% uncertainty intervals.",
@@ -1331,12 +1595,21 @@ export const TOOLS = {
 
 export type ToolName = keyof typeof TOOLS;
 
+/** Tools whose answers only an Admin may read, now or later in a saved conversation. */
+export const ADMIN_TOOLS: ReadonlySet<string> = new Set(
+  Object.entries(TOOLS as Record<string, Tool<z.ZodType>>)
+    .filter(([, t]) => t.adminOnly)
+    .map(([name]) => name),
+);
+
 /** The tool list in the provider's (OpenAI-style) format. */
-export const toolSpecs = () =>
-  Object.entries(TOOLS).map(([name, t]) => ({
-    type: "function" as const,
-    function: { name, description: t.description, parameters: z.toJSONSchema(t.schema) },
-  }));
+export const toolSpecs = (isAdmin = false) =>
+  Object.entries(TOOLS as Record<string, Tool<z.ZodType>>)
+    .filter(([, t]) => isAdmin || !t.adminOnly)
+    .map(([name, t]) => ({
+      type: "function" as const,
+      function: { name, description: t.description, parameters: z.toJSONSchema(t.schema) },
+    }));
 
 /** Models often send `null` for an argument they mean to leave out. */
 const withoutNulls = (value: unknown): unknown =>
@@ -1364,7 +1637,8 @@ export async function runTool(
   ctx: ToolContext,
   onUnexpected: (error: unknown) => void = () => {},
 ): Promise<ToolOutcome> {
-  if (!Object.hasOwn(TOOLS, name))
+  // An Admin-only tool does not exist for anyone else, whatever a model asks for.
+  if (!Object.hasOwn(TOOLS, name) || (ADMIN_TOOLS.has(name) && !ctx.admin))
     return { ok: false, error: `There is no tool called "${name.slice(0, 60)}".` };
   const t = TOOLS[name as ToolName] as Tool<z.ZodType>;
   let json: unknown;

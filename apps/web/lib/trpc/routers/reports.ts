@@ -9,6 +9,7 @@ import {
   financialYearLabel,
   financialYearOf,
   financialYearRange,
+  rangeLabel,
 } from "@/lib/consolidation/aggregate";
 import { db } from "@/lib/db";
 import { expireStaleRuns, runReport } from "@/lib/reports/generate";
@@ -52,7 +53,8 @@ export type EvidenceFile = {
 
 export type ReportOptions = {
   orgUnits: { id: string; name: string; depth: number }[];
-  periods: { id: string; label: string }[];
+  /** Newest first. `start` and `end` are ISO dates. */
+  periods: { id: string; label: string; start: string; end: string }[];
   financialYears: { startYear: number; label: string }[];
   /** The open period and its financial year — the form's defaults. */
   defaultPeriodId: string | null;
@@ -68,6 +70,19 @@ const text = (max: number) =>
     .max(max)
     .nullable()
     .transform((v) => v || null);
+
+/** What a run covers, as the lists and the report's title name it. */
+const coverageOf = (r: {
+  financial_year: number | null;
+  period_from: string | null;
+  period_to: string | null;
+  period_label: string | null;
+}) =>
+  r.financial_year !== null
+    ? financialYearLabel(r.financial_year)
+    : r.period_from && r.period_to
+      ? rangeLabel(r.period_from, r.period_to)
+      : (r.period_label ?? "—");
 
 export const reportsRouter = router({
   /** Turnover, PPP rate, output and assurance for one financial year (D26); null where nothing was entered. */
@@ -170,8 +185,8 @@ export const reportsRouter = router({
           from public.org_units o join tree t on o.parent_id = t.id where o.deleted_at is null
         )
         select id, name, depth from tree order by path`,
-      sql<{ id: string; label: string; start_date: string; status: string }[]>`
-        select id, label, start_date::text, status::text from public.reporting_periods
+      sql<{ id: string; label: string; start_date: string; end_date: string; status: string }[]>`
+        select id, label, start_date::text, end_date::text, status::text from public.reporting_periods
         order by start_date desc`,
     ]);
     const open = periods.find((p) => p.status === "open") ?? periods[0];
@@ -179,7 +194,12 @@ export const reportsRouter = router({
       defaultPeriodId: open?.id ?? null,
       defaultFinancialYear: open ? financialYearOf(open.start_date) : null,
       orgUnits,
-      periods: periods.map((p) => ({ id: p.id, label: p.label })),
+      periods: periods.map((p) => ({
+        id: p.id,
+        label: p.label,
+        start: p.start_date,
+        end: p.end_date,
+      })),
       financialYears: [...new Set(periods.map((p) => financialYearOf(p.start_date)))].map((y) => ({
         startYear: y,
         label: financialYearLabel(y),
@@ -194,10 +214,17 @@ export const reportsRouter = router({
           orgUnitId: z.uuid(),
           periodId: z.uuid().optional(),
           financialYear: z.number().int().min(2000).max(2100).optional(),
+          /** A custom range (D35): every reporting period lying wholly between the two dates. */
+          from: z.iso.date().optional(),
+          to: z.iso.date().optional(),
         })
-        .refine((i) => (i.periodId === undefined) !== (i.financialYear === undefined), {
-          message: "Choose either a reporting period or a financial year.",
-        }),
+        .refine(
+          (i) =>
+            (i.from === undefined) === (i.to === undefined) &&
+            [i.periodId, i.financialYear, i.from].filter((v) => v !== undefined).length === 1 &&
+            (i.from === undefined || i.from <= i.to!),
+          { message: "Choose one reporting period, one financial year, or a range of periods." },
+        ),
     )
     .mutation(async ({ ctx, input }) => {
       const sql = db();
@@ -226,9 +253,10 @@ export const reportsRouter = router({
         }
         const [run] = await tx<{ id: string }[]>`
           insert into public.report_runs
-            (requested_by, org_unit_id, reporting_period_id, financial_year, report_type)
+            (requested_by, org_unit_id, reporting_period_id, financial_year, period_from, period_to,
+             report_type)
           values (${ctx.session.userId}, ${input.orgUnitId}, ${input.periodId ?? null},
-                  ${input.financialYear ?? null}, 'brsr')
+                  ${input.financialYear ?? null}, ${input.from ?? null}, ${input.to ?? null}, 'brsr')
           returning id`;
         await writeAudit(tx, {
           eventType: "report.requested",
@@ -253,6 +281,8 @@ export const reportsRouter = router({
         org_unit_name: string;
         period_label: string | null;
         financial_year: number | null;
+        period_from: string | null;
+        period_to: string | null;
         requested_by: string;
         requested_at: Date;
         completed_at: Date | null;
@@ -260,7 +290,8 @@ export const reportsRouter = router({
       }[]
     >`
       select rr.id, rr.status::text as status, o.name as org_unit_name, p.label as period_label,
-             rr.financial_year, u.display_name as requested_by, rr.requested_at, rr.completed_at,
+             rr.financial_year, rr.period_from::text, rr.period_to::text,
+             u.display_name as requested_by, rr.requested_at, rr.completed_at,
              rr.error_message
       from public.report_runs rr
       join public.org_units o on o.id = rr.org_unit_id
@@ -272,8 +303,7 @@ export const reportsRouter = router({
       id: r.id,
       status: r.status,
       orgUnitName: r.org_unit_name,
-      coverage:
-        r.financial_year !== null ? financialYearLabel(r.financial_year) : (r.period_label ?? "—"),
+      coverage: coverageOf(r),
       requestedBy: r.requested_by,
       requestedAt: r.requested_at.toISOString(),
       completedAt: r.completed_at?.toISOString() ?? null,
@@ -291,6 +321,8 @@ export const reportsRouter = router({
           org_unit_name: string;
           period_label: string | null;
           financial_year: number | null;
+          period_from: string | null;
+          period_to: string | null;
           requested_by: string;
           requested_at: Date;
           completed_at: Date | null;
@@ -299,7 +331,8 @@ export const reportsRouter = router({
         }[]
       >`
         select rr.id, rr.status::text as status, o.name as org_unit_name, p.label as period_label,
-               rr.financial_year, u.display_name as requested_by, rr.requested_at, rr.completed_at,
+               rr.financial_year, rr.period_from::text, rr.period_to::text,
+             u.display_name as requested_by, rr.requested_at, rr.completed_at,
                rr.error_message, rr.snapshot_data
         from public.report_runs rr
         join public.org_units o on o.id = rr.org_unit_id
@@ -312,10 +345,7 @@ export const reportsRouter = router({
         id: r.id,
         status: r.status,
         orgUnitName: r.org_unit_name,
-        coverage:
-          r.financial_year !== null
-            ? financialYearLabel(r.financial_year)
-            : (r.period_label ?? "—"),
+        coverage: coverageOf(r),
         requestedBy: r.requested_by,
         requestedAt: r.requested_at.toISOString(),
         completedAt: r.completed_at?.toISOString() ?? null,

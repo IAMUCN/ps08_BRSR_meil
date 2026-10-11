@@ -94,6 +94,8 @@ const searchInput = contextInput.extend({
   roleCode: z.string().trim().max(60).optional(),
   status: z.enum(STATUSES).optional(),
   issue: z.enum(ISSUES).optional(),
+  /** The search box: words a record must contain. */
+  text: z.string().trim().max(100).optional(),
 });
 
 export type AuditEntry = {
@@ -280,6 +282,7 @@ export const recordsRouter = router({
           roleCode: input.roleCode,
           status: input.status,
           issue: input.issue,
+          text: input.text,
         };
         const rows = await searchRecords(db(), filters);
         return { context, rows, truncated: rows.length === RECORD_LIMIT };

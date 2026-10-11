@@ -28,6 +28,15 @@ export const blockSchema = z.discriminatedUnion("type", [
     points: z.array(z.object({ label: text(60), value: z.number().finite().nullable() })).max(36),
   }),
   z.object({ type: z.literal("note"), tone: z.enum(["info", "warning"]), text: text(600) }),
+  /**
+   * A way to the Reports page with a selection made (Admins only). The address is built by the server and
+   * may be nothing but that page with letters, digits and dashes in its query.
+   */
+  z.object({
+    type: z.literal("link"),
+    label: text(160),
+    href: z.string().regex(/^\/admin\/reports\?[A-Za-z0-9=&-]{1,200}$/),
+  }),
   /** The org unit, period and record statuses an answer covers. */
   z.object({ type: z.literal("source"), text: text(600) }),
 ]);

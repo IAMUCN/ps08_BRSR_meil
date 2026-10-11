@@ -12,21 +12,75 @@ import { generateReportAction } from "./actions";
 
 // UI brief §14: "a simple parameter form (period + org scope) … generation itself uses the non-blocking
 // pattern, never a modal wizard".
-export function ReportForm({ options }: { options: ReportOptions }) {
+/** What the form starts on when the page was opened with a selection in its address (the chatbot does). */
+export type ReportPreset = {
+  orgUnitId?: string;
+  periodId?: string;
+  financialYear?: number;
+  from?: string;
+  to?: string;
+};
+
+export function ReportForm({
+  options,
+  preset = {},
+}: {
+  options: ReportOptions;
+  preset?: ReportPreset;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [orgUnitId, setOrgUnitId] = useState(options.orgUnits[0]?.id ?? "");
-  const [coverage, setCoverage] = useState<"period" | "year">("period");
-  const [periodId, setPeriodId] = useState(options.defaultPeriodId ?? "");
-  const [year, setYear] = useState(String(options.defaultFinancialYear ?? ""));
+  // A preset value that is not on a list is ignored, never submitted.
+  const known = <T,>(list: T[], value: T | undefined) =>
+    value !== undefined && list.includes(value) ? value : undefined;
+  const periodIds = options.periods.map((p) => p.id);
+  // Periods are listed newest first: the range starts at the earliest one on or after `from`.
+  const rangeStart = preset.from
+    ? options.periods.findLast((p) => p.start >= preset.from!)?.id
+    : undefined;
+  const rangeEnd = preset.to ? options.periods.find((p) => p.end <= preset.to!)?.id : undefined;
+  const [orgUnitId, setOrgUnitId] = useState(
+    known(
+      options.orgUnits.map((o) => o.id),
+      preset.orgUnitId,
+    ) ??
+      options.orgUnits[0]?.id ??
+      "",
+  );
+  const [coverage, setCoverage] = useState<"period" | "year" | "range">(
+    rangeStart && rangeEnd ? "range" : preset.financialYear !== undefined ? "year" : "period",
+  );
+  const [periodId, setPeriodId] = useState(
+    known(periodIds, preset.periodId) ?? options.defaultPeriodId ?? "",
+  );
+  const [year, setYear] = useState(
+    String(
+      known(
+        options.financialYears.map((y) => y.startYear),
+        preset.financialYear,
+      ) ??
+        options.defaultFinancialYear ??
+        "",
+    ),
+  );
+  const [fromId, setFromId] = useState(rangeStart ?? options.defaultPeriodId ?? "");
+  const [toId, setToId] = useState(rangeEnd ?? options.defaultPeriodId ?? "");
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    const from = options.periods.find((p) => p.id === fromId)?.start;
+    const to = options.periods.find((p) => p.id === toId)?.end;
+    if (coverage === "range" && (!from || !to || from > to)) {
+      toast.error("The first period of the range must not be after the last.");
+      return;
+    }
     startTransition(async () => {
       const result = await generateReportAction(
         coverage === "period"
           ? { orgUnitId, periodId }
-          : { orgUnitId, financialYear: Number(year) },
+          : coverage === "year"
+            ? { orgUnitId, financialYear: Number(year) }
+            : { orgUnitId, from, to },
       );
       if (!result.ok) {
         toast.error(result.error);
@@ -78,9 +132,45 @@ export function ReportForm({ options }: { options: ReportOptions }) {
             />
             Financial year
           </label>
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="coverage"
+              checked={coverage === "range"}
+              onChange={() => setCoverage("range")}
+            />
+            Custom period
+          </label>
         </div>
       </fieldset>
-      {coverage === "period" ? (
+      {coverage === "range" ? (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="report-from">From period</Label>
+            <NativeSelect
+              id="report-from"
+              value={fromId}
+              onChange={(e) => setFromId(e.target.value)}
+            >
+              {options.periods.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="report-to">To period</Label>
+            <NativeSelect id="report-to" value={toId} onChange={(e) => setToId(e.target.value)}>
+              {options.periods.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+        </>
+      ) : coverage === "period" ? (
         <div className="space-y-2">
           <Label htmlFor="report-period">Reporting period</Label>
           <NativeSelect

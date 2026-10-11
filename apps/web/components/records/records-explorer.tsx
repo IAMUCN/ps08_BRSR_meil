@@ -1,11 +1,11 @@
 "use client";
 
 import { rowClick } from "@/components/ui/row-click";
-import { Download } from "lucide-react";
-import Link from "next/link";
+import { Download, FilterX, Search, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { formatQuantity } from "@/lib/calculation/trace";
 import type { RecordRow } from "@/lib/records/search";
@@ -43,13 +43,23 @@ export function ContextFilters({
   context,
   params,
   variant,
+  search = false,
 }: {
   context: ContextOptions;
   params: ExplorerParams;
   variant: "monitoring" | "explorer";
+  /** Show the search box (the table beside it must pass `q` on to the query). */
+  search?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  // The search box (owner's page feedback, 2026-10-11): searched on the server, since the table shows at
+  // most the newest 500 records. It applies shortly after typing stops, or at once on Enter.
+  const [text, setText] = useState(params.q ?? "");
+  const applied = useRef(params.q ?? "");
+  const latest = useRef<(value: string) => void>(() => {});
+  // Whatever narrows the list beyond the organization and the period, which always have a value.
+  const narrowed = ["fy", "scope", "metric", "role", "status", "issue", "q"].some((k) => params[k]);
   const set = (key: string, value: string) => {
     const next = new URLSearchParams();
     const merged = { ...params, org: context.orgUnitId, [key]: value };
@@ -59,6 +69,19 @@ export function ContextFilters({
     for (const [k, v] of Object.entries(merged)) if (v) next.set(k, v);
     router.push(`${pathname}?${next.toString()}`);
   };
+  const applyText = (value: string) => {
+    const wanted = value.trim();
+    if (wanted === applied.current) return;
+    applied.current = wanted;
+    set("q", wanted);
+  };
+  useEffect(() => {
+    latest.current = applyText;
+  });
+  useEffect(() => {
+    const timer = setTimeout(() => latest.current(text), 450);
+    return () => clearTimeout(timer);
+  }, [text]);
   const years = [...new Set(context.periods.map((p) => p.financialYear))];
 
   const select = (

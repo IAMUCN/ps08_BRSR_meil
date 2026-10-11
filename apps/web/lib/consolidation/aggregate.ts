@@ -134,6 +134,13 @@ export function financialYearOf(isoDate: string): number {
 export const financialYearLabel = (startYear: number) =>
   `FY ${startYear}-${String((startYear + 1) % 100).padStart(2, "0")}`;
 
+// Written out, not left to the runtime's locale data ("Sep" in one version is "Sept" in the next).
+const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
+const day = (iso: string) =>
+  `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+/** A custom range of reporting periods as the reports name it: "1 Aug 2026 to 30 Sep 2026". */
+export const rangeLabel = (from: string, to: string) => `${day(from)} to ${day(to)}`;
+
 /** The first and last day of a financial year, as ISO dates. */
 export const financialYearRange = (startYear: number) => ({
   from: `${startYear}-04-01`,

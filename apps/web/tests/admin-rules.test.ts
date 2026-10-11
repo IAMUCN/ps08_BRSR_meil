@@ -3,16 +3,20 @@ import { test } from "node:test";
 import {
   allowedChildTypes,
   canBeChildOf,
+  checkAlsoUnder,
   checkMove,
   descendantIds,
   importOrder,
   isFrozen,
+  mergeSharedRows,
   reachableNodeIds,
+  rootOf,
   treeOrder,
   unitByRef,
   type OrgLevel,
   type OrgNode,
 } from "../lib/org/rules.ts";
+import { parentsOf } from "../lib/bulk-import/xlsx.ts";
 import { PASSWORD_RULES } from "../lib/auth/password-policy.ts";
 import { checkPeriodDates, checkTransition } from "../lib/periods/rules.ts";
 import { checkAdminRemoval, checkRoleAtNode, generateDefaultPassword } from "../lib/users/rules.ts";
@@ -305,4 +309,166 @@ test("a sheet names an org unit by its code, or by its name when it has none", (
   assert.equal(unitByRef(units, " olectra "), units[1]);
   assert.equal(unitByRef(units, "Drilling"), "ambiguous"); // two units share the name: never guess
   assert.equal(unitByRef(units, "No such unit"), undefined);
+});
+
+// --- A unit under more than one parent, and several groups (migration 0044) -------------------------------
+
+const SHARED_TREE: OrgNode[] = [
+  { id: "g", parentId: null, unitType: "group", status: "active" },
+  { id: "s1", parentId: "g", unitType: "subsidiary", status: "active" },
+  { id: "s2", parentId: "g", unitType: "subsidiary", status: "active" },
+  // The shared project: managed from s1, also under s2.
+  { id: "p", parentId: "s1", alsoUnder: ["s2"], unitType: "project", status: "active" },
+  { id: "site", parentId: "p", unitType: "site", status: "active" },
+  { id: "g2", parentId: null, unitType: "group", status: "active" },
+  { id: "t1", parentId: "g2", unitType: "subsidiary", status: "active" },
+];
+
+test("a shared unit is beneath both parents for scope, and beneath its main parent for management", () => {
+  assert.deepEqual(descendantIds("s2", SHARED_TREE), []);
+  assert.deepEqual(descendantIds("s2", SHARED_TREE, "all").sort(), ["p", "site"]);
+  assert.deepEqual(descendantIds("s1", SHARED_TREE).sort(), ["p", "site"]);
+  // Someone assigned to the second subsidiary reaches the shared project and its site.
+  assert.deepEqual(reachableNodeIds(SHARED_TREE, ["s2"]).sort(), ["p", "s2", "site"]);
+  // Each unit once at the group, though two paths lead to the shared project.
+  assert.deepEqual(descendantIds("g", SHARED_TREE, "all").sort(), ["p", "s1", "s2", "site"]);
+});
+
+test("one more parent: an earlier level of the same group, not one it has already", () => {
+  const check = (node: string, parent: string) => checkAlsoUnder(node, parent, SHARED_TREE, LEVELS);
+  assert.deepEqual(check("site", "s2"), { ok: true });
+  assert.equal(check("p", "s1").ok, false, "its main parent");
+  assert.equal(check("p", "s2").ok, false, "already an extra parent");
+  assert.equal(check("p", "p").ok, false, "itself");
+  assert.equal(check("s1", "p").ok, false, "a later level: this would close a circle");
+  assert.equal(check("s1", "s2").ok, false, "the same level");
+  assert.equal(check("g", "g2").ok, false, "a group sits under nothing");
+  assert.equal(check("p", "t1").ok, false, "another group's subsidiary");
+  assert.equal(rootOf("site", SHARED_TREE), "g");
+  // Moving it under a parent it already sits under is refused; so is moving a parent under it.
+  assert.equal(checkMove("p", "s2", SHARED_TREE, LEVELS).ok, false);
+  assert.equal(checkMove("s2", "p", SHARED_TREE, LEVELS).ok, false);
+});
+
+test("import order waits for every parent a row names, the extra ones too", () => {
+  const { ordered, orphans } = importOrder(
+    [
+      { code: "PRJ", parentCode: "SUB-1", alsoUnderCodes: ["SUB-2"] },
+      { code: "SUB-2", parentCode: null },
+      { code: "SUB-1", parentCode: null },
+      { code: "LOST", parentCode: null, alsoUnderCodes: ["NO-SUCH"] },
+    ],
+    new Set<string>(),
+  );
+  assert.deepEqual(
+    ordered.map((r) => r.code),
+    ["SUB-2", "SUB-1", "PRJ"],
+  );
+  assert.deepEqual(
+    orphans.map((r) => r.code),
+    ["LOST"],
+  );
+});
+
+test("a Parent code cell names any number of parents; spaces around a name never matter", () => {
+  assert.deepEqual(parentsOf("SUB-A, SUB-B"), { parentCode: "SUB-A", alsoUnder: ["SUB-B"] });
+  assert.deepEqual(parentsOf("  SUB-A  ;SUB-B ,  SUB-C,SUB-D   "), {
+    parentCode: "SUB-A",
+    alsoUnder: ["SUB-B", "SUB-C", "SUB-D"],
+  });
+  assert.deepEqual(parentsOf("SUB-A"), { parentCode: "SUB-A", alsoUnder: [] });
+  assert.deepEqual(parentsOf("SUB-A,, ,SUB-A"), { parentCode: "SUB-A", alsoUnder: [] });
+  assert.deepEqual(parentsOf(""), { parentCode: "", alsoUnder: [] });
+  // Names: one space, two or three, before or after — the same name.
+  assert.deepEqual(parentsOf("Olectra   Greentech  ,   EVEY   "), {
+    parentCode: "Olectra Greentech",
+    alsoUnder: ["EVEY"],
+  });
+  // A name that holds a comma is kept whole when such a unit exists, alone or in a list.
+  const names = ["Seetharampur plant, Telangana", "Olectra Greentech"];
+  assert.deepEqual(parentsOf("Seetharampur plant, Telangana", names), {
+    parentCode: "Seetharampur plant, Telangana",
+    alsoUnder: [],
+  });
+  assert.deepEqual(parentsOf("EVEY,  seetharampur  plant ,Telangana , Olectra Greentech", names), {
+    parentCode: "EVEY",
+    alsoUnder: ["seetharampur plant, Telangana", "Olectra Greentech"],
+  });
+  // Values picked from the template's list: "CODE — Name", the name's comma included.
+  assert.deepEqual(parentsOf("SUB-A — Megha, Engineering Ltd"), {
+    parentCode: "SUB-A",
+    alsoUnder: [],
+  });
+  assert.deepEqual(parentsOf("SUB-A — First, SUB-B — Second"), {
+    parentCode: "SUB-A",
+    alsoUnder: ["SUB-B"],
+  });
+  assert.deepEqual(parentsOf("SUB-A — First, SUB-B"), {
+    parentCode: "SUB-A",
+    alsoUnder: ["SUB-B"],
+  });
+});
+
+test("an org unit is found by code or name whatever the spaces and letter case", () => {
+  const units = [
+    { code: "OLECTRA", name: "Olectra Greentech" },
+    { code: null, name: "TGSRTC  Telangana" },
+  ];
+  assert.equal(unitByRef(units, "  olectra "), units[0]);
+  assert.equal(unitByRef(units, "Olectra   Greentech  "), units[0]);
+  assert.equal(unitByRef(units, " TGSRTC Telangana   "), units[1]);
+  assert.equal(unitByRef(units, "TGSRTC"), undefined);
+});
+
+test("a shared unit listed under each parent is read as one unit with all those parents", () => {
+  const row = (
+    code: string | null,
+    name: string,
+    parentCode: string,
+    alsoUnder: string[] = [],
+  ) => ({
+    code,
+    name,
+    unitType: "project",
+    parentCode,
+    alsoUnder,
+  });
+  const { rows, sameAs } = mergeSharedRows([
+    row("PRJ-X", "Project X", "SUB-A", ["SUB-B"]), // under Subsidiary A, as the export writes it
+    row("PRJ-Y", "Project Y", "SUB-A"),
+    row("PRJ-X", "project x ", "SUB-A", ["SUB-B"]), // the same unit again, under Subsidiary B
+    row("PRJ-Z", "Project Z", "SUB-B"),
+    row("PRJ-Z", "A different name", "SUB-B"), // one code, two names: a mistake, left for the check
+    row(null, "No code", "SUB-A"),
+    row(null, "No code", "SUB-B"), // without a code, one parent each: two units
+    row(null, "TGSRTC", "EVEY", ["OLECTRA"]),
+    row(null, "TGSRTC", "EVEY", ["OLECTRA"]), // no code, but the same two parents: the same unit
+    row(null, "TGSRTC", "OLECTRA", ["EVEY"]), // and again, parents in the other order
+    row(null, "TGSRTC", "EVEY", ["DRILLMEC"]), // other parents: another unit
+    row("PRJ-W", "Project W", "SUB-A"),
+    row("PRJ-W", "Project W", "SUB-B"), // listed twice with one parent each: both parents are kept
+  ]);
+  assert.deepEqual(
+    rows.map((r) => [r.index, r.code, r.parentCode, r.alsoUnder]),
+    [
+      [0, "PRJ-X", "SUB-A", ["SUB-B"]],
+      [1, "PRJ-Y", "SUB-A", []],
+      [3, "PRJ-Z", "SUB-B", []],
+      [4, "PRJ-Z", "SUB-B", []],
+      [5, null, "SUB-A", []],
+      [6, null, "SUB-B", []],
+      [7, null, "EVEY", ["OLECTRA"]],
+      [10, null, "EVEY", ["DRILLMEC"]],
+      [11, "PRJ-W", "SUB-A", ["SUB-B"]],
+    ],
+  );
+  assert.deepEqual(
+    [...sameAs],
+    [
+      [2, 0],
+      [8, 7],
+      [9, 7],
+      [12, 11],
+    ],
+  );
 });

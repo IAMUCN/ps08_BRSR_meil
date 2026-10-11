@@ -21,6 +21,7 @@ export default async function DataExplorerPage({
     scopeCode: q.scopeCode,
     metricCode: q.metricCode,
     status: q.status,
+    text: q.text,
   });
 
   return (
@@ -29,12 +30,16 @@ export default async function DataExplorerPage({
         title="ESG Data Explorer"
         description="Every ESG record with its verified and calculated value. Filter by any combination; a financial year covers April to March."
       />
-      <ContextFilters context={context} params={stringParams(raw)} variant="explorer" />
+      <ContextFilters context={context} params={stringParams(raw)} variant="explorer" search />
       <RecordsTable
         rows={rows}
         truncated={truncated}
         variant="explorer"
-        emptyMessage="No records match these filters."
+        emptyMessage={
+          q.text
+            ? `No records match "${q.text}" with these filters.`
+            : "No records match these filters."
+        }
       />
     </div>
   );

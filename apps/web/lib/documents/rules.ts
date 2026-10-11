@@ -21,7 +21,11 @@ export function uploadTargets(
   for (const assignment of assignments) {
     if (!uploadRoleIds.has(assignment.roleId)) continue;
     if (!nodes.some((n) => n.id === assignment.orgUnitId)) continue;
-    for (const id of [assignment.orgUnitId, ...descendantIds(assignment.orgUnitId, nodes)]) {
+    for (const id of [
+      assignment.orgUnitId,
+      // "all": a unit that also sits under this one (migration 0044) takes this person's uploads too.
+      ...descendantIds(assignment.orgUnitId, nodes, "all"),
+    ]) {
       if (isFrozen(id, nodes)) continue;
       const roles = rolesByNode.get(id) ?? new Set<string>();
       roles.add(assignment.roleId);
