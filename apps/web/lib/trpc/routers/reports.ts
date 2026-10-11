@@ -14,7 +14,8 @@ import { db } from "@/lib/db";
 import { expireStaleRuns, runReport } from "@/lib/reports/generate";
 import { REPORT_INPUTS_KEY, type FyInputs } from "@/lib/reports/inputs";
 import { loadReportInputs, type Snapshot } from "@/lib/reports/snapshot";
-import { adminProcedure, permissionProcedure, router } from "@/lib/trpc/init";
+import { getBundlePreview, type BundlePreview } from "@/lib/reports/bundle";
+import { adminProcedure, permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 
 // Reports (03_APP_FLOW.md §2.2 Reports / Report Detail, §4.10; .grill/phase-17-reporting-decisions.md).
 // Generating needs `report.generate`; a requester who is not an Admin may only report inside their own
@@ -354,4 +355,34 @@ export const reportsRouter = router({
         };
       },
     ),
+
+  /**
+   * Preview records, calculations, and supporting documents in scope before downloading the bundle.
+   */
+  bundlePreview: protectedProcedure
+    .input(
+      z.object({
+        orgUnitId: z.string().uuid(),
+        periodId: z.string().uuid().optional(),
+        financialYear: z.number().int().min(2000).max(2100).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }): Promise<BundlePreview> => {
+      if (!ctx.session.isAdmin) {
+        const sql = db();
+        const [inScope] = await sql<{ ok: boolean }[]>`
+          select exists (
+            select 1 from public.user_org_assignments uoa
+            join public.org_unit_tree t on t.ancestor_id = uoa.org_unit_id
+            where uoa.user_id = ${ctx.session.userId} and uoa.revoked_at is null
+              and t.descendant_id = ${input.orgUnitId}) as ok`;
+        if (!inScope?.ok) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You can only preview evidence inside your own assigned scope.",
+          });
+        }
+      }
+      return getBundlePreview(input);
+    }),
 });

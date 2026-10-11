@@ -133,6 +133,29 @@ _Last updated: 2026-10-11._
 - **Committed and pushed on `feature` (2026-10-10, owner's page feedback, A31; `5b3188c`):** Organization page — the add forms open in the side
   panel from two buttons, the unit and its expected submissions are one tile, and the ticks are written by a
   Save button (Clear all unticks). Typecheck, lint, format pass; **not viewed in a browser**.
+- **Audit Evidence Bundle (2026-10-10, PS-08 deliverable, branch `feature/hackathon-deliverables`):**
+  End-to-end cryptographic audit evidence package generation and streaming download.
+  - Backend collection & packaging service: `apps/web/lib/reports/bundle.ts` & `apps/web/lib/reports/bundle-utils.ts`
+  - Secure streaming API: `apps/web/app/api/reports/bundle/route.ts` with org authorization check, audit logging (`report.evidence_bundle_exported`), and anti-sniffing headers
+  - tRPC procedure & Server Action: `reports.bundlePreview` in `apps/web/lib/trpc/routers/reports.ts` and `bundlePreviewAction` in `apps/web/app/admin/reports/actions.ts`
+  - Interactive Preview & Download UI: `apps/web/app/admin/reports/bundle/` (with entry points from Reports and Evidence list)
+  - Deterministic Lineage: connects reported BRSR metric -> calculation run -> factor version -> activity record -> OCR extraction -> physical evidence document
+  - Integrity & Assurance: SHA-256 fingerprint verification against original upload hash, `manifest.json`, `checksums.sha256`, and explicit `limitations/missing-evidence.csv`
+  - Verification: 105/105 web unit tests pass (7 new tests in `apps/web/tests/bundle.test.ts`), 44/44 OCR worker tests pass, Next.js production build (`next build`) passes cleanly.
+- **Carbon Reduction Simulator (2026-10-11, PS-08 deliverable, branch `feature/hackathon-deliverables`):**
+  Interactive decision-support simulator for exploring hypothetical emissions-reduction scenarios.
+  - Pure calculation engine: `apps/web/lib/simulator/engine.ts` ($A = B \times r / 100$, $P = B - A$, $P_{org} = B_{total} - A$, overall % reduction)
+  - Server baseline query: `apps/web/lib/simulator/service.ts` querying `public.consolidation_records` across Scope 1, 2, and 3
+  - tRPC router & Server Action: `simulator.options` and `simulator.baseline` in `apps/web/lib/trpc/routers/simulator.ts` and `simulatorBaselineAction` in `apps/web/app/admin/simulator/actions.ts`
+  - Admin UI & Navigation: `/admin/simulator` with persistent `SIMULATION — NOT OFFICIAL BRSR DATA` disclaimer, interactive synchronized slider & numeric inputs, 4 KPI cards, responsive baseline-vs-projected trajectory chart, 3 standard comparison scenarios (5%, 15%, 25%) + custom, and action templates
+  - Non-destructive & Auditable: Read-only simulation leaves all official records, calculations, and approvals untouched
+  - Verification: 113/113 web unit tests pass (8 new tests in `apps/web/tests/simulator.test.ts`), typecheck clean, lint clean, production build cleanly generates `/admin/simulator` route.
+- **Hosted is not set up for a demo yet** and the owner chose hosted for the demo: still the 0.02 grid factor, one
+  org unit, one open period `AUG26`, three users at the group. Needs, in order: a second Admin invited
+  by the owner for the agent (see §2); then the factor script and an org tree.
+- **Uncommitted, not from the feature sessions:** `apps/web/app/layout.tsx`, `apps/web/package.json` and
+  `pnpm-lock.yaml` changed at 18:17–18:21 on 2026-10-07 (a development-only `agentation` widget). It fails `pnpm format:check` (`app/layout.tsx`). Left out of
+  every commit; ask the owner.
 - **ESG data analyst chatbot (2026-10-11, owner's request), committed on branch `feature-chat-analyst`
   (`67700f8`), not pushed to GitHub, no pull request yet**
   (cut from `main` at `9b0f2b8`; `feature` had nothing `main` lacked). Overview `CHATBOT.md`, decisions
