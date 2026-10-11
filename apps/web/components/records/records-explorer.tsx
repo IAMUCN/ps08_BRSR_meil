@@ -1,7 +1,8 @@
 "use client";
 
 import { rowClick } from "@/components/ui/row-click";
-import { Download, FilterX, Search, X } from "lucide-react";
+import { Download, Search, X } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -107,20 +108,62 @@ export function ContextFilters({
     </label>
   );
 
-  const filtered = ["fy", "scope", "metric", "role", "status", "issue"].some((k) => params[k]);
-
   return (
     <div className="relative">
       {/* Laid over the gap above the bar, so showing it never moves the dropdowns. */}
-      {filtered ? (
+      {narrowed ? (
         <Link
           href={pathname}
+          onClick={() => {
+            setText("");
+            applied.current = "";
+          }}
           className="absolute -top-[1.125rem] right-0 text-xs leading-4 font-medium text-primary-text underline underline-offset-2"
         >
           Clear filters
         </Link>
       ) : null}
       <div className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3">
+        {search ? (
+          <form
+            role="search"
+            className="flex min-w-56 flex-1 basis-full flex-col gap-1 text-xs text-muted-foreground"
+            onSubmit={(event) => {
+              event.preventDefault();
+              applyText(text);
+            }}
+          >
+            <label htmlFor="f-search">Search</label>
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <Input
+                id="f-search"
+                type="search"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                maxLength={100}
+                placeholder="Document, metric, org unit, period, person, value or unit…"
+                className="px-8 text-sm text-foreground [&::-webkit-search-cancel-button]:hidden"
+              />
+              {text ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setText("");
+                    applyText("");
+                  }}
+                  className="absolute top-1/2 right-1.5 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <X className="size-4" aria-hidden />
+                  <span className="sr-only">Clear the search</span>
+                </button>
+              ) : null}
+            </div>
+          </form>
+        ) : null}
         {select(
           "f-org",
           "Organization",
