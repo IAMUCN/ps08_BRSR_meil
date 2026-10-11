@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlarmClock,
   Building2,
   CalendarRange,
   Calculator,
@@ -18,6 +19,7 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  Sliders,
   Upload,
   UserRound,
   Users,
@@ -50,6 +52,8 @@ const ICONS = {
   scope3: Link2,
   brsr: ListTree,
   explorer: Search,
+  simulator: Sliders,
+  deadlines: AlarmClock,
   reports: FileText,
   audit: History,
 } satisfies Record<string, LucideIcon>;

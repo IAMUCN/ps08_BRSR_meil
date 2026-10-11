@@ -14,6 +14,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/roles", label: "Roles & Permissions", icon: "roles" },
   { href: "/admin/reporting-periods", label: "Reporting Periods", icon: "periods" },
   { href: "/admin/submissions", label: "Submission Monitoring", icon: "submissions" },
+  { href: "/admin/deadlines", label: "Reporting Deadlines", icon: "deadlines" },
   { href: "/admin/ocr-monitoring", label: "OCR Monitoring", icon: "ocr" },
   { href: "/admin/validation-queue", label: "Validation Queue", icon: "validation" },
   { href: "/admin/approval-queue", label: "Approval Queue", icon: "approvals" },
@@ -26,6 +27,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/scope-1", label: "Scope 1", icon: "scope1" },
   { href: "/admin/scope-2", label: "Scope 2", icon: "scope2" },
   { href: "/admin/scope-3", label: "Scope 3", icon: "scope3" },
+  { href: "/admin/simulator", label: "Reduction Simulator", icon: "simulator" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {

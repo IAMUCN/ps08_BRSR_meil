@@ -1,4 +1,4 @@
-import { FileText, FolderOpen, History } from "lucide-react";
+import { Archive, FileText, FolderOpen, History } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/shell/auto-refresh";
@@ -47,6 +47,12 @@ export default async function ReportsPage() {
               <Link href="/admin/reports/history">
                 <History aria-hidden />
                 Past reports
+              </Link>
+            </Button>
+            <Button asChild variant="default">
+              <Link href="/admin/reports/bundle">
+                <Archive aria-hidden />
+                Evidence Bundle
               </Link>
             </Button>
             {inputsYear !== null ? (
