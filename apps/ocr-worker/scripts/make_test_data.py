@@ -35,28 +35,58 @@ MEIL = "Megha Engineering & Infrastructures Ltd"
 
 @dataclass(frozen=True)
 class Unit:
-    code: str
+    code: str  # the key used in this script; also the unit's code in the app unless by_name
     name: str
     level: str
     parent: str  # "" = directly under the unit chosen on screen (MEIL)
     scale: float = 0.0  # > 0: the unit submits documents, sized by this
     discom: str = ""
+    by_name: bool = False  # the app holds this unit without a code: it is referred to by its name
+    also_under: tuple[str, ...] = ()  # further parents of a shared unit
+
+    @property
+    def app_code(self) -> str:
+        return "" if self.by_name else self.code
+
+    @property
+    def ref(self) -> str:
+        """What the app knows the unit by: its code, or its name when it has none."""
+        return self.name if self.by_name else self.code
 
 
-# Set 1 builds three of MEIL's own business units; set 2 adds the rest and the group companies.
+# Set 1 is the hierarchy as it stands in the web app (read on 2026-10-12): nothing to import, the
+# documents are filed under units that already exist. The projects there have no code, so the sheets
+# and folders name them. Set 2 adds three of MEIL's own business units and a plant.
 TREE_1 = [
-    Unit("BU-IRR", "Irrigation", "business_unit", ""),
-    Unit("PRJ-POLAVARAM", "Polavaram Project", "project", "BU-IRR", 1.0, "APEPDCL"),
-    Unit("POL-DWALL", "Polavaram Diaphragm Wall Works", "site", "PRJ-POLAVARAM"),
-    Unit("POL-DWALL-EHS", "Polavaram EHS Cell", "department", "POL-DWALL"),
-    Unit("PRJ-GAYATHRI", "Gayathri Pump House", "project", "BU-IRR", 0.4, "TSNPDCL"),
-    Unit("BU-TRN", "Transportation", "business_unit", ""),
-    Unit("PRJ-ZOJILA", "Zojila Road Tunnel", "project", "BU-TRN", 0.8, ""),
-    Unit("ZOJ-WEST", "Zojila West Portal", "site", "PRJ-ZOJILA"),
-    Unit("PRJ-SAMRUDDHI", "Samruddhi Mahamarg", "project", "BU-TRN"),
-    Unit("BU-PWR", "Power", "business_unit", ""),
-    Unit("PRJ-TUTICORIN", "Tuticorin Thermal Power Plant", "project", "BU-PWR", 1.4, "TNPDCL"),
-    Unit("PRJ-ANANTAPUR", "Anantapur Solar Thermal Power Plant", "project", "BU-PWR"),
+    Unit("OLECTRA", "Olectra Greentech", "subsidiary", ""),
+    Unit("OLE-MSRTC", "MSRTC e-bus order", "project", "OLECTRA", 0.8, "", by_name=True),
+    Unit("OLE-BEST", "BEST Mumbai e-buses", "project", "OLECTRA", 1.4, "MSEDCL", by_name=True),
+    Unit("OLE-EVEYSPV", "EVEY Trans (Mah) SPV", "project", "OLECTRA", by_name=True),
+    Unit("OLE-INSULATORS", "Composite insulators", "project", "OLECTRA", by_name=True),
+    Unit(
+        "OLE-SEETHARAMPUR",
+        "Seetharampur plant, Telangana",
+        "project",
+        "OLECTRA",
+        1.0,
+        "TSSPDCL",
+        by_name=True,
+    ),
+    Unit("MEGHAGAS", "Megha Gas", "subsidiary", ""),
+    Unit("DRILLMEC", "Drillmec", "subsidiary", ""),
+    Unit("PETREVEN", "Petreven", "subsidiary", ""),
+    Unit("ICOMM", "ICOMM", "subsidiary", ""),
+    Unit("EVEY", "EVEY", "subsidiary", ""),
+    Unit(
+        "EVEY-TGSRTC",
+        "TGSRTC Telangana",
+        "project",
+        "EVEY",
+        0.4,
+        "TSSPDCL",
+        by_name=True,
+        also_under=("OLECTRA",),
+    ),
 ]
 TREE_2 = [
     Unit("BU-WTR", "Drinking Water", "business_unit", ""),
@@ -64,13 +94,12 @@ TREE_2 = [
     Unit("BU-HYD", "Hydrocarbons", "business_unit", ""),
     Unit("PRJ-AHM-RIG", "Ahmedabad C1R1 Rig", "project", "BU-HYD"),
     Unit("BU-MFG", "Manufacturing", "business_unit", ""),
-    Unit("OLECTRA", "Olectra Greentech Limited", "subsidiary", ""),
+    # Under a subsidiary that is already in the app.
     Unit("OLE-PLANT", "Olectra Electric Bus Plant", "site", "OLECTRA", 0.6, "TSSPDCL"),
-    Unit("MEGHAGAS", "Megha Gas", "subsidiary", ""),
-    Unit("ICOMM", "ICOMM Tele Limited", "subsidiary", ""),
-    Unit("DRILLMEC", "Drillmec S.p.A.", "subsidiary", ""),
-    Unit("EVEYTRANS", "Evey Trans Private Limited", "subsidiary", ""),
 ]
+
+# The unit with the faint figure, and the one that only tries the multi-bill PDF.
+FAINT, SMALL = "OLE-SEETHARAMPUR", "EVEY-TGSRTC"
 
 ROLE_NAMES = {
     "project_manager": "Project Manager",
@@ -220,7 +249,7 @@ def safety(category, hours, lost_time, recordable):
             "lost_time": str(lost_time),
             "recordable": str(recordable),
         }
-        org = f"MEIL {ctx['unit'].code} EHS Department"
+        org = f"MEIL {ctx['unit'].ref} EHS Department"
         return _statement(org, "SAFETY INCIDENT STATEMENT", rows), expected
 
     return build
@@ -237,8 +266,8 @@ def workforce(ctx):
         ("Certified by:", "HR Department"),
     ]
     # One statement per set has a faint Men count: a real case for the low-confidence review.
-    smudge = "Men:" if ctx["unit"].code == "PRJ-POLAVARAM" else None
-    org = f"MEIL {ctx['unit'].code} HR Department"
+    smudge = "Men:" if ctx["unit"].code == FAINT else None
+    org = f"MEIL {ctx['unit'].ref} HR Department"
     return (
         _statement(org, "HEADCOUNT STATEMENT - WORKFORCE", rows, smudge=smudge),
         {"total": str(total), "women": str(women), "men": str(total - women)},
@@ -254,7 +283,7 @@ def training(ctx):
         ("Employees Trained:", str(trained)),
         ("Programme:", "Site safety induction"),
     ]
-    org = f"MEIL {ctx['unit'].code} HR Department"
+    org = f"MEIL {ctx['unit'].ref} HR Department"
     return (
         _statement(org, "TRAINING ATTENDANCE RECORD", rows),
         {"total": str(total), "trained": str(trained)},
@@ -270,7 +299,7 @@ def procurement(ctx):
         ("Currency:", "INR"),
         ("Vendor count:", "46"),
     ]
-    org = f"MEIL {ctx['unit'].code} Procurement Cell"
+    org = f"MEIL {ctx['unit'].ref} Procurement Cell"
     return (
         _statement(org, "PROCUREMENT SPEND STATEMENT", rows),
         {"total_spend": f"{total:.0f}", "msme_spend": f"{msme:.0f}", "unit": "INR"},
@@ -374,7 +403,7 @@ def coal(grade, value):
 
 
 PM, EHS, HR, PROC, FIN = "project_manager", "ehs", "hr", "procurement", "finance_csr"
-POL, ZOJ, TUT = "PRJ-POLAVARAM", "PRJ-ZOJILA", "PRJ-TUTICORIN"
+POL, ZOJ, TUT = "OLE-SEETHARAMPUR", "OLE-MSRTC", "OLE-BEST"
 
 # (activity, how its document is written). 47 activities: every one the app offers.
 ACTIVITIES = [
@@ -760,11 +789,12 @@ def employee_rows(set_number: int, submitting: list[Unit]) -> list[dict]:
     rows = []
     start = 1001 if set_number == 1 else 2001
     people = PEOPLE[:18] if set_number == 1 else PEOPLE[18:]
-    seats = [(unit.code, role) for unit in submitting for role in ROLE_NAMES]
+    seats = [(unit.ref, role) for unit in submitting for role in ROLE_NAMES]
+    small = next(u.ref for u in TREE_1 if u.code == SMALL)
     # Corporate ESG approves what the projects submit (nobody approves their own record).
     seats.append(("MEIL" if set_number == 1 else "OLECTRA", "corporate_esg"))
     for index, (scope, role) in enumerate(seats):
-        if scope == "PRJ-GAYATHRI" and role != PM:
+        if scope == small and role != PM:
             continue  # the small project only tries the multi-bill PDF (a Project Manager's)
         rows.append(
             {
@@ -824,7 +854,7 @@ def write_set(set_number: int, root: Path) -> int:
     held: dict[tuple[str, str], list[dict]] = {}
     image_count = 0
     for unit in submitting:
-        if unit.code == "PRJ-GAYATHRI":
+        if unit.code == SMALL:
             continue
         for activity, build in ACTIVITIES:
             if not (activity.core or activity.home == unit.code):
@@ -840,13 +870,13 @@ def write_set(set_number: int, root: Path) -> int:
                 "period": f"01-{spec['month']} to {spec['days']}-{spec['month']}",
             }
             data, expected = build(ctx)
-            group = (unit.code, activity.role)
+            group = (unit.ref, activity.role)
             position = turn.get(group, 0)
             turn[group] = position + 1
             row = {
                 "File": "",
                 "Reporting period": spec["label"],
-                "Org unit code": unit.code,
+                "Org unit code": unit.app_code,
                 "Org unit": unit.name,
                 "Upload as role": ROLE_NAMES[activity.role],
                 "ESG activity": activity.name,
@@ -863,7 +893,7 @@ def write_set(set_number: int, root: Path) -> int:
                 data = as_image(data, "JPEG" if extension == "jpg" else "PNG")
             path = (
                 Path("documents")
-                / unit.code
+                / unit.ref
                 / ROLE_NAMES[activity.role]
                 / f"{seq:03d} {activity.metric}.{extension}"
             )
@@ -896,7 +926,7 @@ def write_set(set_number: int, root: Path) -> int:
             }
         )
     # One PDF holding three bills of different activities, all a Project Manager may upload.
-    small = next(u for u in TREE_1 if u.code == "PRJ-GAYATHRI")
+    small = next(u for u in TREE_1 if u.code == SMALL)
     pages, kinds = [], []
     for metric in ("DIESEL_CONSUMPTION", "GRID_ELECTRICITY", "PETROL_CONSUMPTION"):
         activity, build = next(a for a in ACTIVITIES if a[0].metric == metric)
@@ -916,14 +946,14 @@ def write_set(set_number: int, root: Path) -> int:
             f"page {len(pages)}: {activity.name} "
             f"({'; '.join(f'{k}={v}' for k, v in expected.items())})"
         )
-    path = Path("documents") / small.code / ROLE_NAMES[PM] / "multi-bill (3 bills in one PDF).pdf"
+    path = Path("documents") / small.ref / ROLE_NAMES[PM] / "multi-bill (3 bills in one PDF).pdf"
     (folder / path).parent.mkdir(parents=True, exist_ok=True)
     (folder / path).write_bytes(bundle(pages))
     manifest.append(
         {
             "File": path.as_posix(),
             "Reporting period": spec["label"],
-            "Org unit code": small.code,
+            "Org unit code": small.app_code,
             "Org unit": small.name,
             "Upload as role": ROLE_NAMES[PM],
             "ESG activity": 'choose "A PDF with several bills"',
@@ -938,8 +968,15 @@ def write_set(set_number: int, root: Path) -> int:
         writer.writerows(manifest)
     new_submitting = [u for u in spec["new"] if u.scale]
     sheets = {
+        # Set 1's units are already in the app: its sheet shows the hierarchy, it is not for import.
+        "orgUnitsExist": set_number == 1,
         "orgUnits": [
-            {"Code": u.code, "Name": u.name, "Level": u.level, "Parent code": u.parent}
+            {
+                "Code": u.app_code,
+                "Name": u.name,
+                "Level": u.level,
+                "Parent code": ", ".join(p for p in (u.parent, *u.also_under) if p),
+            }
             for u in spec["new"]
         ],
         "employees": employee_rows(set_number, new_submitting),

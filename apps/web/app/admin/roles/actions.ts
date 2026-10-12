@@ -10,6 +10,7 @@ export async function updateRoleAction(input: {
   roleId: string;
   name: string;
   description: string;
+  uploadsForRoleId?: string | null;
 }) {
   return runAction((api) => api.roles.update(input));
 }

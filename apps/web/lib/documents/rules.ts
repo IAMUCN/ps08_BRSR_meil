@@ -16,6 +16,8 @@ export function uploadTargets(
   assignments: readonly UploadAssignment[],
   uploadRoleIds: ReadonlySet<string>,
   categories: readonly UploadCategory[],
+  /** Role → the role it uploads on behalf of (migration 0049): it is offered that role's categories too. */
+  uploadsFor: ReadonlyMap<string, string> = new Map(),
 ): Map<string, string[]> {
   const rolesByNode = new Map<string, Set<string>>();
   for (const assignment of assignments) {
@@ -29,6 +31,8 @@ export function uploadTargets(
       if (isFrozen(id, nodes)) continue;
       const roles = rolesByNode.get(id) ?? new Set<string>();
       roles.add(assignment.roleId);
+      const behalf = uploadsFor.get(assignment.roleId);
+      if (behalf) roles.add(behalf);
       rolesByNode.set(id, roles);
     }
   }

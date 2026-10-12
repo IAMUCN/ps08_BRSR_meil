@@ -23,6 +23,8 @@ export type RoleMatrix = {
     description: string | null;
     isSystemRole: boolean;
     isLocked: boolean;
+    /** The role this one uploads documents on behalf of (migration 0049), if any. */
+    uploadsForRoleId: string | null;
     activeAssignments: number;
     permissionIds: string[];
   }[];
@@ -40,11 +42,12 @@ export const rolesRouter = router({
         name: string;
         description: string | null;
         is_system_role: boolean;
+        uploads_for_role_id: string | null;
         active_assignments: number;
         permission_ids: string[];
       }[]
     >`
-      select r.id, r.code, r.name, r.description, r.is_system_role,
+      select r.id, r.code, r.name, r.description, r.is_system_role, r.uploads_for_role_id,
              (select count(*)::int from public.user_org_assignments uoa
               where uoa.role_id = r.id and uoa.revoked_at is null) as active_assignments,
              coalesce(array_agg(rp.permission_id) filter (where rp.permission_id is not null), '{}') as permission_ids
@@ -61,6 +64,7 @@ export const rolesRouter = router({
         description: r.description,
         isSystemRole: r.is_system_role,
         isLocked: r.code === LOCKED_ROLE_CODE,
+        uploadsForRoleId: r.uploads_for_role_id,
         activeAssignments: r.active_assignments,
         permissionIds: r.permission_ids,
       })),
@@ -121,28 +125,70 @@ export const rolesRouter = router({
           .trim()
           .max(500)
           .transform((d) => (d === "" ? null : d)),
+        /** Omitted: left as it is. Null: uploads only into its own categories. */
+        uploadsForRoleId: z.uuid().nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       await db().begin(async (tx) => {
-        const [role] = await tx<{ name: string; description: string | null }[]>`
-          select name, description from public.roles where id = ${input.roleId} for update`;
+        const [role] = await tx<
+          {
+            code: string;
+            name: string;
+            description: string | null;
+            uploads_for_role_id: string | null;
+          }[]
+        >`
+          select code, name, description, uploads_for_role_id from public.roles
+          where id = ${input.roleId} for update`;
         if (!role) badRequest("Role not found.");
-        if (role.name === input.name && role.description === input.description) return;
+        const uploadsFor =
+          input.uploadsForRoleId === undefined ? role.uploads_for_role_id : input.uploadsForRoleId;
+        if (uploadsFor !== role.uploads_for_role_id && uploadsFor !== null) {
+          if (role.code === LOCKED_ROLE_CODE)
+            badRequest("The Admin role does not upload documents.");
+          if (uploadsFor === input.roleId) badRequest("A role can't upload on behalf of itself.");
+          const [target] = await tx<{ code: string; uploads_for_role_id: string | null }[]>`
+            select code, uploads_for_role_id from public.roles where id = ${uploadsFor}`;
+          if (!target) badRequest("Role not found.");
+          if (target.code === LOCKED_ROLE_CODE)
+            badRequest("The Admin role does not upload documents.");
+          // One step only: no chains to follow when deciding what someone may upload.
+          if (target.uploads_for_role_id) {
+            badRequest(
+              "That role already uploads on behalf of another role. Choose that one instead.",
+            );
+          }
+        }
+        if (
+          role.name === input.name &&
+          role.description === input.description &&
+          role.uploads_for_role_id === uploadsFor
+        )
+          return;
         const [taken] = await tx`
           select 1 from public.roles
           where lower(name) = ${input.name.toLowerCase()} and id <> ${input.roleId}`;
         if (taken) badRequest("Another role already has that name.");
         await tx`
-          update public.roles set name = ${input.name}, description = ${input.description}
+          update public.roles
+          set name = ${input.name}, description = ${input.description}, uploads_for_role_id = ${uploadsFor}
           where id = ${input.roleId}`;
         await writeAudit(tx, {
           eventType: "role.updated",
           entityType: "role",
           entityId: input.roleId,
           userId: ctx.session.userId,
-          oldValue: { name: role.name, description: role.description },
-          newValue: { name: input.name, description: input.description },
+          oldValue: {
+            name: role.name,
+            description: role.description,
+            uploads_for_role_id: role.uploads_for_role_id,
+          },
+          newValue: {
+            name: input.name,
+            description: input.description,
+            uploads_for_role_id: uploadsFor,
+          },
         });
       });
       return null;

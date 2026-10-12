@@ -93,8 +93,9 @@ export function RolesManager({
 
       {selected ? (
         <EditRoleSheet
-          key={`edit-${selected.id}-${selected.name}-${selected.description ?? ""}`}
+          key={`edit-${selected.id}-${selected.name}-${selected.description ?? ""}-${selected.uploadsForRoleId ?? ""}`}
           role={selected}
+          roles={matrix.roles}
           open={editOpen}
           onOpenChange={setEditOpen}
           onSaved={() => router.refresh()}
@@ -260,11 +261,13 @@ function RolePermissions({
 /** Name and description of a role. Its code and, for Admin, its permissions stay as they are. */
 function EditRoleSheet({
   role,
+  roles,
   open,
   onOpenChange,
   onSaved,
 }: {
   role: RoleMatrix["roles"][number];
+  roles: RoleMatrix["roles"];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
@@ -272,12 +275,26 @@ function EditRoleSheet({
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(role.name);
   const [description, setDescription] = useState(role.description ?? "");
-  const dirty = name.trim() !== role.name || description.trim() !== (role.description ?? "");
+  const [uploadsFor, setUploadsFor] = useState(role.uploadsForRoleId ?? "");
+  const dirty =
+    name.trim() !== role.name ||
+    description.trim() !== (role.description ?? "") ||
+    uploadsFor !== (role.uploadsForRoleId ?? "");
+  // A role can stand in for one that uploads in its own right: not Admin, not itself, not a stand-in.
+  const behalfOptions = roles.filter(
+    (r) =>
+      r.id !== role.id && !r.isLocked && (!r.uploadsForRoleId || r.id === role.uploadsForRoleId),
+  );
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     startTransition(async () => {
-      const result = await updateRoleAction({ roleId: role.id, name, description });
+      const result = await updateRoleAction({
+        roleId: role.id,
+        name,
+        description,
+        uploadsForRoleId: uploadsFor || null,
+      });
       if (!result.ok) {
         toast.error(result.error);
         return;
@@ -324,6 +341,32 @@ function EditRoleSheet({
               className="w-full rounded-sm border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
           </div>
+          {!role.isLocked ? (
+            <div className="space-y-2">
+              <Label htmlFor="edit-role-uploads-for">Uploads documents on behalf of</Label>
+              <select
+                id="edit-role-uploads-for"
+                value={uploadsFor}
+                onChange={(e) => setUploadsFor(e.target.value)}
+                aria-describedby="edit-role-uploads-for-hint"
+                className="h-10 w-full rounded-sm border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <option value="">Nobody — its own activities only</option>
+                {behalfOptions.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+              <p
+                id="edit-role-uploads-for-hint"
+                className="text-xs leading-4 text-muted-foreground"
+              >
+                People with this role can then upload the activities that role files, at the org
+                units they are assigned to. They also need the document.upload permission.
+              </p>
+            </div>
+          ) : null}
           <Button type="submit" className="w-full" disabled={pending || !dirty || !name.trim()}>
             {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
             Save changes

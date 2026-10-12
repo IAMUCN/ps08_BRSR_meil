@@ -566,3 +566,12 @@ is added to or removed from the catalogue; no other role changes; custom roles a
 (`.grill/role-permissions-decisions.md` has the full table). The corporate sustainability team approves and
 monitors, and needs the two steps between: settling flagged values and producing the report. Both are limited
 to the person's org scope. Organisation-wide configuration stays with Admin.
+
+## D40 — A role can upload on behalf of another role (migration `0049`)
+
+**Change:** `roles.uploads_for_role_id` (nullable, references `roles`, not itself).
+
+**Why:** the schema gives each ESG category one owning role, and only that role is offered the category's
+activities on Upload. The owner added an Employee role whose people file the bills their Project Manager is
+responsible for; a custom role owns no category and was offered nothing. The column lends one role's
+categories to another for uploading without taking them away (`.grill/employee-uploads-decisions.md`).

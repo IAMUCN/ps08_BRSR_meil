@@ -179,3 +179,9 @@ ticked on the parent, with "From <unit names>" under its name (three names, then
 `app/admin/roles/roles-manager.tsx`: an **Edit role** button beside the role's badge opens a side panel with
 Name, Code (shown, not editable) and Description. Opening it closes the Create role panel and the other way
 round. Not viewed in a browser.
+
+## "Uploads documents on behalf of" in Edit role (2026-10-12, feature session, D40)
+
+`app/admin/roles/roles-manager.tsx`, `EditRoleSheet`: a select under Description listing the roles this one may
+stand in for (not Admin, not itself, not a role that already stands in for another), with a hint line. Hidden
+for the Admin role. Not viewed in a browser.
