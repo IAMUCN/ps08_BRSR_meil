@@ -13,6 +13,8 @@ export const AUTH_MESSAGES = {
   resetSent: "If that email exists, a 6-digit code has been sent to it.",
   otpInvalid: "That code is incorrect, expired, or already used — request a new one.",
   otpRateLimited: "Too many attempts — wait a while and try again.",
+  temporaryPassword:
+    "You signed in with a temporary password. Choose your own password to continue.",
   tooManyAttempts: "Too many sign-in attempts — wait 15 minutes and try again",
 } as const;
 

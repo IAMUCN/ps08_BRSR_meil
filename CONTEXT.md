@@ -390,6 +390,32 @@ _Last updated: 2026-10-12._
   files. **Not done (dashboards):** the hosted Supabase email subjects and templates, and the Brevo sender
   name there if set. Not run after the rename: the end-to-end, isolation, chatbot and accessibility suites.
   The documents (this file included) still say TraceESG where they describe history.
+- **Invite user emails a temporary password through Brevo (2026-10-12, owner's page feedback, A36), uncommitted on
+  branch `feature-invite-smtp`** (cut from `ui-rename-emeilsg`; `.grill/invite-smtp-decisions.md`). No migration.
+  "Invited" now means never signed in. Checked: the procedures on local with a captured SMTP transport 22/22,
+  typecheck, lint, format, unit 195/195, build. **Not run:** a real email, the screen in a browser, the
+  end-to-end suite. Two deactivated `invite.check*@traceesg.test` accounts stay on the local database.
+- **Show-password button on sign-in (2026-10-12, owner's page feedback), uncommitted on the same branch:**
+  `components/ui/password-input.tsx`, used on the sign-in form only (`UI_NOTES.md`). Checked: typecheck, lint,
+  format, build, and the button in Edge on the built page 10/10 (click, keyboard, value kept). The other
+  password fields were not changed.
+- **First sign-in must change the temporary password (2026-10-12, owner's request, A36), uncommitted, same
+  branch:** mark in the sign-in account's app metadata (`lib/auth/initial-password.ts`), new session status
+  `password_change_required`, the form on `/login`. No migration. Checked in Edge on the built app, local
+  stack, 24/24; invite procedures 22/22 again; typecheck, lint, format, unit 195/195. **Not run:** the
+  end-to-end suite (its `setPassword` helper now clears the mark), bulk import then sign-in, the reset-code
+  path. Accounts created before this change are not marked.
+- **Deleting a user who has no work on record now works (2026-10-12, owner's report), uncommitted, same
+  branch:** `users.delete` used to fail on any foreign key and say "has data on record" — a notification, a
+  reset code, a saved chat or one audit entry in the person's own name (a theme change) was enough. It now
+  counts real work (submissions, uploads, verifications, approvals, reports, roles given, configuration) and
+  names it when refusing; otherwise it removes the person's own traces and the account. Where the audit log
+  names them the profile row stays, hidden (`deleted_at`, address replaced) and the sign-in account is
+  soft-deleted, so the address can be invited again. No migration. Checked through the real procedure on
+  local, 20/20; typecheck, lint, format, unit. **Not run:** in a browser; on hosted — the cause for the
+  owner's account there was not looked up.
+- **The four `feature-invite-smtp` entries above were committed and the branch pushed to `ucn` and `origin` on
+  2026-10-12 at the owner's request** (it sits on top of `ui-rename-emeilsg`). No pull request, CI not run.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -424,7 +450,7 @@ _Last updated: 2026-10-12._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D39** and **A36**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D39** and **A37**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -577,7 +603,8 @@ _Last updated: 2026-10-12._
   `periods-manager.tsx`, 2026-10-11). Users’ bulk import is a side panel now, not a fold-out.
 - **OCR does not detect a lone digit on a line** ("Fatalities: 0" comes back empty). Sample documents print
   "0 Nos". A document type needs two of its keywords on the page or the person must pick it.
-- **Users cannot be deleted once the audit log names them** (foreign key, append-only log); deactivate instead.
+- **A user the audit log names cannot be removed as a row** (foreign key, append-only log): `users.delete`
+  keeps the row hidden (`deleted_at` set, address replaced) — filter `deleted_at is null` wherever people are listed.
   `calculations` and `audit_logs` refuse deletes for every role.
 - **Running the worker's OCR on files without the database:** `OcrEngine(Path("models"))`, `to_page_images`,
   `extract_fields` with `FieldSpec`s (about 10 s a page; output is buffered until the end when redirected).
@@ -646,6 +673,11 @@ _Last updated: 2026-10-12._
   account nothing else is signed in with.
 - **A unit test of helpers does not show a feature works.** The evidence bundle had 7 passing unit tests and
   six queries against columns that do not exist; only a run against the database showed it.
+- **`nodemailer` has separate builds for `import` and `require`:** replacing `createTransport` on the required
+  copy does nothing to the app (a test then reached Brevo with fake credentials). Patch the `dist/esm` default.
+- **A session can be signed in and still not "active":** `password_change_required` (temporary password not
+  yet changed). Anything new that reads the session must treat every status but `active` as no access. A
+  test that creates an account through `users.invite` or bulk import must clear the mark or change the password.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

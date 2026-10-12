@@ -31,7 +31,18 @@ function ForgotPanel({ onBack }: { onBack: () => void }) {
 }
 
 /** Sliding sign-in / forgot-password panel (after codepen.io/FlorinPop17/pen/vPKWjd, no sign-up side). */
-export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: ReactNode }) {
+export function AuthSlider({
+  notice,
+  signIn,
+  heading = "Sign in",
+  footer,
+}: {
+  notice?: ReactNode;
+  signIn: ReactNode;
+  heading?: string;
+  /** Replaces the "Forgot password?" link and the no-sign-up note under the form. */
+  footer?: ReactNode;
+}) {
   const [mode, setMode] = useState<Mode>("signin");
   const forgot = mode === "forgot";
 
@@ -73,19 +84,23 @@ export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: Rea
               }`}
             >
               <p className="text-sm font-semibold text-primary">EmeilSG</p>
-              <h1 className="mt-1 mb-6 text-2xl font-semibold">Sign in</h1>
+              <h1 className="mt-1 mb-6 text-2xl font-semibold">{heading}</h1>
               {notice}
               {signIn}
-              <button
-                type="button"
-                onClick={() => setMode("forgot")}
-                className="mt-4 min-h-6 self-start text-sm font-medium text-primary underline-offset-4 hover:underline"
-              >
-                Forgot password?
-              </button>
-              <p className="mt-6 text-xs leading-5 text-muted-foreground">
-                Accounts are created by your administrator. There is no self sign-up.
-              </p>
+              {footer ?? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setMode("forgot")}
+                    className="mt-4 min-h-6 self-start text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                  <p className="mt-6 text-xs leading-5 text-muted-foreground">
+                    Accounts are created by your administrator. There is no self sign-up.
+                  </p>
+                </>
+              )}
             </div>
 
             {/* Forgot panel */}

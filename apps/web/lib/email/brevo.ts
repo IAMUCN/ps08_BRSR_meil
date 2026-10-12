@@ -4,9 +4,9 @@ import { escapeHtml } from "@/lib/reports/html";
 
 // Brevo transactional email (bulk-import-decisions.md), over real SMTP: the key we were given
 // (xsmtpsib-…) is Brevo's SMTP key, not its REST "API key" (xkeysib-…) — the REST API's api-key header
-// only accepts the latter, so this goes through smtp-relay.brevo.com instead. Used only for the
-// bulk-import default-password email and OTP password reset; invite/first-password-set still go through
-// Supabase Auth's own email sending.
+// only accepts the latter, so this goes through smtp-relay.brevo.com instead. Used for the
+// temporary-password email of a new account (Invite user and bulk import), OTP password reset and
+// submission reminders. Supabase Auth's own email sending is not used by the app.
 const SMTP_HOST = "smtp-relay.brevo.com";
 const SMTP_PORT = 587;
 
@@ -71,7 +71,7 @@ export function accountCreatedEmailHtml(input: {
 <p>An account was created for you on EmeilSG.</p>
 <p><strong>Email:</strong> ${escapeHtml(input.email)}<br>
 <strong>Temporary password:</strong> ${escapeHtml(input.password)}</p>
-<p>Sign in and change this password as soon as you can.</p>`;
+<p>When you sign in with it, you will be asked to choose your own password before you continue.</p>`;
 }
 
 export function passwordResetOtpEmailHtml(input: {

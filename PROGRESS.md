@@ -812,8 +812,9 @@ Things to remember for Phase 21:
   and `traceesg-ocr-worker-hosted` are stopped test leftovers; the image to deploy is `traceesg-ocr-worker:latest`.
 - **Email:** Brevo SMTP is wired for bulk-import passwords and OTP reset (`BREVO_API_KEY` = the SMTP key,
   `BREVO_SENDER_EMAIL` must be a verified sender, `BREVO_SENDER_NAME`, optional `BREVO_SMTP_LOGIN`); set them on
-  the web host. Invite emails (first password) still use Supabase's own email, which only reaches the Supabase
-  team — configure custom SMTP in Supabase Auth before inviting anyone outside it.
+  the web host. Since 2026-10-12 (A36) Invite user also emails a temporary password through Brevo, so the app no
+  longer depends on Supabase Auth's own email (which only reaches the Supabase team); only
+  `provision-user` without a password still uses it.
 - **CI:** the new database job runs on GitHub only once pushed (untested there). The end-to-end suite, the OCR
   integration harness and the Docker image build run locally.
 - **Real documents:** OCR accuracy on real MEIL documents is untested — only synthetic samples so far.

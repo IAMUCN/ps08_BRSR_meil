@@ -387,8 +387,13 @@ function InviteSheet({
     event.preventDefault();
     run(
       () => inviteUserAction({ email, displayName, roleId, orgUnitId }),
-      "Invitation sent",
-      () => {
+      "Account created",
+      (data) => {
+        if (data.emailSent) toast.success(`Temporary password emailed to ${email}`);
+        else
+          toast.error(
+            `The email was not sent: ${data.emailError}. Open the user and choose Resend email.`,
+          );
         setEmail("");
         setDisplayName("");
         setRoleId("");
@@ -404,8 +409,7 @@ function InviteSheet({
         <SheetHeader>
           <SheetTitle>Invite user</SheetTitle>
           <SheetDescription>
-            They receive an email to set their own password (12+ characters, upper/lowercase, a
-            number and a special character).
+            They receive an email with a temporary password and should change it after signing in.
           </SheetDescription>
         </SheetHeader>
         <form onSubmit={onSubmit} className="space-y-4 px-4">
@@ -495,10 +499,13 @@ function ManageSheet({
                 size="sm"
                 disabled={pending}
                 onClick={() =>
-                  run(() => resendInviteAction({ userId: user.id }), "Invitation re-sent")
+                  run(
+                    () => resendInviteAction({ userId: user.id }),
+                    "New temporary password emailed",
+                  )
                 }
               >
-                Resend invite
+                Resend email
               </Button>
             ) : null}
           </div>
@@ -684,8 +691,9 @@ function ManageSheet({
         >
           <p>
             This permanently removes their account and sign-in access — this can&apos;t be undone.
-            Only works if they have no data on record (submissions, approvals and similar); if they
-            do, deactivate them instead.
+            Their notifications and chat history go with it. It only works if the records do not
+            name them (submissions, uploads, verifications, approvals, reports or configuration
+            changes); if they do, deactivate them instead.
           </p>
         </ConfirmDialog>
       </SheetContent>

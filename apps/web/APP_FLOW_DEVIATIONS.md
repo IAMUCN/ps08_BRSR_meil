@@ -617,3 +617,23 @@ nothing about people and only points to Admin → Reports.
 - **Bulk import** has an Also under column for the other parents of a shared unit.
 - **Chat pane:** a coloured header bar as tall as the top bar, a one-line question box that grows, and the
   suggested questions at the foot of the pane.
+
+## A36 — Invite user emails a temporary password (2026-10-12, owner's page feedback)
+
+App Flow has an invited person set their own password from an emailed link. That link was sent by Supabase
+Auth's own email service, which on the hosted project only reaches the Supabase team. **Invite user** now works
+like bulk import: the account is created with a random temporary password, emailed through the app's own SMTP
+sender (Brevo). Decisions: `.grill/invite-smtp-decisions.md`.
+
+- **Invited** on the Users page now means "has never signed in" (it was "has not followed the link"), so
+  bulk-imported accounts show it too until their first sign-in.
+- **Resend email** sets a new temporary password and emails it; refused once the person has signed in.
+- If the email cannot be sent the account still exists and the Admin is told why; the password is not shown.
+- **The first sign-in must change the password.** After signing in with the temporary password, the sign-in
+  page shows "Choose a new password" and no page or procedure opens until it is set; the person then continues
+  signed in. Applies to Invite user, Resend email and bulk import from this change on.
+- **Deleting a user** (same day, owner's report): refused only when the records name the person
+  (submissions, uploads, verifications, approvals, reports, roles given to others, configuration changes),
+  and the message counts what stands in the way. Notifications, reset codes and chat history go with the
+  account. If the audit log names them, their profile row is kept hidden without the email address, so the
+  history still shows who acted and the address can be invited again.

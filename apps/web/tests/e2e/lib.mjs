@@ -194,7 +194,11 @@ const newPassword = () => `E2e-${randomBytes(12).toString("hex")}-x!`;
 async function setPassword(id, password) {
   const r = await authAdmin(`users/${id}`, {
     method: "PUT",
-    body: JSON.stringify({ password, email_confirm: true }),
+    body: JSON.stringify({
+      password,
+      email_confirm: true,
+      app_metadata: { must_change_password: false },
+    }),
   });
   if (!r.ok) throw new Error(`could not set a test password (${r.status})`);
 }
