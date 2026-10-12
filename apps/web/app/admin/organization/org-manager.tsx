@@ -1175,7 +1175,8 @@ function ExpectationsCard({
       <p className="mt-1 text-sm leading-5 text-muted-foreground">
         What {nodeName} must submit in every period of the metric&apos;s frequency. The Control
         Tower&apos;s completion figures and &ldquo;missing submissions&rdquo; count against these.
-        Each unit keeps its own list; nothing is inherited from the unit above or passed down.
+        What a unit below must submit is expected here as well, and is shown ticked with the
+        unit&apos;s name; change it on that unit. Nothing is passed down.
       </p>
       {rows === null ? (
         <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
@@ -1196,7 +1197,8 @@ function ExpectationsCard({
                 <summary className="cursor-pointer py-3 text-sm leading-5 font-semibold">
                   {group}
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    {inGroup.filter((r) => r.expected).length} of {inGroup.length} expected
+                    {inGroup.filter((r) => r.expected || r.requiredBelow.length > 0).length} of{" "}
+                    {inGroup.length} expected
                   </span>
                 </summary>
                 <div className="grid pb-3 items-start gap-x-8 gap-y-4 sm:grid-cols-2">
@@ -1219,12 +1221,26 @@ function ExpectationsCard({
                             >
                               <input
                                 type="checkbox"
-                                checked={row.expected}
-                                disabled={pending}
+                                // Required of a unit below: expected here too, and only that unit's
+                                // own list can take it away.
+                                checked={row.expected || row.requiredBelow.length > 0}
+                                disabled={
+                                  pending || (!row.expected && row.requiredBelow.length > 0)
+                                }
                                 onChange={() => toggle(row)}
                                 className="mt-0.5 size-4"
                               />
-                              <span>{row.metricName}</span>
+                              <span>
+                                {row.metricName}
+                                {row.requiredBelow.length > 0 ? (
+                                  <span className="block text-xs leading-4 text-muted-foreground">
+                                    From {row.requiredBelow.slice(0, 3).join(", ")}
+                                    {row.requiredBelow.length > 3
+                                      ? ` and ${row.requiredBelow.length - 3} more`
+                                      : ""}
+                                  </span>
+                                ) : null}
+                              </span>
                               <span className="text-right text-xs leading-5 text-muted-foreground capitalize">
                                 {row.frequency}
                               </span>

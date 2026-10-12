@@ -167,3 +167,15 @@ the plain `Input`.
 password the left panel shows "Choose a new password", a notice, two `PasswordInput`s with the strength
 meter, and a Sign out link. `AuthSlider` gained two optional props, `heading` and `footer`; its look is
 unchanged. The right-hand "Locked out?" panel is still shown there.
+
+## Expected submissions from the units below (2026-10-12, feature session, owner's request)
+
+`app/admin/organization/org-manager.tsx`, `ExpectationsCard`: an activity that a unit below must submit is shown
+ticked on the parent, with "From <unit names>" under its name (three names, then "and N more"), and counts in
+"N of M expected". The box is locked unless the parent also holds the activity itself. Not viewed in a browser.
+
+## Edit role (2026-10-12, feature session, owner's request)
+
+`app/admin/roles/roles-manager.tsx`: an **Edit role** button beside the role's badge opens a side panel with
+Name, Code (shown, not editable) and Description. Opening it closes the Create role panel and the other way
+round. Not viewed in a browser.

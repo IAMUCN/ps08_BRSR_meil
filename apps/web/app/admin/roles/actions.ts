@@ -6,6 +6,14 @@ export async function createRoleAction(input: { code: string; name: string; desc
   return runAction((api) => api.roles.create(input));
 }
 
+export async function updateRoleAction(input: {
+  roleId: string;
+  name: string;
+  description: string;
+}) {
+  return runAction((api) => api.roles.update(input));
+}
+
 export async function setRolePermissionsAction(input: { roleId: string; permissionIds: string[] }) {
   return runAction((api) => api.roles.setPermissions(input));
 }

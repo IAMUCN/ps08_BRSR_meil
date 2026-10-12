@@ -65,7 +65,7 @@ select is((select count(*)::int from public.role_permissions rp join public.role
 select set_eq(
   $$select p.code from public.role_permissions rp join public.roles r on r.id = rp.role_id
     join public.permissions p on p.id = rp.permission_id where r.code = 'corporate_esg'$$,
-  array['approval.decide', 'monitoring.view', 'document.upload', 'record.verify', 'chat.use', 'carbon_credit.view', 'carbon_credit.manage', 'icp.manage'],
+  array['approval.decide', 'monitoring.view', 'document.upload', 'record.verify', 'chat.use', 'carbon_credit.view', 'carbon_credit.manage', 'icp.manage', 'validation.review', 'report.generate'],
   'corporate_esg permissions match the approved catalogue');
 -- Seeded grants must still be there; an Admin may add more at runtime (Roles & Permissions, Phase 4),
 -- so this is a subset check rather than an exact match.
