@@ -7,8 +7,8 @@ session. Update it at the end of every phase (see [How to update this file](#how
 _Last updated: 2026-10-12 — the app is renamed EmeilSG; the 2026-10-12 audits and their fixes are merged to `main`;
 invites email a temporary password that must be changed at first sign-in; a role can upload on behalf of another
 (migration `0049`, branch `feature-employee-uploads`, not merged); test data set 1 follows the hierarchy in the web
-app and was run through hosted for August (66 records, 57 approved). Hosted has migrations up to `0046` and the
-`0049` column; `0047` and `0048` are not there. Phase 21 (deployment) is still to come, hosting to be decided by
+app and was run through hosted for August (66 records, 57 approved). Hosted has every migration, `0001`–`0049` (caught up 2026-10-12). A Vercel deployment check is in
+`DEPLOYMENT.md`. Phase 21 (deployment) is still to come, hosting to be decided by
 the owner. `CONTEXT.md` has the detail of what is committed where._
 
 ---
@@ -39,7 +39,7 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format, the chatbot, custom-period reports, shared org units, carbon credits, data-isolation rules, role defaults, a role uploading for another (`0001`–`0049`; hosted has `0001`–`0046` and the `0049` column, not `0047`–`0048`) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format, the chatbot, custom-period reports, shared org units, carbon credits, data-isolation rules, role defaults, a role uploading for another (`0001`–`0049`, all on hosted) |
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
@@ -88,11 +88,11 @@ may run in parallel with Phases 3–5.
 | — | Full BRSR format in the report: 146 questions, typed disclosures, all 17 SDGs (migration `0040`); owner's page feedback | Done, **uncommitted**; `0040` on hosted | — |
 | — | ESG data analyst chatbot: read-only tools, NVIDIA NIM, saved conversations (migration `0042`) | Done, on branch `feature-chat-analyst` (not pushed); `0042` on hosted | `67700f8` |
 | — | Org units under several parents, several groups, delete; chat pane feedback (migration `0044`) | Done, on `ucn` `main`; `0044` on hosted | `db4f66b` |
-| — | Audits of 2026-10-12 (security, database, chatbot, privacy, UI, accessibility, dependencies) and their fixes (migration `0047`) | Done, on `main`; `0047` not on hosted | `d4e214c` |
+| — | Audits of 2026-10-12 (security, database, chatbot, privacy, UI, accessibility, dependencies) and their fixes (migration `0047`) | Done, on `main` | `d4e214c` |
 | — | Renamed to EmeilSG, new logo | Done, on `main` | `7eb48cd` |
 | — | Invite by emailed temporary password, forced change at first sign-in, user delete, show-password | Done, on `main` | `7fb16ff` |
-| — | Expected submissions shown on the parent, role defaults (migration `0048`), Edit role | Done, on `main`; `0048` not on hosted | `e1586f3` |
-| — | A role uploads on behalf of another (migration `0049`); test data set 1 on the app's hierarchy; August run on hosted | Done, on branch `feature-employee-uploads`; `0049` column on hosted | `e3805f7` |
+| — | Expected submissions shown on the parent, role defaults (migration `0048`), Edit role | Done, on `main` | `e1586f3` |
+| — | A role uploads on behalf of another (migration `0049`); test data set 1 on the app's hierarchy; August run on hosted | Done, on branch `feature-employee-uploads` | `e3805f7` |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -779,11 +779,10 @@ The test data was also regenerated with a mix of single PDFs, images and multi-b
 
 ## 4. What comes next
 
-**Hosted, to catch up:** apply migrations `0047` and `0048` and record `0046`–`0049` in the migration
-history (`0046` and the `0049` column were applied by hand). The read-only pre-checks pass (2026-10-12); the
-script is `test data/_backup/hosted-catchup.cjs` (`check`, then `apply`). Then rebuild the worker image and
-replace the hosted container, update the hosted email templates to the new name, decide whether the 21 test
-accounts stay, and merge `feature-employee-uploads`.
+**Deploying the web app to Vercel** (the owner's next step): `DEPLOYMENT.md` has the settings, the
+variables and what to try on the first deployment. Merge `feature-employee-uploads` first — it holds the fix
+that packages the report browser. Still to do around it: rebuild the worker image and replace the hosted
+container, update the hosted email templates to the new name, decide whether the 21 test accounts stay.
 
 **Organization feedback, to finish:** look at
 the Organization page and the chat pane in a browser; bring `origin` (MACRO72) up to date with `ucn` `main`.

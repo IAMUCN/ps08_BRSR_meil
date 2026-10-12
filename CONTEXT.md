@@ -472,6 +472,20 @@ _Last updated: 2026-10-12._
   The owner runs `node "test data/_backup/hosted-catchup.cjs" apply` (or allows it). `PROGRESS.md` was brought
   up to date the same day. Git: `main` is the same on `ucn`, `origin` and locally (`e7beca5`);
   `feature-employee-uploads` is one commit ahead plus this docs commit, pushed, not merged.
+- **Vercel deployment check (2026-10-12, owner will deploy the web app there), uncommitted on
+  `feature-employee-uploads`:** `DEPLOYMENT.md` (settings, variables, what to try first). Fixed: the report
+  browser's files were not in the build's file trace (`outputFileTracingIncludes` in `next.config.ts`; checked
+  in the `.nft.json` of `/admin/reports` and the tRPC route); deadline-email links fell back to localhost
+  (`lib/app-url.ts`). Added `apps/web/vercel.json` (region `bom1`). Build, typecheck, lint, format, unit pass.
+  **Nothing was tried on Vercel.** Unknowns: pnpm 12 on Vercel's builder, evidence files over 4.5 MB through
+  a function, fonts in the packaged browser.
+- **Hosted has every migration, `0001`–`0049`, recorded in its history** (the owner ran the catch-up script on
+  2026-10-12; read back afterwards: the four `0047` triggers, `org_settings` Admin-only, both Corporate ESG
+  grants, 66 records, 72 documents, 29 users unchanged). Earlier lines in this section that say `0047`,
+  `0048` or the history are behind are superseded by this one.
+- **The deployment check, `DEPLOYMENT.md` and this note were committed on `feature-employee-uploads` and
+  pushed to `ucn` and `origin` on 2026-10-12** (owner's request). Not committed, the owner's own files:
+  `.mcp.json`, `.vscode/mcp.json`, `PS_Documents/generated_reports/`, the employee import template.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -484,8 +498,6 @@ _Last updated: 2026-10-12._
 | Privacy and compliance decisions | Operator's legal name, address and privacy contact; legal basis and notice for employees; retention periods (audit log with IP addresses, documents and OCR text, notifications, reports); how people ask for access or erasure; processor terms (Supabase, Brevo, AI provider); landing wording ("Portfolio-Wide Deployment for MEIL", "by MEIL. All rights reserved" against the GPL-2.0 licence file, the FAQ's absolute "No"); the source of the six landing photographs; the Rs 2,500 carbon price and its stated source; a recipient for "Request a demo". List: `COMPLIANCE_AUDIT_2026-10-12.md` section 8. |
 | Chatbot: contact details no longer go to the AI service | Changed on 2026-10-12 against the 2026-10-11 "full access for Admins" decision: the model gets names, roles and org units; email, employee id and file names stay in the table. Confirm, or say to restore (`.grill/chat-admin-access-decisions.md`). |
 | After the August run | Keep or deactivate the 21 test accounts on hosted; enter factors for the 9 records waiting (or leave them); generate the report. Passwords: `test data/_backup/august-run-accounts.local.json`. |
-| Push migration `0048` to hosted, and confirm the role table | Adds two permissions to Corporate ESG (`.grill/role-permissions-decisions.md`). Also decide: pages outside the Admin area for Corporate ESG (review queue, reports, monitoring), and whether Project Manager keeps `carbon_credit.view`. |
-| Push migration `0047` to hosted | No table or column changes and the worker is unaffected, so the container need not be replaced. First run the read-only check in `DATABASE_AUDIT_2026-10-12.md` §5 on hosted (expect 0). |
 | Security audit follow-ups | Reset the passwords of accounts already created by bulk import (they were guessable). Decide: bulk import with no password at all (first sign-in by emailed code); what the carbon pages show when no price is configured (today an invented 2,500). Open items F-08, F-10 and the `xlsx` replacement are in `SECURITY_AUDIT_2026-10-12.md`. |
 | Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
 | NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
@@ -736,6 +748,8 @@ _Last updated: 2026-10-12._
 - **A session can be signed in and still not "active":** `password_change_required` (temporary password not
   yet changed). Anything new that reads the session must treat every status but `active` as no access. A
   test that creates an account through `users.invite` or bulk import must clear the mark or change the password.
+- **A file-tracing pattern with `[param]` in its route key matches nothing** (the brackets are read as a
+  character class): use `/api/trpc/*`. Check `<dist>/server/app/<route>/*.nft.json` after a build.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands
