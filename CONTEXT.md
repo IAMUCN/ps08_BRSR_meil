@@ -414,6 +414,19 @@ _Last updated: 2026-10-12._
   soft-deleted, so the address can be invited again. No migration. Checked through the real procedure on
   local, 20/20; typecheck, lint, format, unit. **Not run:** in a browser; on hosted — the cause for the
   owner's account there was not looked up.
+- **Expected submissions of the units below show on the parent (2026-10-12, owner's request), uncommitted on
+  `feature-invite-smtp`:** `organization.expectations` returns `requiredBelow` (unit names, through
+  `org_unit_tree`); the Organization card shows those activities ticked and locked with "From <unit>" and
+  counts them. Nothing is stored on the parent — a stored row would make the Control Tower expect a record
+  from the parent itself. No migration. Checked through the procedures on local 13/13, typecheck, lint,
+  format, unit. **Not viewed in a browser.**
+- **Role defaults reviewed (2026-10-12, owner's request), uncommitted on `feature-invite-smtp`; migration
+  `0048` on the LOCAL database only:** Corporate ESG gains `validation.review` and `report.generate`; nothing
+  else changes (`.grill/role-permissions-decisions.md`, D39). Database tests 321/321. Not run: end-to-end.
+  For non-Admins those permissions have no page yet (`/admin` is Admin-only).
+- **Edit role on Roles & Permissions (2026-10-12, owner's request), uncommitted on `feature-invite-smtp`:**
+  `roles.update` (name and description; code fixed; audited) and a side panel. No migration. Checked through
+  the procedure on local 15/15, typecheck, lint, format, unit. **Not viewed in a browser.**
 - **The four `feature-invite-smtp` entries above were committed and the branch pushed to `ucn` and `origin` on
   2026-10-12 at the owner's request** (it sits on top of `ui-rename-emeilsg`). No pull request, CI not run.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
@@ -427,6 +440,7 @@ _Last updated: 2026-10-12._
 | Design decisions from the UI audit | The site-wide custom cursor (the audit's rules say remove, the landing brief says keep); the hero card deck and the two captions that read as results; renaming and restyling Deadlines and Carbon credits to match the rest; the pill button on sign-in; an em-dash copy pass; the browser icon colour. `UI_AUDIT_2026-10-12.md`. |
 | Privacy and compliance decisions | Operator's legal name, address and privacy contact; legal basis and notice for employees; retention periods (audit log with IP addresses, documents and OCR text, notifications, reports); how people ask for access or erasure; processor terms (Supabase, Brevo, AI provider); landing wording ("Portfolio-Wide Deployment for MEIL", "by MEIL. All rights reserved" against the GPL-2.0 licence file, the FAQ's absolute "No"); the source of the six landing photographs; the Rs 2,500 carbon price and its stated source; a recipient for "Request a demo". List: `COMPLIANCE_AUDIT_2026-10-12.md` section 8. |
 | Chatbot: contact details no longer go to the AI service | Changed on 2026-10-12 against the 2026-10-11 "full access for Admins" decision: the model gets names, roles and org units; email, employee id and file names stay in the table. Confirm, or say to restore (`.grill/chat-admin-access-decisions.md`). |
+| Push migration `0048` to hosted, and confirm the role table | Adds two permissions to Corporate ESG (`.grill/role-permissions-decisions.md`). Also decide: pages outside the Admin area for Corporate ESG (review queue, reports, monitoring), and whether Project Manager keeps `carbon_credit.view`. |
 | Push migration `0047` to hosted | No table or column changes and the worker is unaffected, so the container need not be replaced. First run the read-only check in `DATABASE_AUDIT_2026-10-12.md` §5 on hosted (expect 0). |
 | Security audit follow-ups | Reset the passwords of accounts already created by bulk import (they were guessable). Decide: bulk import with no password at all (first sign-in by emailed code); what the carbon pages show when no price is configured (today an invented 2,500). Open items F-08, F-10 and the `xlsx` replacement are in `SECURITY_AUDIT_2026-10-12.md`. |
 | Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
@@ -450,7 +464,7 @@ _Last updated: 2026-10-12._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D39** and **A37**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D40** and **A37**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on

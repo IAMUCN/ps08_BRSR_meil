@@ -637,3 +637,11 @@ sender (Brevo). Decisions: `.grill/invite-smtp-decisions.md`.
   and the message counts what stands in the way. Notifications, reset codes and chat history go with the
   account. If the audit log names them, their profile row is kept hidden without the email address, so the
   history still shows who acted and the address can be invited again.
+- **Expected submissions roll up on the Organization page** (same day, owner's request): what a unit below
+  must submit is shown as expected on every unit above it, naming the unit it comes from. It is read from
+  the hierarchy, not stored on the parent, so the Control Tower's figures (which already counted it there)
+  do not change. Nothing is passed down.
+- **Roles & Permissions has Edit role** (same day, owner's request): the name and description of any role,
+  system roles included, can be changed; the code never changes (assignments, import sheets and the app's own
+  rules refer to it), and the Admin role keeps every permission whatever it is called. Audited as
+  `role.updated`.

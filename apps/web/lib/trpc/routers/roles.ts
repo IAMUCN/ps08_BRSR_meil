@@ -107,6 +107,47 @@ export const rolesRouter = router({
       }
     }),
 
+  /**
+   * Name and description only. The code is what assignments, bulk-import sheets and the app's own rules
+   * refer to, so it never changes.
+   */
+  update: roleManage
+    .input(
+      z.object({
+        roleId: z.uuid(),
+        name: z.string().trim().min(1, "Name is required.").max(100),
+        description: z
+          .string()
+          .trim()
+          .max(500)
+          .transform((d) => (d === "" ? null : d)),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const [role] = await tx<{ name: string; description: string | null }[]>`
+          select name, description from public.roles where id = ${input.roleId} for update`;
+        if (!role) badRequest("Role not found.");
+        if (role.name === input.name && role.description === input.description) return;
+        const [taken] = await tx`
+          select 1 from public.roles
+          where lower(name) = ${input.name.toLowerCase()} and id <> ${input.roleId}`;
+        if (taken) badRequest("Another role already has that name.");
+        await tx`
+          update public.roles set name = ${input.name}, description = ${input.description}
+          where id = ${input.roleId}`;
+        await writeAudit(tx, {
+          eventType: "role.updated",
+          entityType: "role",
+          entityId: input.roleId,
+          userId: ctx.session.userId,
+          oldValue: { name: role.name, description: role.description },
+          newValue: { name: input.name, description: input.description },
+        });
+      });
+      return null;
+    }),
+
   setPermissions: roleManage
     .input(z.object({ roleId: z.uuid(), permissionIds: z.array(z.uuid()).max(200) }))
     .mutation(async ({ ctx, input }) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Lock, Plus } from "lucide-react";
+import { Loader2, Lock, Pencil, Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -18,7 +18,12 @@ import {
 } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { RoleMatrix } from "@/lib/trpc/routers/roles";
-import { createRoleAction, deleteRoleAction, setRolePermissionsAction } from "./actions";
+import {
+  createRoleAction,
+  deleteRoleAction,
+  setRolePermissionsAction,
+  updateRoleAction,
+} from "./actions";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -33,6 +38,12 @@ export function RolesManager({
   const pathname = usePathname();
   const selected = matrix.roles.find((r) => r.id === selectedId) ?? matrix.roles[0] ?? null;
   const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  // One side panel at a time: a docked panel stays open when another opens.
+  const show = (panel: "create" | "edit") => {
+    setCreateOpen(panel === "create");
+    setEditOpen(panel === "edit");
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(260px,320px)_1fr]">
@@ -42,7 +53,10 @@ export function RolesManager({
             <li key={role.id}>
               <button
                 type="button"
-                onClick={() => router.replace(`${pathname}?role=${role.id}`, { scroll: false })}
+                onClick={() => {
+                  setEditOpen(false);
+                  router.replace(`${pathname}?role=${role.id}`, { scroll: false });
+                }}
                 aria-current={selected?.id === role.id ? "true" : undefined}
                 className={cn(
                   "flex w-full flex-wrap items-center justify-between gap-2 px-3 py-3 text-left text-sm",
@@ -60,7 +74,7 @@ export function RolesManager({
             </li>
           ))}
         </ul>
-        <Button variant="outline" className="w-full" onClick={() => setCreateOpen(true)}>
+        <Button variant="outline" className="w-full" onClick={() => show("create")}>
           <Plus aria-hidden />
           Create role
         </Button>
@@ -71,8 +85,19 @@ export function RolesManager({
           key={selected.id}
           role={selected}
           permissions={matrix.permissions}
+          onEdit={() => show("edit")}
           onDone={() => router.refresh()}
           onDeleted={() => router.replace(pathname, { scroll: false })}
+        />
+      ) : null}
+
+      {selected ? (
+        <EditRoleSheet
+          key={`edit-${selected.id}-${selected.name}-${selected.description ?? ""}`}
+          role={selected}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onSaved={() => router.refresh()}
         />
       ) : null}
 
@@ -91,11 +116,13 @@ export function RolesManager({
 function RolePermissions({
   role,
   permissions,
+  onEdit,
   onDone,
   onDeleted,
 }: {
   role: RoleMatrix["roles"][number];
   permissions: RoleMatrix["permissions"];
+  onEdit: () => void;
   onDone: () => void;
   onDeleted: () => void;
 }) {
@@ -139,13 +166,19 @@ function RolePermissions({
             </p>
           ) : null}
         </div>
-        {role.isLocked ? (
-          <StatusBadge tone="locked">Locked</StatusBadge>
-        ) : role.isSystemRole ? (
-          <StatusBadge tone="neutral">System role</StatusBadge>
-        ) : (
-          <StatusBadge tone="neutral">Custom role</StatusBadge>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {role.isLocked ? (
+            <StatusBadge tone="locked">Locked</StatusBadge>
+          ) : role.isSystemRole ? (
+            <StatusBadge tone="neutral">System role</StatusBadge>
+          ) : (
+            <StatusBadge tone="neutral">Custom role</StatusBadge>
+          )}
+          <Button type="button" variant="outline" size="sm" onClick={onEdit}>
+            <Pencil aria-hidden />
+            Edit role
+          </Button>
+        </div>
       </div>
 
       {role.isLocked ? (
@@ -221,6 +254,83 @@ function RolePermissions({
         </p>
       </ConfirmDialog>
     </section>
+  );
+}
+
+/** Name and description of a role. Its code and, for Admin, its permissions stay as they are. */
+function EditRoleSheet({
+  role,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  role: RoleMatrix["roles"][number];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [name, setName] = useState(role.name);
+  const [description, setDescription] = useState(role.description ?? "");
+  const dirty = name.trim() !== role.name || description.trim() !== (role.description ?? "");
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    startTransition(async () => {
+      const result = await updateRoleAction({ roleId: role.id, name, description });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Role updated");
+      onOpenChange(false);
+      onSaved();
+    });
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>Edit role</SheetTitle>
+          <SheetDescription>
+            Change the name and description. Permissions are ticked on the page; the code cannot
+            change because assignments and import sheets refer to it.
+          </SheetDescription>
+        </SheetHeader>
+        <form onSubmit={onSubmit} className="space-y-4 px-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-role-name">Name</Label>
+            <Input
+              id="edit-role-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={100}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-role-code">Code</Label>
+            <Input id="edit-role-code" value={role.code} className="font-mono" readOnly disabled />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-role-description">Description (optional)</Label>
+            <textarea
+              id="edit-role-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              maxLength={500}
+              className="w-full rounded-sm border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={pending || !dirty || !name.trim()}>
+            {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+            Save changes
+          </Button>
+        </form>
+      </SheetContent>
+    </Sheet>
   );
 }
 

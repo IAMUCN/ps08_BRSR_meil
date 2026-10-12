@@ -556,3 +556,13 @@ its own undo.
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.
 - §3.1 refers to "a narrow view, §14.5"; no §14.5 exists (addressed by D5).
+
+## D39 — Default permissions of the seeded roles reviewed (migration `0048`)
+
+**Change:** Corporate ESG / Sustainability also holds `validation.review` and `report.generate`. No permission
+is added to or removed from the catalogue; no other role changes; custom roles are untouched.
+
+**Why:** the owner asked for each role's permissions to follow how the roles work in a real organisation
+(`.grill/role-permissions-decisions.md` has the full table). The corporate sustainability team approves and
+monitors, and needs the two steps between: settling flagged values and producing the report. Both are limited
+to the person's org scope. Organisation-wide configuration stays with Admin.

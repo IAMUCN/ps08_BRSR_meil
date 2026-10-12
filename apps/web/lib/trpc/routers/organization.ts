@@ -32,7 +32,10 @@ export type OrgExpectation = {
   /** "Scope 1", "Scope 2", "Scope 3", or null for activities outside the three scopes. */
   scopeName: string | null;
   frequency: string;
+  /** Set on this unit itself. */
   expected: boolean;
+  /** Units below this one that must submit it — it then counts as expected here too. */
+  requiredBelow: string[];
 };
 
 export type OrgUnitRow = OrgNodeRow & { activeAssignments: number };
@@ -567,6 +570,7 @@ export const organizationRouter = router({
           scope_name: string | null;
           frequency: string;
           expected: boolean;
+          required_below: string[];
         }[]
       >`
         -- A Scope 3 activity sits under its category, whose parent is Scope 3: group by the scope itself
@@ -574,7 +578,15 @@ export const organizationRouter = router({
         select m.id, m.name, case when ps.id is null then c.name else s.name end as category_name,
                coalesce(ps.name, s.name) as scope_name, m.frequency::text,
                exists (select 1 from public.submission_expectations e
-                        where e.org_unit_id = ${input.orgUnitId} and e.metric_id = m.id) as expected
+                        where e.org_unit_id = ${input.orgUnitId} and e.metric_id = m.id) as expected,
+               -- What the units below must submit is expected of this unit as well: the Control Tower
+               -- already counts it here (org_unit_tree also follows a shared unit's other parents).
+               coalesce((select array_agg(distinct o.name order by o.name)
+                         from public.submission_expectations e
+                         join public.org_unit_tree t on t.descendant_id = e.org_unit_id
+                           and t.ancestor_id = ${input.orgUnitId} and t.descendant_id <> t.ancestor_id
+                         join public.org_units o on o.id = e.org_unit_id and o.deleted_at is null
+                         where e.metric_id = m.id), '{}') as required_below
         from public.esg_metrics m join public.esg_categories c on c.id = m.category_id
         left join public.scopes s on s.id = m.scope_id
         left join public.scopes ps on ps.id = s.parent_scope_id
@@ -587,6 +599,7 @@ export const organizationRouter = router({
         scopeName: r.scope_name,
         frequency: r.frequency,
         expected: r.expected,
+        requiredBelow: r.required_below,
       }));
     }),
 
