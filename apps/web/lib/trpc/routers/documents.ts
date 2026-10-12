@@ -85,6 +85,8 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
     select rp.role_id from public.role_permissions rp
     join public.permissions p on p.id = rp.permission_id
     where p.code = 'document.upload'`;
+  const behalfRows = await sql<{ id: string; uploads_for_role_id: string }[]>`
+    select id, uploads_for_role_id from public.roles where uploads_for_role_id is not null`;
 
   const metricRows = await sql<
     {
@@ -129,6 +131,7 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
     assignments.map((a) => ({ orgUnitId: a.org_unit_id, roleId: a.role_id })),
     new Set(uploadRoles.map((r) => r.role_id)),
     [...categoriesById.values()],
+    new Map(behalfRows.map((r) => [r.id, r.uploads_for_role_id])),
   );
   const targets = nodeRows
     .filter((n) => targetMap.has(n.id))

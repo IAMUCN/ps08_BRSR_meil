@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -8,6 +9,16 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   // Report PDFs (TRD §17): a headless browser and its binary are loaded at runtime, never bundled.
   serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium"],
+  // The browser itself is a set of compressed files in the package's bin folder, opened by path at runtime:
+  // file tracing does not see them, so a deployed function would have the package and no browser. They are
+  // added to the two places a report can be started from (the Reports page's action and the API route).
+  outputFileTracingRoot: path.join(import.meta.dirname, "../../"),
+  outputFileTracingIncludes: Object.fromEntries(
+    ["/admin/reports", "/api/trpc/*"].map((route) => [
+      route,
+      ["../../node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**"],
+    ]),
+  ),
   // Security headers on every response (audit fix P2, SECURITY_REVIEW.md). The policy stops the app being
   // framed, plugins and injected <base>/form targets; it does not restrict scripts — that needs per-request
   // nonces, recorded as an open item rather than shipped half-working.

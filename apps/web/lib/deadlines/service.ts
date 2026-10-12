@@ -1,5 +1,6 @@
 import "server-only";
 import type postgres from "postgres";
+import { appUrl } from "@/lib/app-url";
 import { writeAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/brevo";
@@ -639,7 +640,7 @@ export async function executeEscalationSweep(input: {
             periodName: task.periodName,
             dueDateFormatted: task.dueDate,
             urgencyText,
-            deepLinkUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}${task.deepLinkPath}`,
+            deepLinkUrl: `${appUrl()}${task.deepLinkPath}`,
           }),
         });
       }
@@ -747,7 +748,7 @@ export async function sendManualTaskReminder(input: {
             task.daysRemaining < 0
               ? `${task.daysOverdue} days overdue`
               : `${task.daysRemaining} days remaining`,
-          deepLinkUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}${task.deepLinkPath}`,
+          deepLinkUrl: `${appUrl()}${task.deepLinkPath}`,
         }),
       });
       if (res.sent) emailed++;

@@ -427,8 +427,65 @@ _Last updated: 2026-10-12._
 - **Edit role on Roles & Permissions (2026-10-12, owner's request), uncommitted on `feature-invite-smtp`:**
   `roles.update` (name and description; code fixed; audited) and a side panel. No migration. Checked through
   the procedure on local 15/15, typecheck, lint, format, unit. **Not viewed in a browser.**
+- **The owner committed and merged the entries above themselves on 2026-10-12** (`e1586f3`, pull requests #27
+  and #28; expected submissions on the parent, role defaults with migration `0048`, Edit role) and switched
+  this checkout to `main` (`e7beca5`). Migration `0048` is still on the local database only.
+- **Test data set 1 follows the hierarchy in the web app (2026-10-12, owner's request), uncommitted in the
+  working tree, which is on `main` — branch before committing:** the hosted org units were read (read-only): MEIL, six subsidiaries, five code-less
+  projects under Olectra Greentech, TGSRTC Telangana under EVEY and Olectra. Set 1's documents are now filed
+  under Seetharampur plant, MSRTC e-bus order, BEST Mumbai e-buses and TGSRTC Telangana (57 files); its org
+  sheet is a reference list, not for import; its employee sheet names units by name. Set 2 was regenerated
+  too (it repeats set 1's units; the subsidiaries already in the app left its sheet). Checked: every name
+  against the hosted list, files on disk, Ruff. **Not run:** OCR on the new files, any import or upload. The
+  owner had set 1's employee sheet open in Excel, so the new one is `… - NEW.xlsx` beside it. Hosted has one
+  period, "August 26-27" (draft); the manifest says August 2026.
 - **The four `feature-invite-smtp` entries above were committed and the branch pushed to `ucn` and `origin` on
   2026-10-12 at the owner's request** (it sits on top of `ui-rename-emeilsg`). No pull request, CI not run.
+- **Employee role uploads for the Project Manager (2026-10-12, owner's request), uncommitted on `main`'s
+  working tree:** migration `0049` (`roles.uploads_for_role_id`, D40), `uploadTargets`, `roles.update`, a select
+  in Edit role (`.grill/employee-uploads-decisions.md`). Checked: procedures on local 18/18, database tests
+  321/321, unit, typecheck, lint, format. Not viewed in a browser. **The column is on hosted (applied by hand,
+  not recorded in the migration history); the hosted Employee role does not have the setting yet.**
+- **August run on hosted with test data 1 — done 2026-10-12** (owner: "use test emails ... and proceed").
+  Set up by script, audited with no user and a note naming the agent: Employee (`emp`) uploads on behalf of
+  Project Manager; HR got upload and verify back; Corporate ESG got `validation.review`; **21 test accounts**
+  (`…@emeilsg.test`, employee ids `TEST-001`–`TEST-021`: Employee, Project Manager, EHS, HR, Procurement and
+  Finance at MSRTC e-bus order, BEST Mumbai e-buses and Seetharampur plant; Employee and Project Manager at
+  TGSRTC Telangana; Corporate ESG at MEIL). Their passwords are in the git-ignored
+  `test data/_backup/august-run-accounts.local.json`. The owner's own accounts were not touched; the period
+  was already open. Run through the dev server on port 3000 over HTTP as those accounts (sign-in form, the
+  screens' procedures, the hosted worker): 57 files uploaded, 6 multi-bill PDFs split, **66 records, all 47
+  activities**, each verified, all validated, **57 approved, 9 waiting for a conversion factor** (waste,
+  PNG, steam, heat / cooling, the spend-based ones — none has a factor by design). Project Manager bills
+  were uploaded by the Employee accounts and verified by the Project Manager accounts. The faint headcount
+  figure was misread (439 for 139), validation failed it, HR corrected it. No OCR job failed. Not done: a
+  report, anything in a browser. Run script and its state file: session scratchpad and `test data/_backup/`.
+- **Hosted migration history is behind what is applied:** it records up to `0045`; `0046` (carbon) and the
+  `0049` column are present, `0047` and `0048` are not. A plain `supabase db push` would try `0046` again.
+- **The Employee setting (migration `0049`), the realigned test data and the notes of the August run were
+  committed on branch `feature-employee-uploads` and pushed to `ucn` and `origin` on 2026-10-12** (owner's
+  request; no pull request, CI not run). Left out, the owner's own untracked files:
+  `PS_Documents/generated_reports/` and `test data/test data 1/employee-bulk-import-template.xlsx`.
+- **Hosted migration catch-up prepared, NOT applied (2026-10-12, owner: "make everything up to date"):** the
+  read-only check passed (no evidence link across org units, no over-drawn carbon batch, `0046` fully present,
+  66 records, 72 documents, 29 users), but applying `0047` and `0048` was refused by the permission system.
+  The owner runs `node "test data/_backup/hosted-catchup.cjs" apply` (or allows it). `PROGRESS.md` was brought
+  up to date the same day. Git: `main` is the same on `ucn`, `origin` and locally (`e7beca5`);
+  `feature-employee-uploads` is one commit ahead plus this docs commit, pushed, not merged.
+- **Vercel deployment check (2026-10-12, owner will deploy the web app there), uncommitted on
+  `feature-employee-uploads`:** `DEPLOYMENT.md` (settings, variables, what to try first). Fixed: the report
+  browser's files were not in the build's file trace (`outputFileTracingIncludes` in `next.config.ts`; checked
+  in the `.nft.json` of `/admin/reports` and the tRPC route); deadline-email links fell back to localhost
+  (`lib/app-url.ts`). Added `apps/web/vercel.json` (region `bom1`). Build, typecheck, lint, format, unit pass.
+  **Nothing was tried on Vercel.** Unknowns: pnpm 12 on Vercel's builder, evidence files over 4.5 MB through
+  a function, fonts in the packaged browser.
+- **Hosted has every migration, `0001`–`0049`, recorded in its history** (the owner ran the catch-up script on
+  2026-10-12; read back afterwards: the four `0047` triggers, `org_settings` Admin-only, both Corporate ESG
+  grants, 66 records, 72 documents, 29 users unchanged). Earlier lines in this section that say `0047`,
+  `0048` or the history are behind are superseded by this one.
+- **The deployment check, `DEPLOYMENT.md` and this note were committed on `feature-employee-uploads` and
+  pushed to `ucn` and `origin` on 2026-10-12** (owner's request). Not committed, the owner's own files:
+  `.mcp.json`, `.vscode/mcp.json`, `PS_Documents/generated_reports/`, the employee import template.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -440,8 +497,7 @@ _Last updated: 2026-10-12._
 | Design decisions from the UI audit | The site-wide custom cursor (the audit's rules say remove, the landing brief says keep); the hero card deck and the two captions that read as results; renaming and restyling Deadlines and Carbon credits to match the rest; the pill button on sign-in; an em-dash copy pass; the browser icon colour. `UI_AUDIT_2026-10-12.md`. |
 | Privacy and compliance decisions | Operator's legal name, address and privacy contact; legal basis and notice for employees; retention periods (audit log with IP addresses, documents and OCR text, notifications, reports); how people ask for access or erasure; processor terms (Supabase, Brevo, AI provider); landing wording ("Portfolio-Wide Deployment for MEIL", "by MEIL. All rights reserved" against the GPL-2.0 licence file, the FAQ's absolute "No"); the source of the six landing photographs; the Rs 2,500 carbon price and its stated source; a recipient for "Request a demo". List: `COMPLIANCE_AUDIT_2026-10-12.md` section 8. |
 | Chatbot: contact details no longer go to the AI service | Changed on 2026-10-12 against the 2026-10-11 "full access for Admins" decision: the model gets names, roles and org units; email, employee id and file names stay in the table. Confirm, or say to restore (`.grill/chat-admin-access-decisions.md`). |
-| Push migration `0048` to hosted, and confirm the role table | Adds two permissions to Corporate ESG (`.grill/role-permissions-decisions.md`). Also decide: pages outside the Admin area for Corporate ESG (review queue, reports, monitoring), and whether Project Manager keeps `carbon_credit.view`. |
-| Push migration `0047` to hosted | No table or column changes and the worker is unaffected, so the container need not be replaced. First run the read-only check in `DATABASE_AUDIT_2026-10-12.md` §5 on hosted (expect 0). |
+| After the August run | Keep or deactivate the 21 test accounts on hosted; enter factors for the 9 records waiting (or leave them); generate the report. Passwords: `test data/_backup/august-run-accounts.local.json`. |
 | Security audit follow-ups | Reset the passwords of accounts already created by bulk import (they were guessable). Decide: bulk import with no password at all (first sign-in by emailed code); what the carbon pages show when no price is configured (today an invented 2,500). Open items F-08, F-10 and the `xlsx` replacement are in `SECURITY_AUDIT_2026-10-12.md`. |
 | Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
 | NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
@@ -464,7 +520,7 @@ _Last updated: 2026-10-12._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D40** and **A37**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D41** and **A37**), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -692,6 +748,8 @@ _Last updated: 2026-10-12._
 - **A session can be signed in and still not "active":** `password_change_required` (temporary password not
   yet changed). Anything new that reads the session must treat every status but `active` as no access. A
   test that creates an account through `users.invite` or bulk import must clear the mark or change the password.
+- **A file-tracing pattern with `[param]` in its route key matches nothing** (the brackets are read as a
+  character class): use `/api/trpc/*`. Check `<dist>/server/app/<route>/*.nft.json` after a build.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands
