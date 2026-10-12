@@ -486,6 +486,15 @@ _Last updated: 2026-10-12._
 - **The deployment check, `DEPLOYMENT.md` and this note were committed on `feature-employee-uploads` and
   pushed to `ucn` and `origin` on 2026-10-12** (owner's request). Not committed, the owner's own files:
   `.mcp.json`, `.vscode/mcp.json`, `PS_Documents/generated_reports/`, the employee import template.
+- **Worker image rebuilt 2026-10-12** (owner's request): `traceesg-ocr-worker:latest` is now `5ee1ae92263e`,
+  `rules-13`, with the error-report change (`worker/logs.py`) and pip upgraded last. Checked in the image:
+  worker unit 44/44, the OCR engine loads. **The container `traceesg-ocr-worker-hosted` was recreated from it the same day** (owner's request; settings
+  from `apps/ocr-worker/.env`, restart `unless-stopped`; it reports "worker ready", no errors in its log). The
+  first attempt removed the old container and then failed to start the new one, so the worker was down for
+  about a minute. No document has been put through the new container yet.
+- **`feature-employee-uploads` is merged** (pull request #29, 2026-10-12) and the owner committed the MCP
+  settings and report files on `main` (`4d4dea1`); `main` is the same on `ucn`, `origin` and locally. This
+  note and the worker entry above are on branch `docs-worker-image-note`, pushed to both, not merged.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -750,6 +759,8 @@ _Last updated: 2026-10-12._
   test that creates an account through `users.invite` or bulk import must clear the mark or change the password.
 - **A file-tracing pattern with `[param]` in its route key matches nothing** (the brackets are read as a
   character class): use `/api/trpc/*`. Check `<dist>/server/app/<route>/*.nft.json` after a build.
+- **Docker on Windows cannot read an `--env-file` given as a Git Bash path** (`/tmp/…` from `mktemp`): use a
+  `C:/…` path, and keep the settings until the new container is up — the old one's are gone once it is removed.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands
