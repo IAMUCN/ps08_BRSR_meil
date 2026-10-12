@@ -1,25 +1,20 @@
-// Supabase's session pooler (port 5432) holds one database connection per client and allows only 15 in
-// all. Serverless instances each open their own pool, so on Vercel the limit is reached within a few
-// requests ("EMAXCONNSESSION") and every page that touches the database fails. On Vercel the transaction
-// pooler (port 6543) is used instead, whatever port the setting names; everywhere else the URL is used
-// as given. The app already sets `prepare: false`, which the transaction pooler requires.
+// Connection pool settings for the server's direct database connection (lib/db.ts, lib/chat/data.ts).
 //
-// The pool is NOT made smaller there: with the transaction pooler and only three connections a report for
-// a whole financial year (several queries at once) stalled until the function timed out, while the same
-// report with five connections takes about two seconds. The transaction pooler allows many clients.
-export function serverlessPoolerUrl(
-  url: string,
+// Supabase's session pooler (port 5432) allows only 15 clients in all, shared with the OCR worker, every
+// developer's machine and every serverless instance. On Vercel an instance that keeps five idle
+// connections for 20 seconds therefore exhausts it ("EMAXCONNSESSION"). There the pool is smaller and
+// gives idle connections back quickly instead.
+//
+// The transaction pooler (port 6543) was tried and rejected: on Vercel it stalled a report job and every
+// request behind it until the function timed out after 300 s, although the same queries finish in about
+// two seconds from a laptop. The URL is therefore used exactly as configured.
+export type PoolSettings = { max: number; idle_timeout: number };
+
+export function poolSettings(
+  local: number,
   env: Record<string, string | undefined> = process.env,
-): string {
-  if (!env.VERCEL) return url;
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname.endsWith(".pooler.supabase.com") && (parsed.port || "5432") === "5432") {
-      parsed.port = "6543";
-      return parsed.toString();
-    }
-  } catch {
-    // Not a URL we can read: leave it alone and let the driver report it.
-  }
-  return url;
+): PoolSettings {
+  return env.VERCEL
+    ? { max: Math.min(local, 3), idle_timeout: 5 }
+    : { max: local, idle_timeout: 20 };
 }

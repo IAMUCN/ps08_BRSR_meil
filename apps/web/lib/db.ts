@@ -1,6 +1,6 @@
 import "server-only";
 import postgres from "postgres";
-import { serverlessPoolerUrl } from "@/lib/pooler-url";
+import { poolSettings } from "@/lib/pooler-url";
 
 // Direct Postgres access for server-side transactional mutations (.grill/phase-3-auth-decisions.md).
 // Bypasses RLS like the service role — import only from server code (tRPC procedures).
@@ -15,10 +15,9 @@ export function db(): postgres.Sql {
     // Cached on globalThis so dev hot-reloads don't open a new pool each time.
     // idle_timeout / max_lifetime: close pooled connections before the Supabase pooler or the network drops
     // them silently, which otherwise surfaces as "read ECONNRESET" on the next query after a quiet spell.
-    globalForDb.emeilSgSql = postgres(serverlessPoolerUrl(url), {
+    globalForDb.emeilSgSql = postgres(url, {
       prepare: false,
-      max: 5,
-      idle_timeout: 20,
+      ...poolSettings(5),
       max_lifetime: 60 * 30,
       connect_timeout: 15,
     });

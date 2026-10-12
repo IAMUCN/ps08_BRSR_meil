@@ -2,7 +2,7 @@ import "server-only";
 import postgres from "postgres";
 import type { ActiveSession } from "@/lib/auth/session";
 import { loadMetrics } from "@/lib/consolidation/query";
-import { serverlessPoolerUrl } from "@/lib/pooler-url";
+import { poolSettings } from "@/lib/pooler-url";
 import { db } from "@/lib/db";
 import type { Period } from "./analysis";
 import { readConfig } from "./nim";
@@ -20,10 +20,7 @@ const globalForChat = globalThis as unknown as { emeilSgChatSql?: postgres.Sql }
 
 function reader(url: string): postgres.Sql {
   // Cached on globalThis like the main pool (lib/db.ts); prepare: false for Supabase's pooler.
-  globalForChat.emeilSgChatSql ??= postgres(serverlessPoolerUrl(url), {
-    prepare: false,
-    max: 3,
-  });
+  globalForChat.emeilSgChatSql ??= postgres(url, { prepare: false, ...poolSettings(2) });
   return globalForChat.emeilSgChatSql;
 }
 

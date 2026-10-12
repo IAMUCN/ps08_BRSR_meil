@@ -1,19 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { serverlessPoolerUrl } from "../lib/pooler-url.ts";
+import { poolSettings } from "../lib/pooler-url.ts";
 
-const session = "postgresql://postgres.abc:pw@aws-0-ap-south-1.pooler.supabase.com:5432/postgres";
-
-test("on Vercel the session pooler port becomes the transaction pooler port", () => {
-  const out = serverlessPoolerUrl(session, { VERCEL: "1" });
-  assert.equal(new URL(out).port, "6543");
-  assert.equal(new URL(out).username, "postgres.abc");
+test("on Vercel the pool is small and gives idle connections back quickly", () => {
+  assert.deepEqual(poolSettings(5, { VERCEL: "1" }), { max: 3, idle_timeout: 5 });
+  assert.deepEqual(poolSettings(2, { VERCEL: "1" }), { max: 2, idle_timeout: 5 });
 });
 
-test("elsewhere, and for other hosts or ports, the URL is unchanged", () => {
-  assert.equal(serverlessPoolerUrl(session, {}), session);
-  const local = "postgresql://postgres:postgres@127.0.0.1:55322/postgres";
-  assert.equal(serverlessPoolerUrl(local, { VERCEL: "1" }), local);
-  const done = session.replace(":5432", ":6543");
-  assert.equal(serverlessPoolerUrl(done, { VERCEL: "1" }), done);
+test("elsewhere the pool keeps its normal size", () => {
+  assert.deepEqual(poolSettings(5, {}), { max: 5, idle_timeout: 20 });
 });
