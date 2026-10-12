@@ -656,7 +656,7 @@ async function importOneEmployee(
 
   const emailResult = await sendEmail({
     to: { email: row.email, name: row.displayName },
-    subject: "Your TraceESG account",
+    subject: "Your EmeilSG account",
     html: accountCreatedEmailHtml({ displayName: row.displayName, email: row.email, password }),
   });
 

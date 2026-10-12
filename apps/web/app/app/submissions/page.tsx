@@ -18,7 +18,7 @@ import {
 import { api } from "@/lib/trpc/server";
 import { SubmissionRow } from "./submission-row";
 
-export const metadata: Metadata = { title: "My Submissions · TraceESG" };
+export const metadata: Metadata = { title: "My Submissions · EmeilSG" };
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-IN", {

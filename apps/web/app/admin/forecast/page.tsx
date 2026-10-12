@@ -7,7 +7,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { ForecastClient } from "./forecast-client";
 
-export const metadata: Metadata = { title: "Emissions Forecast · TraceESG" };
+export const metadata: Metadata = { title: "Emissions Forecast · EmeilSG" };
 
 export default async function EmissionsForecastPage() {
   await requireAdminSession();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LogoMark } from "@/components/brand/logo-mark";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { NavbarDock } from "@/components/landing/navbar-dock";
@@ -12,25 +13,10 @@ export function LandingNavbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="TraceESG home">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#313490] shadow-sm">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5 text-white"
-              aria-hidden
-            >
-              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <path d="M12 22v-6c0-1.5 1-2.5 2.5-2.5S17 14.5 17 16" />
-              <circle cx="12" cy="11" r="2" />
-            </svg>
-          </span>
-          <span className="text-xl font-extrabold leading-none tracking-tight text-slate-900">
-            TraceESG
+        <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="EmeilSG home">
+          <LogoMark className="h-9 w-9" />
+          <span className="text-xl leading-none font-extrabold tracking-tight text-[#0B2A5B]">
+            Emeil<span className="text-[#1E7A34]">SG</span>
           </span>
         </Link>
 

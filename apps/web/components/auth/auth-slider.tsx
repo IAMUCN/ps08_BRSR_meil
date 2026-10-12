@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { LogoMark } from "@/components/brand/logo-mark";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { ForgotPasswordForm } from "@/app/forgot-password/forgot-password-form";
@@ -40,8 +41,14 @@ export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: Rea
   return (
     <div className="flex flex-1 flex-col bg-slate-50 [--background:#fff] [--border:#e2e8f0] [--card:#fff] [--input:#cbd5e1] [--muted:#f1f5f9] [--primary:#313490] [--ring:#313490]">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-5 sm:px-6">
-        <Link href="/" className="text-lg font-bold tracking-tight text-slate-900">
-          Trace<span className="text-[#313490]">ESG</span>
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-lg font-bold tracking-tight text-[#0B2A5B]"
+        >
+          <LogoMark className="h-7 w-7" />
+          <span>
+            Emeil<span className="text-[#1E7A34]">SG</span>
+          </span>
         </Link>
         <Link
           href="/"
@@ -65,7 +72,7 @@ export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: Rea
                 forgot ? "pointer-events-none opacity-0 md:translate-x-full" : "z-10 opacity-100"
               }`}
             >
-              <p className="text-sm font-semibold text-primary">TraceESG</p>
+              <p className="text-sm font-semibold text-primary">EmeilSG</p>
               <h1 className="mt-1 mb-6 text-2xl font-semibold">Sign in</h1>
               {notice}
               {signIn}
@@ -131,7 +138,7 @@ export function AuthSlider({ notice, signIn }: { notice?: ReactNode; signIn: Rea
         </div>
       </main>
       <p className="pb-6 text-center text-xs text-slate-500">
-        &copy; MEIL &middot; TraceESG evidence-first BRSR reporting
+        &copy; MEIL &middot; EmeilSG evidence-first BRSR reporting
       </p>
     </div>
   );

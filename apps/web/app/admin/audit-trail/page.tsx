@@ -5,7 +5,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api, orNotFound } from "@/lib/trpc/server";
 import { AuditFilters, AuditTable } from "./audit-view";
 
-export const metadata: Metadata = { title: "Audit Trail · TraceESG" };
+export const metadata: Metadata = { title: "Audit Trail · EmeilSG" };
 
 type Params = Record<string, string | string[] | undefined>;
 const one = (p: Params, k: string) =>
@@ -98,7 +98,7 @@ export default async function AuditTrailPage({ searchParams }: PageProps<"/admin
     <div className="max-w-7xl space-y-4">
       <PageHeader
         title="Audit Trail"
-        description="Every material action in TraceESG, newest first. The log is append-only: the database refuses any change or removal of an entry."
+        description="Every material action in EmeilSG, newest first. The log is append-only: the database refuses any change or removal of an entry."
       />
       <AuditFilters options={options} values={values} />
       <AuditTable events={page.events} />

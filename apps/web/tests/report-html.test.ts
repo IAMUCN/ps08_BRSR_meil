@@ -168,7 +168,7 @@ test("the methodology section names the boundary and every factor's source", () 
       ],
     }),
   );
-  assert.match(html, /every org unit beneath\s+it recorded in TraceESG \(4 org units\)/);
+  assert.match(html, /every org unit beneath\s+it recorded in EmeilSG \(4 org units\)/);
   assert.match(html, /0\.71 kgCO2e \/ kWh/);
   assert.match(html, /CEA CO2 Baseline Database v21\.0/);
   assert.match(html, /2024-04-01 to date/);

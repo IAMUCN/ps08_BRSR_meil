@@ -28,7 +28,7 @@ export function WhatIsBrsrSection() {
     <section id="brsr" className="bg-slate-50/70 px-4 py-20 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl">
         <SectionHeading eyebrow="Aligned to BRSR" title="Built around SEBI's BRSR framework">
-          BRSR is a mapping layer in TraceESG, not hard-coded questions. When reporting requirements
+          BRSR is a mapping layer in EmeilSG, not hard-coded questions. When reporting requirements
           change, the mapping changes, not the application.
         </SectionHeading>
         <div className="grid gap-4 sm:grid-cols-3">

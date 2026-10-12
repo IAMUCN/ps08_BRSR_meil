@@ -133,3 +133,17 @@ test:a11y` (axe-core plus scripted keyboard, dialog, reflow and target-size chec
 (never rendered). Checked: no file of a production build mentions it; a development server still references it.
 Also from the validation stage: `app/admin/reports/bundle/bundle-client.tsx`
 uses the standard table header tokens.
+
+## 2026-10-12 — The product is called EmeilSG; new logo (owner's request)
+
+- Name: every place the app shows or sends its name says **EmeilSG** — page titles, landing page, sign-in,
+  sidebar, emails (subjects, bodies, default sender name), invite and recovery templates, the report PDF, the
+  evidence bundle and its file name, the chatbot's instructions. Browser storage keys and the set-password
+  cookie were renamed too (`emeilsg-theme`, `emeilsg-chat-open`, `emeilsg-password-setup`).
+- Logo: `components/brand/logo-mark.tsx` and `app/icon.svg` (the browser icon) hold the same drawing — a
+  document with lines and bars and a leaf in front, **redrawn by hand from the owner's PNG**, not traced. Used
+  in the landing header and the sign-in header with the two-colour wordmark (navy `#0B2A5B`, green `#1E7A34`;
+  the logo's lighter green is 3.46:1 on white, too low for small text).
+- Kept on purpose, not shown to users: the Docker image and container name `traceesg-ocr-worker`, the test
+  accounts' `@traceesg.test` addresses, the package name `@traceesg/shared-types`, temp-folder prefixes in
+  tests, and the project's documents (history).

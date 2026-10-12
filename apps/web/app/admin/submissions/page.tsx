@@ -7,7 +7,7 @@ import { readParams, stringParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
 
 import { RemindButton } from "./remind-button";
-export const metadata: Metadata = { title: "Submission Monitoring · TraceESG" };
+export const metadata: Metadata = { title: "Submission Monitoring · EmeilSG" };
 
 // Where each issue is acted on (the Control Tower lands here with the exact slice it counted).
 const QUEUE: Record<string, { href: string; label: string }> = {

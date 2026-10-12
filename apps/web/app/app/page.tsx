@@ -10,7 +10,7 @@ import { submissionTab } from "@/lib/ocr/rules";
 import { formatTotal } from "@/lib/scope/display";
 import { api } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "Dashboard · TraceESG" };
+export const metadata: Metadata = { title: "Dashboard · EmeilSG" };
 
 function formatDate(iso: string) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", {

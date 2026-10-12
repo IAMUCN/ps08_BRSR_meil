@@ -9,7 +9,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { RunsTable } from "../runs-table";
 
-export const metadata: Metadata = { title: "Past Reports · TraceESG" };
+export const metadata: Metadata = { title: "Past Reports · EmeilSG" };
 
 // Every report ever generated, successful or failed (owner's page feedback, 2026-10-09; A29).
 export default async function ReportHistoryPage() {

@@ -9,7 +9,7 @@ export const THEMES = [
 export type ThemeId = (typeof THEMES)[number]["id"];
 
 export const DEFAULT_THEME: ThemeId = "theme-2";
-export const THEME_STORAGE_KEY = "traceesg-theme";
+export const THEME_STORAGE_KEY = "emeilsg-theme";
 
 export const isTheme = (value: unknown): value is ThemeId => THEMES.some((t) => t.id === value);
 

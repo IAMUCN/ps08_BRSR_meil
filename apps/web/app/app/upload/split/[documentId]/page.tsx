@@ -11,7 +11,7 @@ import { pagesLabel } from "@/lib/documents/bundle";
 import { requireAppSession } from "@/lib/auth/session";
 import { api, orNotFound } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "Split PDF · TraceESG" };
+export const metadata: Metadata = { title: "Split PDF · EmeilSG" };
 
 // A PDF with several bills (.grill/multi-bill-pdf-decisions.md): wait for the OCR, then the uploader
 // checks how it is split before anything is recorded.

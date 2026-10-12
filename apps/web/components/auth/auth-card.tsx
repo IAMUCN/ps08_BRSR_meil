@@ -17,7 +17,7 @@ export function AuthCard({
       className="flex flex-1 items-center justify-center p-6 outline-none"
     >
       <div className="w-full max-w-sm rounded-md border bg-card p-6 text-card-foreground">
-        <p className="text-sm font-semibold text-primary-text">TraceESG</p>
+        <p className="text-sm font-semibold text-primary-text">EmeilSG</p>
         <h1 className="mt-1 text-2xl leading-8 font-semibold">{title}</h1>
         {description ? (
           <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>

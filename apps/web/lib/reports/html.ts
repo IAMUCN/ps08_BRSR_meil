@@ -588,7 +588,7 @@ function methodology(s: Snapshot, years: Year[]) {
   return `
     <h2>Methodology, boundary and assurance</h2>
     <p><strong>Reporting boundary.</strong> ${escapeHtml(s.org.path.join(" › "))} and every org unit beneath
-    it recorded in TraceESG (${s.orgUnitCount} org unit${s.orgUnitCount === 1 ? "" : "s"}), for
+    it recorded in EmeilSG (${s.orgUnitCount} org unit${s.orgUnitCount === 1 ? "" : "s"}), for
     ${escapeHtml(s.coverage.label)}. Only records that were verified, validated and approved are included.</p>
     <p><strong>Method.</strong> Emissions = verified activity data × emission factor, calculated record by
     record with the conversion factor version in force for the record's reporting period. Kilograms are shown
@@ -650,8 +650,8 @@ function partialYearNote(s: Snapshot) {
   if (s.coverage.days >= fyDays) return "";
   return `<p class="meta"><strong>Part of the year.</strong> ${
     s.coverage.days === 0 || !s.coverage.from || !s.coverage.to
-      ? "No reporting period of this financial year exists in TraceESG yet."
-      : `The reporting periods in TraceESG cover ${s.coverage.days} of the year's ${fyDays} days (${escapeHtml(
+      ? "No reporting period of this financial year exists in EmeilSG yet."
+      : `The reporting periods in EmeilSG cover ${s.coverage.days} of the year's ${fyDays} days (${escapeHtml(
           s.coverage.from,
         )} to ${escapeHtml(s.coverage.to)}); the figures are for those periods only.`
   }</p>`;
@@ -727,7 +727,7 @@ export function renderReportHtml(s: Snapshot): string {
 <body>
   <h1>BRSR Report</h1>
   <p class="meta"><strong>${escapeHtml(s.org.path.join(" › "))}</strong> · ${escapeHtml(s.coverage.label)}</p>
-  <p class="meta">Generated ${escapeHtml(generated)} IST by TraceESG. Approved records only${
+  <p class="meta">Generated ${escapeHtml(generated)} IST by EmeilSG. Approved records only${
     s.excludedAwaitingApproval
       ? ` — ${s.excludedAwaitingApproval} record(s) still awaiting approval are not included`
       : ""
@@ -742,6 +742,6 @@ export function renderReportHtml(s: Snapshot): string {
   <p class="footer">Every value is consolidated from verified, validated and approved source documents.
   Question numbering and wording follow SEBI's BRSR format. Written disclosures are entered by the
   entity; a question it has not answered is printed as "Not reported". Each value can be
-  traced to its original document from the report's page in TraceESG.</p>
+  traced to its original document from the report's page in EmeilSG.</p>
 </body></html>`;
 }

@@ -7,7 +7,7 @@ import { postLoginPath, safeNextPath } from "@/lib/auth/redirects";
 import { getSessionContext } from "@/lib/auth/session";
 import { LoginForm } from "./login-form";
 
-export const metadata: Metadata = { title: "Sign in · TraceESG" };
+export const metadata: Metadata = { title: "Sign in · EmeilSG" };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const params = await searchParams;

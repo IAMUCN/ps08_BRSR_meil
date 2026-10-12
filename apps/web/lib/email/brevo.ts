@@ -48,7 +48,7 @@ export async function sendEmail(input: {
 
   try {
     await transport().sendMail({
-      from: `${process.env.BREVO_SENDER_NAME || "TraceESG"} <${senderEmail}>`,
+      from: `${process.env.BREVO_SENDER_NAME || "EmeilSG"} <${senderEmail}>`,
       to: `${input.to.name} <${input.to.email}>`,
       subject: input.subject,
       html: input.html,
@@ -68,7 +68,7 @@ export function accountCreatedEmailHtml(input: {
   password: string;
 }): string {
   return `<p>Hi ${escapeHtml(input.displayName)},</p>
-<p>An account was created for you on TraceESG.</p>
+<p>An account was created for you on EmeilSG.</p>
 <p><strong>Email:</strong> ${escapeHtml(input.email)}<br>
 <strong>Temporary password:</strong> ${escapeHtml(input.password)}</p>
 <p>Sign in and change this password as soon as you can.</p>`;
@@ -80,7 +80,7 @@ export function passwordResetOtpEmailHtml(input: {
   expiryMinutes: number;
 }): string {
   return `<p>Hi ${escapeHtml(input.displayName)},</p>
-<p>Use this code to reset your TraceESG password:</p>
+<p>Use this code to reset your EmeilSG password:</p>
 <p style="font-size: 28px; font-weight: bold; letter-spacing: 4px;">${escapeHtml(input.code)}</p>
 <p>It expires in ${input.expiryMinutes} minutes. If you didn&#39;t request this, ignore this email.</p>`;
 }
@@ -98,5 +98,5 @@ export function submissionReminderEmailHtml(input: {
 <ul>${input.items
     .map((i) => `<li>${escapeHtml(i.metricName)} — ${escapeHtml(i.orgUnitName)}</li>`)
     .join("")}</ul>
-<p>Sign in to TraceESG and upload the supporting document for each.</p>`;
+<p>Sign in to EmeilSG and upload the supporting document for each.</p>`;
 }

@@ -7,7 +7,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { recordTraceAction } from "@/lib/scope/actions";
 
-export const metadata: Metadata = { title: "Scope 3 · TraceESG" };
+export const metadata: Metadata = { title: "Scope 3 · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Scope 3 Dashboard — the same component again, now leading with the category table
 // (UI brief §13.1: "X of Y categories active" rather than implied completeness).

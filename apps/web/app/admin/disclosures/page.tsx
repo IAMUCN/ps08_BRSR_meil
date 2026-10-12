@@ -10,7 +10,7 @@ import { PRINCIPLE_TITLES } from "@/lib/brsr/principles";
 import { api } from "@/lib/trpc/server";
 import { DisclosureAnswer } from "./disclosure-answer";
 
-export const metadata: Metadata = { title: "BRSR Disclosures · TraceESG" };
+export const metadata: Metadata = { title: "BRSR Disclosures · EmeilSG" };
 
 // The written part of SEBI's BRSR format (.grill/full-brsr-report-decisions.md, A28): every question of
 // Sections A, B and C, with the answer an Admin types for one financial year. Figures the app measures are

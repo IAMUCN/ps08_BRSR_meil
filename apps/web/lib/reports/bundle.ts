@@ -1001,7 +1001,7 @@ export async function generateAuditEvidenceBundle(
 
   const safeOrg = sanitizeFilename(targetUnit.code || targetUnit.name);
   const safePeriod = sanitizeFilename(coverageLabel);
-  const filename = `traceesg-evidence-bundle-${safeOrg}-${safePeriod}.zip`;
+  const filename = `emeilsg-evidence-bundle-${safeOrg}-${safePeriod}.zip`;
 
   return {
     buffer: zipBuffer,

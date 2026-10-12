@@ -57,7 +57,7 @@ export async function requestPasswordReset(
     });
     await sendEmail({
       to: { email, name: user.display_name },
-      subject: "Your TraceESG password reset code",
+      subject: "Your EmeilSG password reset code",
       html: passwordResetOtpEmailHtml({
         displayName: user.display_name,
         code,

@@ -7,7 +7,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { recordTraceAction } from "@/lib/scope/actions";
 
-export const metadata: Metadata = { title: "Scope 2 · TraceESG" };
+export const metadata: Metadata = { title: "Scope 2 · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Scope 2 Dashboard — the Phase 10 component with a different scope code, which is
 // what the plan asks this phase to prove (Rule 14: reuse, don't duplicate).

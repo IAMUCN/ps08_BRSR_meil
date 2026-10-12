@@ -221,7 +221,7 @@ export function ReportView({ snapshot }: { snapshot: Snapshot }) {
                 ) : !detail.available ? (
                   <p className="flex items-center gap-2 rounded-md border border-status-error/40 bg-status-error/5 px-3 py-2 text-sm">
                     <AlertTriangle className="size-4 text-status-error" aria-hidden />
-                    Source record unavailable — it no longer exists in TraceESG.
+                    Source record unavailable — it no longer exists in EmeilSG.
                   </p>
                 ) : (
                   <>

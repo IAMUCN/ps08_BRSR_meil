@@ -13,15 +13,15 @@ const req = (over: Partial<Parameters<typeof sameOriginRequest>[0]>) =>
     method: "POST",
     origin: null,
     secFetchSite: null,
-    host: "traceesg.example.com",
+    host: "emeilsg.example.com",
     forwardedHost: null,
     ...over,
   });
 
 test("CSRF: a mutation from the app's own pages is allowed", () => {
-  assert.equal(req({ origin: "https://traceesg.example.com", secFetchSite: "same-origin" }), true);
+  assert.equal(req({ origin: "https://emeilsg.example.com", secFetchSite: "same-origin" }), true);
   assert.equal(
-    req({ origin: "https://TraceESG.example.com" }),
+    req({ origin: "https://EmeilSG.example.com" }),
     true,
     "hosts compare case-insensitively",
   );

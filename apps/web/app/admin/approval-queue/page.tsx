@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "Approval Queue · TraceESG" };
+export const metadata: Metadata = { title: "Approval Queue · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Approval Queue (Admin mount; Corporate ESG uses /app/approvals, A1).
 export default async function AdminApprovalQueuePage() {

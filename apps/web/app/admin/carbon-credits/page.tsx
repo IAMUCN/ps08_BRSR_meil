@@ -7,7 +7,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { CarbonCreditsClient } from "./carbon-credits-client";
 
-export const metadata: Metadata = { title: "Carbon Markets & Offsets · TraceESG" };
+export const metadata: Metadata = { title: "Carbon Markets & Offsets · EmeilSG" };
 
 export default async function CarbonCreditsPage() {
   await requireAdminSession();

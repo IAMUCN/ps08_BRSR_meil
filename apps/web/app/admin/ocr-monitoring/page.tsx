@@ -8,7 +8,7 @@ import { workerStallMinutes } from "@/lib/ocr/rules";
 import { api } from "@/lib/trpc/server";
 import { OcrJobsTable } from "./ocr-jobs-table";
 
-export const metadata: Metadata = { title: "OCR Monitoring · TraceESG" };
+export const metadata: Metadata = { title: "OCR Monitoring · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 OCR Monitoring; UI brief §20 shared monitoring template (filter bar + table +
 // row-click detail drawer).

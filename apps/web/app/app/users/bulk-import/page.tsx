@@ -5,7 +5,7 @@ import { bulkImportUsersAction, bulkImportUsersOptionsAction } from "@/lib/bulk-
 import { PageHeader } from "@/components/shell/page-header";
 import { requireAppSession } from "@/lib/auth/session";
 
-export const metadata: Metadata = { title: "Add Employees · TraceESG" };
+export const metadata: Metadata = { title: "Add Employees · EmeilSG" };
 
 export default async function UsersBulkImportPage() {
   const session = await requireAppSession();

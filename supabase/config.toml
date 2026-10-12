@@ -249,11 +249,11 @@ otp_expiry = 3600
 
 # Links point to the app's /auth/confirm handler (token_hash flow for server-side sessions).
 [auth.email.template.invite]
-subject = "You have been invited to TraceESG"
+subject = "You have been invited to EmeilSG"
 content_path = "./supabase/templates/invite.html"
 
 [auth.email.template.recovery]
-subject = "Reset your TraceESG password"
+subject = "Reset your EmeilSG password"
 content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template

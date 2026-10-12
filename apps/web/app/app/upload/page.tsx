@@ -6,7 +6,7 @@ import { UploadForm } from "@/components/upload/upload-form";
 import { requireAppSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "Upload Document · TraceESG" };
+export const metadata: Metadata = { title: "Upload Document · EmeilSG" };
 
 // 03_APP_FLOW.md §2.3 Upload Document; UI brief §20 "almost empty by design".
 export default async function UploadPage({ searchParams }: PageProps<"/app/upload">) {

@@ -31,7 +31,7 @@ import type { ChatMessageView, ConversationSummary } from "@/lib/trpc/routers/ch
 const MAX_QUESTION = 2000;
 /** Width of the docked pane; the class lg:w-[420px] below must say the same. */
 const PANE_WIDTH = 420;
-const OPEN_KEY = "traceesg-chat-open";
+const OPEN_KEY = "emeilsg-chat-open";
 /** A ghost button on the coloured bar: the bar's own text colour, a light wash on hover. */
 const BAR_BUTTON =
   "text-modal-header-foreground hover:bg-white/15 hover:text-modal-header-foreground aria-pressed:bg-white/20";

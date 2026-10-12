@@ -16,7 +16,7 @@ import { JOB_STATUS_LABELS, JOB_STATUS_TONES } from "@/lib/ocr/rules";
 import type { VerifyDocument } from "@/lib/trpc/routers/verification";
 import { api } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "Verify Extraction · TraceESG" };
+export const metadata: Metadata = { title: "Verify Extraction · EmeilSG" };
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-IN", {
