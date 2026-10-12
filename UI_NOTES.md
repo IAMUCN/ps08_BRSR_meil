@@ -147,3 +147,23 @@ uses the standard table header tokens.
 - Kept on purpose, not shown to users: the Docker image and container name `traceesg-ocr-worker`, the test
   accounts' `@traceesg.test` addresses, the package name `@traceesg/shared-types`, temp-folder prefixes in
   tests, and the project's documents (history).
+
+## Invite user wording (2026-10-12, feature session, A36)
+
+`app/admin/users/users-manager.tsx`, text only: the panel says the person gets a temporary password; the
+toasts are "Account created" plus "Temporary password emailed to …" or the reason it was not sent; the button
+is **Resend email**.
+
+## Show password on sign-in (2026-10-12, owner's page feedback)
+
+`components/ui/password-input.tsx` is a password field with an eye button inside it (Show password / Hide
+password, `aria-pressed`, reachable by Tab; Edge's own reveal icon is hidden so there is one). Used on
+`app/login/login-form.tsx` only. The other password fields (forgot password, set password, Profile) still use
+the plain `Input`.
+
+## Choose a new password on the sign-in page (2026-10-12, feature session, A36)
+
+`app/login/change-password-form.tsx` (new) and `app/login/page.tsx`: after a sign-in with a temporary
+password the left panel shows "Choose a new password", a notice, two `PasswordInput`s with the strength
+meter, and a Sign out link. `AuthSlider` gained two optional props, `heading` and `footer`; its look is
+unchanged. The right-hand "Locked out?" panel is still shown there.

@@ -3,6 +3,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { mustChangePassword } from "@/lib/auth/initial-password";
 import { ADMIN_ROLE } from "@/lib/auth/redirects";
 import { DEFAULT_THEME, isTheme, type ThemeId } from "@/lib/theme";
 
@@ -32,6 +33,8 @@ export type SessionResult =
   | { status: "anonymous" }
   | { status: "deactivated" }
   | { status: "unprovisioned" }
+  // Signed in with the emailed temporary password: nothing is open until they choose their own.
+  | { status: "password_change_required"; email: string }
   | { status: "active"; session: ActiveSession };
 
 /** Why a signed-in user is being turned away; mirrors the /auth/signout `reason` values. */
@@ -64,6 +67,7 @@ export async function resolveSession(supabase: SupabaseClient): Promise<SessionR
   if (profileError) throw profileError;
   if (!profile) return { status: "unprovisioned" };
   if (!profile.is_active) return { status: "deactivated" };
+  if (mustChangePassword(user)) return { status: "password_change_required", email: profile.email };
 
   const { data: assignmentRows, error: assignmentError } = await supabase
     .from("user_org_assignments")
@@ -130,6 +134,7 @@ export const getSessionContext = cache(async (): Promise<SessionResult> => {
 export async function requireActiveSession(): Promise<ActiveSession> {
   const result = await getSessionContext();
   if (result.status === "anonymous") redirect("/login");
+  if (result.status === "password_change_required") redirect("/login");
   if (result.status !== "active") redirect(`/auth/signout?reason=${result.status}`);
   return result.session;
 }

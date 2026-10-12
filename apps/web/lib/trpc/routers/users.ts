@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
+import { temporaryPasswordMetadata } from "@/lib/auth/initial-password";
 import { accountCreatedEmailHtml, sendEmail } from "@/lib/email/brevo";
 import { loadLevels } from "@/lib/org/levels";
 import {
@@ -114,6 +115,48 @@ async function assertAdminRemovalAllowed(tx: Tx, actorUserId: string, targetUser
   if (!check.ok) badRequest(check.reason);
 }
 
+/**
+ * What a user has done that the records must keep attributing to them, in words for the Admin
+ * ("2 submissions, 1 approval"). Empty when the account has left nothing but its own traces
+ * (notifications, reset codes, chat history, audit entries).
+ */
+async function userWorkOnRecord(tx: Tx, userId: string): Promise<string[]> {
+  const [c] = await tx<Record<string, number>[]>`
+    select
+      (select count(*) from public.esg_records where submitted_by = ${userId})::int as submissions,
+      (select count(*) from public.documents where uploaded_by = ${userId})::int as documents,
+      (select count(*) from public.esg_record_documents where added_by = ${userId})::int as evidence,
+      ((select count(*) from public.verifications where verified_by = ${userId})
+        + (select count(*) from public.esg_records where verified_by = ${userId})
+        + (select count(*) from public.ocr_fields where verified_by = ${userId}))::int as verifications,
+      (select count(*) from public.approvals where decided_by = ${userId})::int as approvals,
+      (select count(*) from public.report_runs where requested_by = ${userId})::int as reports,
+      (select count(*) from public.user_org_assignments where assigned_by = ${userId}
+         and user_id <> ${userId})::int as assignments,
+      ((select count(*) from public.conversion_factor_versions where created_by = ${userId})
+        + (select count(*) from public.org_settings where updated_by = ${userId})
+        + (select count(*) from public.submission_expectations where created_by = ${userId})
+        + (select count(*) from public.brsr_disclosures where updated_by = ${userId})
+        + (select count(*) from public.org_unit_parents where created_by = ${userId})
+        + (select count(*) from public.carbon_credit_transactions where executed_by = ${userId})
+        + (select count(*) from public.capex_carbon_evaluations where created_by = ${userId}))::int
+        as settings`;
+  const labels: [string, string, string][] = [
+    ["submissions", "submission", "submissions"],
+    ["documents", "uploaded document", "uploaded documents"],
+    ["evidence", "supporting file", "supporting files"],
+    ["verifications", "verification", "verifications"],
+    ["approvals", "approval decision", "approval decisions"],
+    ["reports", "report", "reports"],
+    ["assignments", "role given to someone else", "roles given to other people"],
+    ["settings", "configuration change", "configuration changes"],
+  ];
+  return labels.flatMap(([key, one, many]) => {
+    const n = c?.[key] ?? 0;
+    return n > 0 ? [`${n} ${n === 1 ? one : many}`] : [];
+  });
+}
+
 export const usersRouter = router({
   list: userManage.query(async (): Promise<UserRow[]> => {
     const sql = db();
@@ -148,19 +191,19 @@ export const usersRouter = router({
       where uoa.revoked_at is null
       order by r.name, ou.name`;
 
-    // "Invited" = Auth user who has not accepted the invite yet (no confirmed email).
+    // "Invited" = an account nobody has signed in to yet (it still has its emailed temporary password).
     const { data, error } = await createSupabaseAdminClient().auth.admin.listUsers({
       perPage: 1000,
     });
     if (error) throw error;
-    const confirmed = new Set(data.users.filter((u) => u.email_confirmed_at).map((u) => u.id));
+    const signedIn = new Set(data.users.filter((u) => u.last_sign_in_at).map((u) => u.id));
 
     return users.map((u) => ({
       id: u.id,
       displayName: u.display_name,
       email: u.email,
       employeeId: u.employee_id,
-      status: !u.is_active ? "deactivated" : confirmed.has(u.id) ? "active" : "invited",
+      status: !u.is_active ? "deactivated" : signedIn.has(u.id) ? "active" : "invited",
       assignments: assignments
         .filter((a) => a.user_id === u.id)
         .map((a) => ({
@@ -189,18 +232,26 @@ export const usersRouter = router({
       const [existing] = await sql`select 1 from public.users where lower(email) = ${input.email}`;
       if (existing) badRequest("A user with that email already exists.");
 
-      // Validate before sending any email.
+      // Validate before creating the account.
       await sql.begin((tx) => assertAssignable(tx, input.roleId, input.orgUnitId));
 
+      // Like bulk import: the account gets a random temporary password, emailed through our own SMTP
+      // sender. Supabase Auth's invite email is not used (on the hosted project it only reaches the
+      // Supabase team).
+      const password = generateInitialPassword();
       const auth = createSupabaseAdminClient().auth.admin;
-      const { data, error } = await auth.inviteUserByEmail(input.email, {
-        data: { display_name: input.displayName },
+      const { data, error } = await auth.createUser({
+        email: input.email,
+        password,
+        email_confirm: true,
+        user_metadata: { display_name: input.displayName },
+        app_metadata: temporaryPasswordMetadata,
       });
       if (error || !data.user) {
         badRequest(
           error?.code === "email_exists"
             ? "That email already has a sign-in account."
-            : "The invite email could not be sent. Try again.",
+            : "The account could not be created. Try again.",
         );
       }
       const userId = data.user.id;
@@ -232,7 +283,21 @@ export const usersRouter = router({
         await auth.deleteUser(userId);
         throw err;
       }
-      return { id: userId };
+
+      const emailResult = await sendEmail({
+        to: { email: input.email, name: input.displayName },
+        subject: "Your EmeilSG account",
+        html: accountCreatedEmailHtml({
+          displayName: input.displayName,
+          email: input.email,
+          password,
+        }),
+      });
+      return {
+        id: userId,
+        emailSent: emailResult.sent,
+        emailError: emailResult.sent ? undefined : emailResult.reason,
+      };
     }),
 
   resendInvite: userManage
@@ -241,9 +306,30 @@ export const usersRouter = router({
       const auth = createSupabaseAdminClient().auth.admin;
       const { data, error } = await auth.getUserById(input.userId);
       if (error || !data.user?.email) badRequest("User not found.");
-      if (data.user.email_confirmed_at) badRequest("This user has already accepted their invite.");
-      const { error: inviteError } = await auth.inviteUserByEmail(data.user.email);
-      if (inviteError) badRequest("The invite email could not be sent. Try again.");
+      if (data.user.last_sign_in_at) badRequest("This user has already signed in.");
+      const [profile] = await db()<{ display_name: string }[]>`
+        select display_name from public.users
+        where id = ${input.userId} and deleted_at is null and is_active`;
+      if (!profile) badRequest("User not found.");
+
+      // A fresh temporary password replaces the earlier one; nobody has signed in with it yet.
+      const password = generateInitialPassword();
+      const { error: updateError } = await auth.updateUserById(input.userId, {
+        password,
+        email_confirm: true,
+        app_metadata: temporaryPasswordMetadata,
+      });
+      if (updateError) badRequest("The password could not be set. Try again.");
+      const emailResult = await sendEmail({
+        to: { email: data.user.email, name: profile.display_name },
+        subject: "Your EmeilSG account",
+        html: accountCreatedEmailHtml({
+          displayName: profile.display_name,
+          email: data.user.email,
+          password,
+        }),
+      });
+      if (!emailResult.sent) badRequest(`The email could not be sent: ${emailResult.reason}`);
       await db().begin((tx) =>
         writeAudit(tx, {
           eventType: "user.invite_resent",
@@ -363,33 +449,60 @@ export const usersRouter = router({
       select display_name, email from public.users where id = ${input.userId} and deleted_at is null`;
     if (!user) badRequest("User not found.");
 
+    let kept = false;
     try {
       await sql.begin(async (tx) => {
         await assertAdminRemovalAllowed(tx, ctx.session.userId, input.userId);
+
+        // Work that must keep its author: with any of it the account can only be deactivated.
+        const work = await userWorkOnRecord(tx, input.userId);
+        if (work.length > 0)
+          badRequest(
+            `This user can't be deleted because the records name them: ${work.join(", ")}. Deactivate them instead.`,
+          );
+
+        // The person's own traces are not data on record and go with the account.
+        await tx`delete from public.notifications where user_id = ${input.userId}`;
+        await tx`delete from public.password_reset_otps where user_id = ${input.userId}`;
+        await tx`delete from public.chat_conversations where user_id = ${input.userId}`;
         await tx`delete from public.user_org_assignments where user_id = ${input.userId}`;
-        await tx`delete from public.users where id = ${input.userId}`;
+
+        // The audit log is append-only and may name them (a theme or password change is enough), so the
+        // row cannot always go. Then it stays as a closed, hidden entry and the address is freed.
+        const [named] = await tx`
+          select 1 from public.audit_logs where user_id = ${input.userId} limit 1`;
+        kept = Boolean(named);
+        if (kept) {
+          await tx`
+            update public.users
+            set deleted_at = now(), is_active = false, email = ${`deleted-${input.userId}@deleted.invalid`}
+            where id = ${input.userId}`;
+        } else {
+          await tx`delete from public.users where id = ${input.userId}`;
+        }
         await writeAudit(tx, {
           eventType: "user.deleted",
           entityType: "user",
           entityId: input.userId,
           userId: ctx.session.userId,
           oldValue: { email: user.email, display_name: user.display_name },
+          newValue: { kept_for_audit_log: kept },
         });
       });
     } catch (error) {
-      // Foreign keys are the source of truth for "has this user left any data behind"
-      // (submissions, approvals, granted assignments, audit history, …) — no need to enumerate
-      // every referencing table by hand.
+      // A table this check does not know about still refers to them.
       if (pgErrorCode(error) === "23503")
         badRequest(
-          "This user has data on record (submissions, approvals or similar) — deactivate them instead.",
+          "This user can't be deleted because other data refers to them — deactivate them instead.",
         );
       throw error;
     }
 
     // The DB rows are gone either way; a failure here just leaves an orphaned, invisible Auth
     // account for this email — re-inviting it will surface if that ever needs manual cleanup.
-    await createSupabaseAdminClient().auth.admin.deleteUser(input.userId);
+    // A kept profile row still points at the sign-in account, so that one is closed, not removed:
+    // Supabase Auth blanks its email and password and it can never sign in again.
+    await createSupabaseAdminClient().auth.admin.deleteUser(input.userId, kept);
     return null;
   }),
 
@@ -612,6 +725,7 @@ async function importOneEmployee(
     password,
     email_confirm: true,
     user_metadata: { display_name: row.displayName },
+    app_metadata: temporaryPasswordMetadata,
   });
   if (error || !data.user) {
     return rowFailed(

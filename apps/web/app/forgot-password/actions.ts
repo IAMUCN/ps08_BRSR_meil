@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import { ownPasswordMetadata } from "@/lib/auth/initial-password";
 import { AUTH_MESSAGES } from "@/lib/auth/messages";
 import { passwordMeetsPolicy, passwordPolicyMessage } from "@/lib/auth/password-policy";
 import { db } from "@/lib/db";
@@ -116,7 +117,11 @@ export async function verifyOtpAndSetPassword(
   }
 
   const auth = createSupabaseAdminClient().auth.admin;
-  const { error: updateError } = await auth.updateUserById(user.id, { password });
+  const { error: updateError } = await auth.updateUserById(user.id, {
+    password,
+    // A password chosen with an emailed code is the person's own: no change is asked at sign-in.
+    app_metadata: ownPasswordMetadata,
+  });
   if (updateError) {
     return {
       error:
