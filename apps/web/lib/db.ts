@@ -1,6 +1,6 @@
 import "server-only";
 import postgres from "postgres";
-import { poolSize, serverlessPoolerUrl } from "@/lib/pooler-url";
+import { serverlessPoolerUrl } from "@/lib/pooler-url";
 
 // Direct Postgres access for server-side transactional mutations (.grill/phase-3-auth-decisions.md).
 // Bypasses RLS like the service role — import only from server code (tRPC procedures).
@@ -17,7 +17,7 @@ export function db(): postgres.Sql {
     // them silently, which otherwise surfaces as "read ECONNRESET" on the next query after a quiet spell.
     globalForDb.emeilSgSql = postgres(serverlessPoolerUrl(url), {
       prepare: false,
-      max: poolSize(5),
+      max: 5,
       idle_timeout: 20,
       max_lifetime: 60 * 30,
       connect_timeout: 15,

@@ -3,6 +3,10 @@
 // requests ("EMAXCONNSESSION") and every page that touches the database fails. On Vercel the transaction
 // pooler (port 6543) is used instead, whatever port the setting names; everywhere else the URL is used
 // as given. The app already sets `prepare: false`, which the transaction pooler requires.
+//
+// The pool is NOT made smaller there: with the transaction pooler and only three connections a report for
+// a whole financial year (several queries at once) stalled until the function timed out, while the same
+// report with five connections takes about two seconds. The transaction pooler allows many clients.
 export function serverlessPoolerUrl(
   url: string,
   env: Record<string, string | undefined> = process.env,
@@ -19,7 +23,3 @@ export function serverlessPoolerUrl(
   }
   return url;
 }
-
-/** Connections per instance: a serverless instance serves few requests at once, and many instances run. */
-export const poolSize = (local: number, env: Record<string, string | undefined> = process.env) =>
-  env.VERCEL ? Math.min(local, 3) : local;
