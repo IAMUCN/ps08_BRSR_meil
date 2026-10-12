@@ -7,11 +7,22 @@ export async function renderPdf(html: string): Promise<Uint8Array> {
   const puppeteer = await import("puppeteer-core");
   const local = process.env.CHROMIUM_EXECUTABLE_PATH;
   const chromium = local ? null : (await import("@sparticuz/chromium")).default;
-  const browser = await puppeteer.launch({
-    executablePath: local ?? (await chromium!.executablePath()),
-    args: chromium ? chromium.args : ["--no-sandbox", "--disable-gpu"],
-    headless: true,
-  });
+  // @sparticuz/chromium is a headless-shell build: it must be launched with headless "shell" and the
+  // package's own arguments on top of puppeteer's defaults ("true" asks for the new headless mode, which
+  // that binary does not have, so the launch fails on the host). A local Edge/Chrome uses the new mode.
+  const browser = await puppeteer.launch(
+    chromium
+      ? {
+          executablePath: await chromium.executablePath(),
+          args: await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
+          headless: "shell",
+        }
+      : {
+          executablePath: local,
+          args: ["--no-sandbox", "--disable-gpu"],
+          headless: true,
+        },
+  );
   try {
     const page = await browser.newPage();
     await page.setJavaScriptEnabled(false);
