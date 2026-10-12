@@ -3,7 +3,7 @@ import { ProfileView } from "@/components/profile/profile-view";
 import { PageHeader } from "@/components/shell/page-header";
 import { requireAppSession } from "@/lib/auth/session";
 
-export const metadata: Metadata = { title: "Profile · TraceESG" };
+export const metadata: Metadata = { title: "Profile · EmeilSG" };
 
 export default async function WorkspaceProfilePage() {
   const session = await requireAppSession();

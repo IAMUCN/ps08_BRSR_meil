@@ -4,7 +4,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { RolesManager } from "./roles-manager";
 
-export const metadata: Metadata = { title: "Roles & Permissions · TraceESG" };
+export const metadata: Metadata = { title: "Roles & Permissions · EmeilSG" };
 
 export default async function RolesPage({ searchParams }: PageProps<"/admin/roles">) {
   const [, params, caller] = await Promise.all([requireAdminSession(), searchParams, api()]);

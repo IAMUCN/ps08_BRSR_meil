@@ -4,7 +4,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { UsersManager } from "./users-manager";
 
-export const metadata: Metadata = { title: "Users · TraceESG" };
+export const metadata: Metadata = { title: "Users · EmeilSG" };
 
 export default async function UsersPage() {
   const [session, caller] = await Promise.all([requireAdminSession(), api()]);

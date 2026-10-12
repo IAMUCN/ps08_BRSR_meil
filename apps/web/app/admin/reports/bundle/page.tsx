@@ -7,7 +7,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { BundleClient } from "./bundle-client";
 
-export const metadata: Metadata = { title: "Audit Evidence Bundle · TraceESG" };
+export const metadata: Metadata = { title: "Audit Evidence Bundle · EmeilSG" };
 
 export default async function AuditEvidenceBundlePage() {
   await requireAdminSession();

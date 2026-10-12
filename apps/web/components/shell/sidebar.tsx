@@ -132,9 +132,9 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
               <Menu className="size-5" strokeWidth={1.5} aria-hidden />
             )}
           </button>
-          <span className={cn("text-base font-semibold", shown("hidden xl:inline"))}>TraceESG</span>
+          <span className={cn("text-base font-semibold", shown("hidden xl:inline"))}>EmeilSG</span>
         </div>
-        {/* Only the list scrolls (scrollbar hidden); the TraceESG header above it stays put. */}
+        {/* Only the list scrolls (scrollbar hidden); the EmeilSG header above it stays put. */}
         <ul className="relative flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {/* One highlight that slides to the active item with a spring overshoot (CSS only). Rows are
               h-10 with gap-1, so row n sits n × 2.75rem down. */}

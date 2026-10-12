@@ -12,7 +12,7 @@ import { ReportForm, type ReportPreset } from "./report-form";
 import { ReportInputsForm } from "./report-inputs-form";
 import { RunsTable } from "./runs-table";
 
-export const metadata: Metadata = { title: "Reports · TraceESG" };
+export const metadata: Metadata = { title: "Reports · EmeilSG" };
 
 /** How many runs the Reports page itself lists; the rest are on Past Reports. */
 const RECENT = 5;

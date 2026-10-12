@@ -33,7 +33,7 @@ export function HeroSection() {
 
             <BlurFade delay={0.16}>
               <p className="mb-8 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
-                TraceESG uses AI and human verification to convert operational documents into
+                EmeilSG uses AI and human verification to convert operational documents into
                 accurate ESG data and BRSR-ready reports for MEIL&apos;s infrastructure enterprise.
               </p>
             </BlurFade>

@@ -85,7 +85,7 @@ export function InfrastructureSection() {
             Built for a More Sustainable Infrastructure Future
           </h2>
           <p className="text-base sm:text-lg text-slate-600 mt-2 max-w-3xl mx-auto leading-relaxed">
-            From dams and highways to power, manufacturing and energy systems — TraceESG supports
+            From dams and highways to power, manufacturing and energy systems — EmeilSG supports
             MEIL&apos;s diverse portfolio with a unified ESG data platform.
           </p>
         </div>

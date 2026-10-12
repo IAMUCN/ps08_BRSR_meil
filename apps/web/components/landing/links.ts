@@ -1,5 +1,5 @@
 // ponytail: no demo inbox exists yet, so this opens a blank email. Set the recipient (or a form URL) here.
-export const DEMO_HREF = "mailto:?subject=TraceESG%20demo%20request";
+export const DEMO_HREF = "mailto:?subject=EmeilSG%20demo%20request";
 
 export const NAV_ITEMS = [
   { href: "#product", label: "Product" },

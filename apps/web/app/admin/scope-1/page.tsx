@@ -7,7 +7,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { recordTraceAction } from "@/lib/scope/actions";
 
-export const metadata: Metadata = { title: "Scope 1 · TraceESG" };
+export const metadata: Metadata = { title: "Scope 1 · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Scope 1 Dashboard. The same component serves Scope 2 and 3 in Phases 11–12; only
 // the scope code and the title change.

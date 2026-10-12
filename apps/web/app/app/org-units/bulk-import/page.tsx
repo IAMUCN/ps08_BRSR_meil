@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { requireAppSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "Add Org Units · TraceESG" };
+export const metadata: Metadata = { title: "Add Org Units · EmeilSG" };
 
 export default async function OrgUnitsBulkImportPage() {
   const session = await requireAppSession();

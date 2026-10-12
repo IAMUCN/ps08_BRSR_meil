@@ -1,5 +1,5 @@
 /**
- * Pure calculation logic for TraceESG Emissions Forecasting.
+ * Pure calculation logic for EmeilSG Emissions Forecasting.
  *
  * Implements:
  * 1. Historical data coverage & quality assessment (reporting frequency, missing periods, unit uniformity)

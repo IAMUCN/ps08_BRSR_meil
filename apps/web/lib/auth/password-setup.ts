@@ -3,7 +3,7 @@
 // valid; the page and its action refuse a session that does not carry it, so an ordinary signed-in session
 // must go through Profile, which asks for the current password (SECURITY_AUDIT_2026-10-12.md).
 
-export const PASSWORD_SETUP_COOKIE = "traceesg-password-setup";
+export const PASSWORD_SETUP_COOKIE = "emeilsg-password-setup";
 
 export const passwordSetupCookieOptions = {
   httpOnly: true,

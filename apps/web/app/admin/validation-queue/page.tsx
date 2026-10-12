@@ -6,7 +6,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { ValidationQueueTable } from "./validation-queue-table";
 
-export const metadata: Metadata = { title: "Validation Queue · TraceESG" };
+export const metadata: Metadata = { title: "Validation Queue · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Validation Queue; UI brief §19: the shared monitoring template
 // (filter bar + table + row-click detail drawer).

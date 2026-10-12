@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { requireAppSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "Approvals · TraceESG" };
+export const metadata: Metadata = { title: "Approvals · EmeilSG" };
 
 // Approval Queue for Corporate ESG/Sustainability (APP_FLOW_DEVIATIONS A1): the same component and
 // procedure as /admin/approval-queue, limited server-side to the approver's own scope.

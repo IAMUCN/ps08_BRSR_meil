@@ -236,7 +236,7 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
               Predicted values, model trends, and prediction intervals are generated using
               chronological time-series backtesting for forward-looking internal planning and
               reduction targets. Official regulatory disclosures must strictly rely on approved
-              TraceESG calculation records.
+              EmeilSG calculation records.
             </p>
           </div>
         </div>
@@ -566,7 +566,7 @@ function InsufficientDataState({
         </h3>
         <p className="mx-auto mt-2 max-w-xl text-xs leading-relaxed text-muted-foreground">
           {result?.insufficientDataReason ??
-            "TraceESG adheres to strict validation standards. A minimum of 3-4 consecutive reporting periods with approved calculation records is required to evaluate models via chronological backtesting."}
+            "EmeilSG adheres to strict validation standards. A minimum of 3-4 consecutive reporting periods with approved calculation records is required to evaluate models via chronological backtesting."}
         </p>
 
         <div className="mx-auto mt-6 max-w-md rounded-md border border-border/80 bg-muted/40 p-4 text-left text-xs">

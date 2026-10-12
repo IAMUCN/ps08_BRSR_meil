@@ -10,7 +10,7 @@ import { NOTIFICATION_TYPES, type NotificationType } from "@/lib/trpc/routers/no
 import { api } from "@/lib/trpc/server";
 import { MarkAllReadButton } from "./mark-all-read-button";
 
-export const metadata: Metadata = { title: "Notifications · TraceESG" };
+export const metadata: Metadata = { title: "Notifications · EmeilSG" };
 
 const FILTERS = Object.entries(NOTIFICATION_TYPES) as [NotificationType, string][];
 

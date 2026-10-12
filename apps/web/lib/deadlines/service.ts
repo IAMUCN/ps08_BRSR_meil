@@ -47,7 +47,7 @@ function buildDeadlineEmailHtml(params: {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>TraceESG Notification</title>
+  <title>EmeilSG Notification</title>
 </head>
 <body style="margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
@@ -103,7 +103,7 @@ function buildDeadlineEmailHtml(params: {
       </div>
 
       <p style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin-bottom: 0; border-top: 1px solid #e2e8f0; padding-top: 16px;">
-        This notification was generated deterministically by the TraceESG BRSR Reporting Engine based on MEIL organizational compliance schedules. Please do not reply directly to this automated email.
+        This notification was generated deterministically by the EmeilSG BRSR Reporting Engine based on MEIL organizational compliance schedules. Please do not reply directly to this automated email.
       </p>
     </div>
   </div>
@@ -623,7 +623,7 @@ export async function executeEscalationSweep(input: {
       // Queue emails
       const emailSubject = isEscalation
         ? `[ACTION REQUIRED: Escalation L${escalationLevel}] Overdue BRSR Reporting: ${task.metricName}`
-        : `TraceESG Reminder: Submission due for ${task.metricName} (${task.orgUnitName})`;
+        : `EmeilSG Reminder: Submission due for ${task.metricName} (${task.orgUnitName})`;
 
       for (const recipient of recipientUsers) {
         outgoingEmails.push({
@@ -733,7 +733,7 @@ export async function sendManualTaskReminder(input: {
     try {
       const res = await sendEmail({
         to: { email: owner.email, name: owner.displayName },
-        subject: `TraceESG Reminder: ${task.metricName} (${task.orgUnitName})`,
+        subject: `EmeilSG Reminder: ${task.metricName} (${task.orgUnitName})`,
         html: buildDeadlineEmailHtml({
           recipientName: owner.displayName,
           isEscalation: task.escalationLevel > 0,

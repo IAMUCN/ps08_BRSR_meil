@@ -7,7 +7,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api, orNotFound } from "@/lib/trpc/server";
 import { ReportView } from "./report-view";
 
-export const metadata: Metadata = { title: "Report · TraceESG" };
+export const metadata: Metadata = { title: "Report · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Report Detail / Drill-down: the stored report with live links into its data trail.
 export default async function ReportDetailPage({ params }: PageProps<"/admin/reports/[reportId]">) {

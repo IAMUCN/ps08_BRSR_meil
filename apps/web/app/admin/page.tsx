@@ -25,7 +25,7 @@ import { readParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
 import { KpiTrendsCard } from "./kpi-trends";
 
-export const metadata: Metadata = { title: "Admin Dashboard · TraceESG" };
+export const metadata: Metadata = { title: "Admin Dashboard · EmeilSG" };
 
 // The Admin Control Tower (UI brief §13.1, Master Approach §33, .grill/phase-16-control-tower-decisions.md):
 // header strip, the completion pipeline, scope and readiness, and the issue panel — for the org node and

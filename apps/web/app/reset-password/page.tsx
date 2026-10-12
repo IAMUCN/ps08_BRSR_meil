@@ -6,7 +6,7 @@ import { PASSWORD_SETUP_COOKIE } from "@/lib/auth/password-setup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { SetPasswordForm } from "./set-password-form";
 
-export const metadata: Metadata = { title: "Set password · TraceESG" };
+export const metadata: Metadata = { title: "Set password · EmeilSG" };
 
 // Reached only via /auth/confirm after a valid invite or recovery link established a session.
 export default async function ResetPasswordPage() {

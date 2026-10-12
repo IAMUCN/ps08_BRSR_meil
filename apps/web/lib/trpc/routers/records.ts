@@ -250,7 +250,7 @@ export const recordsRouter = router({
       reminded.map((person) =>
         sendEmail({
           to: { email: person.email, name: person.displayName },
-          subject: `TraceESG: ${person.items.length} submission(s) still expected for ${context.periodLabel}`,
+          subject: `EmeilSG: ${person.items.length} submission(s) still expected for ${context.periodLabel}`,
           html: submissionReminderEmailHtml({
             displayName: person.displayName,
             periodLabel: context.periodLabel,

@@ -23,7 +23,7 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "TraceESG",
+  title: "EmeilSG",
   description: "Evidence-first ESG/BRSR reporting platform",
 };
 

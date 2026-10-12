@@ -5,7 +5,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { FactorsManager } from "./factors-manager";
 
-export const metadata: Metadata = { title: "Conversion Factors · TraceESG" };
+export const metadata: Metadata = { title: "Conversion Factors · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Conversion Factors; TRD §25. Admin area only for now — the page is gated on the
 // `factor.manage` permission server-side (.grill/phase-9-calculation-engine-decisions.md).

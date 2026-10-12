@@ -383,6 +383,13 @@ _Last updated: 2026-10-12._
   date) was committed as `d4e214c` on `feature-security-audit-fixes` and the branch pushed to both `ucn` and
   `origin` on 2026-10-12 at the owner's request. No pull request is open yet and CI has not run. Hosted is
   untouched; migration `0047` is local only; the worker image is not rebuilt.**
+- **Renamed to EmeilSG with a new logo (2026-10-12, owner's request), committed on branch `ui-rename-emeilsg` and pushed to `ucn` and `origin` on 2026-10-12 (no pull request, CI not run)**
+  (cut from `feature-security-audit-fixes`). Details in `UI_NOTES.md`. 77 files; no migration. Checked:
+  typecheck, lint, format, unit 195/195, production build; the landing and sign-in pages viewed in Edge; no
+  page source and no built file contains the old name. `BREVO_SENDER_NAME` was changed in the two local env
+  files. **Not done (dashboards):** the hosted Supabase email subjects and templates, and the Brevo sender
+  name there if set. Not run after the rename: the end-to-end, isolation, chatbot and accessibility suites.
+  The documents (this file included) still say TraceESG where they describe history.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)

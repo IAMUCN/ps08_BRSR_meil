@@ -8,7 +8,7 @@ import { api } from "@/lib/trpc/server";
 import { DeadlinesClient } from "./deadlines-client";
 
 export const metadata: Metadata = {
-  title: "Reporting Deadlines & Escalation Engine · TraceESG",
+  title: "Reporting Deadlines & Escalation Engine · EmeilSG",
 };
 
 export default async function DeadlinesPage() {

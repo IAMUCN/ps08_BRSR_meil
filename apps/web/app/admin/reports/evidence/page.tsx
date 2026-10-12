@@ -10,7 +10,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { financialYearLabel } from "@/lib/consolidation/aggregate";
 import { api } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "Evidence · TraceESG" };
+export const metadata: Metadata = { title: "Evidence · EmeilSG" };
 
 const STATUS: Record<string, { tone: StatusTone; label: string }> = {
   approved: { tone: "success", label: "Approved" },

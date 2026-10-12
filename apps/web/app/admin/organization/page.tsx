@@ -4,7 +4,7 @@ import { api } from "@/lib/trpc/server";
 import { LevelsCard } from "./levels-card";
 import { OrgManager } from "./org-manager";
 
-export const metadata: Metadata = { title: "Organization · TraceESG" };
+export const metadata: Metadata = { title: "Organization · EmeilSG" };
 
 export default async function OrganizationPage({ searchParams }: PageProps<"/admin/organization">) {
   const [, params, caller] = await Promise.all([requireAdminSession(), searchParams, api()]);

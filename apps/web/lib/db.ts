@@ -4,17 +4,17 @@ import postgres from "postgres";
 // Direct Postgres access for server-side transactional mutations (.grill/phase-3-auth-decisions.md).
 // Bypasses RLS like the service role — import only from server code (tRPC procedures).
 
-const globalForDb = globalThis as unknown as { traceEsgSql?: postgres.Sql };
+const globalForDb = globalThis as unknown as { emeilSgSql?: postgres.Sql };
 
 export function db(): postgres.Sql {
-  if (!globalForDb.traceEsgSql) {
+  if (!globalForDb.emeilSgSql) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error("DATABASE_URL is not set");
     // prepare: false is required by Supabase's transaction-mode pooler (hosted deployments).
     // Cached on globalThis so dev hot-reloads don't open a new pool each time.
     // idle_timeout / max_lifetime: close pooled connections before the Supabase pooler or the network drops
     // them silently, which otherwise surfaces as "read ECONNRESET" on the next query after a quiet spell.
-    globalForDb.traceEsgSql = postgres(url, {
+    globalForDb.emeilSgSql = postgres(url, {
       prepare: false,
       max: 5,
       idle_timeout: 20,
@@ -22,7 +22,7 @@ export function db(): postgres.Sql {
       connect_timeout: 15,
     });
   }
-  return globalForDb.traceEsgSql;
+  return globalForDb.emeilSgSql;
 }
 
 export type Tx = postgres.TransactionSql;

@@ -43,7 +43,7 @@ export function CtaFooterSection() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 text-xs text-slate-500 sm:flex-row">
-          <p>© {new Date().getFullYear()} TraceESG by MEIL. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} EmeilSG by MEIL. All rights reserved.</p>
           <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-6 gap-y-2">
             {NAV_ITEMS.map((item) => (
               <a

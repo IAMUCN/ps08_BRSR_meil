@@ -5,7 +5,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { readParams, stringParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
 
-export const metadata: Metadata = { title: "ESG Data Explorer · TraceESG" };
+export const metadata: Metadata = { title: "ESG Data Explorer · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 ESG Data Explorer: any combination of org node, period or financial year, scope,
 // metric and status, with the verified and calculated values; rows open the shared record detail.
