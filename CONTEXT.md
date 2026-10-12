@@ -466,6 +466,12 @@ _Last updated: 2026-10-12._
   committed on branch `feature-employee-uploads` and pushed to `ucn` and `origin` on 2026-10-12** (owner's
   request; no pull request, CI not run). Left out, the owner's own untracked files:
   `PS_Documents/generated_reports/` and `test data/test data 1/employee-bulk-import-template.xlsx`.
+- **Hosted migration catch-up prepared, NOT applied (2026-10-12, owner: "make everything up to date"):** the
+  read-only check passed (no evidence link across org units, no over-drawn carbon batch, `0046` fully present,
+  66 records, 72 documents, 29 users), but applying `0047` and `0048` was refused by the permission system.
+  The owner runs `node "test data/_backup/hosted-catchup.cjs" apply` (or allows it). `PROGRESS.md` was brought
+  up to date the same day. Git: `main` is the same on `ucn`, `origin` and locally (`e7beca5`);
+  `feature-employee-uploads` is one commit ahead plus this docs commit, pushed, not merged.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)

@@ -4,9 +4,12 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-11 — org units under several parents, several groups, delete, and chat pane feedback (committed `db4f66b`, on `ucn` `main`; migration `0044` on hosted since 2026-10-11); reports for a custom period, and the chatbot's Admin-only lookups and report-page link (committed, merged with `main`; migration `0043` on hosted); hosted cleared and given MEIL's Admin inputs, two sets of test data generated (uncommitted); the ESG data analyst chatbot is committed on branch `feature-chat-analyst` (`67700f8`, not pushed); migration `0042` is on hosted (2026-10-11), the read-only role has no password there yet. Before that: Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
-merged); the second audit's follow-up work (migrations `0038`–`0039`, fuller report with SDG tags, 28 sourced factors on local) is committed locally, not
-pushed; migrations `0038`–`0039` are on hosted (2026-10-09), the factors and demo data are not; Phase 21 (deployment) comes after, hosting to be decided by the owner._
+_Last updated: 2026-10-12 — the app is renamed EmeilSG; the 2026-10-12 audits and their fixes are merged to `main`;
+invites email a temporary password that must be changed at first sign-in; a role can upload on behalf of another
+(migration `0049`, branch `feature-employee-uploads`, not merged); test data set 1 follows the hierarchy in the web
+app and was run through hosted for August (66 records, 57 approved). Hosted has migrations up to `0046` and the
+`0049` column; `0047` and `0048` are not there. Phase 21 (deployment) is still to come, hosting to be decided by
+the owner. `CONTEXT.md` has the detail of what is committed where._
 
 ---
 
@@ -36,12 +39,12 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format, the chatbot, custom-period reports, shared org units (`0001`–`0045`, all pushed to hosted) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format, the chatbot, custom-period reports, shared org units, carbon credits, data-isolation rules, role defaults, a role uploading for another (`0001`–`0049`; hosted has `0001`–`0046` and the `0049` column, not `0047`–`0048`) |
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D36) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A35) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D40) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A36) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `ASSURANCE.md` | How the system supports assurance on BRSR Core KPIs: controls, KPI-by-KPI status, an assurer's walkthrough |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
@@ -85,6 +88,11 @@ may run in parallel with Phases 3–5.
 | — | Full BRSR format in the report: 146 questions, typed disclosures, all 17 SDGs (migration `0040`); owner's page feedback | Done, **uncommitted**; `0040` on hosted | — |
 | — | ESG data analyst chatbot: read-only tools, NVIDIA NIM, saved conversations (migration `0042`) | Done, on branch `feature-chat-analyst` (not pushed); `0042` on hosted | `67700f8` |
 | — | Org units under several parents, several groups, delete; chat pane feedback (migration `0044`) | Done, on `ucn` `main`; `0044` on hosted | `db4f66b` |
+| — | Audits of 2026-10-12 (security, database, chatbot, privacy, UI, accessibility, dependencies) and their fixes (migration `0047`) | Done, on `main`; `0047` not on hosted | `d4e214c` |
+| — | Renamed to EmeilSG, new logo | Done, on `main` | `7eb48cd` |
+| — | Invite by emailed temporary password, forced change at first sign-in, user delete, show-password | Done, on `main` | `7fb16ff` |
+| — | Expected submissions shown on the parent, role defaults (migration `0048`), Edit role | Done, on `main`; `0048` not on hosted | `e1586f3` |
+| — | A role uploads on behalf of another (migration `0049`); test data set 1 on the app's hierarchy; August run on hosted | Done, on branch `feature-employee-uploads`; `0049` column on hosted | `e3805f7` |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -749,7 +757,33 @@ real procedures on the local database. Not run: a browser view, the real model, 
 Migration `0044` was pushed to hosted on 2026-10-11 and checked there.
 The test data was also regenerated with a mix of single PDFs, images and multi-bill PDFs (`9ba9081`).
 
+**Work of 2026-10-12.** Reports and decisions are named in each line; `CONTEXT.md` §1 has the test results.
+- **Seven audits and their fixes** (`FINAL_VERIFICATION_2026-10-12.md` is the place to start; one report per
+  audit beside it): org scope enforced in five routers that read through the app's own connection, the evidence
+  bundle rewritten against the real schema, random bulk-import passwords, HttpOnly session cookies, database
+  rules for ownership and the carbon ledger (migration `0047`, D38), contact details kept from the AI service,
+  a skip link and contrast fixes, advisories in what ships down from 14 to 2. Open: 2 Medium, 18 Low, hosting,
+  legal documents, a human accessibility pass.
+- **The app is called EmeilSG**, with a new logo in the browser icon and the landing and sign-in headers
+  (`UI_NOTES.md`). The hosted Supabase email templates and the documents still say TraceESG.
+- **Invite user emails a temporary password** through the app's SMTP sender, as bulk import does, and **the
+  first sign-in must change it** (`.grill/invite-smtp-decisions.md`, A36). Deleting a user refuses only for
+  real work on record and says what stands in the way. The sign-in password field has a show/hide button.
+- **Expected submissions of the units below show on the parent** (read from the hierarchy, not stored).
+  **Role defaults reviewed** (`.grill/role-permissions-decisions.md`, migration `0048`, D39): Corporate ESG
+  gains review of flagged values and report generation. **Edit role** on Roles & Permissions.
+- **A role can upload on behalf of another** (`.grill/employee-uploads-decisions.md`, migration `0049`, D40):
+  the owner's Employee role files a project's bills for its Project Manager.
+- **Test data set 1 follows the hierarchy in the web app** and was run through hosted for August 2026 as 21
+  labelled test accounts: 57 files, 66 records over all 47 activities, 57 approved, 9 waiting for a factor.
+
 ## 4. What comes next
+
+**Hosted, to catch up:** apply migrations `0047` and `0048` and record `0046`–`0049` in the migration
+history (`0046` and the `0049` column were applied by hand). The read-only pre-checks pass (2026-10-12); the
+script is `test data/_backup/hosted-catchup.cjs` (`check`, then `apply`). Then rebuild the worker image and
+replace the hosted container, update the hosted email templates to the new name, decide whether the 21 test
+accounts stay, and merge `feature-employee-uploads`.
 
 **Organization feedback, to finish:** look at
 the Organization page and the chat pane in a browser; bring `origin` (MACRO72) up to date with `ucn` `main`.
