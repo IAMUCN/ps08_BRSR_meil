@@ -185,6 +185,12 @@ export function ApprovalQueue({
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
+                    {selected.selfApproval ? (
+                      <p className="w-full text-sm leading-5 text-muted-foreground">
+                        You submitted or verified this record. As a Super Admin you can still decide
+                        on it; the audit trail will show that the same person did both.
+                      </p>
+                    ) : null}
                     <Button
                       onClick={() => setDecision("approve")}
                       disabled={

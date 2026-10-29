@@ -24,6 +24,27 @@ export async function inOrgScope(sql: Sql, caller: Caller, orgUnitId: string): P
   return ids === null || ids.includes(orgUnitId);
 }
 
+/**
+ * The org unit a page opens on when its address names none: the first group for a Super Admin, else the
+ * highest unit the caller is assigned to. Null when there is nothing to show.
+ */
+export async function defaultOrgUnitId(sql: Sql, caller: Caller): Promise<string | null> {
+  if (caller.isAdmin) {
+    const [root] = await sql<{ id: string }[]>`
+      select id from public.org_units where parent_id is null and deleted_at is null
+      order by created_at limit 1`;
+    return root?.id ?? null;
+  }
+  const [unit] = await sql<{ id: string }[]>`
+    select o.id
+    from public.user_org_assignments uoa
+    join public.org_units o on o.id = uoa.org_unit_id and o.deleted_at is null
+    left join public.org_levels l on l.code = o.unit_type::text
+    where uoa.user_id = ${caller.userId} and uoa.revoked_at is null
+    order by l.sort_order nulls last, o.name limit 1`;
+  return unit?.id ?? null;
+}
+
 /** Refuses an org unit outside the caller's scope. Out of scope and missing read the same (§4.4). */
 export async function assertOrgScope(sql: Sql, caller: Caller, orgUnitId: string): Promise<void> {
   if (!(await inOrgScope(sql, caller, orgUnitId))) {

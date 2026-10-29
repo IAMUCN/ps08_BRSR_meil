@@ -196,7 +196,7 @@ export function AuditTable({ events }: { events: AuditEvent[] }) {
                       <button
                         type="button"
                         aria-expanded={expanded}
-                        className="flex items-center gap-1 font-medium"
+                        className="flex min-h-6 items-center gap-1 font-medium"
                         onClick={() => setOpen(expanded ? null : e.id)}
                       >
                         {expanded ? (

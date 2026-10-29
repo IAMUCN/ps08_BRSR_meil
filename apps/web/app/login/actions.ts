@@ -78,7 +78,11 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
     await supabase.auth.signOut();
     return {
       error:
-        result.status === "deactivated" ? AUTH_MESSAGES.deactivated : AUTH_MESSAGES.unprovisioned,
+        result.status === "deactivated"
+          ? AUTH_MESSAGES.deactivated
+          : result.status === "unprovisioned"
+            ? AUTH_MESSAGES.unprovisioned
+            : AUTH_MESSAGES.retry,
       email,
     };
   }

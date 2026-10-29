@@ -66,13 +66,9 @@ export function Pointer({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Preserve native behavior on touch / coarse pointer devices
-    const isTouchOrCoarse =
-      window.matchMedia("(pointer: coarse)").matches ||
-      "ontouchstart" in window ||
-      navigator.maxTouchPoints > 0;
-
-    if (isTouchOrCoarse) {
+    // Native behaviour only where there is no mouse or touchpad at all (phones, tablets). A laptop with a
+    // touch screen or pen reports maxTouchPoints > 0 and still has a touchpad, so that is not checked.
+    if (!window.matchMedia("(any-pointer: fine)").matches) {
       return;
     }
 
@@ -116,6 +112,10 @@ export function Pointer({
           user-select: none;
         }
         [data-native-cursor="true"], [data-native-cursor="true"] * {
+          cursor: auto !important;
+        }
+        html.custom-cursor-enabled nextjs-portal,
+        html.custom-cursor-enabled nextjs-portal:hover {
           cursor: auto !important;
         }
       `;

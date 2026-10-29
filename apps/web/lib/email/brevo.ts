@@ -4,18 +4,35 @@ import { escapeHtml } from "@/lib/reports/html";
 
 // Brevo transactional email (bulk-import-decisions.md), over real SMTP: the key we were given
 // (xsmtpsib-…) is Brevo's SMTP key, not its REST "API key" (xkeysib-…) — the REST API's api-key header
-// only accepts the latter, so this goes through smtp-relay.brevo.com instead. Used for the
-// temporary-password email of a new account (Invite user and bulk import), OTP password reset and
-// submission reminders. Supabase Auth's own email sending is not used by the app.
+// only accepts the latter, so this goes through smtp-relay.brevo.com instead. Used for the invitation
+// link of a new account (Invite user and bulk import), OTP password reset and submission reminders. Supabase Auth's own email sending is not used by the app.
 const SMTP_HOST = "smtp-relay.brevo.com";
 const SMTP_PORT = 587;
 
 export type SendEmailResult = { sent: true } | { sent: false; reason: string };
 
+/**
+ * A mail catcher on this machine, for local development and the end-to-end tests (EMAIL_SMTP_HOST and
+ * EMAIL_SMTP_PORT). Only a loopback address is accepted: the setting cannot send a deployed app's email,
+ * invitation links included, anywhere else.
+ */
+function localCatcher(): { host: string; port: number } | null {
+  const host = process.env.EMAIL_SMTP_HOST?.trim();
+  const port = Number(process.env.EMAIL_SMTP_PORT);
+  if (!host || !["127.0.0.1", "localhost", "::1"].includes(host)) return null;
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return null;
+  return { host, port };
+}
+
 let cachedTransport: ReturnType<typeof nodemailer.createTransport> | undefined;
 
 function transport() {
   if (!cachedTransport) {
+    const local = localCatcher();
+    if (local) {
+      cachedTransport = nodemailer.createTransport({ ...local, secure: false, ignoreTLS: true });
+      return cachedTransport;
+    }
     cachedTransport = nodemailer.createTransport({
       host: SMTP_HOST,
       port: SMTP_PORT,
@@ -40,9 +57,10 @@ export async function sendEmail(input: {
   subject: string;
   html: string;
 }): Promise<SendEmailResult> {
+  const local = localCatcher();
   const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL;
-  if (!apiKey || !senderEmail) {
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || (local ? "no-reply@emeilsg.local" : "");
+  if ((!apiKey && !local) || !senderEmail) {
     return { sent: false, reason: "Email sending isn't configured yet." };
   }
 
@@ -62,16 +80,23 @@ export async function sendEmail(input: {
   return { sent: true };
 }
 
-export function accountCreatedEmailHtml(input: {
+/**
+ * The invitation to a new account (migration 0051). The link is the only secret in it: no password is ever
+ * emailed. It is written out as text too, for mail programs that do not show links.
+ */
+export function invitationEmailHtml(input: {
   displayName: string;
   email: string;
-  password: string;
+  link: string;
+  validFor: string;
 }): string {
+  const link = escapeHtml(input.link);
   return `<p>Hi ${escapeHtml(input.displayName)},</p>
-<p>An account was created for you on EmeilSG.</p>
-<p><strong>Email:</strong> ${escapeHtml(input.email)}<br>
-<strong>Temporary password:</strong> ${escapeHtml(input.password)}</p>
-<p>When you sign in with it, you will be asked to choose your own password before you continue.</p>`;
+<p>An account was created for you on EmeilSG, for ${escapeHtml(input.email)}.</p>
+<p><a href="${link}">Choose your password</a> to finish setting it up. The link works once and for
+${escapeHtml(input.validFor)}. After that, ask the person who added you to send a new one.</p>
+<p>If the link does not open, copy this address into your browser:<br>${link}</p>
+<p>If you were not expecting this, ignore this email. Nothing happens unless a password is chosen.</p>`;
 }
 
 export function passwordResetOtpEmailHtml(input: {

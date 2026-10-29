@@ -134,7 +134,7 @@ monitoring permissions, or work alongside an Admin.
 | File fingerprint checked on read | `app/api/documents/[documentId]/file/route.ts` | End-to-end Scenario A |
 | Verification guard rail | `lib/verification/`, verify screen | End-to-end Scenarios A–C |
 | Validation checks | `lib/validation/`, `validation_rules` | `validation-checks.test.ts`, `phase8_validation_rules.test.sql`, edge-case suite |
-| No self-approval | `lib/approvals/workflow.ts`; browser role has no write on approvals | Authorization suite; database tests |
+| No self-approval, with one stated exception | `lib/trpc/routers/approvals.ts`; browser role has no write on approvals. A Super Admin (at most two people, migration `0050`) may decide on a record they submitted or verified, because nobody sits above them; each such decision carries `same_person_as_submitter_or_verifier` and a note in the audit trail, so an assurer can list them: `select entity_id from audit_logs where event_type = 'approval.approved' and new_value ? 'same_person_as_submitter_or_verifier'` | Authorization suite; `tests/e2e/scoped-admin.mjs`; database tests |
 | Deterministic calculation, factor snapshot | `lib/calculation/engine.ts` (`calc-1.1.0`) | Scenario D recomputes every stored calculation |
 | Used factor versions locked | Database trigger (Phase 9) | `phase9_calculation.test.sql` |
 | Calculations append-only | Migration `0036` | `phase9_calculation.test.sql` |

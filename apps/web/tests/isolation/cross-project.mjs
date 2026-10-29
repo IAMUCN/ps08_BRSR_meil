@@ -1,7 +1,9 @@
 // Cross-project access check through the app's real tRPC procedures (DATABASE_AUDIT_2026-10-12.md).
 // Someone scoped to Project X calls every id-taking procedure with ids that belong to a sibling project
 // ("IDOR Project Q"): once as a Project Manager, once holding every scoped permission a custom role could be
-// given. Each call must be refused or return nothing of Project Q, and Project Q must be unchanged at the end.
+// given, and once as the Administrator of Project X (migration 0050), who manages people and the hierarchy —
+// but only there. Each call must be refused or return nothing of Project Q, and Project Q must be unchanged
+// at the end.
 //
 // Local database only (the address is fixed below); needs `npx supabase db start` and the seed data.
 // Fixtures are committed for the run and removed afterwards. Procedures that read through the signed-in
@@ -95,6 +97,8 @@ async function probe(name, call) {
       ["FORBIDDEN", "NOT_FOUND", "BAD_REQUEST", "UNAUTHORIZED"].includes(error.code)
     ) {
       note("PASS", name, `refused: ${error.code}`);
+    } else if (String(error?.message).startsWith("LEAK")) {
+      note("FAIL", name, error.message);
     } else {
       note(
         "SKIP",
@@ -113,7 +117,9 @@ try {
   const [metric] =
     await sql`select id, scope_id from public.esg_metrics where code = 'DIESEL_CONSUMPTION'`;
   const [pmRole] = await sql`select id from public.roles where code = 'project_manager'`;
-  if (!sub || !prjX || !period || !metric) throw new Error("local seed data missing");
+  const [adminRole] = await sql`select id from public.roles where code = 'org_admin'`;
+  if (!sub || !prjX || !period || !metric || !adminRole) throw new Error("local seed data missing");
+  const [{ n: levelsBefore }] = await sql`select count(*)::int as n from public.org_levels`;
 
   await sql`insert into public.org_units (id, parent_id, unit_type, name, code) values (${QUNIT}, ${sub.id}, 'project', 'IDOR Project Q', 'IDOR-Q')`;
   for (const [id, mail, name] of [
@@ -124,7 +130,10 @@ try {
     await sql`insert into public.users (id, display_name, email) values (${id}, ${name}, ${mail})`;
   }
   await sql`insert into public.user_org_assignments (user_id, org_unit_id, role_id, assigned_by) values
-    (${A}, ${prjX.id}, ${pmRole.id}, ${A}), (${B}, ${QUNIT}, ${pmRole.id}, ${B})`;
+    (${A}, ${prjX.id}, ${pmRole.id}, ${A}), (${B}, ${QUNIT}, ${pmRole.id}, ${B}),
+    (${A}, ${prjX.id}, ${adminRole.id}, ${A})`;
+  const [bAssignment] = await sql`
+    select id from public.user_org_assignments where user_id = ${B} and org_unit_id = ${QUNIT}`;
   for (const [id, file] of [
     [QDOC, "idor-secret.pdf"],
     [QBUNDLE, "idor-secret-bundle.pdf"],
@@ -158,6 +167,8 @@ try {
     displayName: "IDOR User A",
     theme: "theme-2",
     isAdmin: false,
+    isOrgAdmin: false,
+    adminOrgUnitIds: [],
     roleCodes: ["project_manager"],
     assignments: [
       {
@@ -187,7 +198,26 @@ try {
         "chat.use",
         "user.bulk_import",
         "org.bulk_import",
+        // Held without an administrator role: the permission alone must open nothing outside Project X.
+        "user.manage",
+        "org.manage",
       ],
+    },
+    // The person who really does manage people and units — inside Project X only.
+    "Administrator of Project X": {
+      ...base,
+      isOrgAdmin: true,
+      adminOrgUnitIds: [prjX.id],
+      roleCodes: ["project_manager", "org_admin"],
+      assignments: [
+        ...base.assignments,
+        { ...base.assignments[0], roleCode: "org_admin", roleName: "Administrator" },
+      ],
+      permissions: (
+        await sql`
+        select p.code from public.role_permissions rp join public.permissions p on p.id = rp.permission_id
+        where rp.role_id = ${adminRole.id}`
+      ).map((r) => r.code),
     },
   };
 
@@ -356,6 +386,140 @@ try {
     await p("organization.setStatus(org unit Q)", () =>
       c.organization.setStatus({ id: QUNIT, status: "inactive" }),
     );
+
+    // --- The /admin area (migration 0050): figures, people and the hierarchy of a sibling project -------
+    await p("records.search(org unit Q)", () => c.records.search({ orgUnitId: QUNIT }));
+    await p("records.search(everything, by text)", () => c.records.search({ text: "IDOR" }));
+    await p("records.missing(org unit Q)", () => c.records.missing({ orgUnitId: QUNIT }));
+    await p("records.detail(record of Q)", () => c.records.detail({ recordId: QREC }));
+    await p("records.remindMissing(org unit Q)", () =>
+      c.records.remindMissing({ orgUnitId: QUNIT }),
+    );
+    await p("records.summary(org unit Q)", () => c.records.summary({ orgUnitId: QUNIT }));
+    await p("scope.getTotal(org unit Q)", () =>
+      c.scope.getTotal({ scopeCode: "SCOPE_1", orgUnitId: QUNIT }),
+    );
+    await p("scope.getTotal(no org unit named)", () => c.scope.getTotal({ scopeCode: "SCOPE_1" }));
+    await p("reports.evidence(the year)", () => c.reports.evidence({ financialYear: 2026 }));
+    await p("reports.options()", () => c.reports.options());
+    await p("reports.inputs(group-wide configuration)", async () => {
+      await c.reports.inputs({ financialYear: 2026 });
+      throw new Error("LEAK: the yearly report inputs were readable");
+    });
+
+    await p("users.options()", async () => {
+      const { roles } = await c.users.options();
+      if (roles.some((r) => r.code === "admin"))
+        throw new Error("LEAK: the Super Admin role is offered");
+      return roles.length;
+    });
+    await p("users.addAssignment(self, a role at org unit Q)", () =>
+      c.users.addAssignment({ userId: A, roleId: pmRole.id, orgUnitId: QUNIT }),
+    );
+    await p("users.addAssignment(user B of Q, a role at Project X)", () =>
+      c.users.addAssignment({ userId: B, roleId: pmRole.id, orgUnitId: prjX.id }),
+    );
+    await p("users.addAssignment(user B, Administrator at Q)", () =>
+      c.users.addAssignment({ userId: B, roleId: adminRole.id, orgUnitId: QUNIT }),
+    );
+    await p("users.revokeAssignment(user B's role at Q)", () =>
+      c.users.revokeAssignment({ assignmentId: bAssignment.id }),
+    );
+    await p("users.deactivate(user B)", () => c.users.deactivate({ userId: B }));
+    await p("users.delete(user B)", () => c.users.delete({ userId: B }));
+    await p("users.resendInvite(user B)", () => c.users.resendInvite({ userId: B }));
+    await p("users.invite(someone into org unit Q)", () =>
+      c.users.invite({
+        email: "idor.attempt@traceesg.test",
+        displayName: "Idor Attempt",
+        roleId: pmRole.id,
+        orgUnitId: QUNIT,
+      }),
+    );
+
+    await p("organization.create(a unit under Q)", () =>
+      c.organization.create({ parentId: QUNIT, unitType: "site", name: "IDOR child", code: "" }),
+    );
+    await p("organization.create(under Project X, also under Q)", () =>
+      c.organization.create({
+        parentId: prjX.id,
+        alsoUnder: [QUNIT],
+        unitType: "site",
+        name: "IDOR child",
+        code: "",
+      }),
+    );
+    await p("organization.update(org unit Q)", () =>
+      c.organization.update({ id: QUNIT, name: "IDOR renamed", code: "" }),
+    );
+    await p("organization.move(org unit Q under Project X's parent)", () =>
+      c.organization.move({ id: QUNIT, newParentId: prjX.id }),
+    );
+    await p("organization.addParent(org unit Q, Project X)", () =>
+      c.organization.addParent({ id: QUNIT, parentId: prjX.id }),
+    );
+    await p("organization.setParents(org unit Q)", () =>
+      c.organization.setParents({ id: QUNIT, alsoUnder: [prjX.id] }),
+    );
+    await p("organization.delete(org unit Q)", () => c.organization.delete({ id: QUNIT }));
+    await p("organization.deleteCheck(org unit Q)", () =>
+      c.organization.deleteCheck({ id: QUNIT }),
+    );
+    await p("organization.impact(org unit Q)", () => c.organization.impact({ id: QUNIT }));
+    await p("organization.expectations(org unit Q)", () =>
+      c.organization.expectations({ orgUnitId: QUNIT }),
+    );
+    await p("organization.setExpectation(org unit Q)", () =>
+      c.organization.setExpectation({ orgUnitId: QUNIT, metricId: metric.id, expected: true }),
+    );
+    // Its own unit is changed from above, never by its own Administrator.
+    await p("organization.update(own unit, Project X)", async () => {
+      await c.organization.update({ id: prjX.id, name: "IDOR renamed X", code: "PRJ-X" });
+      throw new Error("LEAK: an Administrator renamed their own unit");
+    });
+    await p("organization.setStatus(own unit, Project X)", async () => {
+      await c.organization.setStatus({ id: prjX.id, status: "inactive" });
+      throw new Error("LEAK: an Administrator deactivated their own unit");
+    });
+    await p("organization.addLevel(group-wide configuration)", async () => {
+      await c.organization.addLevel({ label: "Idor Level", afterCode: "project" });
+      throw new Error("LEAK: a hierarchy level was added");
+    });
+  }
+
+  // What the Administrator of Project X is given: their own unit, inside their scope, and nothing wider.
+  {
+    const c = callerFor(personas["Administrator of Project X"]);
+    const tree = await c.organization.tree();
+    const own = tree.find((n) => n.id === prjX.id);
+    note(
+      own && own.ownable && !own.manageable && own.inScope ? "PASS" : "FAIL",
+      "Administrator: the tree shows their own unit as theirs to add under, not to change",
+      JSON.stringify(own && { ownable: own.ownable, manageable: own.manageable }),
+    );
+    const above = tree.filter((n) => !n.inScope);
+    note(
+      above.length > 0 &&
+        above.every((n) => !n.ownable && !n.manageable && n.activeAssignments === 0)
+        ? "PASS"
+        : "FAIL",
+      "Administrator: units above are listed by name only",
+      `${above.length} unit(s) above`,
+    );
+    const search = await c.records.search({});
+    note(
+      search.context.orgUnitId === prjX.id && search.context.orgUnits.every((o) => o.id !== QUNIT)
+        ? "PASS"
+        : "FAIL",
+      "Administrator: the Data Explorer opens on their own unit and offers no other branch",
+      `${search.context.orgUnits.length} unit(s) offered`,
+    );
+    const expectations = await c.organization.expectations({ orgUnitId: prjX.id });
+    note(
+      expectations.length > 0 ? "PASS" : "FAIL",
+      "Administrator: reads the expected submissions of their own unit",
+      `${expectations.length} activities`,
+    );
   }
 
   // Nothing may have changed in Project Q.
@@ -368,7 +532,21 @@ try {
            (select count(*)::int from public.chat_conversations where id = ${QCHAT}) as chat,
            (select count(*)::int from public.documents where id = ${QBUNDLE} and deleted_at is null) as bundle,
            (select count(*)::int from public.report_runs where org_unit_id = ${QUNIT}) as runs,
-           (select count(*)::int from public.users where email = 'idor.attempt@traceesg.test') as created`;
+           (select count(*)::int from public.users where email = 'idor.attempt@traceesg.test') as created,
+           (select name from public.org_units where id = ${QUNIT}) as unit_name,
+           (select parent_id::text from public.org_units where id = ${QUNIT}) as unit_parent,
+           (select count(*)::int from public.org_units where parent_id = ${QUNIT}) as children,
+           (select count(*)::int from public.org_unit_parents
+             where org_unit_id = ${QUNIT} or parent_id = ${QUNIT}) as shared,
+           (select count(*)::int from public.submission_expectations where org_unit_id = ${QUNIT}) as expected,
+           (select count(*)::int from public.user_org_assignments
+             where org_unit_id = ${QUNIT} and revoked_at is null) as people,
+           (select count(*)::int from public.user_org_assignments
+             where user_id = ${B} and revoked_at is null) as b_roles,
+           (select is_active from public.users where id = ${B}) as b_active,
+           (select name from public.org_units where id = ${prjX.id}) as x_name,
+           (select status::text from public.org_units where id = ${prjX.id}) as x_status,
+           (select count(*)::int from public.org_levels) as levels`;
   const untouched =
     state.record === "review_pending/flagged" &&
     state.unit === "active" &&
@@ -378,7 +556,18 @@ try {
     state.chat === 1 &&
     state.bundle === 1 &&
     state.runs === 1 &&
-    state.created === 0;
+    state.created === 0 &&
+    state.unit_name === "IDOR Project Q" &&
+    state.unit_parent === sub.id &&
+    state.children === 0 &&
+    state.shared === 0 &&
+    state.expected === 0 &&
+    state.people === 1 &&
+    state.b_roles === 1 &&
+    state.b_active === true &&
+    state.x_name === prjX.name &&
+    state.x_status === "active" &&
+    state.levels === levelsBefore;
   note(untouched ? "PASS" : "FAIL", "Project Q after all attempts", JSON.stringify(state));
 } catch (error) {
   fail++;

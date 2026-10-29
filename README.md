@@ -241,8 +241,11 @@ Notes:
   ```
 
   It reads `apps/web/.env.local` by default. After `pnpm db:reset`, provision the users again.
-- **Local emails** (invites, password resets) are caught by Mailpit at http://127.0.0.1:55324 — start the
-  stack without excluding `mailpit`. Open the email there and follow the link.
+- **Local emails** are caught by Mailpit at http://127.0.0.1:55324 — start the stack without excluding
+  `mailpit`. Supabase Auth's own email (the `provision-user` invite) arrives there by itself. The app's
+  email (invitation links from Invite user and bulk import, reset codes, reminders) arrives there when
+  `apps/web/.env.local` sets `EMAIL_SMTP_HOST=127.0.0.1` and `EMAIL_SMTP_PORT=55325`; without those and
+  without the Brevo settings the account is still created and the screen says the email was not sent.
 - **Hosted project:** Supabase's built-in email service only delivers to members of the Supabase team.
   A custom SMTP provider (Resend, TRD §13) must be configured **before any non-team user is invited**.
 - **After provisioning the first Admin**, manage everything else in the app under `/admin`: organization

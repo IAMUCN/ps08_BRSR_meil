@@ -89,14 +89,14 @@ export function EmployeeBulkImport({
     if (!results) return;
     downloadCsv(
       "employee-bulk-import-results.csv",
-      ["Row", "Employee ID", "Email", "Status", "Emailed", "Password / Error"],
+      ["Row", "Employee ID", "Email", "Status", "Invitation emailed", "Note"],
       results.map((r) => [
         r.row,
         r.employeeId,
         r.email,
         r.ok ? "Created" : "Failed",
         r.ok ? (r.emailSent ? "Yes" : "No") : "",
-        r.ok ? r.password : r.error,
+        r.ok ? (r.emailSent ? "" : `Not emailed: ${r.emailError ?? "unknown reason"}`) : r.error,
       ]),
     );
   }
@@ -129,9 +129,10 @@ export function EmployeeBulkImport({
         ) : null}
       </div>
       <p className="text-xs text-muted-foreground">
-        Codes must match the template&apos;s &quot;Valid codes&quot; sheet. Each new account gets a
-        generated password, emailed automatically when email sending is configured — otherwise it
-        comes back below for you to share yourself. Either way, they can change it after signing in.
+        Codes must match the template&apos;s &quot;Valid codes&quot; sheet. Each new person is
+        emailed a link to choose their own password; no password is created or shown here. If an
+        email could not be sent, the account still exists and a new invitation can be sent from the
+        Users page.
       </p>
 
       {rows.length > 0 && !results ? (
@@ -152,17 +153,15 @@ export function EmployeeBulkImport({
             <table className="w-full border-collapse text-sm">
               <thead className="bg-table-header text-table-header-foreground">
                 <tr>
-                  {["Row", "Employee ID", "Email", "Status", "Emailed", "Password / Error"].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        scope="col"
-                        className="px-3 py-2 text-left text-[11px] font-medium tracking-wide uppercase"
-                      >
-                        {h}
-                      </th>
-                    ),
-                  )}
+                  {["Row", "Employee ID", "Email", "Status", "Invitation", "Note"].map((h) => (
+                    <th
+                      key={h}
+                      scope="col"
+                      className="px-3 py-2 text-left text-[11px] font-medium tracking-wide uppercase"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -193,10 +192,10 @@ export function EmployeeBulkImport({
                       )}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs">
-                      {r.ok ? r.password : r.error}
-                      {r.ok && !r.emailSent && r.emailError ? (
+                      {r.ok ? null : r.error}
+                      {r.ok && !r.emailSent ? (
                         <span className="block font-sans text-muted-foreground">
-                          {r.emailError}
+                          {r.emailError ?? "The invitation was not emailed."}
                         </span>
                       ) : null}
                     </td>

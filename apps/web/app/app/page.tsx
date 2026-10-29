@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { CalendarRange, Factory, FileSearch, FolderX, RotateCcw, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -23,6 +24,8 @@ function formatDate(iso: string) {
 export default async function UserDashboardPage({ searchParams }: PageProps<"/app">) {
   const [session, params, caller] = await Promise.all([requireAppSession(), searchParams, api()]);
   const notice = typeof params.notice === "string" ? params.notice : undefined;
+  // An administrator's dashboard is the Control Tower; they come to /app only to upload and verify.
+  if (session.isAdmin || session.isOrgAdmin) redirect("/admin");
   const workAssignments = session.assignments.filter((a) => a.roleCode !== "admin");
 
   // §2.3 empty state: a valid account with no assignment is not an error.

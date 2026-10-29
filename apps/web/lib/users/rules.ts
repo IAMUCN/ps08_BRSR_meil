@@ -2,6 +2,7 @@
 
 // Relative import with extension so Node's test runner can load it without the "@/" alias.
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULES } from "../auth/password-policy.ts";
+import { descendantIds, type OrgNode } from "../org/rules.ts";
 
 export type RuleCheck = { ok: true } | { ok: false; reason: string };
 
@@ -34,9 +35,10 @@ function secureRandomInt(max: number): number {
 }
 
 /**
- * The initial password of a bulk-created account (no invite email is sent — bulk-import-decisions.md).
- * Random, from a cryptographic source: it used to be "<FirstName>@<EmployeeId>", which a colleague could
- * guess (SECURITY_AUDIT_2026-10-12.md). Always satisfies every rule in lib/auth/password-policy.ts.
+ * A random password that satisfies every rule in lib/auth/password-policy.ts, from a cryptographic source.
+ * No new account gets one any more (the person chooses their own through an invitation link); it is used
+ * to overwrite the emailed temporary password of an older account when that account is sent a link, and
+ * nobody is ever told it.
  * `randomInt` is injectable for deterministic tests only.
  */
 export function generateInitialPassword(
@@ -74,6 +76,83 @@ export function checkAdminRemoval(input: {
   }
   if (input.targetIsActiveAdmin && input.otherActiveAdminCount < 1) {
     return { ok: false, reason: "At least one active Admin is required." };
+  }
+  return { ok: true };
+}
+
+/** Who is acting: a Super Admin, or an Administrator of some org units, or neither. */
+export type Grantor = { isAdmin: boolean; adminOrgUnitIds: readonly string[] };
+
+/**
+ * The org units an Administrator administers: where they hold the role and everything beneath, shared
+ * units included (they are seen from every parent). `null` means every unit (Super Admin).
+ */
+export function administeredIds(grantor: Grantor, nodes: readonly OrgNode[]): Set<string> | null {
+  if (grantor.isAdmin) return null;
+  const ids = new Set<string>();
+  for (const unitId of grantor.adminOrgUnitIds) {
+    if (!nodes.some((n) => n.id === unitId)) continue;
+    ids.add(unitId);
+    for (const id of descendantIds(unitId, nodes, "all")) ids.add(id);
+  }
+  return ids;
+}
+
+/**
+ * Whether the grantor may give (or take away) this role at this org unit
+ * (.grill/scoped-admin-onboarding-decisions.md). A Super Admin: any role anywhere. An Administrator:
+ * operational roles at their own units and beneath; the Administrator role only beneath, never at their
+ * own level — every administrator is appointed from above; never Super Admin. Anyone else: nothing.
+ */
+export function checkGrant(
+  grantor: Grantor,
+  roleCode: string,
+  orgUnitId: string,
+  nodes: readonly OrgNode[],
+): RuleCheck {
+  if (grantor.isAdmin) return { ok: true };
+  if (grantor.adminOrgUnitIds.length === 0) {
+    return { ok: false, reason: "Only an administrator can assign or remove roles." };
+  }
+  if (roleCode === "admin") {
+    return { ok: false, reason: "Only a Super Admin can assign or remove the Super Admin role." };
+  }
+  const scope = administeredIds(grantor, nodes)!;
+  if (!scope.has(orgUnitId)) {
+    return { ok: false, reason: "That part of the organisation isn't in your scope." };
+  }
+  if (roleCode === "org_admin" && grantor.adminOrgUnitIds.includes(orgUnitId)) {
+    return {
+      ok: false,
+      reason:
+        "An Administrator at your own level is appointed by the administrator above you. You can appoint Administrators for the units beneath yours.",
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Whether the grantor may act on a whole account (deactivate, reactivate, delete, resend its invitation):
+ * only when every role the person holds is one the grantor could take away. Someone who also works in
+ * another branch, or who administers at the grantor's own level or above, is out of reach.
+ */
+export function checkAccountReach(
+  grantor: Grantor,
+  assignments: readonly { roleCode: string; orgUnitId: string }[],
+  nodes: readonly OrgNode[],
+): RuleCheck {
+  if (grantor.isAdmin) return { ok: true };
+  if (assignments.length === 0) {
+    return { ok: false, reason: "Only a Super Admin can manage an account with no role." };
+  }
+  for (const a of assignments) {
+    if (!checkGrant(grantor, a.roleCode, a.orgUnitId, nodes).ok) {
+      return {
+        ok: false,
+        reason:
+          "This person also holds a role outside what you administer, so the account itself isn't yours to change. You can still remove the roles inside your own scope.",
+      };
+    }
   }
   return { ok: true };
 }

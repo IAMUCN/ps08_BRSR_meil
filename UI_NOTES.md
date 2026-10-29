@@ -185,3 +185,67 @@ round. Not viewed in a browser.
 `app/admin/roles/roles-manager.tsx`, `EditRoleSheet`: a select under Description listing the roles this one may
 stand in for (not Admin, not itself, not a role that already stands in for another), with a hint line. Hidden
 for the Admin role. Not viewed in a browser.
+
+## Super Admins and scoped Administrators (2026-10-13, feature session, owner's request)
+
+Built by the feature session with the owner's go-ahead to do the ui parts too
+(`.grill/scoped-admin-onboarding-decisions.md`, A37). No restyle; what changed on screen:
+
+- `components/shell/admin-nav.ts` (new): the admin sidebar as one list, filtered by who is signed in. It has
+  two new entries, **Upload** and **My Uploads**, which open the existing `/app` screens. `app/admin/layout.tsx`
+  and `app/app/layout.tsx` both use it, so an administrator keeps the same sidebar while uploading.
+- `app/admin/users/users-manager.tsx`: Revoke is disabled with "Outside what you administer." where the
+  server would refuse; the Account section explains when an account is out of reach; the scope picker lists
+  only units in the caller's scope; "Admin role" wording is "Super Admin role".
+- `app/admin/organization/org-manager.tsx`: a unit the caller cannot change shows one explanatory line in
+  place of the rename form; Move, Parents, Deactivate and Delete are not shown for it; Add a unit and Add
+  from a spreadsheet are disabled on a unit above the caller's scope; the people count is not shown there.
+- `components/approvals/approval-queue.tsx`: one line for a Super Admin deciding on their own record.
+- Reports and Organization hide the yearly inputs, the written-disclosures notice and the Hierarchy levels
+  card from an Administrator (Super Admin only).
+
+Viewed in Edge at 1440px as a project Administrator on the local stack (dashboard, Users, Organization on
+their own unit and on the unit above, Scope 1, Upload, Approval Queue, Reports): no console error. Not
+viewed: phone and tablet widths, the Dark and Special themes, the Super Admin's own-record line.
+
+## Invitation links and session limits (2026-10-13, feature session, owner's request)
+
+Built by the feature session (`.grill/scoped-admin-onboarding-decisions.md`, A38, A39). No restyle.
+
+- `app/invite/` (new public page): the auth card used by Set password, with "Enter new password" and
+  "Confirm new password", the strength meter and the show-password button; a "Checking your link…" line
+  first; one message and a Go to sign in link when the link is no good.
+- `app/admin/users/users-manager.tsx`: under the Invited badge a small line says where the link stands; the
+  side panel has **Resend invitation** and, while a link is open, **Revoke link** (with a confirmation);
+  the invite panel's wording no longer mentions a temporary password.
+- `components/bulk-import/employee-bulk-import.tsx`: the results table and its download have "Invitation"
+  and "Note" columns in place of "Emailed" and "Password / Error"; the hint text says no password is shown.
+- `components/shell/session-keeper.tsx` (new), mounted in `app/admin/layout.tsx` and `app/app/layout.tsx`:
+  draws nothing until five minutes before the sign-in ends, then a small notice fixed under the top bar
+  (`role="alert"`, card tokens) with **Stay signed in** or **OK**.
+
+- `app/admin/audit-trail/audit-view.tsx`: the button that opens an event is at least 24px high (one
+  class). The accessibility suite failed on it at phone width once a long event name was at the top.
+
+Viewed in Edge on the local stack at 1440 and 390px: Users with invited accounts, the Manage panel, the
+page of a link that is no good, the sign-out notice. Not viewed: tablet width, the Dark and Special
+themes.
+
+## The system cursor comes back when the custom one cannot be drawn (2026-10-30, feature session, owner's report)
+
+The owner saw no cursor anywhere. The root `<html>` carried `custom-cursor-enabled` from the server, which
+hides the system cursor before the custom one exists (and for good on a touch device, where `Pointer` never
+draws it); and Next's development error overlay sits above the custom cursor, so an error screen had none.
+
+- `app/layout.tsx`: the class is no longer on `<html>`; `registry/magicui/pointer.tsx` adds it once it draws.
+- `app/globals.css` and the style `Pointer` injects: `nextjs-portal` (the error overlay) keeps the system cursor.
+
+- `registry/magicui/pointer.tsx`: the custom cursor is skipped only when there is no fine pointer at all
+  (`any-pointer: fine`). It used to skip any device with `maxTouchPoints > 0`; the owner's laptop has a pen
+  digitizer (Windows reports one touch point), so the custom cursor was never drawn there — the real cause
+  of "no cursor anywhere".
+
+Checked in Edge on the dev server: the class is absent before the page's script runs and present after,
+the custom cursor is drawn on `/` and `/login`, the overlay element gets `cursor: auto`; with one touch
+point reported (as on the owner's laptop) the custom cursor is drawn; with phone touch emulation it is not
+and the system cursor stays. Not checked: a real phone or tablet.

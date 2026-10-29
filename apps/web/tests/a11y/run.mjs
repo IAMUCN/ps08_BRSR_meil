@@ -40,7 +40,7 @@ const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE
 });
 
 const THEMES = ["theme-2", "theme-1", "theme-3"];
-const PUBLIC = ["/", "/login", "/forgot-password"];
+const PUBLIC = ["/", "/login", "/forgot-password", "/invite"];
 const ADMIN = [
   "/admin",
   "/admin/submissions",
@@ -354,8 +354,24 @@ async function targets(page, label) {
 
 const run = (name) => !ONLY || ONLY.includes(name);
 const browser = await puppeteer.launch({ executablePath: BROWSER, headless: true });
+// The database allows two Super Admins (migration 0050), and a local database the end-to-end suite has run
+// on may already have them. The run's own Admin then needs one more place: the limit is raised for the run
+// and put back afterwards, whatever happens.
+let superAdminLimit = null;
 try {
   await removePeople();
+  const [holders] = await sql`
+    select count(distinct uoa.user_id)::int as n from public.user_org_assignments uoa
+    join public.roles r on r.id = uoa.role_id and r.code = 'admin'
+    join public.users u on u.id = uoa.user_id
+    where uoa.revoked_at is null and u.is_active and u.deleted_at is null`;
+  const [setting] = await sql`
+    select value from public.org_settings where key = 'super_admin_limit'`;
+  if (setting && holders.n >= Number(setting.value)) {
+    superAdminLimit = setting.value;
+    await sql`update public.org_settings set value = ${sql.json(holders.n + 1)}
+              where key = 'super_admin_limit'`;
+  }
   for (const person of Object.values(PEOPLE)) {
     person.password = password();
     const { data, error } = await supabase.auth.admin.createUser({
@@ -585,6 +601,12 @@ try {
 } finally {
   await browser.close();
   await removePeople().catch((error) => failures.push("cleanup: " + error.message));
+  if (superAdminLimit !== null) {
+    await sql`update public.org_settings set value = ${sql.json(superAdminLimit)}
+              where key = 'super_admin_limit'`.catch((error) =>
+      failures.push("cleanup (Super Admin limit): " + error.message),
+    );
+  }
   await sql.end();
   for (const note of [...new Set(notes)]) console.log("note  " + note);
   for (const item of stillOpen) console.log("OPEN  " + item);

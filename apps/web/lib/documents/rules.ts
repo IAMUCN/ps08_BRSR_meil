@@ -18,8 +18,11 @@ export function uploadTargets(
   categories: readonly UploadCategory[],
   /** Role → the role it uploads on behalf of (migration 0049): it is offered that role's categories too. */
   uploadsFor: ReadonlyMap<string, string> = new Map(),
+  /** The administrator roles: they are offered every category, whichever role owns it. */
+  everyCategoryRoleIds: ReadonlySet<string> = new Set(),
 ): Map<string, string[]> {
   const rolesByNode = new Map<string, Set<string>>();
+  const everyCategory = new Set<string>();
   for (const assignment of assignments) {
     if (!uploadRoleIds.has(assignment.roleId)) continue;
     if (!nodes.some((n) => n.id === assignment.orgUnitId)) continue;
@@ -31,6 +34,7 @@ export function uploadTargets(
       if (isFrozen(id, nodes)) continue;
       const roles = rolesByNode.get(id) ?? new Set<string>();
       roles.add(assignment.roleId);
+      if (everyCategoryRoleIds.has(assignment.roleId)) everyCategory.add(id);
       const behalf = uploadsFor.get(assignment.roleId);
       if (behalf) roles.add(behalf);
       rolesByNode.set(id, roles);
@@ -40,7 +44,9 @@ export function uploadTargets(
   const targets = new Map<string, string[]>();
   for (const [nodeId, roles] of rolesByNode) {
     const categoryIds = categories
-      .filter((c) => c.owningRoleId === null || roles.has(c.owningRoleId))
+      .filter(
+        (c) => everyCategory.has(nodeId) || c.owningRoleId === null || roles.has(c.owningRoleId),
+      )
       .map((c) => c.id);
     if (categoryIds.length > 0) targets.set(nodeId, categoryIds);
   }

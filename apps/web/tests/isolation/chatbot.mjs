@@ -172,6 +172,8 @@ try {
     displayName: name,
     theme: "theme-2",
     isAdmin,
+    isOrgAdmin: false,
+    adminOrgUnitIds: [],
     roleCodes: [isAdmin ? "admin" : "project_manager"],
     permissions: ["chat.use"],
     assignments: [],

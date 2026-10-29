@@ -2,33 +2,40 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   canAccessPath,
+  hasOperationalRole,
   landingPathFor,
   postLoginPath,
   safeNextPath,
 } from "../lib/auth/redirects.ts";
 
-test("landing: Admin goes to /admin, everyone else to /app", () => {
+test("landing: an administrator goes to /admin, everyone else to /app", () => {
   assert.equal(landingPathFor(["admin"]), "/admin");
+  assert.equal(landingPathFor(["org_admin"]), "/admin");
+  assert.equal(landingPathFor(["org_admin", "hr"]), "/admin");
   assert.equal(landingPathFor(["admin", "project_manager"]), "/admin");
   assert.equal(landingPathFor(["project_manager"]), "/app");
   assert.equal(landingPathFor(["corporate_esg"]), "/app");
   assert.equal(landingPathFor([]), "/app");
 });
 
-test("namespace access: /admin is Admin only", () => {
+test("namespace access: /admin is for administrators only", () => {
   assert.equal(canAccessPath("/admin", ["admin"]), true);
+  assert.equal(canAccessPath("/admin/users", ["org_admin"]), true);
   assert.equal(canAccessPath("/admin/users", ["admin"]), true);
   assert.equal(canAccessPath("/admin", ["project_manager"]), false);
   assert.equal(canAccessPath("/admin/approval-queue", ["corporate_esg"]), false);
   assert.equal(canAccessPath("/administrator", ["admin"]), false);
 });
 
-test("namespace access: /app for non-admin roles, unassigned users, and dual-role users", () => {
+test("namespace access: /app for every signed-in role (an administrator uploads there too)", () => {
   assert.equal(canAccessPath("/app", ["project_manager"]), true);
   assert.equal(canAccessPath("/app/approvals", ["corporate_esg"]), true);
   assert.equal(canAccessPath("/app", []), true);
-  assert.equal(canAccessPath("/app", ["admin"]), false);
+  assert.equal(canAccessPath("/app/upload", ["admin"]), true);
+  assert.equal(canAccessPath("/app/upload", ["org_admin"]), true);
   assert.equal(canAccessPath("/app", ["admin", "hr"]), true);
+  assert.equal(hasOperationalRole(["admin", "org_admin"]), false);
+  assert.equal(hasOperationalRole(["org_admin", "hr"]), true);
   assert.equal(canAccessPath("/application", ["hr"]), false);
 });
 

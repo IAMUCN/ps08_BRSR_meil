@@ -19,10 +19,11 @@ select tables_are('public', array[
   'approvals', 'calculations', 'calculation_inputs', 'brsr_sections', 'brsr_indicators',
   'brsr_disclosures',
   'brsr_metric_mappings', 'audit_logs', 'report_runs', 'notifications', 'org_settings',
-  -- Added by documented deviations (supabase/SCHEMA_DEVIATIONS.md D16, D19, D22, D24, D29, D34, D36, D37), not by drift.
+  -- Added by documented deviations (supabase/SCHEMA_DEVIATIONS.md D16, D19, D22, D24, D29, D34, D36, D37, D42, D43), not by drift.
   'rate_limit_events', 'submission_expectations', 'password_reset_otps', 'document_bundle_parts',
   'org_levels', 'chat_conversations', 'chat_messages', 'org_unit_parents',
-  'carbon_credits', 'carbon_credit_transactions', 'internal_carbon_prices', 'capex_carbon_evaluations'
+  'carbon_credits', 'carbon_credit_transactions', 'internal_carbon_prices', 'capex_carbon_evaluations',
+  'user_invitations', 'user_sessions'
 ], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(
@@ -58,7 +59,7 @@ select ok(not has_column_privilege('authenticated', 'public.user_display_names',
 -- Seed data
 ------------------------------------------------------------------------------------------------
 
-select is((select count(*)::int from public.roles where is_system_role), 7, '7 system roles');
+select is((select count(*)::int from public.roles where is_system_role), 8, '8 system roles');
 select is((select count(*)::int from public.permissions), 20, '20 permissions');
 select is((select count(*)::int from public.role_permissions rp join public.roles r on r.id = rp.role_id
            where r.code = 'admin'), 20, 'admin holds every permission');
@@ -107,6 +108,10 @@ insert into public.users (id, display_name, email) values
 insert into public.org_units (parent_id, unit_type, name, code)
 select id, 'project', 'Project Y', 'PRJ-Y' from public.org_units where code = 'SUB-A';
 
+-- Whoever already holds the Super Admin role in this database is set aside first: at most two may hold it
+-- (migration 0050), and this fixture adds one. Rolled back with the rest of the test.
+update public.user_org_assignments uoa set revoked_at = now()
+from public.roles r where r.id = uoa.role_id and r.code = 'admin' and uoa.revoked_at is null;
 insert into public.user_org_assignments (user_id, org_unit_id, role_id, assigned_by)
 select a.user_id::uuid, ou.id, r.id, '33333333-3333-4333-8333-333333333333'
 from (values

@@ -42,7 +42,7 @@ Set for Production (and Preview if previews should work). Values come from `apps
 | `SUPABASE_STORAGE_BUCKET_EVIDENCE` = `evidence`, `SUPABASE_STORAGE_BUCKET_REPORTS` = `reports` | |
 | `DATABASE_URL` | Use Supabase's **transaction pooler, port 6543**. The local file uses the session pooler (port 5432), which holds one connection per client and can run out when several functions run at once |
 | `CHAT_DATABASE_URL`, `NVIDIA_NIM_API_KEY`, `NVIDIA_NIM_MODEL` | The chatbot; leave all out to keep it off. Same pooler note for `CHAT_DATABASE_URL` (user `chat_reader.<project ref>`) |
-| `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, `BREVO_SMTP_LOGIN` | Email. Without them accounts are created but no temporary password is sent |
+| `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, `BREVO_SMTP_LOGIN` | Email. Without them accounts are created but no invitation link is sent (send it later with Resend invitation). Do not set `EMAIL_SMTP_HOST` / `EMAIL_SMTP_PORT`: they are for a mail catcher on a developer's machine |
 | `NEXT_PUBLIC_APP_URL` | Optional; set it when a custom domain is added (no trailing slash) |
 | `SENTRY_DSN` | Optional |
 | `ENABLE_EXPERIMENTAL_COREPACK` = `1` | See above |

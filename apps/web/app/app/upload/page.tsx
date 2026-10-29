@@ -13,7 +13,7 @@ export default async function UploadPage({ searchParams }: PageProps<"/app/uploa
   const [session, params] = await Promise.all([requireAppSession(), searchParams]);
   const replacesId = typeof params.replaces === "string" ? params.replaces : undefined;
 
-  if (!session.assignments.some((a) => a.roleCode !== "admin")) {
+  if (session.assignments.length === 0) {
     return (
       <EmptyState
         icon={FolderX}

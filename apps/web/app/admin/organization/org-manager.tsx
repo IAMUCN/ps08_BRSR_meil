@@ -257,11 +257,21 @@ export function OrgManager({
           </p>
           {selected ? (
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => setAdding("one")}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!selected.ownable}
+                onClick={() => setAdding("one")}
+              >
                 <Plus aria-hidden />
                 Add a unit
               </Button>
-              <Button type="button" variant="outline" onClick={() => setAdding("many")}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!selected.ownable}
+                onClick={() => setAdding("many")}
+              >
                 <FileSpreadsheet aria-hidden />
                 Add from a spreadsheet
               </Button>
@@ -817,9 +827,13 @@ function NodeDetail({
                   <span className="font-mono">{node.code}</span>
                 </>
               ) : null}
-              {" · "}
-              {node.activeAssignments} {node.activeAssignments === 1 ? "person" : "people"} assigned
-              here
+              {node.inScope ? (
+                <>
+                  {" · "}
+                  {node.activeAssignments} {node.activeAssignments === 1 ? "person" : "people"}{" "}
+                  assigned here
+                </>
+              ) : null}
             </p>
           </div>
           {node.status === "inactive" ? (
@@ -831,8 +845,16 @@ function NodeDetail({
           )}
         </div>
 
+        {!node.manageable ? (
+          <p className="mt-6 text-sm leading-5 text-muted-foreground">
+            {node.inScope
+              ? "This is the unit you administer. You can add units under it and set what it must submit; its name, parent and status are changed by the administrator above you."
+              : "This unit is above the part of the organization you administer. It is listed so the tree reads from the top; you can't change it."}
+          </p>
+        ) : null}
         <form
           onSubmit={onSave}
+          hidden={!node.manageable}
           className="mt-6 grid gap-4 sm:grid-cols-[1fr_200px_auto] sm:items-end"
         >
           <div className="space-y-2">
@@ -853,15 +875,17 @@ function NodeDetail({
           </Button>
         </form>
 
-        <ExpectationsCard
-          orgUnitId={node.id}
-          nodeName={node.name}
-          openGroups={openGroups}
-          onToggleGroup={onToggleGroup}
-        />
+        {node.ownable ? (
+          <ExpectationsCard
+            orgUnitId={node.id}
+            nodeName={node.name}
+            openGroups={openGroups}
+            onToggleGroup={onToggleGroup}
+          />
+        ) : null}
       </div>
 
-      {node.parentId ? (
+      {node.parentId && node.manageable ? (
         <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">Move to a different parent</h3>
           <p className="mt-1 text-sm leading-5 text-muted-foreground">
@@ -897,7 +921,7 @@ function NodeDetail({
         </div>
       ) : null}
 
-      {node.parentId ? (
+      {node.parentId && node.manageable ? (
         <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">
             {alsoUnder.length > 0 ? `Parents (${alsoUnder.length + 1})` : "Parents"}
@@ -944,7 +968,7 @@ function NodeDetail({
         </div>
       ) : null}
 
-      {canChangeStatus ? (
+      {canChangeStatus && node.manageable ? (
         <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">
             {deactivating ? "Deactivate this unit" : "Reactivate this unit"}
@@ -966,7 +990,7 @@ function NodeDetail({
         </div>
       ) : null}
 
-      <div className="rounded-md border bg-card p-6">
+      <div hidden={!node.manageable} className="rounded-md border bg-card p-6">
         <h3 className="text-base leading-6 font-semibold">Delete this unit</h3>
         <p className="mt-1 text-sm leading-5 text-muted-foreground">
           Removes {node.name} and every unit under it for good. Only possible while they are unused:

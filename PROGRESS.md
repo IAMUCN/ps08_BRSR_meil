@@ -4,7 +4,11 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-12 — the app is renamed EmeilSG; the 2026-10-12 audits and their fixes are merged to `main`;
+_Last updated: 2026-10-13 — stages 1–3 of the scoped-administrator work (Super Admins and Administrators,
+invitation links, session time limits; migrations `0050`–`0052`) are done locally, uncommitted and not on
+hosted. Before that:_
+
+_2026-10-12 — the app is renamed EmeilSG; the 2026-10-12 audits and their fixes are merged to `main`;
 invites email a temporary password that must be changed at first sign-in; a role can upload on behalf of another
 (migration `0049`, branch `feature-employee-uploads`, not merged); test data set 1 follows the hierarchy in the web
 app and was run through hosted for August (66 records, 57 approved). Hosted has every migration, `0001`–`0049` (caught up 2026-10-12). A Vercel deployment check is in
@@ -43,8 +47,8 @@ Big rules that shape everything:
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D40) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A36) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D43) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A39) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `ASSURANCE.md` | How the system supports assurance on BRSR Core KPIs: controls, KPI-by-KPI status, an assurer's walkthrough |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
@@ -93,6 +97,9 @@ may run in parallel with Phases 3–5.
 | — | Invite by emailed temporary password, forced change at first sign-in, user delete, show-password | Done, on `main` | `7fb16ff` |
 | — | Expected submissions shown on the parent, role defaults (migration `0048`), Edit role | Done, on `main` | `e1586f3` |
 | — | A role uploads on behalf of another (migration `0049`); test data set 1 on the app's hierarchy; August run on hosted | Done, on branch `feature-employee-uploads` | `e3805f7` |
+| — | Report PDFs on Vercel (headless shell) and a small connection pool there | Done, on `main` | `fe93b23` |
+| — | Stage 1 of 6: Super Admins and scoped Administrators (migration `0050`) | Done on branch `feature-scoped-admins`, **uncommitted, not on hosted** | — |
+| — | Stages 2 and 3 of 6: invitation links (migration `0051`) and session time limits (migration `0052`) | Done in the same working tree, **uncommitted, not on hosted** | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -776,6 +783,42 @@ The test data was also regenerated with a mix of single PDFs, images and multi-b
   the owner's Employee role files a project's bills for its Project Manager.
 - **Test data set 1 follows the hierarchy in the web app** and was run through hosted for August 2026 as 21
   labelled test accounts: 57 files, 66 records over all 47 activities, 57 approved, 9 waiting for a factor.
+
+**Super Admins and scoped Administrators (2026-10-13, stage 1 of 6).** Decisions:
+`.grill/scoped-admin-onboarding-decisions.md`; D41, A37. Until now every Admin could do everything and
+nothing limited how many there were. The `admin` role is now the Super Admin — group-wide configuration and
+every org unit, at most two people, enforced by the database. A new role, Administrator, is assigned at any
+org unit and administers that unit and everything beneath it: people, the hierarchy, the queues, Scope
+1/2/3, the Data Explorer, reports and uploads. Roles are handed out downwards only; an account is changed
+only by someone who administers every role it holds. Administrators upload any activity; nobody but a
+Super Admin approves their own record, and that is marked in the audit trail. Checks: web unit 204/204,
+database 336/336, cross-project procedures 264 passed, end-to-end 344/344 and a new script 77/77, lint,
+typecheck, format, build, eight screens in Edge. Not run: chatbot and accessibility suites, phone widths,
+anything on hosted.
+
+**Invitation links and session time limits (2026-10-13, stages 2 and 3 of 6).** Decisions:
+`.grill/scoped-admin-onboarding-decisions.md`; D42, D43, A38, A39.
+- **No password is emailed any more.** Invite user and bulk import create the account and email a link.
+  The link carries a random token after the `#`, so it reaches no server log; only its hash is stored; it
+  works once and for 24 hours. Opening it changes nothing. The person chooses a password on the new
+  `/invite` page, which sets it and uses the link up in one transaction, then sends them to sign in. Resend
+  invitation replaces the link, Revoke link cancels it, and both follow the scope rules of stage 1. One
+  message covers every link that is no good. Forgot-password sends no code to an account never set up.
+- **Sessions end by themselves**: after 3 hours without activity and 12 hours after sign-in, both
+  settings, enforced by the app on every request from a clock it keeps per sign-in. Only what the person
+  does on the page counts; the notification bell and refreshing lists do not. A notice appears five minutes
+  before the end, and an open page leaves for sign-in when the session has ended and returns to the same
+  page afterwards. Only that device is signed out.
+- Also: the local mail catcher now receives the app's own email (loopback only), so a test can read a real
+  link; the accessibility suite runs beside two Super Admins; one small target on the Audit Trail was
+  made 24px high.
+- Checks: web unit 210/210, database 367/367, end-to-end 519/519 over eleven scripts on the built app
+  (the new script is 98 of them), cross-project procedures 264 passed, chatbot 49/49, accessibility 188
+  passed / 0 failed / 2 known open, lint, typecheck, format, production build, the new screens in Edge at
+  1440 and 390px. Not run: a real email through Brevo, anything on hosted, a real three-hour wait.
+
+Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
+docs, the phone and tablet pass.
 
 ## 4. What comes next
 

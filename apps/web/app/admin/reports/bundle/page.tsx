@@ -3,14 +3,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { BundleClient } from "./bundle-client";
 
 export const metadata: Metadata = { title: "Audit Evidence Bundle · EmeilSG" };
 
 export default async function AuditEvidenceBundlePage() {
-  await requireAdminSession();
+  await requireAdminAreaSession();
   const caller = await api();
   const options = await caller.reports.options();
 

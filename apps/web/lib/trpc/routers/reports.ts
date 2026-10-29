@@ -128,10 +128,12 @@ export const reportsRouter = router({
     }),
 
   /** Every evidence file linked to a record whose reporting period lies in the financial year. */
-  evidence: adminProcedure
+  evidence: generateProcedure
     .input(z.object({ financialYear }))
-    .query(async ({ input }): Promise<EvidenceFile[]> => {
+    .query(async ({ ctx, input }): Promise<EvidenceFile[]> => {
       const { from, to } = financialYearRange(input.financialYear);
+      // Evidence of the caller's own org units only; every unit for a Super Admin.
+      const scope = await scopedOrgUnitIds(db(), ctx.session);
       const rows = await db()<
         {
           document_id: string;
@@ -159,6 +161,7 @@ export const reportsRouter = router({
         join public.org_units o on o.id = r.org_unit_id
         join public.users u on u.id = d.uploaded_by
         where p.start_date >= ${from} and p.end_date <= ${to}
+          and (${scope === null} or r.org_unit_id = any(${scope ?? []}::uuid[]))
         order by p.start_date, o.name, m.name, erd.is_primary desc, d.created_at`;
       return rows.map((r) => ({
         documentId: r.document_id,
@@ -174,9 +177,9 @@ export const reportsRouter = router({
       }));
     }),
 
-  options: generateProcedure.query(async (): Promise<ReportOptions> => {
+  options: generateProcedure.query(async ({ ctx }): Promise<ReportOptions> => {
     const sql = db();
-    const [orgUnits, periods] = await Promise.all([
+    const [allOrgUnits, periods, scope] = await Promise.all([
       sql<{ id: string; name: string; depth: number }[]>`
         with recursive tree as (
           select id, name, 0 as depth, array[name::text] as path
@@ -189,7 +192,12 @@ export const reportsRouter = router({
       sql<{ id: string; label: string; start_date: string; end_date: string; status: string }[]>`
         select id, label, start_date::text, end_date::text, status::text from public.reporting_periods
         order by start_date desc`,
+      scopedOrgUnitIds(sql, ctx.session),
     ]);
+    // Only the units the caller may report on, indented from their own top unit.
+    const inScope = allOrgUnits.filter((o) => scope === null || scope.includes(o.id));
+    const top = Math.min(...inScope.map((o) => o.depth));
+    const orgUnits = inScope.map((o) => ({ ...o, depth: o.depth - top }));
     const open = periods.find((p) => p.status === "open") ?? periods[0];
     return {
       defaultPeriodId: open?.id ?? null,

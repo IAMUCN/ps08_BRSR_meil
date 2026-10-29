@@ -645,3 +645,64 @@ sender (Brevo). Decisions: `.grill/invite-smtp-decisions.md`.
   system roles included, can be changed; the code never changes (assignments, import sheets and the app's own
   rules refer to it), and the Admin role keeps every permission whatever it is called. Audited as
   `role.updated`.
+
+## A37 — Super Admins and scoped Administrators (2026-10-13, owner's decision)
+
+`03_APP_FLOW.md` §1 gives `/admin` to one Admin role and `/app` to everyone else, and §2.3 says the Admin
+does not upload. The owner changed both (`.grill/scoped-admin-onboarding-decisions.md`, D41).
+
+- **`/admin` is for administrators.** A Super Admin (the old Admin role, at most two people) sees all of it.
+  An Administrator, assigned at any org unit, sees the pages about their own units — Dashboard, Submission
+  Monitoring, the two queues, Scope 1/2/3, Data Explorer, Reports, Organization, Users — limited to that
+  unit and everything beneath it. Group-wide configuration (conversion factors, BRSR mapping and
+  disclosures, roles, reporting periods, hierarchy levels, yearly report inputs, the audit trail) and the
+  pages not yet reviewed for scoping (OCR Monitoring, Reporting Deadlines, Forecast, Simulator, Carbon
+  credits) stay with the Super Admin; an Administrator who opens one is sent back to their dashboard.
+- **Roles are handed out downwards.** A Super Admin: any role anywhere. An Administrator: operational roles
+  at their own units and beneath, the Administrator role only beneath (never a peer at their own level),
+  never Super Admin. A whole account (deactivate, reactivate, delete, re-invite) can be changed only by
+  someone who could take away every role it holds. Holding `user.manage` or `org.manage` without an
+  administrator role no longer opens anything outside one's own assignments.
+- **The Organization page** shows an Administrator their branch and, by name only, the units above it. Their
+  own unit takes new units and expected submissions; its name, parent and status are changed from above.
+- **Administrators upload** (Upload and My Uploads in the admin sidebar, the same screens as everyone
+  else): any activity, whichever role owns it, for any unit they administer.
+- **Approval:** still nobody decides on a record they submitted or verified — except a Super Admin, who has
+  nobody above them. That decision carries a note in the audit trail and the flag
+  `same_person_as_submitter_or_verifier`. `/app` no longer sends an administrator away; its dashboard does.
+
+## A38 — Invitation links replace emailed passwords (2026-10-13, owner's decision)
+
+Supersedes the emailed temporary password of A36 for every new account. Decisions:
+`.grill/scoped-admin-onboarding-decisions.md`; D42.
+
+- **Invite user** and **bulk import** create the account and email a link (`/invite#token`). No password is
+  created for the person, shown on a screen or emailed. The bulk-import results no longer have a password
+  column.
+- **`/invite`** (public, new): checks the link, shows "Enter new password" and "Confirm new password", and on
+  submit sets the password and uses the link up in one transaction. The person is then sent to the ordinary
+  sign-in page; the link signs nobody in. A link that is unknown, used, revoked, expired or belongs to a
+  deactivated account gets one message.
+- **Users**: an invited account shows where its link stands (valid until, expired, revoked, none). The side
+  panel has **Resend invitation** (a new link; the earlier one stops working) and **Revoke link**. Both are
+  refused once the person has set the account up, and follow the same scope rule as deactivating an account
+  (A37).
+- **Forgot password** sends no code to an account that was never set up.
+- Accounts that already hold an emailed temporary password keep the forced-change screen of A36 until an
+  administrator sends them a link.
+- Audit events: `user.invited` and `user.invite_resent` (with the validity, never the token),
+  `user.invite_revoked`, `user.invitation_accepted` (in the person's own name).
+
+## A39 — Sessions end by themselves (2026-10-13, owner's decision)
+
+03_APP_FLOW §4.3 describes an expired session but sets no limit. Decisions:
+`.grill/scoped-admin-onboarding-decisions.md`; D43.
+
+- A sign-in ends after 3 hours without activity and 12 hours after it started. Closing the browser does not
+  end it.
+- Activity is what the person does on the page; the notification bell and refreshing lists do not count.
+- Five minutes before the end a notice appears at the top of the page: for the idle limit with **Stay
+  signed in**, for the 12-hour limit with the time only.
+- When it has ended, an open page goes to sign-in ("Your session expired") and comes back to the same page
+  afterwards; a procedure call is refused as for any expired session (§4.3).
+- Only that device is signed out. Log out still ends every device.

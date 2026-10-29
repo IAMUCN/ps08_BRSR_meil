@@ -575,3 +575,59 @@ to the person's org scope. Organisation-wide configuration stays with Admin.
 activities on Upload. The owner added an Employee role whose people file the bills their Project Manager is
 responsible for; a custom role owns no category and was offered nothing. The column lends one role's
 categories to another for uploading without taking them away (`.grill/employee-uploads-decisions.md`).
+
+## D41 — Super Admins and scoped Administrators (migration `0050`)
+
+**Change:** a new system role `org_admin` ("Administrator") with eleven of the existing permissions and none
+of the configuration ones; the `admin` role is renamed "Super Admin"; a setting `super_admin_limit` (2); a
+trigger function `enforce_super_admin_limit()` on `user_org_assignments` and on `users`.
+
+**Why:** the schema has one global Admin role and nothing limits how many people hold it — the hosted project
+had five within three weeks. The owner decided (2026-10-13, `.grill/scoped-admin-onboarding-decisions.md`)
+that group-wide configuration belongs to at most two Super Admins and that everyone else who administers is
+limited to the org unit they are assigned at and everything beneath it.
+
+**How it is enforced:** `is_admin()` and every policy that calls it are unchanged and keep meaning the Super
+Admin, so nothing opened to an Administrator by accident. Their reach is the org scope the app already had
+(`lib/auth/scope.ts`), checked in each procedure; who may hand out which role where is one pure rule
+(`lib/users/rules.ts`: `checkGrant`, `checkAccountReach`). The limit counts unrevoked `admin` assignments on
+active, undeleted accounts under a transaction-scoped lock, so two grants at once cannot both pass; a
+deactivated Super Admin frees a place and cannot be reactivated while it is taken. The migration refuses to
+run on a database that is already over the limit.
+
+## D42 — Invitation links (migration `0051`)
+
+**Schema document:** has no invitation table; accounts were to be invited by Supabase Auth's own email.
+
+**What exists:** `public.user_invitations` (`user_id`, `token_hash`, `created_by`, `created_at`,
+`expires_at`, `consumed_at`, `revoked_at`), server-only (RLS on, no policy, no browser grant), and the
+setting `org_settings.invitation_valid_hours` (24).
+
+**Why:** Supabase's invite link is used up, and signs the person in, by a plain GET, which mail scanners
+perform; and since A36 new accounts were emailed a temporary password. The owner decided no password is
+ever emailed (`.grill/scoped-admin-onboarding-decisions.md`).
+
+**Rules the database holds for every writer:** only a SHA-256 can be stored as the token; an account has at
+most one link that is neither used nor revoked; a link is used or revoked, never both; a used or revoked
+link cannot be changed; a link's account, token and expiry cannot be changed.
+
+**Undo:** drop the table and `guard_user_invitation()`, delete the setting.
+
+## D43 — Session time limits (migration `0052`)
+
+**Schema document:** sessions are Supabase Auth's; no table.
+
+**What exists:** `public.user_sessions` (one row per sign-in, keyed by the `session_id` claim of the access
+token: `user_id`, `started_at`, `last_activity_at`, `ended_at`, `ended_reason`), server-only; the functions
+`session_limits()` and `touch_session(session, user, activity)`, not callable by the browser roles; the
+setting `org_settings.session_limits` (`{"idle_minutes": 180, "absolute_minutes": 720}`).
+
+**Why:** a Supabase session lives for as long as its refresh token is used. The owner decided on 3 hours
+without activity and 12 hours in all, enforced by the app.
+
+**Behaviour:** `touch_session` registers a session seen for the first time, ends one past either limit
+(for good: an ended session never becomes active again) and, only when told the person did something,
+moves the idle clock. A session id belongs to the person it started with. A missing or senseless setting
+gives the default limits. Rows older than 30 days are removed when someone signs out.
+
+**Undo:** drop the two functions and the table, delete the setting.

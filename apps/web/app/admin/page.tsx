@@ -19,7 +19,7 @@ import { ContextPicker, ReadinessInfo } from "@/components/dashboard/control-tow
 import { EmptyState } from "@/components/shell/empty-state";
 import { NoticeToast } from "@/components/shell/notice-toast";
 import { PageHeader } from "@/components/shell/page-header";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import type { Fraction } from "@/lib/dashboard/kpis";
 import { readParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
@@ -82,7 +82,7 @@ function KpiCard({ card }: { card: Card }) {
 }
 
 export default async function AdminDashboardPage({ searchParams }: PageProps<"/admin">) {
-  const [, raw, caller] = await Promise.all([requireAdminSession(), searchParams, api()]);
+  const [, raw, caller] = await Promise.all([requireAdminAreaSession(), searchParams, api()]);
   const q = readParams(raw);
   const { context, summary } = await caller.records.summary({
     orgUnitId: q.orgUnitId,

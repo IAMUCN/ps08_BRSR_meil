@@ -76,11 +76,24 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
   const nodeRows = await loadOrgNodes(sql);
   const nodes: OrgNode[] = nodeRows;
 
-  // Admin works in /admin and does not upload (03_APP_FLOW.md §2.3 "All non-admin roles").
-  const assignments = await sql<{ org_unit_id: string; role_id: string }[]>`
-    select uoa.org_unit_id, uoa.role_id
+  // An administrator uploads too (owner's decision 2026-10-13): any activity, whichever role owns it, for
+  // every unit they administer. A Super Admin's reach is every group, wherever the role is assigned.
+  const held = await sql<{ org_unit_id: string; role_id: string; code: string }[]>`
+    select uoa.org_unit_id, uoa.role_id, r.code
     from public.user_org_assignments uoa join public.roles r on r.id = uoa.role_id
-    where uoa.user_id = ${userId} and uoa.revoked_at is null and r.code <> 'admin'`;
+    where uoa.user_id = ${userId} and uoa.revoked_at is null`;
+  const superRole = held.find((a) => a.code === "admin");
+  const assignments = [
+    ...held,
+    ...(superRole
+      ? nodes
+          .filter((n) => n.parentId === null)
+          .map((n) => ({ org_unit_id: n.id, role_id: superRole.role_id, code: "admin" }))
+      : []),
+  ];
+  const administratorRoleIds = new Set(
+    held.filter((a) => a.code === "admin" || a.code === "org_admin").map((a) => a.role_id),
+  );
   const uploadRoles = await sql<{ role_id: string }[]>`
     select rp.role_id from public.role_permissions rp
     join public.permissions p on p.id = rp.permission_id
@@ -132,6 +145,7 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
     new Set(uploadRoles.map((r) => r.role_id)),
     [...categoriesById.values()],
     new Map(behalfRows.map((r) => [r.id, r.uploads_for_role_id])),
+    administratorRoleIds,
   );
   const targets = nodeRows
     .filter((n) => targetMap.has(n.id))

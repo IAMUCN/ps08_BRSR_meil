@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { ownPasswordMetadata } from "@/lib/auth/initial-password";
+import { accountActivated } from "@/lib/auth/invitations";
 import { AUTH_MESSAGES } from "@/lib/auth/messages";
 import { passwordMeetsPolicy, passwordPolicyMessage } from "@/lib/auth/password-policy";
 import { db } from "@/lib/db";
@@ -13,8 +14,9 @@ import { passwordResetOtpEmailHtml, sendEmail } from "@/lib/email/brevo";
 import { bucket, clientAddress, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-// OTP password reset (bulk-import-decisions.md), replacing Supabase Auth's own reset-link email for this
-// flow only — invite / first-password-set (/reset-password via /auth/confirm) is untouched.
+// OTP password reset (bulk-import-decisions.md), replacing Supabase Auth's own reset-link email. It is for
+// accounts already in use: one that was invited and never set up gets no code, because its invitation link
+// (which an administrator can revoke) is the only way to choose its first password.
 const OTP_EXPIRY_MINUTES = 10;
 
 export type ResetRequestState =
@@ -46,7 +48,7 @@ export async function requestPasswordReset(
   const [user] = await db()<{ id: string; display_name: string }[]>`
     select id, display_name from public.users
     where lower(email) = ${email} and is_active and deleted_at is null`;
-  if (user) {
+  if (user && (await accountActivated(user.id))) {
     const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
     const codeHash = createHash("sha256").update(code).digest("hex");
     await db().begin(async (tx) => {
@@ -98,7 +100,7 @@ export async function verifyOtpAndSetPassword(
 
   const [user] = await db()<{ id: string }[]>`
     select id from public.users where lower(email) = ${email} and is_active and deleted_at is null`;
-  if (!user) return { error: AUTH_MESSAGES.otpInvalid };
+  if (!user || !(await accountActivated(user.id))) return { error: AUTH_MESSAGES.otpInvalid };
 
   // Every guess, right or wrong, first takes one of the code's attempts in a single statement: requests
   // sent side by side cannot all read the same count and slip past the limit.

@@ -34,6 +34,8 @@ export type ApprovalRow = {
   manualException: boolean;
   /** The signed-in approver submitted or verified this record, so they may not decide on it. */
   ownRecord: boolean;
+  /** The caller is a Super Admin who submitted or verified this record: approving it will be marked. */
+  selfApproval: boolean;
   values: { label: string; value: string | null }[];
   results: { ruleType: RuleType; outcome: Outcome; message: string }[];
   /** The stored calculation, or why there isn't one yet — Approve is blocked until it exists (Phase 9). */
@@ -135,8 +137,13 @@ export const approvalsRouter = router({
       activityValue: r.activity_value,
       activityUnit: r.activity_unit,
       manualException: r.manual_exception,
+      // A Super Admin may decide on their own record (nobody sits above them); it is marked when they do.
       ownRecord:
-        r.submitted_by_id === ctx.session.userId || r.verified_by_id === ctx.session.userId,
+        !ctx.session.isAdmin &&
+        (r.submitted_by_id === ctx.session.userId || r.verified_by_id === ctx.session.userId),
+      selfApproval:
+        ctx.session.isAdmin &&
+        (r.submitted_by_id === ctx.session.userId || r.verified_by_id === ctx.session.userId),
       values: r.values ?? [],
       results: r.results ?? [],
       calculation: calculations.get(r.record_id) ?? { trace: null, blockedReason: null },
@@ -197,7 +204,10 @@ export const approvalsRouter = router({
             message: "This record is not awaiting approval.",
           });
         }
-        if (record.submitted_by === userId || record.verified_by === userId) {
+        // Nobody decides on their own record — except a Super Admin, who has nobody above them. That
+        // decision is marked in the audit trail (.grill/scoped-admin-onboarding-decisions.md).
+        const own = record.submitted_by === userId || record.verified_by === userId;
+        if (own && !ctx.session.isAdmin) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "You submitted or verified this record, so someone else must decide on it.",
@@ -229,9 +239,14 @@ export const approvalsRouter = router({
           entityType: "esg_record",
           entityId: record.id,
           userId,
-          reason,
+          reason:
+            reason ??
+            (own ? "Submitted or verified and approved by the same person (Super Admin)." : null),
           oldValue: { approval_status: "review_pending" },
-          newValue: { approval_status: approve ? "approved" : "returned" },
+          newValue: {
+            approval_status: approve ? "approved" : "returned",
+            ...(own ? { same_person_as_submitter_or_verifier: true } : {}),
+          },
         });
         const file = record.file_name ?? "Your submission";
         await tx`

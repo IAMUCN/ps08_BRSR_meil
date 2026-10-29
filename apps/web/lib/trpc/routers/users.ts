@@ -3,9 +3,12 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
-import { temporaryPasswordMetadata } from "@/lib/auth/initial-password";
-import { accountCreatedEmailHtml, sendEmail } from "@/lib/email/brevo";
+import { mustChangePassword, ownPasswordMetadata } from "@/lib/auth/initial-password";
+import { invitationState } from "@/lib/auth/invitation-token";
+import { issueInvitation, revokeInvitations, sendInvitationEmail } from "@/lib/auth/invitations";
+import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 import { loadLevels } from "@/lib/org/levels";
+import { loadOrgNodes } from "@/lib/org/nodes";
 import {
   isFrozen,
   levelLabel,
@@ -17,20 +20,20 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { permissionProcedure, router } from "@/lib/trpc/init";
 import type { ActiveSession } from "@/lib/auth/session";
-import { checkAdminRemoval, checkRoleAtNode, generateInitialPassword } from "@/lib/users/rules";
+import {
+  administeredIds,
+  checkAccountReach,
+  checkAdminRemoval,
+  checkGrant,
+  checkRoleAtNode,
+  generateInitialPassword,
+} from "@/lib/users/rules";
 
 const userManage = permissionProcedure("user.manage");
-// Handing out or taking away a role is Admin-only, whoever else holds user.manage: otherwise a person who
-// was given that permission could assign themselves (or anyone) the Admin role.
-const roleGrant = userManage.use(({ ctx, next }) => {
-  if (!ctx.session.isAdmin) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Only an Admin can assign or remove roles.",
-    });
-  }
-  return next();
-});
+// Holding user.manage is not enough to hand out or take away a role, or to act on an account: each of those
+// is checked against who the caller is and where (lib/users/rules.ts — checkGrant, checkAccountReach).
+// A Super Admin: anything. An Administrator: inside what they administer, and never their own level's
+// Administrator role or the Super Admin role. Anyone else who was given the permission: nothing.
 const userBulkImport = permissionProcedure("user.bulk_import");
 
 // Supabase Auth ban used for deactivation (~100 years); "none" lifts it.
@@ -38,14 +41,30 @@ const BAN_DURATION = "876000h";
 
 export type UserStatus = "invited" | "active" | "deactivated";
 
+/**
+ * Where an account that has not been activated stands: its link is still good ("pending"), ran out
+ * ("expired") or was cancelled ("revoked"); "none" is an account from before invitation links, still
+ * holding an emailed temporary password.
+ */
+export type InvitationInfo = {
+  state: "pending" | "expired" | "revoked" | "none";
+  expiresAt: string | null;
+};
+
 export type UserRow = {
   id: string;
   displayName: string;
   email: string;
   employeeId: string | null;
   status: UserStatus;
+  /** Set while the status is "invited". */
+  invitation: InvitationInfo | null;
+  /** Whether the caller may deactivate, reactivate, delete or re-invite this account. */
+  manageable: boolean;
   assignments: {
     id: string;
+    /** Whether the caller may take this role away. */
+    removable: boolean;
     roleId: string;
     roleCode: string;
     roleName: string;
@@ -59,33 +78,85 @@ function badRequest(message: string): never {
   throw new TRPCError({ code: "BAD_REQUEST", message });
 }
 
-async function loadNodes(tx: Tx): Promise<OrgNode[]> {
-  const rows = await tx<
-    { id: string; parent_id: string | null; unit_type: string; status: string }[]
-  >`
-    select id, parent_id, unit_type, status from public.org_units where deleted_at is null`;
-  return rows.map((r) => ({
-    id: r.id,
-    parentId: r.parent_id,
-    unitType: r.unit_type as OrgNode["unitType"],
-    status: r.status as OrgNode["status"],
-  }));
+function forbidden(message: string): never {
+  throw new TRPCError({ code: "FORBIDDEN", message });
 }
 
-/** Validates a role + org node pairing for a new assignment (inside the transaction). */
-async function assertAssignable(tx: Tx, roleId: string, orgUnitId: string) {
+/** The database's own refusal of one Super Admin too many (migration 0050), in its words. */
+function superAdminLimit(error: unknown): string | null {
+  const message = error instanceof Error ? error.message : "";
+  return pgErrorCode(error) === "23514" && message.includes("Super Admin") ? message : null;
+}
+
+const TOO_MANY_INVITATIONS =
+  "Too many invitations were sent in the last hour. Wait a while and try again.";
+
+/** Refuses once this person has issued more links than the limit allows; otherwise counts this one. */
+async function countInvitation(actorUserId: string): Promise<boolean> {
+  const limits = await rateLimits();
+  const name = bucket("invitation-issuer", actorUserId);
+  if (await exceeded(name, limits.invitations_per_user, limits.invitation_window_minutes)) {
+    return false;
+  }
+  await count(name);
+  return true;
+}
+
+/** Validates a role + org node pairing for a new assignment by this caller (inside the transaction). */
+async function assertAssignable(tx: Tx, session: ActiveSession, roleId: string, orgUnitId: string) {
   const [role] = await tx<{ code: string; name: string }[]>`
     select code, name from public.roles where id = ${roleId}`;
   if (!role) badRequest("Role not found.");
-  const nodes = await loadNodes(tx);
+  const nodes: OrgNode[] = await loadOrgNodes(tx);
   const node = nodes.find((n) => n.id === orgUnitId);
   if (!node) badRequest("Organization node not found.");
+  const grant = checkGrant(session, role.code, orgUnitId, nodes);
+  if (!grant.ok) forbidden(grant.reason);
   if (isFrozen(node.id, nodes)) {
     badRequest("That node is inactive (or under an inactive node) — no new assignments.");
   }
   const roleCheck = checkRoleAtNode(role.code, node.unitType);
   if (!roleCheck.ok) badRequest(roleCheck.reason);
   return role;
+}
+
+/** Refuses an account the caller may not act on as a whole (lib/users/rules.ts: checkAccountReach). */
+async function assertAccountReach(
+  sql: Tx | ReturnType<typeof db>,
+  session: ActiveSession,
+  userId: string,
+) {
+  if (session.isAdmin) return;
+  const held = await sql<{ roleCode: string; orgUnitId: string }[]>`
+    select r.code as "roleCode", uoa.org_unit_id as "orgUnitId"
+    from public.user_org_assignments uoa join public.roles r on r.id = uoa.role_id
+    where uoa.user_id = ${userId} and uoa.revoked_at is null`;
+  const check = checkAccountReach(session, held, await loadOrgNodes(sql));
+  if (!check.ok) forbidden(check.reason);
+}
+
+/**
+ * An active account whose owner has neither used an invitation link nor ever signed in. Anything else is
+ * refused: a link must never become a way to set the password of an account that is already in use.
+ */
+async function pendingAccount(sql: ReturnType<typeof db>, userId: string) {
+  const [profile] = await sql<{ display_name: string; email: string; activated: boolean }[]>`
+    select u.display_name, u.email,
+           exists (select 1 from public.user_invitations i
+                   where i.user_id = u.id and i.consumed_at is not null) as activated
+    from public.users u
+    where u.id = ${userId} and u.deleted_at is null and u.is_active`;
+  if (!profile) badRequest("User not found.");
+  const { data, error } = await createSupabaseAdminClient().auth.admin.getUserById(userId);
+  if (error || !data.user) badRequest("User not found.");
+  if (profile.activated || data.user.last_sign_in_at) {
+    badRequest("This person has already set up their account.");
+  }
+  return {
+    email: profile.email,
+    displayName: profile.display_name,
+    holdsTemporaryPassword: mustChangePassword(data.user),
+  };
 }
 
 /** Lockout guards; takes a transaction-scoped lock so concurrent admin removals serialise. */
@@ -158,8 +229,19 @@ async function userWorkOnRecord(tx: Tx, userId: string): Promise<string[]> {
 }
 
 export const usersRouter = router({
-  list: userManage.query(async (): Promise<UserRow[]> => {
+  /** The roles this caller may hand out: every role for a Super Admin, all but that one for an Administrator. */
+  options: userManage.query(async ({ ctx }) => {
+    if (!ctx.session.isAdmin && !ctx.session.isOrgAdmin) return { roles: [] };
+    const roles = await db()<{ id: string; code: string; name: string }[]>`
+      select id, code, name from public.roles order by name`;
+    return { roles: roles.filter((r) => ctx.session.isAdmin || r.code !== "admin") };
+  }),
+
+  list: userManage.query(async ({ ctx }): Promise<UserRow[]> => {
     const sql = db();
+    const nodes: OrgNode[] = await loadOrgNodes(sql);
+    // An Administrator sees the people who hold a role inside what they administer; a Super Admin, everyone.
+    const scope = administeredIds(ctx.session, nodes);
     const users = await sql<
       {
         id: string;
@@ -191,34 +273,81 @@ export const usersRouter = router({
       where uoa.revoked_at is null
       order by r.name, ou.name`;
 
-    // "Invited" = an account nobody has signed in to yet (it still has its emailed temporary password).
+    // "Invited" = the person has neither chosen a password through their link nor ever signed in.
     const { data, error } = await createSupabaseAdminClient().auth.admin.listUsers({
       perPage: 1000,
     });
     if (error) throw error;
     const signedIn = new Set(data.users.filter((u) => u.last_sign_in_at).map((u) => u.id));
+    // Each account's latest link, and whether any link of theirs was ever used.
+    const invitations = await sql<
+      {
+        user_id: string;
+        expires_at: Date;
+        consumed_at: Date | null;
+        revoked_at: Date | null;
+        activated: boolean;
+      }[]
+    >`
+      select distinct on (user_id) user_id, expires_at, consumed_at, revoked_at,
+             bool_or(consumed_at is not null) over (partition by user_id) as activated
+      from public.user_invitations
+      order by user_id, created_at desc`;
+    const invitationOf = new Map(invitations.map((i) => [i.user_id, i]));
 
-    return users.map((u) => ({
-      id: u.id,
-      displayName: u.display_name,
-      email: u.email,
-      employeeId: u.employee_id,
-      status: !u.is_active ? "deactivated" : signedIn.has(u.id) ? "active" : "invited",
-      assignments: assignments
-        .filter((a) => a.user_id === u.id)
-        .map((a) => ({
-          id: a.id,
-          roleId: a.role_id,
-          roleCode: a.role_code,
-          roleName: a.role_name,
-          orgUnitId: a.org_unit_id,
-          orgUnitName: a.org_unit_name,
-          orgUnitType: a.org_unit_type,
-        })),
-    }));
+    return users.flatMap((u): UserRow[] => {
+      const held = assignments.filter((a) => a.user_id === u.id);
+      if (scope && !held.some((a) => scope.has(a.org_unit_id))) return [];
+      const own = u.id === ctx.session.userId;
+      const latest = invitationOf.get(u.id);
+      const status: UserStatus = !u.is_active
+        ? "deactivated"
+        : signedIn.has(u.id) || latest?.activated
+          ? "active"
+          : "invited";
+      const state = latest
+        ? invitationState({
+            consumedAt: latest.consumed_at,
+            revokedAt: latest.revoked_at,
+            expiresAt: latest.expires_at,
+          })
+        : null;
+      return [
+        {
+          id: u.id,
+          displayName: u.display_name,
+          email: u.email,
+          employeeId: u.employee_id,
+          status,
+          invitation:
+            status !== "invited"
+              ? null
+              : latest && state && state !== "used"
+                ? { state, expiresAt: latest.expires_at.toISOString() }
+                : { state: "none", expiresAt: null },
+          manageable:
+            !own &&
+            checkAccountReach(
+              ctx.session,
+              held.map((a) => ({ roleCode: a.role_code, orgUnitId: a.org_unit_id })),
+              nodes,
+            ).ok,
+          assignments: held.map((a) => ({
+            id: a.id,
+            removable: !own && checkGrant(ctx.session, a.role_code, a.org_unit_id, nodes).ok,
+            roleId: a.role_id,
+            roleCode: a.role_code,
+            roleName: a.role_name,
+            orgUnitId: a.org_unit_id,
+            orgUnitName: a.org_unit_name,
+            orgUnitType: a.org_unit_type,
+          })),
+        },
+      ];
+    });
   }),
 
-  invite: roleGrant
+  invite: userManage
     .input(
       z.object({
         email: z.email("Enter a valid email address.").transform((e) => e.trim().toLowerCase()),
@@ -233,19 +362,18 @@ export const usersRouter = router({
       if (existing) badRequest("A user with that email already exists.");
 
       // Validate before creating the account.
-      await sql.begin((tx) => assertAssignable(tx, input.roleId, input.orgUnitId));
+      await sql.begin((tx) => assertAssignable(tx, ctx.session, input.roleId, input.orgUnitId));
+      if (!(await countInvitation(ctx.session.userId))) badRequest(TOO_MANY_INVITATIONS);
 
-      // Like bulk import: the account gets a random temporary password, emailed through our own SMTP
-      // sender. Supabase Auth's invite email is not used (on the hosted project it only reaches the
-      // Supabase team).
-      const password = generateInitialPassword();
+      // No password is given here: Supabase Auth fills in a random one that it never returns, so nobody
+      // can sign in to the account. The person chooses their own through the emailed link (migration
+      // 0051); no password is ever sent or shown.
       const auth = createSupabaseAdminClient().auth.admin;
       const { data, error } = await auth.createUser({
         email: input.email,
-        password,
         email_confirm: true,
         user_metadata: { display_name: input.displayName },
-        app_metadata: temporaryPasswordMetadata,
+        app_metadata: ownPasswordMetadata,
       });
       if (error || !data.user) {
         badRequest(
@@ -256,15 +384,17 @@ export const usersRouter = router({
       }
       const userId = data.user.id;
 
+      let invitation;
       try {
-        await sql.begin(async (tx) => {
-          const role = await assertAssignable(tx, input.roleId, input.orgUnitId);
+        invitation = await sql.begin(async (tx) => {
+          const role = await assertAssignable(tx, ctx.session, input.roleId, input.orgUnitId);
           await tx`
             insert into public.users (id, display_name, email)
             values (${userId}, ${input.displayName}, ${input.email})`;
           await tx`
             insert into public.user_org_assignments (user_id, org_unit_id, role_id, assigned_by)
             values (${userId}, ${input.orgUnitId}, ${input.roleId}, ${ctx.session.userId})`;
+          const issued = await issueInvitation(tx, userId, ctx.session.userId);
           await writeAudit(tx, {
             eventType: "user.invited",
             entityType: "user",
@@ -275,23 +405,24 @@ export const usersRouter = router({
               display_name: input.displayName,
               role: role.code,
               org_unit_id: input.orgUnitId,
+              invitation_valid_hours: issued.validHours,
             },
           });
+          return issued;
         });
       } catch (err) {
         // Never leave an Auth account without its profile, assignment and audit rows.
         await auth.deleteUser(userId);
+        const limit = superAdminLimit(err);
+        if (limit) badRequest(limit);
         throw err;
       }
 
-      const emailResult = await sendEmail({
-        to: { email: input.email, name: input.displayName },
-        subject: "Your EmeilSG account",
-        html: accountCreatedEmailHtml({
-          displayName: input.displayName,
-          email: input.email,
-          password,
-        }),
+      // The account and its link exist either way; if the email fails the administrator sends a new link.
+      const emailResult = await sendInvitationEmail({
+        email: input.email,
+        displayName: input.displayName,
+        invitation,
       });
       return {
         id: userId,
@@ -300,48 +431,79 @@ export const usersRouter = router({
       };
     }),
 
+  /** A new link for an account that has not been activated; every earlier link stops working. */
   resendInvite: userManage
     .input(z.object({ userId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const auth = createSupabaseAdminClient().auth.admin;
-      const { data, error } = await auth.getUserById(input.userId);
-      if (error || !data.user?.email) badRequest("User not found.");
-      if (data.user.last_sign_in_at) badRequest("This user has already signed in.");
-      const [profile] = await db()<{ display_name: string }[]>`
-        select display_name from public.users
-        where id = ${input.userId} and deleted_at is null and is_active`;
-      if (!profile) badRequest("User not found.");
+      const sql = db();
+      const profile = await pendingAccount(sql, input.userId);
+      await assertAccountReach(sql, ctx.session, input.userId);
 
-      // A fresh temporary password replaces the earlier one; nobody has signed in with it yet.
-      const password = generateInitialPassword();
-      const { error: updateError } = await auth.updateUserById(input.userId, {
-        password,
-        email_confirm: true,
-        app_metadata: temporaryPasswordMetadata,
-      });
-      if (updateError) badRequest("The password could not be set. Try again.");
-      const emailResult = await sendEmail({
-        to: { email: data.user.email, name: profile.display_name },
-        subject: "Your EmeilSG account",
-        html: accountCreatedEmailHtml({
-          displayName: profile.display_name,
-          email: data.user.email,
-          password,
-        }),
-      });
-      if (!emailResult.sent) badRequest(`The email could not be sent: ${emailResult.reason}`);
-      await db().begin((tx) =>
-        writeAudit(tx, {
+      const limits = await rateLimits();
+      const perAccount = bucket("invitation-account", input.userId);
+      if (
+        await exceeded(
+          perAccount,
+          limits.invitation_resends_per_account,
+          limits.invitation_window_minutes,
+        )
+      ) {
+        badRequest(TOO_MANY_INVITATIONS);
+      }
+      if (!(await countInvitation(ctx.session.userId))) badRequest(TOO_MANY_INVITATIONS);
+      await count(perAccount);
+
+      // An account from before invitation links still holds an emailed temporary password. It stops
+      // working here: from now on the link is the only way in.
+      if (profile.holdsTemporaryPassword) {
+        const { error } = await createSupabaseAdminClient().auth.admin.updateUserById(
+          input.userId,
+          { password: generateInitialPassword(), app_metadata: ownPasswordMetadata },
+        );
+        if (error) badRequest("The invitation could not be prepared. Try again.");
+      }
+
+      const invitation = await sql.begin(async (tx) => {
+        const issued = await issueInvitation(tx, input.userId, ctx.session.userId);
+        await writeAudit(tx, {
           eventType: "user.invite_resent",
           entityType: "user",
           entityId: input.userId,
           userId: ctx.session.userId,
-        }),
-      );
+          newValue: { invitation_valid_hours: issued.validHours },
+        });
+        return issued;
+      });
+      const emailResult = await sendInvitationEmail({
+        email: profile.email,
+        displayName: profile.displayName,
+        invitation,
+      });
+      if (!emailResult.sent) badRequest(`The email could not be sent: ${emailResult.reason}`);
       return null;
     }),
 
-  addAssignment: roleGrant
+  /** Cancels the open link of an account that has not been activated. The account itself stays. */
+  revokeInvite: userManage
+    .input(z.object({ userId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const sql = db();
+      await pendingAccount(sql, input.userId);
+      await assertAccountReach(sql, ctx.session, input.userId);
+      await sql.begin(async (tx) => {
+        const revoked = await revokeInvitations(tx, input.userId);
+        if (revoked === 0) badRequest("This account has no open invitation link.");
+        await writeAudit(tx, {
+          eventType: "user.invite_revoked",
+          entityType: "user",
+          entityId: input.userId,
+          userId: ctx.session.userId,
+        });
+      });
+      return null;
+    }),
+
+  addAssignment: userManage
     .input(z.object({ userId: z.uuid(), roleId: z.uuid(), orgUnitId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -352,7 +514,16 @@ export const usersRouter = router({
           const [user] =
             await tx`select 1 from public.users where id = ${input.userId} and deleted_at is null`;
           if (!user) badRequest("User not found.");
-          const role = await assertAssignable(tx, input.roleId, input.orgUnitId);
+          // An Administrator adds roles to the people they can already see: someone with a role inside
+          // what they administer. Anyone else reads as not found (§4.4).
+          const scope = administeredIds(ctx.session, await loadOrgNodes(tx));
+          if (scope) {
+            const held = await tx<{ org_unit_id: string }[]>`
+              select org_unit_id from public.user_org_assignments
+              where user_id = ${input.userId} and revoked_at is null`;
+            if (!held.some((a) => scope.has(a.org_unit_id))) badRequest("User not found.");
+          }
+          const role = await assertAssignable(tx, ctx.session, input.roleId, input.orgUnitId);
           const [created] = await tx<{ id: string }[]>`
             insert into public.user_org_assignments (user_id, org_unit_id, role_id, assigned_by)
             values (${input.userId}, ${input.orgUnitId}, ${input.roleId}, ${ctx.session.userId})
@@ -369,11 +540,13 @@ export const usersRouter = router({
       } catch (error) {
         if (pgErrorCode(error) === "23505")
           badRequest("The user already has that role at that node.");
+        const limit = superAdminLimit(error);
+        if (limit) badRequest(limit);
         throw error;
       }
     }),
 
-  revokeAssignment: roleGrant
+  revokeAssignment: userManage
     .input(z.object({ assignmentId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
       await db().begin(async (tx) => {
@@ -388,6 +561,13 @@ export const usersRouter = router({
         if (assignment.user_id === ctx.session.userId) {
           badRequest("You can't change your own roles. Ask another Admin.");
         }
+        const grant = checkGrant(
+          ctx.session,
+          assignment.role_code,
+          assignment.org_unit_id,
+          await loadOrgNodes(tx),
+        );
+        if (!grant.ok) forbidden(grant.reason);
         if (assignment.role_code === "admin") {
           await assertAdminRemovalAllowed(tx, ctx.session.userId, assignment.user_id);
         }
@@ -413,6 +593,7 @@ export const usersRouter = router({
       select is_active from public.users where id = ${input.userId} and deleted_at is null`;
     if (!user) badRequest("User not found.");
     if (!user.is_active) badRequest("The user is already deactivated.");
+    await assertAccountReach(sql, ctx.session, input.userId);
     // Fail fast before touching Auth; re-checked under lock inside the transaction.
     await sql.begin((tx) => assertAdminRemovalAllowed(tx, ctx.session.userId, input.userId));
 
@@ -426,6 +607,8 @@ export const usersRouter = router({
       await sql.begin(async (tx) => {
         await assertAdminRemovalAllowed(tx, ctx.session.userId, input.userId);
         await tx`update public.users set is_active = false where id = ${input.userId}`;
+        // A deactivated person must not be able to finish setting the account up.
+        await revokeInvitations(tx, input.userId);
         await writeAudit(tx, {
           eventType: "user.deactivated",
           entityType: "user",
@@ -448,6 +631,7 @@ export const usersRouter = router({
     const [user] = await sql<{ display_name: string; email: string }[]>`
       select display_name, email from public.users where id = ${input.userId} and deleted_at is null`;
     if (!user) badRequest("User not found.");
+    await assertAccountReach(sql, ctx.session, input.userId);
 
     let kept = false;
     try {
@@ -473,6 +657,7 @@ export const usersRouter = router({
           select 1 from public.audit_logs where user_id = ${input.userId} limit 1`;
         kept = Boolean(named);
         if (kept) {
+          await revokeInvitations(tx, input.userId);
           await tx`
             update public.users
             set deleted_at = now(), is_active = false, email = ${`deleted-${input.userId}@deleted.invalid`}
@@ -512,6 +697,7 @@ export const usersRouter = router({
       select is_active from public.users where id = ${input.userId} and deleted_at is null`;
     if (!user) badRequest("User not found.");
     if (user.is_active) badRequest("The user is already active.");
+    await assertAccountReach(sql, ctx.session, input.userId);
 
     const auth = createSupabaseAdminClient().auth.admin;
     const { error: unbanError } = await auth.updateUserById(input.userId, { ban_duration: "none" });
@@ -531,6 +717,8 @@ export const usersRouter = router({
       });
     } catch (error) {
       await auth.updateUserById(input.userId, { ban_duration: BAN_DURATION });
+      const limit = superAdminLimit(error);
+      if (limit) badRequest(limit);
       throw error;
     }
     return null;
@@ -563,8 +751,9 @@ export const usersRouter = router({
             ctx.session.assignments.map((a) => a.orgUnitId),
           ),
     );
+    // The two administrator roles are never handed out from a sheet.
     const roles = await db()<{ code: string; name: string }[]>`
-      select code, name from public.roles where code <> 'admin' order by name`;
+      select code, name from public.roles where code not in ('admin', 'org_admin') order by name`;
     // In tree order with level and parent, so the template's reference sheet reads as the hierarchy does.
     const levels = await loadLevels(db());
     const codeOf = new Map(nodeRows.map((n) => [n.id, n.code]));
@@ -620,6 +809,10 @@ export const usersRouter = router({
     .mutation(async ({ ctx, input }): Promise<{ results: BulkImportRowResult[] }> => {
       const results: BulkImportRowResult[] = [];
       for (const [index, row] of input.rows.entries()) {
+        if (!(await countInvitation(ctx.session.userId))) {
+          results.push(rowFailed(index + 2, row, TOO_MANY_INVITATIONS));
+          continue;
+        }
         // Sheet row 1 is the header, so the first data row is row 2.
         results.push(await importOneEmployee(ctx.session, row, index + 2));
       }
@@ -641,7 +834,6 @@ export type BulkImportRowResult =
       ok: true;
       employeeId: string;
       email: string;
-      password: string;
       emailSent: boolean;
       emailError?: string;
     }
@@ -653,9 +845,9 @@ function rowFailed(row: number, r: BulkImportRow, error: string): BulkImportRowR
 
 /**
  * One row of a bulk-import sheet, isolated so one bad row can't take down the rest of the batch. The
- * account is created directly with a random initial password (no invite link), then a credentials
- * email is attempted — if Brevo isn't configured yet, or the send fails, the row still counts as created
- * and the password comes back in the result so it can be shared by hand instead (bulk-import-decisions.md).
+ * account is created without a password anyone knows and the person is emailed an invitation link,
+ * exactly as Invite user does. If the email cannot be sent the row still counts as created: the results say so, and a new
+ * link is sent from the Users page (Resend invitation). No password is created, shown or emailed.
  */
 async function importOneEmployee(
   session: ActiveSession,
@@ -675,8 +867,12 @@ async function importOneEmployee(
   const [role] = await sql<{ id: string; code: string }[]>`
     select id, code from public.roles where lower(code) = ${row.roleCode.toLowerCase()}`;
   if (!role) return rowFailed(rowNum, row, `Unknown role "${row.roleCode}".`);
-  if (role.code === "admin")
-    return rowFailed(rowNum, row, "The Admin role can't be assigned by bulk import.");
+  if (role.code === "admin" || role.code === "org_admin")
+    return rowFailed(
+      rowNum,
+      row,
+      "An administrator role can't be assigned by bulk import. Assign it on the Users page.",
+    );
 
   const nodeRows = await sql<
     {
@@ -718,14 +914,12 @@ async function importOneEmployee(
   if (!reachable.has(orgUnit.id))
     return rowFailed(rowNum, row, `"${row.orgUnitCode}" is outside your scope.`);
 
-  const password = generateInitialPassword();
   const auth = createSupabaseAdminClient().auth.admin;
   const { data, error } = await auth.createUser({
     email: row.email,
-    password,
     email_confirm: true,
     user_metadata: { display_name: row.displayName },
-    app_metadata: temporaryPasswordMetadata,
+    app_metadata: ownPasswordMetadata,
   });
   if (error || !data.user) {
     return rowFailed(
@@ -738,8 +932,9 @@ async function importOneEmployee(
   }
   const userId = data.user.id;
 
+  let invitation;
   try {
-    await sql.begin(async (tx) => {
+    invitation = await sql.begin(async (tx) => {
       await tx`
         insert into public.users (id, display_name, email, employee_id)
         values (${userId}, ${row.displayName}, ${row.email}, ${row.employeeId})`;
@@ -759,6 +954,7 @@ async function importOneEmployee(
           org_unit_id: orgUnit.id,
         },
       });
+      return issueInvitation(tx, userId, session.userId);
     });
   } catch (err) {
     // Never leave an Auth account without its profile, assignment and audit rows.
@@ -768,10 +964,10 @@ async function importOneEmployee(
     throw err;
   }
 
-  const emailResult = await sendEmail({
-    to: { email: row.email, name: row.displayName },
-    subject: "Your EmeilSG account",
-    html: accountCreatedEmailHtml({ displayName: row.displayName, email: row.email, password }),
+  const emailResult = await sendInvitationEmail({
+    email: row.email,
+    displayName: row.displayName,
+    invitation,
   });
 
   return {
@@ -779,7 +975,6 @@ async function importOneEmployee(
     ok: true,
     employeeId: row.employeeId,
     email: row.email,
-    password,
     emailSent: emailResult.sent,
     emailError: emailResult.sent ? undefined : emailResult.reason,
   };

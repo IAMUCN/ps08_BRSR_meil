@@ -5,7 +5,7 @@ import { loadCalculations } from "@/lib/calculation/lookup";
 import type { CalculationState } from "@/lib/calculation/trace";
 import { financialYearOf, financialYearRange } from "@/lib/consolidation/aggregate";
 import { writeAudit } from "@/lib/audit";
-import { assertOrgScope } from "@/lib/auth/scope";
+import { assertOrgScope, inOrgScope, scopedOrgUnitIds } from "@/lib/auth/scope";
 import {
   missingSubmissionOwners,
   missingSubmissions,
@@ -24,11 +24,12 @@ import {
   type RecordFilters,
   type RecordRow,
 } from "@/lib/records/search";
-import { adminProcedure, permissionProcedure, router } from "@/lib/trpc/init";
+import { adminAreaProcedure, permissionProcedure, router } from "@/lib/trpc/init";
 import { resolvePeriod } from "@/lib/trpc/routers/scope";
 
-// Control Tower, Submission Monitoring and ESG Data Explorer (03_APP_FLOW.md §2.2; Phase 16). Admin only;
-// the org/period context arrives in the URL and is resolved here (.grill/phase-16-control-tower-decisions.md).
+// Control Tower, Submission Monitoring and ESG Data Explorer (03_APP_FLOW.md §2.2; Phase 16). For
+// administrators: a Super Admin sees every org unit, an Administrator their own and everything beneath.
+// The org/period context arrives in the URL and is resolved here (.grill/phase-16-control-tower-decisions.md).
 
 export type ContextOptions = {
   orgUnitId: string;
@@ -40,10 +41,18 @@ export type ContextOptions = {
   metrics: { code: string; name: string }[];
 };
 
-/** The node and period in view: the ones asked for, else the organisation root and the open period. */
-async function resolveContext(orgUnitId?: string, periodId?: string): Promise<ContextOptions> {
+/**
+ * The node and period in view: the ones asked for, else the first unit the caller may see (the root for a
+ * Super Admin) and the open period. The picker lists only units inside the caller's scope, and a unit
+ * outside it is refused.
+ */
+async function resolveContext(
+  caller: { userId: string; isAdmin: boolean },
+  orgUnitId?: string,
+  periodId?: string,
+): Promise<ContextOptions> {
   const sql = db();
-  const [orgUnits, periods, roles, metrics] = await Promise.all([
+  const [allOrgUnits, periods, roles, metrics, scope] = await Promise.all([
     // Depth-first order with depth, so the picker can indent the tree.
     sql<{ id: string; name: string; unit_type: string; depth: number }[]>`
       with recursive tree as (
@@ -60,7 +69,13 @@ async function resolveContext(orgUnitId?: string, periodId?: string): Promise<Co
       select code, name from public.roles where code <> 'admin' order by name`,
     sql<{ code: string; name: string }[]>`
       select code, name from public.esg_metrics where deleted_at is null order by name`,
+    scopedOrgUnitIds(sql, caller),
   ]);
+  if (orgUnitId) await assertOrgScope(sql, caller, orgUnitId);
+  const inScope = allOrgUnits.filter((o) => scope === null || scope.includes(o.id));
+  // Indent from the caller's own top unit, not from a group they cannot open.
+  const top = Math.min(...inScope.map((o) => o.depth));
+  const orgUnits = inScope.map((o) => ({ ...o, depth: o.depth - top }));
   const node = orgUnits.find((o) => o.id === orgUnitId) ?? orgUnits[0];
   if (!node) throw new TRPCError({ code: "NOT_FOUND", message: "No organisation configured yet." });
   const resolvedPeriod =
@@ -131,9 +146,8 @@ export const recordsRouter = router({
     .input(contextInput)
     .query(
       async ({ ctx, input }): Promise<{ context: ContextOptions; summary: Summary | null }> => {
-        const context = await resolveContext(input.orgUnitId, input.periodId);
         // monitoring.view can be held below the group: the figures stay inside the holder's own scope.
-        await assertOrgScope(db(), ctx.session, context.orgUnitId);
+        const context = await resolveContext(ctx.session, input.orgUnitId, input.periodId);
         return {
           context,
           summary: context.periodId
@@ -193,8 +207,8 @@ export const recordsRouter = router({
    */
   // ponytail: sent when an Admin presses the button — there is no scheduler. Add a daily job when the app
   // is deployed somewhere that has one.
-  remindMissing: adminProcedure.input(contextInput).mutation(async ({ ctx, input }) => {
-    const context = await resolveContext(input.orgUnitId, input.periodId);
+  remindMissing: adminAreaProcedure.input(contextInput).mutation(async ({ ctx, input }) => {
+    const context = await resolveContext(ctx.session, input.orgUnitId, input.periodId);
     if (!context.periodId) return { missing: 0, reminded: 0, emailed: 0, alreadyReminded: 0 };
     const sql = db();
     const [missing, owners, [period]] = await Promise.all([
@@ -268,13 +282,14 @@ export const recordsRouter = router({
     };
   }),
 
-  search: adminProcedure
+  search: adminAreaProcedure
     .input(searchInput)
     .query(
       async ({
+        ctx,
         input,
       }): Promise<{ context: ContextOptions; rows: RecordRow[]; truncated: boolean }> => {
-        const context = await resolveContext(input.orgUnitId, input.periodId);
+        const context = await resolveContext(ctx.session, input.orgUnitId, input.periodId);
         let periodIds = context.periodId ? [context.periodId] : [];
         if (input.financialYear !== undefined) {
           const { from, to } = financialYearRange(input.financialYear);
@@ -298,23 +313,31 @@ export const recordsRouter = router({
     ),
 
   /** Expected submissions with nothing filed for the period (Control Tower "missing submissions"). */
-  missing: adminProcedure
+  missing: adminAreaProcedure
     .input(contextInput)
-    .query(async ({ input }): Promise<{ context: ContextOptions; rows: MissingSubmission[] }> => {
-      const context = await resolveContext(input.orgUnitId, input.periodId);
-      return {
-        context,
-        rows: context.periodId
-          ? await missingSubmissions(db(), context.orgUnitId, context.periodId)
-          : [],
-      };
-    }),
+    .query(
+      async ({ ctx, input }): Promise<{ context: ContextOptions; rows: MissingSubmission[] }> => {
+        const context = await resolveContext(ctx.session, input.orgUnitId, input.periodId);
+        return {
+          context,
+          rows: context.periodId
+            ? await missingSubmissions(db(), context.orgUnitId, context.periodId)
+            : [],
+        };
+      },
+    ),
 
   /** The shared record detail (App Flow §2.2): evidence, extracted values, validation, calculation, audit. */
-  detail: adminProcedure
+  detail: adminAreaProcedure
     .input(z.object({ recordId: z.uuid() }))
-    .query(async ({ input }): Promise<RecordDetail> => {
+    .query(async ({ ctx, input }): Promise<RecordDetail> => {
       const sql = db();
+      // Out of scope and missing read the same (§4.4).
+      const [owner] = await sql<{ org_unit_id: string }[]>`
+        select org_unit_id from public.esg_records where id = ${input.recordId}`;
+      if (!owner || !(await inOrgScope(sql, ctx.session, owner.org_unit_id))) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That record isn't available." });
+      }
       const [r] = await sql<
         {
           id: string;

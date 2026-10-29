@@ -19,6 +19,10 @@ insert into public.users (id, display_name, email) values
   ('47474747-0000-4000-8000-00000000000c', 'A3 Admin', 'a3.admin@example.test');
 insert into public.org_units (parent_id, unit_type, name, code)
 select id, 'project', 'Project Q', 'A3-Q' from public.org_units where code = 'SUB-A';
+-- Whoever already holds the Super Admin role in this database is set aside first: at most two may hold it
+-- (migration 0050), and this fixture adds one. Rolled back with the rest of the test.
+update public.user_org_assignments uoa set revoked_at = now()
+from public.roles r where r.id = uoa.role_id and r.code = 'admin' and uoa.revoked_at is null;
 insert into public.user_org_assignments (user_id, org_unit_id, role_id, assigned_by)
 select a.u::uuid, o.id, r.id, '47474747-0000-4000-8000-00000000000c'
 from (values ('47474747-0000-4000-8000-00000000000a', 'PRJ-X', 'project_manager'),
@@ -217,8 +221,9 @@ select is((select array_agg(pg_temp.count_as('47474747-0000-4000-8000-0000000000
   from unnest(array['carbon_credits', 'carbon_credit_transactions', 'internal_carbon_prices',
     'capex_carbon_evaluations', 'chat_conversations', 'chat_messages', 'password_reset_otps',
     'rate_limit_events', 'brsr_disclosures', 'document_bundle_parts', 'org_levels', 'org_unit_parents',
-    'org_unit_tree', 'org_unit_links', 'consolidation_records']) as t),
-  array_fill(-1, array[15]),
+    'org_unit_tree', 'org_unit_links', 'consolidation_records', 'user_invitations',
+    'user_sessions']) as t),
+  array_fill(-1, array[17]),
   'server-only tables and the roll-up views refuse the browser roles outright, an Admin included');
 
 -- 7. Functions ---------------------------------------------------------------------------------------------

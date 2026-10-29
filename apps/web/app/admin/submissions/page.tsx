@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ContextFilters, ISSUE_LABELS, RecordsTable } from "@/components/records/records-explorer";
 import { PageHeader } from "@/components/shell/page-header";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { readParams, stringParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
 
@@ -22,7 +22,7 @@ const QUEUE: Record<string, { href: string; label: string }> = {
 export default async function SubmissionMonitoringPage({
   searchParams,
 }: PageProps<"/admin/submissions">) {
-  const [, caller, raw] = await Promise.all([requireAdminSession(), api(), searchParams]);
+  const [, caller, raw] = await Promise.all([requireAdminAreaSession(), api(), searchParams]);
   const q = readParams(raw);
   const params = stringParams(raw);
 

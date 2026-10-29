@@ -418,6 +418,12 @@ html.custom-cursor-enabled img {
   cursor: auto !important;
 }
 
+/* Next's development error overlay sits above the custom cursor (z-index 9999): keep the system cursor there. */
+html.custom-cursor-enabled nextjs-portal,
+html.custom-cursor-enabled nextjs-portal:hover {
+  cursor: auto !important;
+}
+
 /* Theme switch reveal (components/shell/theme-toggle.tsx): the browser's cross-fade is replaced by the circle. */
 ::view-transition-old(root),
 ::view-transition-new(root) {

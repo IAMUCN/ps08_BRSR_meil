@@ -15,6 +15,10 @@ export async function resendInviteAction(input: { userId: string }) {
   return runAction((api) => api.users.resendInvite(input));
 }
 
+export async function revokeInviteAction(input: { userId: string }) {
+  return runAction((api) => api.users.revokeInvite(input));
+}
+
 export async function addAssignmentAction(input: {
   userId: string;
   roleId: string;

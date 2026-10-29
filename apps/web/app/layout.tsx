@@ -35,7 +35,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       data-theme={DEFAULT_THEME}
       suppressHydrationWarning
-      className={`${inter.variable} ${jetbrainsMono.variable} ${lora.variable} h-full antialiased custom-cursor-enabled`}
+      // No custom-cursor-enabled here: Pointer adds it once its cursor is drawn, so the system cursor is never
+      // hidden on a touch device, before hydration, or when the page's JavaScript fails.
+      className={`${inter.variable} ${jetbrainsMono.variable} ${lora.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />

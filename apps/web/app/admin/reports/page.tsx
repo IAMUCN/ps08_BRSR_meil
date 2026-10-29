@@ -5,7 +5,7 @@ import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { financialYearLabel } from "@/lib/consolidation/aggregate";
 import { api } from "@/lib/trpc/server";
 import { ReportForm, type ReportPreset } from "./report-form";
@@ -24,7 +24,11 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [, caller, params] = await Promise.all([requireAdminSession(), api(), searchParams]);
+  const [session, caller, params] = await Promise.all([
+    requireAdminAreaSession(),
+    api(),
+    searchParams,
+  ]);
   // A selection in the address (the chatbot's "open the report page" link); the form checks each value.
   const param = (name: string) => (typeof params[name] === "string" ? params[name] : undefined);
   const preset: ReportPreset = {
@@ -36,12 +40,15 @@ export default async function ReportsPage({
   };
   const [options, runs] = await Promise.all([caller.reports.options(), caller.reports.list()]);
   const inputsYear = options.defaultFinancialYear ?? options.financialYears[0]?.startYear ?? null;
+  // The yearly inputs and the written disclosures are group-wide configuration: Super Admin only.
   const inputs =
-    inputsYear === null ? null : await caller.reports.inputs({ financialYear: inputsYear });
+    inputsYear === null || !session.isAdmin
+      ? null
+      : await caller.reports.inputs({ financialYear: inputsYear });
   const running = runs.some((r) => r.status === "pending" || r.status === "generating");
   // The written part of the report: how much of it is still unanswered for that year.
   const written =
-    inputsYear === null
+    inputsYear === null || !session.isAdmin
       ? []
       : (await caller.brsr.disclosures({ financialYear: inputsYear }))
           .flatMap((s) => s.indicators)

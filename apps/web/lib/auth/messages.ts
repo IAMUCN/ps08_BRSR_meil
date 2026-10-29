@@ -8,6 +8,8 @@ export const AUTH_MESSAGES = {
   retry: "Something went wrong — please try again",
   expired: "Your session expired — please log in again",
   linkInvalid: "This link is invalid or has expired — request a new one",
+  invitationInvalid:
+    "This invitation link is not valid any more. Ask the person who added you to send a new one.",
   passwordSet: "Your password has been set — log in with your new password",
   forbidden: "You don't have access to that page",
   resetSent: "If that email exists, a 6-digit code has been sent to it.",

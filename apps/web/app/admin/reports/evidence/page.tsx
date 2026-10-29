@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { financialYearLabel } from "@/lib/consolidation/aggregate";
 import { api } from "@/lib/trpc/server";
 
@@ -24,7 +24,7 @@ const STATUS: Record<string, { tone: StatusTone; label: string }> = {
 export default async function ReportEvidencePage({
   searchParams,
 }: PageProps<"/admin/reports/evidence">) {
-  const [, caller, params] = await Promise.all([requireAdminSession(), api(), searchParams]);
+  const [, caller, params] = await Promise.all([requireAdminAreaSession(), api(), searchParams]);
   const options = await caller.reports.options();
   const years = options.financialYears.map((y) => y.startYear);
   const asked = Number(params.year);

@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-10-12._
+_Last updated: 2026-10-13._
 
 ---
 
@@ -495,14 +495,76 @@ _Last updated: 2026-10-12._
 - **`feature-employee-uploads` is merged** (pull request #29, 2026-10-12) and the owner committed the MCP
   settings and report files on `main` (`4d4dea1`); `main` is the same on `ucn`, `origin` and locally. This
   note and the worker entry above are on branch `docs-worker-image-note`, pushed to both, not merged.
+- **Report PDFs and database connections on Vercel (2026-10-12, committed, on `origin` and `ucn` `main`,
+  `fe93b23`):** the packaged browser is launched as a headless shell (`lib/reports/pdf.ts`), and on Vercel
+  the pool is 3 connections that close after 5 idle seconds (`lib/pooler-url.ts`). Three reports were
+  generated on the deployed site. `CHROMIUM_EXECUTABLE_PATH` must not be set on Vercel.
+- **A six-stage piece of work was agreed on 2026-10-13** (`.grill/scoped-admin-onboarding-decisions.md` — read
+  it first; it holds every decision): (1) Super Admins and scoped Administrators, (2) invitation links in
+  place of emailed passwords, (3) session time limits, (4) an org-tree picker, Scope 1/2/3 filters and Excel
+  exports, (5) demo requests, public docs and signed-in help, (6) a phone and tablet pass. Each stage is its
+  own branch, merged before the next starts.
+- **Stage 1 — Super Admins and scoped Administrators — is done on branch `feature-scoped-admins`,
+  uncommitted; migration `0050` is on the LOCAL database only** (D41, A37, `UI_NOTES.md`). The `admin` role
+  is the Super Admin (at most two, enforced by the database); a new role `org_admin` ("Administrator")
+  administers its org unit and everything beneath. Checked: web unit 204/204, database 336/336, the
+  cross-project procedure test 264 passed (2 cannot run outside the app), the full end-to-end suite on the
+  local stack 344/344 plus the new `tests/e2e/scoped-admin.mjs` 77/77, lint, typecheck, format, production
+  build, and eight screens viewed in Edge as a project Administrator with no console error. **Not run:** the
+  chatbot and accessibility suites, phone and tablet widths, the other two themes, anything on hosted.
+  **Not built in stage 1:** the Super Admin's own-record mark in the report drill-down (it is in the audit
+  trail and the record's history); a notification to Administrators when a record in their scope is flagged
+  (Super Admins still get it); scoped versions of OCR Monitoring, Deadlines, Forecast, Simulator and Carbon
+  credits (Super Admin only for now).
+- **Stages 2 and 3 — invitation links and session time limits — are done in the same working tree
+  (`feature-scoped-admins`), uncommitted; migrations `0051` and `0052` are on the LOCAL database only**
+  (D42, D43, A38, A39, `UI_NOTES.md`; the agent's own decisions are listed in the decision log under
+  "Decisions made while building stages 2 and 3" for the owner to confirm). The owner asked for both at
+  once with stage 1 still uncommitted, so the three stages are one change, not three branches.
+  - *Stage 2:* Invite user and bulk import email a link (`/invite#token`), never a password; the token is
+    stored only as a hash, works once, for 24 hours; Resend replaces the link, Revoke cancels it; the new
+    public page `/invite` sets the password and uses the link up in one transaction and signs nobody in;
+    forgot-password sends no code to an account that was never set up.
+  - *Stage 3:* a sign-in ends after 3 hours without activity and 12 hours in all (`user_sessions`,
+    `touch_session`, checked in `resolveSession`); only what the person does on the page counts as
+    activity; a notice five minutes before the end; an ended session signs out that device only.
+  - Checked on the local stack: web unit 210/210, database 367/367 (31 new), the whole end-to-end suite
+    on the built app **519/519 over eleven scripts** (the new `invitations-sessions.mjs` is 98 of them:
+    real emails read from the mail catcher, the real page in Edge, two submissions of one link at once,
+    clocks moved in the database), cross-project procedures 264 passed (2 cannot run outside the app),
+    chatbot 49/49, accessibility 188 passed / 0 failed / 2 known open (`/invite` added; it now also runs
+    beside two Super Admins), lint, typecheck, format, production build. Users, the Manage panel, the
+    invalid-link page and the sign-out notice were looked at in Edge at 1440 and 390px, no console error.
+  - **Not run:** a real email through Brevo; anything on hosted; a real three-hour wait (the tests move
+    the clock in the database); tablet width; the notice in the Dark and Special themes; the valid
+    invitation form was driven by the test but not looked at as a picture.
+  - **Not built:** `scripts/provision-user.ts` without `--password` still uses Supabase's own invite email.
+- **2026-10-30: `0051` and `0052` are on hosted** (owner's "go"; step (1) below is done). Read back: both
+  recorded, both tables, `touch_session` and the two settings present; 34 users, 70 records, 33 assignments
+  unchanged. The hosted Supabase project had been paused (free tier) and was restored by the owner the same
+  day. The script's paths now point at this checkout. Still to come: steps (2)–(4).
+- **Hosted, in this order:** (1) `node "test data/_backup/hosted-invitations-sessions.cjs" apply` — `0051`
+  and `0052`, additive, safe under the code that is live today, and it must come BEFORE the deploy
+  (its `check` mode was run: nothing of either is there, 34 users, 68 records); (2) merge and deploy the
+  code; (3) `node "test data/_backup/hosted-admin-placement.cjs" apply` — AFTER the deploy (its `check`
+  mode was run earlier). In one transaction it takes the Super Admin role from Bal, DD, AB and AD, applies
+  and records `0050`, and makes them Administrators of Olectra Greentech, EVEY, MSRTC e-bus order and BEST
+  Mumbai e-buses; run before the deploy it would leave the old code with people who hold `org.manage` and
+  no scope check. (4) `admin@meil.local` invites `niharbehera965@gmail.com` as the second Super Admin from
+  Admin → Users. The migration history will hold `0051`, `0052` before `0050`; both scripts record by hand,
+  so a plain `supabase db push` is not needed and should not be used for these three.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
+| Stages 1–3 of the 2026-10-13 work | Say "go" for the hosted step that must come first (`hosted-invitations-sessions.cjs apply`; the dev server on port 3000 is broken until then), when to commit `feature-scoped-admins`, when to merge it, and when to run the placement script (after the deploy). Then stage 4 starts. |
+| Decisions the agent made in stages 2 and 3 | Listed in `.grill/scoped-admin-onboarding-decisions.md`. The ones with a cost: forgot-password no longer works for an account that was never set up (an administrator sends a link); only activity on the page keeps a session alive; an ended session signs out that device only. |
+| Brevo click tracking | If it is on for transactional email, invitation links pass through Brevo's redirect. Switch it off for this sender in the Brevo dashboard. |
+| A second factor for Super Admins | Deferred by the owner (2026-10-13). Open risk: the two most powerful accounts rest on a password, and `admin@meil.local` is a shared login with no mailbox. |
 | Dependency and deployment decisions | Confirm `xlsx` from the vendor's site (or read sheets with `exceljs` and drop `.xls`); `apps/web/.env.production.local` holds the full hosted settings and is read by `next build` / `next start` on this machine — delete or keep deliberately; rebuild the worker image when convenient. Dashboard checklist: `DEPENDENCY_AUDIT_2026-10-12.md` section 6. |
-| Accessibility decisions | The custom cursor hides the system pointer on every page (a barrier for people who enlarge or recolour it); chart text alternatives on Forecast and Simulator; field-level errors on Admin forms; session time-out without warning; who does the manual keyboard and screen-reader pass. `ACCESSIBILITY_AUDIT_2026-10-12.md` sections 4 and 6. |
+| Accessibility decisions | The custom cursor hides the system pointer on every page (a barrier for people who enlarge or recolour it); chart text alternatives on Forecast and Simulator; field-level errors on Admin forms; who does the manual keyboard and screen-reader pass. `ACCESSIBILITY_AUDIT_2026-10-12.md` sections 4 and 6. |
 | Design decisions from the UI audit | The site-wide custom cursor (the audit's rules say remove, the landing brief says keep); the hero card deck and the two captions that read as results; renaming and restyling Deadlines and Carbon credits to match the rest; the pill button on sign-in; an em-dash copy pass; the browser icon colour. `UI_AUDIT_2026-10-12.md`. |
 | Privacy and compliance decisions | Operator's legal name, address and privacy contact; legal basis and notice for employees; retention periods (audit log with IP addresses, documents and OCR text, notifications, reports); how people ask for access or erasure; processor terms (Supabase, Brevo, AI provider); landing wording ("Portfolio-Wide Deployment for MEIL", "by MEIL. All rights reserved" against the GPL-2.0 licence file, the FAQ's absolute "No"); the source of the six landing photographs; the Rs 2,500 carbon price and its stated source; a recipient for "Request a demo". List: `COMPLIANCE_AUDIT_2026-10-12.md` section 8. |
 | Chatbot: contact details no longer go to the AI service | Changed on 2026-10-12 against the 2026-10-11 "full access for Admins" decision: the model gets names, roles and org units; email, employee id and file names stay in the table. Confirm, or say to restore (`.grill/chat-admin-access-decisions.md`). |
@@ -529,7 +591,7 @@ _Last updated: 2026-10-12._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D41** and **A37**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D44** and **A40**; the next migration is `0053`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -761,6 +823,32 @@ _Last updated: 2026-10-12._
   character class): use `/api/trpc/*`. Check `<dist>/server/app/<route>/*.nft.json` after a build.
 - **Docker on Windows cannot read an `--env-file` given as a Git Bash path** (`/tmp/…` from `mktemp`): use a
   `C:/…` path, and keep the settings until the new container is up — the old one's are gone once it is removed.
+- **`session.isAdmin` means Super Admin only.** An Administrator is `isOrgAdmin` with `adminOrgUnitIds`.
+  `adminProcedure` and `requireAdminSession` stay Super Admin only; a page or procedure opened to
+  Administrators uses `adminAreaProcedure` / `requireAdminAreaSession` and must check org scope itself
+  (`lib/auth/scope.ts`; the tree's own rules are `reach()` in `routers/organization.ts`).
+- **At most two people may hold the `admin` role** (migration `0050`). A fixture or script that adds one on
+  a database that already has two fails with 23514 "At most 2 Super Admins"; a database test sets the
+  existing holders aside first (see `phase2_smoke.test.sql`).
+- **A whole end-to-end run without the worker venv:** a throw-away venv with `pypdfium2 pillow numpy` as
+  `E2E_PYTHON`, the stack started with `-x studio,imgproxy,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor`,
+  a local env file as `E2E_ENV_FILE`, the app built and started on 3100 with those values exported. About
+  6 GB free was enough beside the hosted worker.
+- **Invitation tokens exist only in the email.** A test that needs one reads it from the local mail catcher:
+  the stack must run with Mailpit (its SMTP port is 55325 since 2026-10-13, `supabase/config.toml`) and the
+  app must be started with `EMAIL_SMTP_HOST=127.0.0.1` and `EMAIL_SMTP_PORT=55325` (loopback only by
+  design). `tests/e2e/invitations-sessions.mjs` needs both and a browser.
+- **A link's expiry cannot be changed, even by a test** (trigger, migration `0051`): to age one, run the
+  update in a transaction after `set local session_replication_role = replica`.
+- **Supabase Auth gives an account created without a password a random one** (a hash is stored); "no
+  password" cannot be tested by looking for an empty column.
+- **Every request asks `touch_session`** (migration `0052`): code in the working tree fails on a database
+  without it, the owner's dev server on hosted included. A script that signs in and then waits must not
+  expect activity from requests: only `reportActivity` (the page's heartbeat) moves the idle clock.
+- **The page keeps the session times the server last told it.** A test that moves the clock in the
+  database must make the tab look again (`document.dispatchEvent(new Event("visibilitychange"))`).
+- **Do not change a test account's password while the end-to-end suite runs**: each script sets its own
+  at set-up and signs in with it later.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

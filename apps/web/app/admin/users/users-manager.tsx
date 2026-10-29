@@ -21,7 +21,7 @@ import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { isFrozen, levelLabel, type OrgLevel } from "@/lib/org/rules";
 import { bulkImportUsersAction } from "@/lib/bulk-import/actions";
 import type { OrgUnitRow } from "@/lib/trpc/routers/organization";
-import type { UserRow, UserStatus } from "@/lib/trpc/routers/users";
+import type { InvitationInfo, UserRow, UserStatus } from "@/lib/trpc/routers/users";
 import {
   addAssignmentAction,
   deactivateUserAction,
@@ -30,6 +30,7 @@ import {
   reactivateUserAction,
   resendInviteAction,
   revokeAssignmentAction,
+  revokeInviteAction,
 } from "./actions";
 
 type RoleOption = { id: string; code: string; name: string };
@@ -40,6 +41,27 @@ const STATUS: Record<UserStatus, { tone: StatusTone; label: string }> = {
   invited: { tone: "warning", label: "Invited" },
   deactivated: { tone: "locked", label: "Deactivated" },
 };
+
+/** Where an invited account's link stands, in a few words. */
+function invitationNote(invitation: InvitationInfo): string {
+  switch (invitation.state) {
+    case "pending":
+      return invitation.expiresAt
+        ? `Link valid until ${new Date(invitation.expiresAt).toLocaleString(undefined, {
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`
+        : "Link sent";
+    case "expired":
+      return "Link expired";
+    case "revoked":
+      return "Link revoked";
+    case "none":
+      return "No link sent yet";
+  }
+}
 
 function useRun(onDone: () => void) {
   const [pending, startTransition] = useTransition();
@@ -80,7 +102,7 @@ function RoleScopeFields({
 }) {
   const root = nodes.find((n) => n.parentId === null);
   const isAdminRole = roles.find((r) => r.id === roleId)?.code === "admin";
-  const assignable = nodes.filter((n) => !isFrozen(n.id, nodes));
+  const assignable = nodes.filter((n) => n.inScope && !isFrozen(n.id, nodes));
 
   return (
     <>
@@ -123,7 +145,7 @@ function RoleScopeFields({
         </NativeSelect>
         {isAdminRole ? (
           <p id={`${idPrefix}-org-hint`} className="text-xs leading-4 text-muted-foreground">
-            The Admin role is organization-wide, so it is assigned at the root.
+            The Super Admin role is organization-wide, so it is assigned at the root.
           </p>
         ) : null}
       </div>
@@ -294,6 +316,14 @@ export function UsersManager({
                     <StatusBadge tone={STATUS[user.status].tone}>
                       {STATUS[user.status].label}
                     </StatusBadge>
+                    {user.invitation ? (
+                      <span
+                        className="mt-1 block text-xs text-muted-foreground"
+                        suppressHydrationWarning
+                      >
+                        {invitationNote(user.invitation)}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3">
                     {user.assignments.length === 0 ? (
@@ -389,10 +419,10 @@ function InviteSheet({
       () => inviteUserAction({ email, displayName, roleId, orgUnitId }),
       "Account created",
       (data) => {
-        if (data.emailSent) toast.success(`Temporary password emailed to ${email}`);
+        if (data.emailSent) toast.success(`Invitation link emailed to ${email}`);
         else
           toast.error(
-            `The email was not sent: ${data.emailError}. Open the user and choose Resend email.`,
+            `The email was not sent: ${data.emailError}. Open the user and choose Resend invitation.`,
           );
         setEmail("");
         setDisplayName("");
@@ -409,7 +439,8 @@ function InviteSheet({
         <SheetHeader>
           <SheetTitle>Invite user</SheetTitle>
           <SheetDescription>
-            They receive an email with a temporary password and should change it after signing in.
+            They receive an email with a link to choose their own password. The link works once and
+            for a limited time; no password is sent.
           </SheetDescription>
         </SheetHeader>
         <form onSubmit={onSubmit} className="space-y-4 px-4">
@@ -478,6 +509,7 @@ function ManageSheet({
   const [revokeId, setRevokeId] = useState<string | null>(null);
   const [statusOpen, setStatusOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [revokeInviteOpen, setRevokeInviteOpen] = useState(false);
   const isSelf = user.id === currentUserId;
   const revoking = user.assignments.find((a) => a.id === revokeId);
   const deactivating = user.status !== "deactivated";
@@ -491,22 +523,42 @@ function ManageSheet({
         </SheetHeader>
 
         <div className="space-y-6 overflow-y-auto px-4 pb-6">
-          <div className="flex items-center gap-3">
-            <StatusBadge tone={STATUS[user.status].tone}>{STATUS[user.status].label}</StatusBadge>
-            {user.status === "invited" ? (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pending}
-                onClick={() =>
-                  run(
-                    () => resendInviteAction({ userId: user.id }),
-                    "New temporary password emailed",
-                  )
-                }
-              >
-                Resend email
-              </Button>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <StatusBadge tone={STATUS[user.status].tone}>{STATUS[user.status].label}</StatusBadge>
+              {user.invitation && user.manageable ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() =>
+                      run(
+                        () => resendInviteAction({ userId: user.id }),
+                        "New invitation link emailed",
+                      )
+                    }
+                  >
+                    Resend invitation
+                  </Button>
+                  {user.invitation.state === "pending" ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => setRevokeInviteOpen(true)}
+                    >
+                      Revoke link
+                    </Button>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+            {user.invitation ? (
+              <p className="text-sm text-muted-foreground" suppressHydrationWarning>
+                {invitationNote(user.invitation)}. They have not chosen a password yet. A new
+                invitation replaces the earlier link.
+              </p>
             ) : null}
           </div>
 
@@ -526,7 +578,9 @@ function ManageSheet({
                     ? "You can't change your own roles. Ask another Admin."
                     : a.roleCode === "admin" && otherActiveAdmins < 1
                       ? "At least one active Admin is required."
-                      : null;
+                      : !a.removable
+                        ? "Outside what you administer."
+                        : null;
                   return (
                     <li
                       key={a.id}
@@ -604,6 +658,11 @@ function ManageSheet({
               <p className="text-sm text-muted-foreground">
                 You can&apos;t deactivate your own account.
               </p>
+            ) : !user.manageable ? (
+              <p className="text-sm text-muted-foreground">
+                This person also holds a role outside what you administer, so the account itself
+                isn&apos;t yours to change. You can still remove the roles inside your own scope.
+              </p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -644,6 +703,27 @@ function ManageSheet({
           <p>
             {user.displayName} will lose the {revoking?.roleName} role at {revoking?.orgUnitName}.
             Their past submissions remain in the record.
+          </p>
+        </ConfirmDialog>
+
+        <ConfirmDialog
+          open={revokeInviteOpen}
+          onOpenChange={setRevokeInviteOpen}
+          title="Revoke the invitation link?"
+          confirmLabel="Revoke link"
+          destructive
+          pending={pending}
+          onConfirm={() =>
+            run(
+              () => revokeInviteAction({ userId: user.id }),
+              "Invitation link revoked",
+              () => setRevokeInviteOpen(false),
+            )
+          }
+        >
+          <p>
+            The link already emailed to {user.displayName} stops working at once. The account and
+            its roles stay; send a new invitation when they should be able to set it up.
           </p>
         </ConfirmDialog>
 

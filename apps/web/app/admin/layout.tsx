@@ -1,58 +1,22 @@
-import { Sidebar, type NavItem } from "@/components/shell/sidebar";
+import { adminNavFor } from "@/components/shell/admin-nav";
+import { SessionKeeper } from "@/components/shell/session-keeper";
+import { Sidebar } from "@/components/shell/sidebar";
 import { ThemeSync } from "@/components/shell/theme-sync";
 import { TopBar } from "@/components/shell/top-bar";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 
-// /admin/* is Admin only (03_APP_FLOW.md §1). Enforced server-side on every request by the Data Access
-// Layer; RLS independently limits what any query can return.
-
-// Built-pages-only sidebar (.grill/phase-4-admin-foundation-decisions.md): items are added as phases land.
-const ADMIN_NAV: NavItem[] = [
-  { href: "/admin", label: "Dashboard", icon: "dashboard" },
-  // Daily work: review and approve what comes in.
-  {
-    href: "/admin/submissions",
-    label: "Submission Monitoring",
-    icon: "submissions",
-    startsGroup: true,
-  },
-  { href: "/admin/ocr-monitoring", label: "OCR Monitoring", icon: "ocr" },
-  { href: "/admin/validation-queue", label: "Validation Queue", icon: "validation" },
-  { href: "/admin/approval-queue", label: "Approval Queue", icon: "approvals" },
-  { href: "/admin/deadlines", label: "Reporting Deadlines", icon: "deadlines" },
-  // The numbers: emissions by scope, exploring and looking ahead.
-  { href: "/admin/scope-1", label: "Scope 1", icon: "scope1", startsGroup: true },
-  { href: "/admin/scope-2", label: "Scope 2", icon: "scope2" },
-  { href: "/admin/scope-3", label: "Scope 3", icon: "scope3" },
-  { href: "/admin/data-explorer", label: "Data Explorer", icon: "explorer" },
-  { href: "/admin/forecast", label: "Emissions Forecast", icon: "forecast" },
-  { href: "/admin/simulator", label: "Reduction Simulator", icon: "simulator" },
-  // Output and oversight.
-  { href: "/admin/reports", label: "Reports", icon: "reports", startsGroup: true },
-  { href: "/admin/audit-trail", label: "Audit Trail", icon: "audit" },
-  // Set up again each reporting cycle or financial year.
-  {
-    href: "/admin/reporting-periods",
-    label: "Reporting Periods",
-    icon: "periods",
-    startsGroup: true,
-  },
-  { href: "/admin/conversion-factors", label: "Conversion Factors", icon: "factors" },
-  { href: "/admin/disclosures", label: "BRSR Disclosures", icon: "reports" },
-  // Configured once, rarely touched.
-  { href: "/admin/organization", label: "Organization", icon: "organization", startsGroup: true },
-  { href: "/admin/users", label: "Users", icon: "users" },
-  { href: "/admin/roles", label: "Roles & Permissions", icon: "roles" },
-  { href: "/admin/brsr-mapping", label: "BRSR Mapping", icon: "brsr" },
-];
+// /admin/* is for administrators (03_APP_FLOW.md §1): a Super Admin, or an Administrator of part of the
+// organisation, who is offered only the pages about their own org units. Enforced server-side on every
+// request by the Data Access Layer; each page and procedure checks the caller again.
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
-  const session = await requireAdminSession();
+  const session = await requireAdminAreaSession();
 
   return (
     <div className="flex min-h-screen flex-1">
       <ThemeSync theme={session.theme} />
-      <Sidebar items={ADMIN_NAV} label="Admin navigation" />
+      <SessionKeeper />
+      <Sidebar items={adminNavFor(session)} label="Admin navigation" />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar session={session} profileHref="/admin/profile" />
         <main id="main-content" tabIndex={-1} className="flex-1 p-4 outline-none md:p-6">
