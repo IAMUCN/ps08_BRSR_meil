@@ -272,7 +272,7 @@ export const usersRouter = router({
       join public.roles r on r.id = uoa.role_id
       join public.org_units ou on ou.id = uoa.org_unit_id
       where uoa.revoked_at is null
-      order by r.name, ou.name`;
+      order by case r.code when 'admin' then 0 when 'org_admin' then 1 else 2 end, r.name, ou.name`;
 
     // "Invited" = the person has neither chosen a password through their link nor ever signed in.
     const { data, error } = await createSupabaseAdminClient().auth.admin.listUsers({
@@ -430,6 +430,47 @@ export const usersRouter = router({
         emailSent: emailResult.sent,
         emailError: emailResult.sent ? undefined : emailResult.reason,
       };
+    }),
+
+  /**
+   * Gives an employee ID to someone who has none. An ID once given stays: the check is in the update itself,
+   * so two administrators acting at once cannot overwrite each other. Nobody sets their own.
+   */
+  setEmployeeId: userManage
+    .input(
+      z.object({
+        userId: z.uuid(),
+        employeeId: z.string().trim().min(1, "Employee ID is required.").max(50),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.userId === ctx.session.userId) {
+        forbidden("You can't change your own account. Another administrator can.");
+      }
+      const sql = db();
+      await assertAccountReach(sql, ctx.session, input.userId);
+      try {
+        await sql.begin(async (tx) => {
+          const updated = await tx`
+            update public.users set employee_id = ${input.employeeId}
+            where id = ${input.userId} and deleted_at is null and employee_id is null
+            returning id`;
+          if (updated.length === 0) badRequest("This person already has an employee ID.");
+          await writeAudit(tx, {
+            eventType: "user.employee_id_set",
+            entityType: "user",
+            entityId: input.userId,
+            userId: ctx.session.userId,
+            newValue: { employee_id: input.employeeId },
+          });
+        });
+      } catch (err) {
+        if (pgErrorCode(err) === "23505") {
+          badRequest(`Employee ID "${input.employeeId}" is already used.`);
+        }
+        throw err;
+      }
+      return null;
     }),
 
   /**

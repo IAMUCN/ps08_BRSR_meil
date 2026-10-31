@@ -244,6 +244,43 @@ const denied = await pm.mutate("users.updateInvited", {
 });
 check("nor can someone without the right to manage users", rejected(denied), denied.error);
 
+// --- Employee IDs ---
+section("Employee IDs");
+
+const givenId = `FB-${RUN}`.toUpperCase();
+const noPermission = await pm.mutate("users.setEmployeeId", { userId: id, employeeId: "NOPE-1" });
+check("someone who cannot manage users cannot give one", rejected(noPermission));
+const adminSelf = await admin.mutate("users.setEmployeeId", {
+  userId: await userId(credentials.admin.email),
+  employeeId: `${givenId}-SELF`,
+});
+check("nobody gives one to themselves", rejected(adminSelf, "your own"), adminSelf.error);
+const blank = await admin.mutate("users.setEmployeeId", { userId: id, employeeId: "   " });
+check("a blank ID is refused", rejected(blank));
+const given = await admin.mutate("users.setEmployeeId", { userId: id, employeeId: givenId });
+check("someone without an ID can be given one", ok(given), given.error);
+const stored = await one(sql`select employee_id from public.users where id = ${id}`);
+check("it is saved", stored.employee_id === givenId);
+const auditedId = await one(sql`
+  select count(*)::int as n from public.audit_logs
+  where entity_id = ${id} and event_type = 'user.employee_id_set'`);
+check("and audited", auditedId.n === 1);
+const overwrite = await admin.mutate("users.setEmployeeId", { userId: id, employeeId: "OTHER-1" });
+check("an ID once given cannot be replaced", rejected(overwrite, "already has"), overwrite.error);
+const unchanged = await one(sql`select employee_id from public.users where id = ${id}`);
+check("it stays as it was", unchanged.employee_id === givenId);
+const secondInvite = await admin.mutate("users.invite", {
+  email: `fb.second.${RUN}@traceesg.test`,
+  displayName: "FB Second",
+  roleId: PM,
+  orgUnitId: PRJ_X,
+});
+const duplicate = await admin.mutate("users.setEmployeeId", {
+  userId: secondInvite.data?.id,
+  employeeId: givenId,
+});
+check("an ID someone else holds is refused", rejected(duplicate, "already used"), duplicate.error);
+
 // --- Role codes -------------------------------------------------------------------------------------------
 section("Role codes");
 
@@ -492,6 +529,37 @@ check("MEIL above them is left out", !scopedTree.includes("MEIL"));
 check("the sibling subsidiary is left out", !scopedTree.includes(`FB Subsidiary ${stamp}`));
 await shot(scopedPage, "tree-scoped");
 
+// Employee IDs stay inside what an Administrator administers.
+const scopedSession = new Session();
+await scopedSession.login({ email: scopedEmail, password: scopedPassword });
+const invitePerson = async (label, orgUnitId) =>
+  (
+    await admin.mutate("users.invite", {
+      email: `fb.${label}.${RUN}@traceesg.test`,
+      displayName: `FB ${label}`,
+      roleId: PM,
+      orgUnitId,
+    })
+  ).data?.id;
+const outside = await invitePerson("outside", subB.data?.id);
+const inside = await invitePerson("inside", PRJ_X);
+const outsideTry = await scopedSession.mutate("users.setEmployeeId", {
+  userId: outside,
+  employeeId: `${stamp}-OUT`,
+});
+check(
+  "an Administrator cannot give an ID outside their unit",
+  rejected(outsideTry),
+  outsideTry.error,
+);
+const outsideRow = await one(sql`select employee_id from public.users where id = ${outside}`);
+check("nothing is saved there", outsideRow.employee_id === null);
+const insideTry = await scopedSession.mutate("users.setEmployeeId", {
+  userId: inside,
+  employeeId: `${stamp}-IN`,
+});
+check("but can inside it", ok(insideTry), insideTry.error);
+
 // Roles: the red message under the field.
 await adminPage.goto(`${APP}/admin/roles`, { waitUntil: "networkidle0" });
 await clickText(adminPage, "button", "Create role");
@@ -559,6 +627,73 @@ const left = await one(
 );
 check("and it is saved", left.n === 0);
 check("and the button goes", !(await hasText(adminPage, "Mark all read")));
+
+// The Users list: by role unless asked otherwise.
+await adminPage.goto(`${APP}/admin/users`, { waitUntil: "networkidle0" });
+const firstColumn = () =>
+  adminPage.evaluate(() =>
+    [...document.querySelectorAll("table tbody tr")].map((r) => ({
+      name: r.children[0]?.textContent.trim(),
+      roles: r.textContent,
+    })),
+  );
+check(
+  "Users opens sorted by role",
+  await adminPage.evaluate(() => document.getElementById("user-sort").value === "role"),
+);
+const byRole = await firstColumn();
+check("a Super Admin comes first", byRole[0]?.roles.includes("Super Admin"), byRole[0]?.name);
+await adminPage.select("#user-sort", "name");
+await sleep(200);
+const byName = (await firstColumn()).map((r) => r.name);
+check(
+  "the sort control puts them in A to Z order",
+  byName.every(
+    (n, i) => i === 0 || byName[i - 1].localeCompare(n, "en", { sensitivity: "base" }) <= 0,
+  ) && byName.join() !== byRole.map((r) => r.name).join(),
+);
+await shot(adminPage, "users-sorted");
+
+// Who has no employee ID, and giving one.
+await adminPage.select("#id-filter", "missing");
+await sleep(200);
+const missingOnly = await adminPage.evaluate(() =>
+  [...document.querySelectorAll("table tbody tr")].every(
+    (r) => !/\w+-\w+/.test("") && r.children[1]?.textContent.trim().match(/^(Add ID|—)$/),
+  ),
+);
+check("the filter shows only people with no employee ID", missingOnly);
+const target = "FB Second";
+const offered = await adminPage.evaluate((name) => {
+  const row = [...document.querySelectorAll("table tbody tr")].find((r) =>
+    r.children[0]?.textContent.includes(name),
+  );
+  const button =
+    row && [...row.querySelectorAll("button")].find((b) => b.textContent.trim() === "Add ID");
+  button?.click();
+  return !!button;
+}, target);
+check("a person who can be managed has an Add ID button", offered);
+await sleep(300);
+await adminPage.keyboard.type(`${givenId}-2`);
+await adminPage.keyboard.press("Enter");
+await adminPage.waitForFunction(
+  (name) =>
+    ![...document.querySelectorAll("table tbody tr")].some((r) =>
+      r.children[0]?.textContent.includes(name),
+    ),
+  { timeout: 15_000 },
+  target,
+);
+check("once given, they leave the filtered list", true);
+await shot(adminPage, "users-employee-id");
+const ownRow = await adminPage.evaluate((name) => {
+  const row = [...document.querySelectorAll("table tbody tr")].find((r) =>
+    r.children[0]?.textContent.includes(name),
+  );
+  return row ? row.children[1].textContent.trim() : null;
+}, "E2E Admin");
+check("your own row offers no button", ownRow === "—", String(ownRow));
 
 check("no page error along the way", errors.length === 0, errors.join(" | ").slice(0, 300));
 

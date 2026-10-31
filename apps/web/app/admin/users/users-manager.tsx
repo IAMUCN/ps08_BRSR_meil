@@ -4,12 +4,14 @@ import { Loader2, Search, UserPlus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmployeeBulkImport } from "@/components/bulk-import/employee-bulk-import";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Sheet,
   SheetContent,
@@ -22,9 +24,11 @@ import { isFrozen, levelLabel, type OrgLevel } from "@/lib/org/rules";
 import { bulkImportUsersAction } from "@/lib/bulk-import/actions";
 import type { OrgUnitRow } from "@/lib/trpc/routers/organization";
 import type { InvitationInfo, UserRow, UserStatus } from "@/lib/trpc/routers/users";
+import { sortUsers, type UserSort } from "@/lib/users/sort";
 import {
   addAssignmentAction,
   deactivateUserAction,
+  setEmployeeIdAction,
   updateInvitedUserAction,
   deleteUserAction,
   inviteUserAction,
@@ -79,6 +83,71 @@ function useRun(onDone: () => void) {
     });
   }
   return { pending, run };
+}
+
+/** For someone with no employee ID, offered only to those who may manage them. The server checks both. */
+function AddEmployeeId({ user, onDone }: { user: UserRow; onDone: () => void }) {
+  const [pending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    startTransition(async () => {
+      const result = await setEmployeeIdAction({ userId: user.id, employeeId: value });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      toast.success(`Employee ID saved for ${user.displayName}`);
+      setOpen(false);
+      onDone();
+    });
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={`Add an employee ID for ${user.displayName}`}
+        >
+          Add ID
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-3">
+        <form onSubmit={onSubmit} className="space-y-2">
+          <Label htmlFor={`employee-id-${user.id}`}>Employee ID for {user.displayName}</Label>
+          <Input
+            id={`employee-id-${user.id}`}
+            value={value}
+            maxLength={50}
+            required
+            aria-invalid={error ? true : undefined}
+            className={cn("font-mono", error && "border-status-error")}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setError(null);
+            }}
+          />
+          <p
+            className={cn(
+              "text-xs leading-4",
+              error ? "font-medium text-status-error" : "text-muted-foreground",
+            )}
+          >
+            {error ?? "It can't be changed here once saved."}
+          </p>
+          <Button type="submit" size="sm" disabled={pending}>
+            {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+            Save
+          </Button>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 /** Name and email of someone still invited. The server refuses anyone else. */
@@ -269,6 +338,9 @@ export function UsersManager({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
+  const [sort, setSort] = useState<UserSort>("role");
+  const [idFilter, setIdFilter] = useState<"" | "missing">("");
+  const withoutId = users.filter((u) => !u.employeeId).length;
   const [inviteOpen, setInviteOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [managedId, setManagedId] = useState<string | null>(null);
@@ -283,15 +355,17 @@ export function UsersManager({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return users.filter(
+    const matching = users.filter(
       (u) =>
         (statusFilter === "" || u.status === statusFilter) &&
+        (idFilter === "" || !u.employeeId) &&
         (q === "" ||
           u.displayName.toLowerCase().includes(q) ||
           u.email.toLowerCase().includes(q) ||
           u.assignments.some((a) => `${a.roleName} ${a.orgUnitName}`.toLowerCase().includes(q))),
     );
-  }, [users, query, statusFilter]);
+    return sortUsers(matching, sort);
+  }, [users, query, statusFilter, idFilter, sort]);
 
   const managed = users.find((u) => u.id === managedId) ?? null;
 
@@ -326,6 +400,30 @@ export function UsersManager({
             <option value="active">Active</option>
             <option value="invited">Invited</option>
             <option value="deactivated">Deactivated</option>
+          </NativeSelect>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="id-filter">Employee ID</Label>
+          <NativeSelect
+            id="id-filter"
+            className="w-52"
+            value={idFilter}
+            onChange={(e) => setIdFilter(e.target.value as "" | "missing")}
+          >
+            <option value="">All</option>
+            <option value="missing">No employee ID ({withoutId})</option>
+          </NativeSelect>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="user-sort">Sort by</Label>
+          <NativeSelect
+            id="user-sort"
+            className="w-44"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as UserSort)}
+          >
+            <option value="role">Role</option>
+            <option value="name">Name (A to Z)</option>
           </NativeSelect>
         </div>
         <Button variant="outline" className="ml-auto" onClick={() => show("bulk")}>
@@ -396,7 +494,13 @@ export function UsersManager({
                 >
                   <td className="px-3 py-3 font-medium">{user.displayName}</td>
                   <td className="px-3 py-3 font-mono text-xs">
-                    {user.employeeId ?? <span className="text-muted-foreground">—</span>}
+                    {user.employeeId ? (
+                      user.employeeId
+                    ) : user.manageable ? (
+                      <AddEmployeeId user={user} onDone={() => router.refresh()} />
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-3 font-mono text-xs">{user.email}</td>
                   <td className="px-3 py-3">

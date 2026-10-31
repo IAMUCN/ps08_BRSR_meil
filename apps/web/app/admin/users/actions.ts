@@ -11,6 +11,10 @@ export async function inviteUserAction(input: {
   return runAction((api) => api.users.invite(input));
 }
 
+export async function setEmployeeIdAction(input: { userId: string; employeeId: string }) {
+  return runAction((api) => api.users.setEmployeeId(input));
+}
+
 export async function updateInvitedUserAction(input: {
   userId: string;
   displayName: string;

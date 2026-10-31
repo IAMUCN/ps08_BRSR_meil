@@ -548,13 +548,17 @@ _Last updated: 2026-11-01._
   roles "Super Admin" and "Administrator", `admin@meil.local` the only Super Admin, Bal / DD / AB / AD
   Administrators of Olectra Greentech / EVEY / MSRTC e-bus order / BEST Mumbai e-buses; 70 records, 33 users,
   32 assignments unchanged. Still to come: step (4), the second Super Admin invited from Admin → Users.
-- **Owner's feedback of 2026-11-01, uncommitted on branch `feature-tree-notifications-periods`; migration `0053`
-  on the LOCAL database only** (`.grill/org-tree-users-notifications-periods-decisions.md`, D44, A40). Tree selector,
-  invited-user edits, role code messages, pop-ups every 5 s, periods closing by themselves. Also uncommitted here: the
-  role order and notes of 2026-10-30. **The dev server on port 3000 uses this tree and the hosted database: until
-  `0053` is on hosted, the bell, Reporting Periods and Upload fail there.** Hosted step:
-  `node "test data/_backup/hosted-0053.cjs" apply` (needs the owner's go), BEFORE deploying. It closes August (15 Oct
-  passed) within five minutes, and no other period exists, so uploads pause until a Super Admin opens one.
+- **Owner's feedback of 2026-11-01 is committed (`3489329`) and on `ucn` `main`; `origin` `main` and the live site are
+  still on `b462a2b`.** `.grill/org-tree-users-notifications-periods-decisions.md`, D44, A40. **`0053` is on hosted**
+  (2026-11-01, owner's go): its job ran and closed August 26-27 by itself, audited, Test Admin notified; 70 records
+  (61 approved), 33 users unchanged. **No period is open on hosted, so uploads are paused** until a Super Admin opens one.
+  Next: the owner pushes to `origin` to deploy.
+- **Users tab (2026-11-01, owner's requests), on `ucn` `main`, NOT on `origin` (the owner said not to push there for
+  now), no migration:** sorted by role by default with a Sort by control (`lib/users/sort.ts`); an Employee ID filter
+  and Add ID for people with none (`users.setEmployeeId`: once saved it cannot be replaced, nobody sets their own, an
+  Administrator only inside their unit). Checked: `tests/e2e/feedback-2026-11.mjs` 88/88, web unit 218/218. Not re-run:
+  the rest of the end-to-end suite. To confirm with the owner: self-assignment (`admin@meil.local` cannot get an ID
+  until a second Super Admin exists); a way to correct an ID.
 - **Hosted, in this order:** (1) `node "test data/_backup/hosted-invitations-sessions.cjs" apply` — `0051`
   and `0052`, additive, safe under the code that is live today, and it must come BEFORE the deploy
   (its `check` mode was run: nothing of either is there, 34 users, 68 records); (2) merge and deploy the
