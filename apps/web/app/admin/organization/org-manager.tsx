@@ -8,11 +8,13 @@ import {
   Link2,
   Loader2,
   Plus,
+  Pencil,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
+import { OrgTreeSelect } from "@/components/org/org-tree-select";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { OrgUnitBulkImport } from "@/components/bulk-import/org-unit-bulk-import";
@@ -90,6 +92,22 @@ export function OrgManager({
     return map;
   }, [nodes]);
 
+  // Every unit above the selected one, through all its parents: a collapsed one shows a small marker.
+  const aboveSelected = useMemo(() => {
+    const seen = new Set<string>();
+    const walk = (id: string | undefined) => {
+      const unit = nodes.find((n) => n.id === id);
+      for (const parent of unit ? [unit.parentId, ...unit.alsoUnder] : []) {
+        if (parent && !seen.has(parent)) {
+          seen.add(parent);
+          walk(parent);
+        }
+      }
+    };
+    walk(selected?.id);
+    return seen;
+  }, [nodes, selected?.id]);
+
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // Which add form the side panel shows; closed until one of the two buttons is pressed.
   const [adding, setAdding] = useState<"one" | "many" | null>(null);
@@ -125,8 +143,8 @@ export function OrgManager({
     ).catch(() => toast.error("Couldn't create the spreadsheet — try again."));
   }
 
-  // Which drawing of the selected unit is meant: a shared unit is drawn under each parent, and only the one
-  // that was clicked, or jumped to from the Shared list, is highlighted. Null (a fresh page): all of them.
+  // Which drawing of the selected unit is meant: a shared unit is drawn under each parent. Every drawing is
+  // highlighted, the one clicked or jumped to fully and the others lightly. Null (a fresh page): all fully.
   const [place, setPlace] = useState<{ id: string; under: string | null } | null>(null);
   const rowId = (id: string, under: string | null) => `org-row-${under ?? "top"}-${id}`;
 
@@ -170,16 +188,22 @@ export function OrgManager({
     // feedback, 2026-10-11), and says which parent this row is.
     const shared = node.alsoUnder.length > 0 && under !== null;
     const here = under?.id ?? null;
+    const isSelected = selected?.id === node.id;
     const current =
-      selected?.id === node.id &&
+      isSelected &&
       (place === null || place.id !== node.id || place.under === null || place.under === here);
+    const otherCopy = isSelected && !current;
     return (
       <li key={node.id} className={depth > 0 ? BRANCH : undefined}>
         <div
           id={rowId(node.id, here)}
           className={cn(
             "flex h-9 scroll-my-10 items-center gap-1 rounded-sm pr-2 pl-1",
-            current ? "bg-table-row-hover" : "hover:bg-muted",
+            current
+              ? "bg-table-row-hover"
+              : otherCopy
+                ? "bg-table-row-hover/50 ring-1 ring-primary-text/30 ring-inset"
+                : "hover:bg-muted",
           )}
         >
           {children.length > 0 ? (
@@ -224,6 +248,12 @@ export function OrgManager({
               {levelLabel(levels, node.unitType)}
             </span>
           </button>
+          {!open && aboveSelected.has(node.id) ? (
+            <span
+              className="size-1.5 shrink-0 rounded-full bg-primary-text"
+              title="The selected unit is inside"
+            />
+          ) : null}
           {shared ? (
             <SharedPlaces
               name={node.name}
@@ -318,6 +348,7 @@ export function OrgManager({
               })
             }
             onChanged={() => router.refresh()}
+            onSelect={(id) => select(id)}
           />
         ) : (
           <p className="text-sm text-muted-foreground">No organization root exists yet.</p>
@@ -492,7 +523,7 @@ function SharedPlaces({
           show();
         }}
         aria-label={`${name} is shared: show the ${parents.length} units it sits under`}
-        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary-text/60 bg-primary-text/10 px-1.5 text-[11px] leading-4 font-medium text-primary-text shadow-[0_0_8px_1px] shadow-primary-text/50 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary-text/30 bg-primary-text/5 px-1.5 text-[11px] leading-4 font-medium text-primary-text outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <Link2 className="size-3" aria-hidden />
         Shared
@@ -715,6 +746,7 @@ function NodeDetail({
   openGroups,
   onToggleGroup,
   onChanged,
+  onSelect,
 }: {
   node: OrgUnitRow;
   nodes: OrgUnitRow[];
@@ -722,8 +754,10 @@ function NodeDetail({
   openGroups: Set<string>;
   onToggleGroup: (group: string, open: boolean) => void;
   onChanged: () => void;
+  onSelect: (id: string) => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
   const frozen = isFrozen(node.id, nodes);
   const frozenByAncestor = frozen && node.status === "active";
   const parent = nodes.find((n) => n.id === node.parentId);
@@ -781,7 +815,11 @@ function NodeDetail({
 
   function onSave(event: FormEvent) {
     event.preventDefault();
-    run(() => updateOrgUnitAction({ id: node.id, name, code }), "Saved");
+    run(
+      () => updateOrgUnitAction({ id: node.id, name, code }),
+      "Saved",
+      () => setEditing(false),
+    );
   }
 
   function openStatusDialog() {
@@ -852,10 +890,22 @@ function NodeDetail({
               : "This unit is above the part of the organization you administer. It is listed so the tree reads from the top; you can't change it."}
           </p>
         ) : null}
+        {node.manageable && !editing ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => setEditing(true)}
+          >
+            <Pencil aria-hidden />
+            Edit name and code
+          </Button>
+        ) : null}
         <form
           onSubmit={onSave}
-          hidden={!node.manageable}
-          className="mt-6 grid gap-4 sm:grid-cols-[1fr_200px_auto] sm:items-end"
+          hidden={!node.manageable || !editing}
+          className="mt-6 grid gap-4 sm:grid-cols-[1fr_200px_auto_auto] sm:items-end"
         >
           <div className="space-y-2">
             <Label htmlFor="node-name">Name</Label>
@@ -873,12 +923,26 @@ function NodeDetail({
           <Button type="submit" variant="outline" disabled={pending}>
             Save
           </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={pending}
+            onClick={() => {
+              setName(node.name);
+              setCode(node.code ?? "");
+              setEditing(false);
+            }}
+          >
+            Cancel
+          </Button>
         </form>
 
         {node.ownable ? (
           <ExpectationsCard
             orgUnitId={node.id}
             nodeName={node.name}
+            nodes={nodes}
+            onSelect={onSelect}
             openGroups={openGroups}
             onToggleGroup={onToggleGroup}
           />
@@ -1132,11 +1196,15 @@ function NodeDetail({
 function ExpectationsCard({
   orgUnitId,
   nodeName,
+  nodes,
+  onSelect,
   openGroups,
   onToggleGroup,
 }: {
   orgUnitId: string;
   nodeName: string;
+  nodes: OrgUnitRow[];
+  onSelect: (id: string) => void;
   openGroups: Set<string>;
   onToggleGroup: (group: string, open: boolean) => void;
 }) {
@@ -1196,6 +1264,22 @@ function ExpectationsCard({
   return (
     <div className="mt-6 border-t pt-6">
       <h3 className="text-base leading-6 font-semibold">Expected submissions</h3>
+      <div className="mt-3 max-w-md space-y-1">
+        <Label htmlFor="expected-unit">Org unit</Label>
+        <OrgTreeSelect
+          id="expected-unit"
+          value={orgUnitId}
+          onChange={onSelect}
+          nodes={nodes.map((n) => ({
+            id: n.id,
+            name: n.name,
+            parentIds: [n.parentId, ...n.alsoUnder].filter((id): id is string => !!id),
+            inactive: n.status === "inactive",
+            // Units above the caller stay listed, as in the big tree; they cannot be configured.
+            disabled: !n.ownable,
+          }))}
+        />
+      </div>
       <p className="mt-1 text-sm leading-5 text-muted-foreground">
         What {nodeName} must submit in every period of the metric&apos;s frequency. The Control
         Tower&apos;s completion figures and &ldquo;missing submissions&rdquo; count against these.

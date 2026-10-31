@@ -25,6 +25,7 @@ import type { InvitationInfo, UserRow, UserStatus } from "@/lib/trpc/routers/use
 import {
   addAssignmentAction,
   deactivateUserAction,
+  updateInvitedUserAction,
   deleteUserAction,
   inviteUserAction,
   reactivateUserAction,
@@ -78,6 +79,92 @@ function useRun(onDone: () => void) {
     });
   }
   return { pending, run };
+}
+
+/** Name and email of someone still invited. The server refuses anyone else. */
+function InvitedDetails({ user, onDone }: { user: UserRow; onDone: () => void }) {
+  const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const [displayName, setDisplayName] = useState(user.displayName);
+  const [email, setEmail] = useState(user.email);
+  const emailChanged = email.trim().toLowerCase() !== user.email.toLowerCase();
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    startTransition(async () => {
+      const result = await updateInvitedUserAction({ userId: user.id, displayName, email });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      if (result.data.emailChanged && !result.data.emailSent) {
+        toast.error(
+          `Saved, but the email was not sent: ${result.data.emailError}. Choose Resend invitation.`,
+        );
+      } else {
+        toast.success(
+          result.data.emailChanged ? `New invitation link emailed to ${email}` : "Name saved",
+        );
+      }
+      setEditing(false);
+      onDone();
+    });
+  }
+
+  if (!editing) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+        Edit name and email
+      </Button>
+    );
+  }
+  return (
+    <form onSubmit={onSubmit} className="space-y-3 rounded-md border p-3">
+      <div className="space-y-2">
+        <Label htmlFor="invited-name">Name</Label>
+        <Input
+          id="invited-name"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="invited-email">Email</Label>
+        <Input
+          id="invited-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+      </div>
+      {emailChanged ? (
+        <p className="text-sm text-muted-foreground">
+          The earlier link stops working and a new one goes to this address.
+        </p>
+      ) : null}
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={pending}>
+          {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+          Save
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={pending}
+          onClick={() => {
+            setDisplayName(user.displayName);
+            setEmail(user.email);
+            setEditing(false);
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
 }
 
 /** Role + scope picker. The Admin role is locked to the root (.grill/phase-4-admin-foundation-decisions.md). */
@@ -561,6 +648,10 @@ function ManageSheet({
               </p>
             ) : null}
           </div>
+
+          {user.invitation && user.manageable ? (
+            <InvitedDetails key={`${user.displayName}|${user.email}`} user={user} onDone={onDone} />
+          ) : null}
 
           <section aria-labelledby="assignments-heading" className="space-y-3">
             <h3 id="assignments-heading" className="text-base leading-6 font-semibold">

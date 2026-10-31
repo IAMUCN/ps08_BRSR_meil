@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { OrgTreeSelect } from "@/components/org/org-tree-select";
 import { NativeSelect } from "@/components/ui/native-select";
 import { csvSafeText } from "@/lib/csv";
 import { formatQuantity } from "@/lib/calculation/trace";
@@ -165,15 +166,23 @@ export function ContextFilters({
             </div>
           </form>
         ) : null}
-        {select(
-          "f-org",
-          "Organization",
-          context.orgUnitId,
-          context.orgUnits.map((o) => [o.id, o.name]),
-          "org",
-          "",
-          "flex-[4_1_20rem]",
-        )}
+        <label
+          htmlFor="f-org"
+          className="flex flex-[4_1_20rem] flex-col gap-1 text-xs text-muted-foreground"
+        >
+          Organization
+          <OrgTreeSelect
+            id="f-org"
+            value={context.orgUnitId}
+            onChange={(id) => set("org", id)}
+            nodes={context.orgUnits.map((o) => ({
+              id: o.id,
+              name: o.name,
+              parentIds: o.parentIds,
+              inactive: o.status === "inactive",
+            }))}
+          />
+        </label>
         {variant === "explorer"
           ? select(
               "f-fy",

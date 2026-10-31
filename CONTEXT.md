@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-10-13._
+_Last updated: 2026-11-01._
 
 ---
 
@@ -542,7 +542,19 @@ _Last updated: 2026-10-13._
 - **2026-10-30: `0051` and `0052` are on hosted** (owner's "go"; step (1) below is done). Read back: both
   recorded, both tables, `touch_session` and the two settings present; 34 users, 70 records, 33 assignments
   unchanged. The hosted Supabase project had been paused (free tier) and was restored by the owner the same
-  day. The script's paths now point at this checkout. Still to come: steps (2)–(4).
+  day. The script's paths now point at this checkout.
+- **2026-10-30: steps (2) and (3) done.** `b462a2b` is on `ucn` and `origin` `main` and deployed on Vercel
+  (the owner pushed to `origin`); then `hosted-admin-placement.cjs apply` (owner's "go"): `0050` recorded,
+  roles "Super Admin" and "Administrator", `admin@meil.local` the only Super Admin, Bal / DD / AB / AD
+  Administrators of Olectra Greentech / EVEY / MSRTC e-bus order / BEST Mumbai e-buses; 70 records, 33 users,
+  32 assignments unchanged. Still to come: step (4), the second Super Admin invited from Admin → Users.
+- **Owner's feedback of 2026-11-01, uncommitted on branch `feature-tree-notifications-periods`; migration `0053`
+  on the LOCAL database only** (`.grill/org-tree-users-notifications-periods-decisions.md`, D44, A40). Tree selector,
+  invited-user edits, role code messages, pop-ups every 5 s, periods closing by themselves. Also uncommitted here: the
+  role order and notes of 2026-10-30. **The dev server on port 3000 uses this tree and the hosted database: until
+  `0053` is on hosted, the bell, Reporting Periods and Upload fail there.** Hosted step:
+  `node "test data/_backup/hosted-0053.cjs" apply` (needs the owner's go), BEFORE deploying. It closes August (15 Oct
+  passed) within five minutes, and no other period exists, so uploads pause until a Super Admin opens one.
 - **Hosted, in this order:** (1) `node "test data/_backup/hosted-invitations-sessions.cjs" apply` — `0051`
   and `0052`, additive, safe under the code that is live today, and it must come BEFORE the deploy
   (its `check` mode was run: nothing of either is there, 34 users, 68 records); (2) merge and deploy the
@@ -591,7 +603,7 @@ _Last updated: 2026-10-13._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D44** and **A40**; the next migration is `0053`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D45** and **A41**; the next migration is `0054`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -849,6 +861,11 @@ _Last updated: 2026-10-13._
   database must make the tab look again (`document.dispatchEvent(new Event("visibilitychange"))`).
 - **Do not change a test account's password while the end-to-end suite runs**: each script sets its own
   at set-up and signs in with it later.
+- **An open period past its deadline is closed by a job every five minutes (migration `0053`).** A fixture that
+  needs an open period gives it a far-off `submission_closes_on`, as `seed.sql` does. A local database from before
+  needs that date set before `migration up`.
+- **`clickCount` no longer selects text in this Puppeteer:** clear a field with Backspace. The security hook
+  refuses a new file containing Puppeteer's `$eval`; use `page.evaluate`.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

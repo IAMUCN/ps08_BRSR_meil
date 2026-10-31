@@ -46,6 +46,26 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [windowPeriod, setWindowPeriod] = useState<PeriodRow | null>(null);
   const [confirm, setConfirm] = useState<Pending | null>(null);
+  const [newClosesOn, setNewClosesOn] = useState("");
+  const needsDate = confirm?.period.deadlinePassed ?? false;
+  const dateMissing = needsDate && (!newClosesOn || newClosesOn < (confirm?.period.today ?? ""));
+  const dateField =
+    confirm && needsDate ? (
+      <div className="space-y-2 text-foreground">
+        <p>
+          This period&apos;s deadline has passed, so it needs a new submissions close date. It
+          closes by itself at the end of that day, India time.
+        </p>
+        <Label htmlFor="period-new-closes">New submissions close date</Label>
+        <Input
+          id="period-new-closes"
+          type="date"
+          min={confirm.period.today}
+          value={newClosesOn}
+          onChange={(e) => setNewClosesOn(e.target.value)}
+        />
+      </div>
+    ) : null;
   const anotherOpen = (period: PeriodRow) =>
     periods.some((p) => p.status === "open" && p.id !== period.id);
 
@@ -56,6 +76,7 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
         to,
         reason,
         acknowledgeUnresolved: to === "closed",
+        newClosesOn: to === "open" && needsDate ? newClosesOn : undefined,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -63,6 +84,7 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
       }
       toast.success(to === "open" ? "Period opened" : "Period closed");
       setConfirm(null);
+      setNewClosesOn("");
       router.refresh();
     });
   }
@@ -192,9 +214,11 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
         title={`Open ${confirm?.period.label}?`}
         confirmLabel="Open period"
         pending={pending}
+        blocked={dateMissing}
         onConfirm={() => confirm && transition(confirm.period, "open")}
       >
         <p>Users can upload evidence into this period while it is open.</p>
+        {dateField}
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -221,10 +245,12 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
         confirmLabel="Reopen period"
         destructive
         pending={pending}
+        blocked={dateMissing}
         requireReason={{ label: "Reason for reopening (recorded in the audit trail)" }}
         onConfirm={(reason) => confirm && transition(confirm.period, "open", reason)}
       >
         <p>New or corrected data can land in a period that was already closed.</p>
+        {dateField}
         {confirm && confirm.period.reportRuns > 0 ? (
           <p className="font-medium text-foreground">
             {confirm.period.reportRuns} report(s) were generated for this period; their figures may

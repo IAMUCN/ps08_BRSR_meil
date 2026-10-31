@@ -1,6 +1,7 @@
 import "server-only";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { ROLE_CODE_EXISTS, roleCodeError } from "@/lib/roles/code";
 import { writeAudit } from "@/lib/audit";
 import { db, pgErrorCode } from "@/lib/db";
 import { permissionProcedure, router } from "@/lib/trpc/init";
@@ -54,7 +55,8 @@ export const rolesRouter = router({
       from public.roles r
       left join public.role_permissions rp on rp.role_id = r.id
       group by r.id
-      order by r.is_system_role desc, r.name`;
+      order by case r.code when 'admin' then 0 when 'org_admin' then 1 else 2 end,
+               r.is_system_role desc, r.name`;
     return {
       permissions,
       roles: roles.map((r) => ({
@@ -77,10 +79,10 @@ export const rolesRouter = router({
         code: z
           .string()
           .trim()
-          .regex(
-            /^[a-z][a-z0-9_]{1,40}$/,
-            "Code: lowercase letters, numbers and underscores (2–41).",
-          ),
+          .superRefine((code, issue) => {
+            const message = roleCodeError(code);
+            if (message) issue.addIssue({ code: "custom", message });
+          }),
         name: z.string().trim().min(1, "Name is required.").max(100),
         description: z
           .string()
@@ -106,7 +108,7 @@ export const rolesRouter = router({
           return { id: created.id };
         });
       } catch (error) {
-        if (pgErrorCode(error) === "23505") badRequest("A role with that code already exists.");
+        if (pgErrorCode(error) === "23505") badRequest(ROLE_CODE_EXISTS);
         throw error;
       }
     }),

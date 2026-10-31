@@ -4,6 +4,7 @@ import { Loader2, Lock, Pencil, Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
+import { ROLE_CODE_EXISTS, roleCodeError } from "@/lib/roles/code";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -390,19 +391,31 @@ function CreateRoleSheet({
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  // Empty is not called out while typing has not started; submitting says so.
+  const [submitted, setSubmitted] = useState(false);
+  const [taken, setTaken] = useState<string | null>(null);
+  const codeError =
+    code !== "" || submitted
+      ? (roleCodeError(code) ?? (taken === code.trim() ? ROLE_CODE_EXISTS : null))
+      : null;
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
+    setSubmitted(true);
+    if (roleCodeError(code)) return;
     startTransition(async () => {
       const result = await createRoleAction({ code, name, description });
       if (!result.ok) {
-        toast.error(result.error);
+        if (result.error === ROLE_CODE_EXISTS) setTaken(code.trim());
+        else toast.error(result.error);
         return;
       }
       toast.success("Role created");
       setCode("");
       setName("");
       setDescription("");
+      setSubmitted(false);
+      setTaken(null);
       onOpenChange(false);
       onCreated(result.data.id);
     });
@@ -426,13 +439,27 @@ function CreateRoleSheet({
               id="role-code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="font-mono"
+              className={cn(
+                "font-mono",
+                codeError &&
+                  "border-status-error bg-status-error/5 focus-visible:border-status-error",
+              )}
+              aria-invalid={codeError ? true : undefined}
               aria-describedby="role-code-hint"
-              required
             />
-            <p id="role-code-hint" className="text-xs leading-4 text-muted-foreground">
-              Lowercase letters, numbers and underscores, e.g.{" "}
-              <span className="font-mono">site_auditor</span>.
+            <p
+              id="role-code-hint"
+              className={cn(
+                "text-xs leading-4",
+                codeError ? "font-medium text-status-error" : "text-muted-foreground",
+              )}
+            >
+              {codeError ?? (
+                <>
+                  Lowercase letters, numbers and underscores, e.g.{" "}
+                  <span className="font-mono">site_auditor</span>.
+                </>
+              )}
             </p>
           </div>
           <div className="space-y-2">

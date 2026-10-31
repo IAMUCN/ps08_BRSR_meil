@@ -29,6 +29,36 @@ export function checkTransition(input: {
   return { ok: true };
 }
 
+/**
+ * Opening a period whose deadline has passed (submissions close date, else the end date) needs a new close
+ * date of today or later: otherwise the job in migration 0053 closes it again within minutes. ISO dates.
+ */
+export function checkOpenDeadline(input: {
+  closesOn: string | null;
+  endDate: string;
+  opensOn: string | null;
+  today: string;
+  newClosesOn?: string | null;
+}): TransitionCheck {
+  const { closesOn, endDate, opensOn, today, newClosesOn } = input;
+  if (newClosesOn) {
+    if (newClosesOn < today) {
+      return { ok: false, reason: "The new submissions close date must be today or later." };
+    }
+    if (opensOn && newClosesOn < opensOn) {
+      return { ok: false, reason: "Submission window must close on or after it opens." };
+    }
+    return { ok: true };
+  }
+  if ((closesOn ?? endDate) < today) {
+    return {
+      ok: false,
+      reason: "This period's deadline has passed. Choose a new submissions close date.",
+    };
+  }
+  return { ok: true };
+}
+
 export type PeriodDates = {
   startDate: string;
   endDate: string;

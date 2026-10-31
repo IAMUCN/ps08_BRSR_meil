@@ -3,7 +3,12 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { db, pgErrorCode } from "@/lib/db";
-import { checkPeriodDates, checkTransition, type PeriodStatus } from "@/lib/periods/rules";
+import {
+  checkOpenDeadline,
+  checkPeriodDates,
+  checkTransition,
+  type PeriodStatus,
+} from "@/lib/periods/rules";
 import { permissionProcedure, router } from "@/lib/trpc/init";
 
 const periodManage = permissionProcedure("period.manage");
@@ -19,6 +24,10 @@ const optionalIsoDate = z
   .transform((value) => (value ? value : null));
 
 export type PeriodRow = {
+  /** Past its submissions close date (or end date), India time. */
+  deadlinePassed: boolean;
+  /** Today in India, for the date a reopened period must not be earlier than. */
+  today: string;
   id: string;
   label: string;
   periodType: "monthly" | "annual";
@@ -49,6 +58,8 @@ export const reportingPeriodsRouter = router({
         closed_at: Date | null;
         unresolved_validation: number;
         report_runs: number;
+        deadline_passed: boolean;
+        today: string;
       }[]
     >`
       select rp.id, rp.label, rp.period_type, rp.start_date::text, rp.end_date::text, rp.status,
@@ -57,7 +68,9 @@ export const reportingPeriodsRouter = router({
               where er.reporting_period_id = rp.id and er.validation_status in ('failed', 'flagged'))
                as unresolved_validation,
              (select count(*)::int from public.report_runs rr where rr.reporting_period_id = rp.id)
-               as report_runs
+               as report_runs,
+             public.reporting_period_past_deadline(rp) as deadline_passed,
+             (now() at time zone 'Asia/Kolkata')::date::text as today
       from public.reporting_periods rp
       order by rp.start_date desc`;
     return rows.map((r) => ({
@@ -73,6 +86,8 @@ export const reportingPeriodsRouter = router({
       closedAt: r.closed_at?.toISOString() ?? null,
       unresolvedValidation: r.unresolved_validation,
       reportRuns: r.report_runs,
+      deadlinePassed: r.deadline_passed,
+      today: r.today,
     }));
   }),
 
@@ -171,14 +186,27 @@ export const reportingPeriodsRouter = router({
         reason: z.string().trim().max(1000).nullish(),
         /** App Flow §2.2: closing with unresolved validation failures needs explicit confirmation. */
         acknowledgeUnresolved: z.boolean().default(false),
+        /** Replaces the submissions close date when opening a period whose deadline has passed. */
+        newClosesOn: optionalIsoDate,
       }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
         await db().begin(async (tx) => {
           await tx`select pg_advisory_xact_lock(hashtext('reporting_period_status'))`;
-          const [period] = await tx<{ status: PeriodStatus; label: string }[]>`
-            select status, label from public.reporting_periods where id = ${input.id} for update`;
+          const [period] = await tx<
+            {
+              status: PeriodStatus;
+              label: string;
+              end_date: string;
+              submission_opens_on: string | null;
+              submission_closes_on: string | null;
+              today: string;
+            }[]
+          >`
+            select status, label, end_date::text, submission_opens_on::text, submission_closes_on::text,
+                   (now() at time zone 'Asia/Kolkata')::date::text as today
+            from public.reporting_periods where id = ${input.id} for update`;
           if (!period) badRequest("Reporting period not found.");
           const [{ other_open }] = await tx<{ other_open: boolean }[]>`
             select exists (select 1 from public.reporting_periods
@@ -206,7 +234,19 @@ export const reportingPeriodsRouter = router({
 
           const reopening = period.status === "closed" && input.to === "open";
           if (input.to === "open") {
-            await tx`update public.reporting_periods set status = 'open', opened_at = now() where id = ${input.id}`;
+            const deadline = checkOpenDeadline({
+              closesOn: period.submission_closes_on,
+              endDate: period.end_date,
+              opensOn: period.submission_opens_on,
+              today: period.today,
+              newClosesOn: input.newClosesOn,
+            });
+            if (!deadline.ok) badRequest(deadline.reason);
+            await tx`
+              update public.reporting_periods
+              set status = 'open', opened_at = now(),
+                  submission_closes_on = coalesce(${input.newClosesOn}, submission_closes_on)
+              where id = ${input.id}`;
           } else {
             await tx`update public.reporting_periods set status = 'closed', closed_at = now() where id = ${input.id}`;
           }
@@ -219,9 +259,13 @@ export const reportingPeriodsRouter = router({
             entityType: "reporting_period",
             entityId: input.id,
             userId: ctx.session.userId,
-            oldValue: { status: period.status },
+            oldValue: {
+              status: period.status,
+              submission_closes_on: input.newClosesOn ? period.submission_closes_on : undefined,
+            },
             newValue: {
               status: input.to,
+              submission_closes_on: input.newClosesOn ?? undefined,
               acknowledged_unresolved: input.acknowledgeUnresolved || undefined,
             },
             reason: input.reason ?? null,

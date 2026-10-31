@@ -631,3 +631,11 @@ moves the idle clock. A session id belongs to the person it started with. A miss
 gives the default limits. Rows older than 30 days are removed when someone signs out.
 
 **Undo:** drop the two functions and the table, delete the setting.
+
+## D44 — Reporting periods close by themselves; a pop-up marker per account (migration `0053`, 2026-11-01)
+
+`close_expired_reporting_periods()` closes an open period past `submission_closes_on` (else `end_date`), India
+time, with a system audit entry and a `period_closed` notification to Super Admins; `pg_cron` runs it every five
+minutes (`close-expired-reporting-periods`). Records are not touched. `users.notifications_seen_at` records how
+far pop-ups have reached, so each notification pops up once per account. The schema specified manual open and
+close only. `.grill/org-tree-users-notifications-periods-decisions.md`.

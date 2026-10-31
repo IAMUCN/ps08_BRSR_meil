@@ -249,3 +249,14 @@ Checked in Edge on the dev server: the class is absent before the page's script 
 the custom cursor is drawn on `/` and `/login`, the overlay element gets `cursor: auto`; with one touch
 point reported (as on the owner's laptop) the custom cursor is drawn; with phone touch emulation it is not
 and the system cursor stays. Not checked: a real phone or tablet.
+
+## Tree selector, Shared tag, pop-ups (2026-11-01, feature session, owner's feedback, A40)
+
+- New `components/org/org-tree-select.tsx`, used by Expected Submissions (`org-manager.tsx`) and the shared filter
+  bar (`components/records/records-explorer.tsx`). Other organisation dropdowns are unchanged.
+- `org-manager.tsx`: the Shared tag has no glow (a 5% tint and a 30% border); a selected shared unit is highlighted
+  under every parent, the clicked copy fully and the others lightly; a collapsed parent shows a dot; name and code
+  are behind Edit name and code.
+- `notification-bell.tsx`: pop-ups through `sonner`, Mark all read in the header. `users-manager.tsx`: Edit name and
+  email in the Manage panel. `roles-manager.tsx`: the code field shows its rule's message under it, in red.
+- `periods-manager.tsx`: a date field in the open and reopen dialogs when the deadline has passed.

@@ -706,3 +706,12 @@ Supersedes the emailed temporary password of A36 for every new account. Decision
 - When it has ended, an open page goes to sign-in ("Your session expired") and comes back to the same page
   afterwards; a procedure call is refused as for any expired session (§4.3).
 - Only that device is signed out. Log out still ends every device.
+
+## A40 — Owner's feedback of 2026-11-01
+
+A closed period refuses new uploads, new evidence and confirming a multi-bill split; records already uploaded still
+finish review. Opening a period past its deadline needs a new close date. Someone with status Invited can have their
+name and email corrected (Manage panel); a changed email replaces the link. Organization: name and code are behind
+an Edit button, Expected Submissions has a tree selector, a selected shared unit is highlighted under every parent.
+Submission Monitoring and the Data Explorer choose the org unit from the same tree. The bell checks every 5 seconds
+while the tab is visible, shows pop-ups and has Mark all read. `.grill/org-tree-users-notifications-periods-decisions.md`.

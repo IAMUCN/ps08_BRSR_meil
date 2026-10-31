@@ -70,7 +70,8 @@ export function badRequest(message: string): never {
 
 export async function loadUploadOptions(sql: Sql, userId: string): Promise<UploadOptions> {
   const [period] = await sql<{ id: string; label: string }[]>`
-    select id, label from public.reporting_periods where status = 'open'`;
+    select rp.id, rp.label from public.reporting_periods rp
+    where rp.status = 'open' and not public.reporting_period_past_deadline(rp)`;
   const levels = await loadLevels(sql);
 
   const nodeRows = await loadOrgNodes(sql);
@@ -305,11 +306,12 @@ async function supportingTarget(sql: Sql, session: ActiveSession, recordId: stri
     select org_unit_id, reporting_period_id, metric_id, approval_status::text, data_quality_state::text
     from public.esg_records where id = ${recordId}`;
   if (!record) badRequest("Record not found.");
-  const { metric } = resolveTarget(
-    await loadUploadOptions(sql, session.userId),
-    record.org_unit_id,
-    record.metric_id,
-  );
+  const options = await loadUploadOptions(sql, session.userId);
+  const { metric } = resolveTarget(options, record.org_unit_id, record.metric_id);
+  // A closed period takes no new documents; what was already uploaded still finishes its review.
+  if (options.openPeriod?.id !== record.reporting_period_id) {
+    badRequest("This record's reporting period is closed. No new evidence can be added.");
+  }
   if (record.approval_status === "approved") {
     badRequest("This record is approved — its evidence is closed.");
   }

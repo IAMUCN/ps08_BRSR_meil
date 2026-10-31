@@ -16,6 +16,7 @@ import {
 import { kpiTrends, type KpiTrends, type TrendRow } from "@/lib/dashboard/trends";
 import { sendEmail, submissionReminderEmailHtml } from "@/lib/email/brevo";
 import { db } from "@/lib/db";
+import { loadOrgNodes } from "@/lib/org/nodes";
 import {
   ISSUES,
   searchRecords,
@@ -35,7 +36,14 @@ export type ContextOptions = {
   orgUnitId: string;
   periodId: string;
   periodLabel: string;
-  orgUnits: { id: string; name: string; unitType: string; depth: number }[];
+  orgUnits: {
+    id: string;
+    name: string;
+    unitType: string;
+    depth: number;
+    parentIds: string[];
+    status: string;
+  }[];
   periods: { id: string; label: string; financialYear: number }[];
   roles: { code: string; name: string }[];
   metrics: { code: string; name: string }[];
@@ -52,7 +60,7 @@ async function resolveContext(
   periodId?: string,
 ): Promise<ContextOptions> {
   const sql = db();
-  const [allOrgUnits, periods, roles, metrics, scope] = await Promise.all([
+  const [allOrgUnits, periods, roles, metrics, scope, links] = await Promise.all([
     // Depth-first order with depth, so the picker can indent the tree.
     sql<{ id: string; name: string; unit_type: string; depth: number }[]>`
       with recursive tree as (
@@ -70,6 +78,7 @@ async function resolveContext(
     sql<{ code: string; name: string }[]>`
       select code, name from public.esg_metrics where deleted_at is null order by name`,
     scopedOrgUnitIds(sql, caller),
+    loadOrgNodes(sql),
   ]);
   if (orgUnitId) await assertOrgScope(sql, caller, orgUnitId);
   const inScope = allOrgUnits.filter((o) => scope === null || scope.includes(o.id));
@@ -84,12 +93,21 @@ async function resolveContext(
     orgUnitId: node.id,
     periodId: resolvedPeriod,
     periodLabel: periods.find((p) => p.id === resolvedPeriod)?.label ?? "",
-    orgUnits: orgUnits.map((o) => ({
-      id: o.id,
-      name: o.name,
-      unitType: o.unit_type,
-      depth: o.depth,
-    })),
+    orgUnits: orgUnits.map((o) => {
+      const link = links.find((n) => n.id === o.id);
+      return {
+        id: o.id,
+        name: o.name,
+        unitType: o.unit_type,
+        depth: o.depth,
+        // The tree selector draws a shared unit under each parent. Parents outside the caller's scope are
+        // dropped by the selector, so no name is sent that the list above does not already hold.
+        parentIds: [link?.parentId, ...(link?.alsoUnder ?? [])].filter(
+          (id): id is string => !!id && inScope.some((s) => s.id === id),
+        ),
+        status: link?.status ?? "active",
+      };
+    }),
     periods: periods.map((p) => ({
       id: p.id,
       label: p.label,

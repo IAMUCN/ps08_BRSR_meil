@@ -817,6 +817,13 @@ anything on hosted.
   passed / 0 failed / 2 known open, lint, typecheck, format, production build, the new screens in Edge at
   1440 and 390px. Not run: a real email through Brevo, anything on hosted, a real three-hour wait.
 
+**Owner's feedback (2026-11-01).** Decisions: `.grill/org-tree-users-notifications-periods-decisions.md`; D44, A40.
+Periods close by themselves at their submissions close date (migration `0053`, a job every five minutes); a closed
+period takes no new documents but what was uploaded finishes review. Invited people's name and email can be corrected.
+Role codes give clear messages, and every form now shows a validator's words instead of its raw JSON. Notifications
+pop up within 5 seconds while the tab is visible, once per account. Submission Monitoring, the Data Explorer and
+Expected Submissions choose units from one tree. Test results: `CONTEXT.md`.
+
 Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
 docs, the phone and tablet pass.
 

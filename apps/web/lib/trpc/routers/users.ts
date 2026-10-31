@@ -233,7 +233,8 @@ export const usersRouter = router({
   options: userManage.query(async ({ ctx }) => {
     if (!ctx.session.isAdmin && !ctx.session.isOrgAdmin) return { roles: [] };
     const roles = await db()<{ id: string; code: string; name: string }[]>`
-      select id, code, name from public.roles order by name`;
+      select id, code, name from public.roles
+      order by case code when 'admin' then 0 when 'org_admin' then 1 else 2 end, name`;
     return { roles: roles.filter((r) => ctx.session.isAdmin || r.code !== "admin") };
   }),
 
@@ -428,6 +429,95 @@ export const usersRouter = router({
         id: userId,
         emailSent: emailResult.sent,
         emailError: emailResult.sent ? undefined : emailResult.reason,
+      };
+    }),
+
+  /**
+   * Corrects the name or email of someone still invited (status Invited only: a person who set up their
+   * account owns their own details). A changed email cancels the old link, which may have gone to the wrong
+   * person, and sends a new one; the sign-in record changes with it, so no second account appears.
+   */
+  updateInvited: userManage
+    .input(
+      z.object({
+        userId: z.uuid(),
+        displayName: z.string().trim().min(1, "Name is required.").max(200),
+        email: z.email("Enter a valid email address.").transform((e) => e.trim().toLowerCase()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const sql = db();
+      const profile = await pendingAccount(sql, input.userId);
+      await assertAccountReach(sql, ctx.session, input.userId);
+
+      const emailChanged = input.email !== profile.email.toLowerCase();
+      if (!emailChanged && input.displayName === profile.displayName) {
+        badRequest("Nothing has changed.");
+      }
+      if (emailChanged) {
+        const [taken] = await sql`
+          select 1 from public.users where lower(email) = ${input.email} and id <> ${input.userId}`;
+        if (taken) badRequest("A user with that email already exists.");
+        if (!(await countInvitation(ctx.session.userId))) badRequest(TOO_MANY_INVITATIONS);
+      }
+
+      const auth = createSupabaseAdminClient().auth.admin;
+      const { error } = await auth.updateUserById(input.userId, {
+        email: input.email,
+        email_confirm: true,
+        user_metadata: { display_name: input.displayName },
+        // An emailed temporary password must not keep working for the old address.
+        ...(emailChanged && profile.holdsTemporaryPassword
+          ? { password: generateInitialPassword(), app_metadata: ownPasswordMetadata }
+          : {}),
+      });
+      if (error) {
+        badRequest(
+          error.code === "email_exists"
+            ? "That email already has a sign-in account."
+            : "The details could not be saved. Try again.",
+        );
+      }
+
+      let invitation;
+      try {
+        invitation = await sql.begin(async (tx) => {
+          await tx`
+            update public.users set display_name = ${input.displayName}, email = ${input.email}
+            where id = ${input.userId}`;
+          const issued = emailChanged
+            ? await issueInvitation(tx, input.userId, ctx.session.userId)
+            : null;
+          await writeAudit(tx, {
+            eventType: "user.invited_details_updated",
+            entityType: "user",
+            entityId: input.userId,
+            userId: ctx.session.userId,
+            oldValue: { email: profile.email, display_name: profile.displayName },
+            newValue: { email: input.email, display_name: input.displayName },
+          });
+          return issued;
+        });
+      } catch (err) {
+        // The sign-in record and the profile must not disagree about the address.
+        await auth.updateUserById(input.userId, {
+          email: profile.email,
+          email_confirm: true,
+          user_metadata: { display_name: profile.displayName },
+        });
+        throw err;
+      }
+
+      if (!invitation) return { emailChanged: false, emailSent: false };
+      const sent = await sendInvitationEmail({
+        email: input.email,
+        displayName: input.displayName,
+        invitation,
+      });
+      return {
+        emailChanged: true,
+        emailSent: sent.sent,
+        emailError: sent.sent ? undefined : sent.reason,
       };
     }),
 

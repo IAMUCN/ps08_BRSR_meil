@@ -26,6 +26,7 @@ export async function transitionPeriodAction(input: {
   to: "open" | "closed";
   reason?: string;
   acknowledgeUnresolved?: boolean;
+  newClosesOn?: string;
 }) {
   return runAction((api) => api.reportingPeriods.transition(input));
 }
