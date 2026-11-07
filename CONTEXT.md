@@ -574,16 +574,31 @@ _Last updated: 2026-11-07._
   `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`. **Phase 1 is done on branch `feature-session-takeover-security`**
   (fast-forwarded to `ucn/main` `95545c3` first), **uncommitted; migration `0055` is on the LOCAL database only.**
   `ucn/main` gained a ui-lane `0054` (absolute session limit 72 hours): its setting is on hosted, the migration is
-  not recorded there. Hosted step prepared, not run: `node "test data/_backup/hosted-0054-0055.cjs" check|apply`
-  (backs up `user_sessions` first; must run BEFORE this code reaches hosted or the dev server on 3000).
+  not recorded there. **Both `0054` and `0055` were applied to hosted on 2026-11-07 (owner's "go") with
+  `test data/_backup/hosted-0054-0055.cjs`** after the dev server on 3000 failed with "touch_session_single does
+  not exist"; read back: both recorded, functions present and closed to the browser roles, 34 users, 73 records
+  and 25 session rows unchanged (backup `hosted-0054-0055.backup.json`). Phase 1 is committed (`6b6c0e3`).
   Requirement 37 (local database) is deferred by the owner until after the HoD demo.
+- **Phase 2 (2026-11-07/08), uncommitted on `feature-session-takeover-security`; migration `0056` local and hosted**
+  (decisions in `.grill/feature-enhancement-roadmap-decisions.md`, D46, A42). Several open periods, late uploads
+  (due +15 / late +45 days), Late / Same-file / Same-bill validation flags, bill number on records, document-type and
+  activity filters, stage tracker, Admin type correction and wrong-activity return, approval rows with thumbnails,
+  readable download names. Checked: web unit 243/243 (plus new), database 425/425, `phase2-lifecycle.mjs` 45/45,
+  typecheck, lint 0 errors, production build. Full end-to-end suite: 12 of 13 scripts pass in full
+  (578 checks); feedback-2026-11 stops at the old Add ID refresh step, as before Phase 2. Browser check `ui-phase2.mjs` 13/13 in Edge. Appendix
+  and PROGRESS updated. **`0056` applied to hosted on 2026-11-08 (owner's "go")** with
+  `test data/_backup/hosted-0056.cjs` (backup `hosted-0056.backup.json`); read back: functions present and closed to
+  the browser, 3 new columns, 48 bill numbers back-filled, auto-close job present, 34 users and 73 records unchanged.
+  Hosted's open period "oct" has no late date, so it closes on its due date (11 Nov 2026) unless one is set.
+  Findings: Grid Electricity captures no bill number (same-bill and Bill no. work only for the 40 activities with
+  one); every activity maps to one document type, so type correction has nothing to choose until one has several.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
-| Phase 1 of the feature roadmap (2026-11-07) | Commit `feature-session-takeover-security`; "go" for `hosted-0054-0055.cjs apply`; confirm the build-time decisions in `.grill/feature-enhancement-roadmap-decisions.md` (sessions that skip the form replace the others; the Super Admin email goes to the Super Admin whose account took over). |
+| Phase 1 of the feature roadmap (2026-11-07) | Confirm the build-time decisions in `.grill/feature-enhancement-roadmap-decisions.md` (sessions that skip the form replace the others; the Super Admin email goes to the Super Admin whose account took over). |
 | For the ui role (2026-11-07) | The root `app/loading.tsx` makes server redirects arrive inside a 200 page; `app/loading.tsx` and `app/page.tsx` fail `format:check`; after Add ID on Users the filtered list does not refresh (feedback-2026-11 stops there, also without Phase 1). |
 | Hosted OCR worker | `traceesg-ocr-worker-hosted` was found exited (137, out of memory) on 2026-11-07; hosted uploads wait until it is started again. |
 | Stages 1–3 of the 2026-10-13 work | Say "go" for the hosted step that must come first (`hosted-invitations-sessions.cjs apply`; the dev server on port 3000 is broken until then), when to commit `feature-scoped-admins`, when to merge it, and when to run the placement script (after the deploy). Then stage 4 starts. |
@@ -889,6 +904,10 @@ _Last updated: 2026-11-07._
   holding `NEXT_REDIRECT;replace;<path>` instead of a 307. Tests check for either.
 - **`next start` keeps serving the build it started with:** after a rebuild, stop the old process (find it by its
   `start -p 3100` command line) or the tests run against stale code.
+- **Do not point the app at the transaction pooler (port 6543).** Tested 2026-11-07 from this laptop: any query
+  queued behind a busy connection never returns (pipelining and type fetching off made no difference); the session
+  pooler (5432) is fine. The pages run queries in parallel, so the app hangs there. Recorded as a Phase 10 item in
+  `feature_enhancement.md`. The session pool on hosted is 15 clients; recommended 24 (60 max connections).
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

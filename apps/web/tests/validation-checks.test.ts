@@ -5,6 +5,9 @@ import {
   checkAllowedUnits,
   checkBillingPeriodOverlap,
   checkDuplicateInvoice,
+  checkLate,
+  checkSameBill,
+  checkSameFile,
   checkEvidence,
   checkFormat,
   checkHistoryRatio,
@@ -114,4 +117,37 @@ test("aggregate: any fail wins, then flags", () => {
   assert.equal(aggregate(["pass", "pass"]), "validated");
   assert.equal(aggregate(["pass", "flagged"]), "flagged");
   assert.equal(aggregate(["flagged", "fail"]), "failed");
+});
+
+test("late submissions, identical files and the same bill are review flags (migration 0056)", () => {
+  const other = {
+    metricName: "Grid Electricity",
+    orgUnitName: "Project X",
+    periodLabel: "August 2026",
+    submittedBy: "Asha",
+    uploadedOn: "02 Sep 2026",
+  };
+  const late = checkLate({ late: true, dueOn: "15 Sep 2026", uploadedOn: "03 Oct 2026" });
+  assert.equal(outcomeOf(late, "hard_fail"), "flagged");
+  assert.match(late.message, /due on 15 Sep 2026, uploaded on 03 Oct 2026/);
+  assert.equal(
+    checkLate({ late: false, dueOn: "15 Sep 2026", uploadedOn: "01 Sep 2026" }).ok,
+    true,
+  );
+
+  assert.equal(checkSameFile([]).ok, true);
+  const sameFile = checkSameFile([other, other]);
+  assert.equal(outcomeOf(sameFile, "hard_fail"), "flagged");
+  assert.match(
+    sameFile.message,
+    /Same file as Grid Electricity for Project X, August 2026, uploaded by Asha/,
+  );
+  assert.match(sameFile.message, /and 1 more/);
+
+  assert.equal(checkSameBill(null, [other]).ok, true, "no number, nothing to compare");
+  assert.equal(checkSameBill("  ", [other]).ok, true);
+  assert.equal(checkSameBill("INV-9", []).ok, true);
+  const sameBill = checkSameBill(" INV-9 ", [other]);
+  assert.equal(outcomeOf(sameBill, "flag"), "flagged");
+  assert.match(sameBill.message, /same bill \(no\. INV-9\) as Grid Electricity/);
 });

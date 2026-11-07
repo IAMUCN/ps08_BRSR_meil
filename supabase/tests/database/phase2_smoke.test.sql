@@ -144,10 +144,11 @@ insert into public.notifications (id, user_id, type, title, message, deep_link_p
 -- Database constraints and triggers
 ------------------------------------------------------------------------------------------------
 
-select throws_ok(
+-- Several periods may be open at once since migration 0056 (a month's bills arrive after it ends).
+select lives_ok(
   $$insert into public.reporting_periods (label, start_date, end_date, status)
     values ('October 2026', '2026-10-01', '2026-10-31', 'open')$$,
-  '23505', null, 'a second open reporting period is rejected');
+  'a second open reporting period is allowed (migration 0056)');
 
 insert into public.conversion_factors (id, activity_type, name)
 values ('77777777-7777-4777-8777-777777777777', 'DIESEL', 'Synthetic diesel factor');

@@ -17,6 +17,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { defaultWindow } from "@/lib/periods/rules";
 import type { PeriodRow } from "@/lib/trpc/routers/reporting-periods";
 import { createPeriodAction, transitionPeriodAction, updatePeriodWindowAction } from "./actions";
 
@@ -47,7 +48,8 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
   const [windowPeriod, setWindowPeriod] = useState<PeriodRow | null>(null);
   const [confirm, setConfirm] = useState<Pending | null>(null);
   const [newClosesOn, setNewClosesOn] = useState("");
-  const needsDate = confirm?.period.deadlinePassed ?? false;
+  // Past its last upload day: opening it needs a new due date, or the job closes it again within minutes.
+  const needsDate = confirm?.period.locked ?? false;
   const dateMissing = needsDate && (!newClosesOn || newClosesOn < (confirm?.period.today ?? ""));
   const dateField =
     confirm && needsDate ? (
@@ -66,8 +68,6 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
         />
       </div>
     ) : null;
-  const anotherOpen = (period: PeriodRow) =>
-    periods.some((p) => p.status === "open" && p.id !== period.id);
 
   function transition(period: PeriodRow, to: "open" | "closed", reason?: string) {
     startTransition(async () => {
@@ -144,10 +144,17 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
                     {formatDate(period.startDate)} – {formatDate(period.endDate)}
                   </td>
                   <td className="px-3 py-3">
-                    {period.submissionOpensOn || period.submissionClosesOn ? (
-                      `${formatDate(period.submissionOpensOn)} – ${formatDate(period.submissionClosesOn)}`
+                    {period.submissionClosesOn ? (
+                      <>
+                        Due {formatDate(period.submissionClosesOn)}
+                        <span className="block text-xs text-muted-foreground">
+                          {period.lateUploadsUntil
+                            ? `Late uploads until ${formatDate(period.lateUploadsUntil)}`
+                            : "No late uploads"}
+                        </span>
+                      </>
                     ) : (
-                      <span className="text-muted-foreground">Not set</span>
+                      <span className="text-muted-foreground">Due at the end of the period</span>
                     )}
                   </td>
                   <td className="px-3 py-3">
@@ -171,8 +178,7 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={pending || anotherOpen(period)}
-                          title={anotherOpen(period) ? "Another period is open" : undefined}
+                          disabled={pending}
                           onClick={() => setConfirm({ kind: "open", period })}
                         >
                           Open
@@ -192,8 +198,7 @@ export function PeriodsManager({ periods }: { periods: PeriodRow[] }) {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={pending || anotherOpen(period)}
-                          title={anotherOpen(period) ? "Another period is open" : undefined}
+                          disabled={pending}
                           onClick={() => setConfirm({ kind: "reopen", period })}
                         >
                           Reopen
@@ -293,9 +298,19 @@ function CreatePeriodSheet({
     endDate: "",
     submissionOpensOn: "",
     submissionClosesOn: "",
+    lateUploadsUntil: "",
   });
   const set = (key: keyof typeof form) => (value: string) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      // A new end date proposes the defaults (due +15 days, late uploads until +45), which stay editable.
+      if (key === "endDate" && value) {
+        const window = defaultWindow(value);
+        next.submissionClosesOn = window.closesOn;
+        next.lateUploadsUntil = window.lateUntil;
+      }
+      return next;
+    });
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -314,6 +329,7 @@ function CreatePeriodSheet({
         endDate: "",
         submissionOpensOn: "",
         submissionClosesOn: "",
+        lateUploadsUntil: "",
       });
       onDone();
     });
@@ -374,9 +390,9 @@ function CreatePeriodSheet({
             </div>
           </fieldset>
           <fieldset className="grid grid-cols-2 gap-3">
-            <legend className="mb-2 text-sm font-medium">Submission window (optional)</legend>
+            <legend className="mb-2 text-sm font-medium">Submission window</legend>
             <div className="space-y-2">
-              <Label htmlFor="window-opens">Opens on</Label>
+              <Label htmlFor="window-opens">Opens on (optional)</Label>
               <Input
                 id="window-opens"
                 type="date"
@@ -392,6 +408,19 @@ function CreatePeriodSheet({
                 value={form.submissionClosesOn}
                 onChange={(e) => set("submissionClosesOn")(e.target.value)}
               />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label htmlFor="window-late">Late uploads until</Label>
+              <Input
+                id="window-late"
+                type="date"
+                value={form.lateUploadsUntil}
+                onChange={(e) => set("lateUploadsUntil")(e.target.value)}
+              />
+              <p className="text-xs leading-4 text-muted-foreground">
+                After the due date, uploads are still taken until this day but marked late and
+                reviewed in the Validation Queue. The period then closes by itself.
+              </p>
             </div>
           </fieldset>
           <Button type="submit" className="w-full" disabled={pending}>
@@ -416,6 +445,7 @@ function WindowSheet({
   const [pending, startTransition] = useTransition();
   const [opensOn, setOpensOn] = useState(period.submissionOpensOn ?? "");
   const [closesOn, setClosesOn] = useState(period.submissionClosesOn ?? "");
+  const [lateUntil, setLateUntil] = useState(period.lateUploadsUntil ?? "");
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -424,6 +454,7 @@ function WindowSheet({
         id: period.id,
         submissionOpensOn: opensOn,
         submissionClosesOn: closesOn,
+        lateUploadsUntil: lateUntil,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -441,7 +472,8 @@ function WindowSheet({
         <SheetHeader>
           <SheetTitle>Submission window · {period.label}</SheetTitle>
           <SheetDescription>
-            Guidance dates only — uploads are controlled by opening and closing the period.
+            Uploads after the due date are marked late until the late-upload date; after that the
+            period closes by itself.
           </SheetDescription>
         </SheetHeader>
         <form onSubmit={onSubmit} className="space-y-4 px-4">
@@ -462,6 +494,15 @@ function WindowSheet({
                 type="date"
                 value={closesOn}
                 onChange={(e) => setClosesOn(e.target.value)}
+              />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label htmlFor="edit-late">Late uploads until</Label>
+              <Input
+                id="edit-late"
+                type="date"
+                value={lateUntil}
+                onChange={(e) => setLateUntil(e.target.value)}
               />
             </div>
           </div>

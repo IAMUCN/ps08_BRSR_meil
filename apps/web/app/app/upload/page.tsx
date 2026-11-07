@@ -34,7 +34,7 @@ export default async function UploadPage({ searchParams }: PageProps<"/app/uploa
       : null;
 
   // §0.4: blocking notice before category selection is even shown.
-  if (options && !options.openPeriod) {
+  if (options && options.periods.length === 0) {
     return (
       <EmptyState
         icon={CalendarX}
@@ -43,7 +43,7 @@ export default async function UploadPage({ searchParams }: PageProps<"/app/uploa
       />
     );
   }
-  if (!options || !options.openPeriod || options.targets.length === 0) {
+  if (!options || options.periods.length === 0 || options.targets.length === 0) {
     return (
       <EmptyState
         icon={ListX}
@@ -60,7 +60,7 @@ export default async function UploadPage({ searchParams }: PageProps<"/app/uploa
         description="Choose what the document is evidence for, then add the file. Values are extracted automatically and you'll review them before anything is submitted."
       />
       <UploadForm
-        periodLabel={options.openPeriod.label}
+        periods={options.periods}
         targets={options.targets}
         maxBytes={options.maxBytes}
         replaces={replaces}

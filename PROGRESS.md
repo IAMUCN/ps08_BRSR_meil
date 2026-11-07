@@ -101,6 +101,7 @@ may run in parallel with Phases 3–5.
 | — | Stage 1 of 6: Super Admins and scoped Administrators (migration `0050`) | Done on branch `feature-scoped-admins`, **uncommitted, not on hosted** | — |
 | — | Stages 2 and 3 of 6: invitation links (migration `0051`) and session time limits (migration `0052`) | Done in the same working tree, **uncommitted, not on hosted** | — |
 | — | Feature roadmap (`feature_enhancement.md`) Phase 0 audit and Phase 1: one session per account (migration `0055`), permission names, show/hide password, security re-check | Done on branch `feature-session-takeover-security`, **uncommitted; `0055` local only** | — |
+| — | Feature roadmap Phase 2: several open periods, late uploads, duplicate rules, bill number, monitoring filters, stage tracker, approval list (migration `0056`) | Done, **uncommitted**; `0056` on hosted (2026-11-08) | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -836,6 +837,19 @@ Low recorded. Checks: web unit 238/238, database 408/408, end-to-end 10 of 11 sc
 authorization 42/42, audit-regression 110/110, scoped-admin 77/77, scenarios A–F, edge cases), feedback-2026-11
 85/85 before an Add ID step that also fails without these changes, cross-project 264 passed, production build,
 lint, typecheck. Not on hosted.
+
+**Feature roadmap, Phase 2 (2026-11-08).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 2
+decisions"); D46, A42. Several reporting periods may be open at once and the uploader picks one; each has a due
+date and a "late uploads until" date (defaults +15 / +45 days); a late upload is marked and flagged for review, and
+a unit's Administrator may accept it. Duplicates: an identical file and the same bill (bill number + billing period +
+activity, any unit or period) are Validation Queue flags naming the earlier record; a corrected re-upload is a new
+version. The confirmed bill number is kept on the record and searched. Submission Monitoring and the Data Explorer
+filter by Activity and Document type; the record panel has a stage tracker, Admin document-type correction and
+"return as wrong activity"; the approval list has bill previews and row Approve / Return; downloads get readable
+names. Checks: web unit 243, database 425/425, end-to-end 12 of 13 scripts in full (623 checks, the new
+`phase2-lifecycle.mjs` 45/45; feedback-2026-11 stops at the old Add ID refresh step), browser `ui-phase2.mjs` 13/13
+in Edge, typecheck, lint, production build. Not on hosted. Findings: Grid Electricity captures no bill number; every
+activity has one document type.
 
 Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
 docs, the phone and tablet pass.

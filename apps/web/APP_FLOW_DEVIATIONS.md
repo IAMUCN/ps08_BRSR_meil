@@ -725,3 +725,15 @@ device at <time>" (shown for 24 hours; the browser keeps an `emeilsg-sign-in` co
 for this). A Super Admin whose account takes over a sign-in is emailed. Roles & Permissions shows the 20 approved
 permission names instead of codes (`lib/roles/permission-labels.ts`); the Audit Trail keeps codes. The eye button
 is on forgot-password, reset-password and Profile's password fields. `.grill/feature-enhancement-roadmap-decisions.md`.
+
+## A42 — Periods, late uploads, duplicates and monitoring (2026-11-07, Phase 2)
+
+Upload offers every period that takes uploads, each with its due date; a late one says so. Reporting Periods has a
+"Late uploads until" date (defaults: due 15 days and late 45 days after the period ends). A late record, an
+identical file and the same bill are flags reviewed in the Validation Queue (new filters: Late submissions, Possible
+duplicates); a unit's Administrator may accept them. Submission Monitoring and the Data Explorer filter by Activity
+and Document type, show the bill number, document type (and who chose it) and Late / Duplicate marks, and search the
+bill number. The record panel shows a five-step stage tracker with who it waits on and the next action, lets an Admin
+correct the document type or return the record as the wrong activity (the uploader re-uploads it as a new version).
+The approval list shows a thumbnail of the bill, the bill number and the marks, with Approve / Return on rows that
+need no reading. Downloaded originals are named activity_Bill-number_period.

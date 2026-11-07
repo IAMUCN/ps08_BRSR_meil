@@ -18,7 +18,12 @@ import {
 } from "../lib/org/rules.ts";
 import { parentsOf } from "../lib/bulk-import/xlsx.ts";
 import { PASSWORD_RULES } from "../lib/auth/password-policy.ts";
-import { checkPeriodDates, checkTransition } from "../lib/periods/rules.ts";
+import {
+  checkPeriodDates,
+  checkTransition,
+  defaultWindow,
+  uploadTiming,
+} from "../lib/periods/rules.ts";
 import { checkAdminRemoval, checkRoleAtNode, generateInitialPassword } from "../lib/users/rules.ts";
 
 // The seeded levels (migration 0037) plus one an Admin added between Region and Project.
@@ -97,41 +102,28 @@ test("org moves: cycles, root, ordering", () => {
 });
 
 test("period transitions", () => {
-  assert.deepEqual(checkTransition({ from: "draft", to: "open", anotherPeriodOpen: false }), {
+  assert.deepEqual(checkTransition({ from: "draft", to: "open" }), {
     ok: true,
   });
-  assert.equal(checkTransition({ from: "draft", to: "open", anotherPeriodOpen: true }).ok, false);
-  assert.equal(
-    checkTransition({ from: "draft", to: "closed", anotherPeriodOpen: false }).ok,
-    false,
-  );
-  assert.deepEqual(checkTransition({ from: "open", to: "closed", anotherPeriodOpen: false }), {
+  // Several periods may be open at once (migration 0056).
+  assert.equal(checkTransition({ from: "draft", to: "open" }).ok, true);
+  assert.equal(checkTransition({ from: "draft", to: "closed" }).ok, false);
+  assert.deepEqual(checkTransition({ from: "open", to: "closed" }), {
     ok: true,
   });
-  assert.equal(
-    checkTransition({ from: "closed", to: "open", anotherPeriodOpen: false }).ok,
-    false,
-    "reopen needs a reason",
-  );
-  assert.equal(
-    checkTransition({ from: "closed", to: "open", anotherPeriodOpen: false, reason: "  " }).ok,
-    false,
-  );
+  assert.equal(checkTransition({ from: "closed", to: "open" }).ok, false, "reopen needs a reason");
+  assert.equal(checkTransition({ from: "closed", to: "open", reason: "  " }).ok, false);
   assert.deepEqual(
     checkTransition({
       from: "closed",
       to: "open",
-      anotherPeriodOpen: false,
       reason: "Late utility bill",
     }),
     { ok: true },
   );
-  assert.equal(
-    checkTransition({ from: "closed", to: "open", anotherPeriodOpen: true, reason: "x" }).ok,
-    false,
-  );
-  assert.equal(checkTransition({ from: "open", to: "draft", anotherPeriodOpen: false }).ok, false);
-  assert.equal(checkTransition({ from: "open", to: "open", anotherPeriodOpen: false }).ok, false);
+  assert.equal(checkTransition({ from: "closed", to: "open", reason: "x" }).ok, true);
+  assert.equal(checkTransition({ from: "open", to: "draft" }).ok, false);
+  assert.equal(checkTransition({ from: "open", to: "open" }).ok, false);
 });
 
 test("period dates and submission window", () => {
@@ -463,5 +455,36 @@ test("a shared unit listed under each parent is read as one unit with all those 
       [9, 7],
       [12, 11],
     ],
+  );
+});
+
+test("period window: defaults, late uploads and where an upload stands (migration 0056)", () => {
+  assert.deepEqual(defaultWindow("2026-08-31"), {
+    closesOn: "2026-09-15",
+    lateUntil: "2026-10-15",
+  });
+  assert.deepEqual(defaultWindow("2026-12-31"), {
+    closesOn: "2027-01-15",
+    lateUntil: "2027-02-14",
+  });
+  const august = {
+    endDate: "2026-08-31",
+    submissionClosesOn: "2026-09-15",
+    lateUploadsUntil: "2026-10-15",
+  };
+  assert.equal(uploadTiming(august, "2026-09-15"), "on_time");
+  assert.equal(uploadTiming(august, "2026-09-16"), "late");
+  assert.equal(uploadTiming(august, "2026-10-15"), "late");
+  assert.equal(uploadTiming(august, "2026-10-16"), "closed");
+  // No late date: the period closes on its due date, as before.
+  assert.equal(uploadTiming({ ...august, lateUploadsUntil: null }, "2026-09-16"), "closed");
+  assert.equal(
+    checkPeriodDates({
+      startDate: "2026-08-01",
+      endDate: "2026-08-31",
+      submissionClosesOn: "2026-09-15",
+      lateUploadsUntil: "2026-09-14",
+    }).ok,
+    false,
   );
 });

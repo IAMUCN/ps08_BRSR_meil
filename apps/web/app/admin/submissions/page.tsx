@@ -98,6 +98,8 @@ export default async function SubmissionMonitoringPage({
     orgUnitId: q.orgUnitId,
     periodId: q.periodId,
     scopeCode: q.scopeCode,
+    metricCode: q.metricCode,
+    documentTypeCode: q.documentTypeCode,
     roleCode: q.roleCode,
     status: q.status,
     issue: q.issue,

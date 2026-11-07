@@ -3,6 +3,7 @@
 import { runAction } from "@/lib/trpc/server";
 
 type FileTarget = {
+  reportingPeriodId?: string;
   orgUnitId: string;
   metricId: string;
   mimeType: string;
@@ -24,6 +25,7 @@ export async function completeUploadAction(
 
 // Multi-bill PDFs (lib/trpc/routers/bundles.ts).
 export async function prepareBundleUploadAction(input: {
+  reportingPeriodId?: string;
   orgUnitId: string;
   fileSize: number;
   sha256: string;

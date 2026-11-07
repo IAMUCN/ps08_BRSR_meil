@@ -927,16 +927,20 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                         feature-session-takeover-security, uncommitted;
                         migration 0055 on the local database only
                         (hosted needs the owner's go-ahead)
-  2--10   NOT STARTED
+  2       COMPLETED     2026-11-08, same branch, uncommitted; migration
+                        0056 on local and hosted (2026-11-08)
+  3--10   NOT STARTED
 
 ## Requirements
 
   \#   Found in Phase 0                Status        Notes
   ---- ------------------------------- ------------- ----------------------------
   1    Partial                         NOT STARTED
-  2    Partial                         NOT STARTED   screen to confirm
+  2    Partial                         COMPLETED     thumbnail on approval rows;
+                                                     bill beside its values
   3    Missing                         NOT STARTED   ui lane
-  4    Partial                         NOT STARTED   "simpler" to define
+  4    Partial                         COMPLETED     one list, row Approve/Return,
+                                                     stage tracker
   5    Partial, cause found            NOT STARTED
   6    Exists                          NOT STARTED   ui lane
   7    Partial                         NOT STARTED
@@ -963,13 +967,17 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                                                      2026-10-12: 1 Low fixed,
                                                      3 Low recorded
   21   Missing                         NOT STARTED
-  22   Partial                         NOT STARTED
-  23   Exists (no overwrite)           NOT STARTED   policy to write down
+  22   Partial                         COMPLETED     duplicate flags in the
+                                                     Validation Queue; stage tracker
+  23   Exists (no overwrite)           COMPLETED     policy decided and enforced;
+                                                     re-upload = new version
   24   Missing                         NOT STARTED
-  25   Missing                         NOT STARTED
+  25   Missing                         COMPLETED     Document type and Activity
+                                                     filters; Admin correction
   26   Partial                         NOT STARTED
   27   Unknown                         NOT STARTED   failing image needed
-  28   Partial                         NOT STARTED
+  28   Partial                         IN PROGRESS   filters and correction done;
+                                                     detection itself is Phase 3
   29   Missing                         NOT STARTED
   30   Missing                         NOT STARTED
   31   Missing                         NOT STARTED
@@ -982,5 +990,30 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   37   Partial (dump ready)            BLOCKED       deferred by the owner
                                                      until after the HoD demo
   38   Missing                         NOT STARTED
-  39   Exists (mostly)                 NOT STARTED   grace/late rules to decide
+  39   Exists (mostly)                 COMPLETED     several open periods; due and
+                                                     late dates; Late flag
   40   Exists                          NOT STARTED   ui lane
+
+## Added to Phase 10 by the owner (2026-11-07)
+
+-   **Database connections for production (owner's request, 2026-11-07).**
+    Status: NOT STARTED.
+    -   Today the session pooler (port 5432) allows 15 clients, shared by
+        the live site, every developer's machine and the OCR worker;
+        `EMAXCONNSESSION` errors appear under normal use. Hosted allows
+        60 connections in all (smallest compute size); the recommended
+        pool size there is 24.
+    -   Production gets its own Supabase project, with no developer
+        machine connected to it.
+    -   Find and fix why the app hangs on the transaction pooler (port
+        6543), then move the Vercel deployment to it and test on Vercel.
+        Reproduced on 2026-11-07 from a laptop, so it is not specific to
+        Vercel: through port 6543, whenever more queries are in flight
+        than the pool has open connections, the queued ones never return
+        (a single query, sequential queries and transactions work).
+        Turning off postgres.js pipelining (`max_pipeline: 1`) and type
+        fetching (`fetch_types: false`) did not help; the session pooler
+        runs the same 20 parallel queries in 0.3 s. This is the likely
+        cause of the October report stall on Vercel.
+    -   The OCR worker stays on the session pooler (one long-running
+        connection).

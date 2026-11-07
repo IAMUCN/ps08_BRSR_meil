@@ -272,3 +272,16 @@ and the system cursor stays. Not checked: a real phone or tablet.
   `redirect()` (for example a Project Manager opening an Admin page) now arrives as a 200 page with a client-side
   redirect instead of a 307. Access is still refused (no Admin content is sent), but the status changed; two
   end-to-end checks now accept either. `app/loading.tsx` and `app/page.tsx` also fail `pnpm format:check`.
+
+## Feature lane, 2026-11-07 (Phase 2 of feature_enhancement.md)
+
+- `components/upload/upload-form.tsx`: a period picker with due dates and a late notice; a rejected record's
+  re-upload may choose another activity.
+- `components/records/records-explorer.tsx`: Activity and Document type filters on both screens, bill number and
+  document type under the file name, Late / Possible duplicate marks, CSV columns.
+- New `components/records/stage-tracker.tsx`, `components/records/record-corrections.tsx` (in the record drawer)
+  and `components/document-viewer/document-thumbnail.tsx` (approval rows; renders page 1 when the row is visible).
+- `components/approvals/approval-queue.tsx`: thumbnail, bill no., marks, row Approve / Return, panel with the bill
+  beside its values and the stage tracker.
+- `app/admin/reporting-periods/periods-manager.tsx`, `app/admin/validation-queue/validation-queue-table.tsx`,
+  `app/app/page.tsx` (every open period with its dates).

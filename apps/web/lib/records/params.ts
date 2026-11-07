@@ -22,6 +22,7 @@ export function readParams(params: Params) {
     financialYear: Number.isInteger(fy) && fy > 2000 ? fy : undefined,
     scopeCode: scope && SCOPES.includes(scope) ? scope : undefined,
     metricCode: one(params, "metric"),
+    documentTypeCode: one(params, "doctype"),
     roleCode: one(params, "role"),
     text: one(params, "q")?.trim().slice(0, 100) || undefined,
     status: STATUSES.includes(status as Status) ? (status as Status) : undefined,

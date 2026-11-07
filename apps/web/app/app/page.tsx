@@ -42,8 +42,8 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
     );
   }
 
-  const [openPeriod, submissions, myTotals] = await Promise.all([
-    caller.dashboard.openPeriod(),
+  const [openPeriods, submissions, myTotals] = await Promise.all([
+    caller.dashboard.openPeriods(),
     caller.ocr.submissions(),
     // Phases 10–12: this user's own project totals for every configured scope — never an
     // organisation-wide figure, and never a hard-coded list of scopes.
@@ -82,19 +82,22 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
         <div className="flex items-center gap-2">
           <CalendarRange className="size-5 text-primary-text" strokeWidth={1.5} aria-hidden />
           <h2 id="period-heading" className="text-base leading-6 font-semibold">
-            Current reporting period
+            {openPeriods.length > 1 ? "Open reporting periods" : "Current reporting period"}
           </h2>
         </div>
-        {openPeriod ? (
-          <p className="mt-2 text-sm leading-5">
-            <span className="font-medium">{openPeriod.label}</span>
-            {openPeriod.submissionClosesOn ? (
-              <span className="text-muted-foreground">
-                {" "}
-                · submissions due by {formatDate(openPeriod.submissionClosesOn)}
-              </span>
-            ) : null}
-          </p>
+        {openPeriods.length > 0 ? (
+          <ul className="mt-2 space-y-1 text-sm leading-5">
+            {openPeriods.map((period) => (
+              <li key={period.id}>
+                <span className="font-medium">{period.label}</span>
+                <span className="text-muted-foreground">
+                  {period.late
+                    ? ` · was due ${formatDate(period.dueOn)}; late uploads until ${formatDate(period.lastUploadDay)}`
+                    : ` · submissions due by ${formatDate(period.dueOn)}`}
+                </span>
+              </li>
+            ))}
+          </ul>
         ) : (
           <p className="mt-2 text-sm leading-5 text-muted-foreground">
             No reporting period is open — contact your Admin.

@@ -653,3 +653,17 @@ its behaviour. The specification allows any number of sessions. feature_enhancem
 `.grill/feature-enhancement-roadmap-decisions.md`.
 
 **Undo:** in the migration's header.
+
+## D46 — Several open periods, late uploads, bill number (migration `0056`, 2026-11-07)
+
+The one-open-period unique index is dropped: several periods may be open at once and the uploader picks one.
+`reporting_periods.late_uploads_until` (after the due date `submission_closes_on`, uploads are accepted and marked
+late until this day); `reporting_period_late()`, `reporting_period_locked()` and `reporting_period_today()`;
+`close_expired_reporting_periods()` closes a period when its late window ends (a period without the date closes on
+its due date, as before). `esg_records.submitted_late` (fixed at upload) and `esg_records.bill_number` (the confirmed
+invoice number, written by validation; existing ones back-filled). `documents.document_type_source` ('person',
+'admin'; null with a type = chosen by OCR). Validation adds built-in Late and Same-file checks; the configured
+`duplicate_invoice` check now means "same bill" across every unit and period (bill number + billing period +
+activity). feature_enhancement.md Phase 2; `.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** in the migration's footer.

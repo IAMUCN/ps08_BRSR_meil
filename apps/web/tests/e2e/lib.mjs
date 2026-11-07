@@ -365,9 +365,18 @@ export async function upload(
   who,
   bytes,
   fileName,
-  { orgCode = "PRJ-X", metric = "DIESEL_CONSUMPTION", mimeType = "application/pdf" } = {},
+  {
+    orgCode = "PRJ-X",
+    metric = "DIESEL_CONSUMPTION",
+    mimeType = "application/pdf",
+    periodId,
+    replacesDocumentId,
+  } = {},
 ) {
   const base = {
+    // Omitted = the newest period that takes uploads (migration 0056: several may be open).
+    ...(periodId ? { reportingPeriodId: periodId } : {}),
+    ...(replacesDocumentId ? { replacesDocumentId } : {}),
     orgUnitId: await orgId(orgCode),
     metricId: await metricId(metric),
     mimeType,

@@ -47,6 +47,8 @@ export type ContextOptions = {
   periods: { id: string; label: string; financialYear: number }[];
   roles: { code: string; name: string }[];
   metrics: { code: string; name: string }[];
+  /** For the Document type filter (Phase 2). */
+  documentTypes: { code: string; name: string }[];
 };
 
 /**
@@ -60,7 +62,7 @@ async function resolveContext(
   periodId?: string,
 ): Promise<ContextOptions> {
   const sql = db();
-  const [allOrgUnits, periods, roles, metrics, scope, links] = await Promise.all([
+  const [allOrgUnits, periods, roles, metrics, documentTypes, scope, links] = await Promise.all([
     // Depth-first order with depth, so the picker can indent the tree.
     sql<{ id: string; name: string; unit_type: string; depth: number }[]>`
       with recursive tree as (
@@ -77,6 +79,8 @@ async function resolveContext(
       select code, name from public.roles where code <> 'admin' order by name`,
     sql<{ code: string; name: string }[]>`
       select code, name from public.esg_metrics where deleted_at is null order by name`,
+    sql<{ code: string; name: string }[]>`
+      select code, name from public.document_types order by name`,
     scopedOrgUnitIds(sql, caller),
     loadOrgNodes(sql),
   ]);
@@ -115,6 +119,7 @@ async function resolveContext(
     })),
     roles,
     metrics,
+    documentTypes,
   };
 }
 
@@ -125,6 +130,7 @@ const searchInput = contextInput.extend({
   financialYear: z.number().int().min(2000).max(2100).optional(),
   scopeCode: z.string().trim().max(60).optional(),
   metricCode: z.string().trim().max(60).optional(),
+  documentTypeCode: z.string().trim().max(60).optional(),
   roleCode: z.string().trim().max(60).optional(),
   status: z.enum(STATUSES).optional(),
   issue: z.enum(ISSUES).optional(),
@@ -156,7 +162,52 @@ export type RecordDetail = {
   results: { ruleType: string; outcome: string; message: string }[];
   calculation: CalculationState;
   audit: AuditEntry[];
+  /** Phase 2: the bill number, the document type and who chose it, the Late and Duplicate marks. */
+  billNumber: string | null;
+  late: boolean;
+  duplicate: boolean;
+  documentType: { id: string; name: string; source: "ocr" | "person" | "admin" } | null;
+  /** The document types of this activity, for an Admin's correction. */
+  documentTypeOptions: { id: string; name: string }[];
 };
+
+/** A reason an Admin gives for a correction or a return; the same length as other review reasons. */
+const ADMIN_REASON = z
+  .string()
+  .trim()
+  .min(10, "Give a reason of at least 10 characters.")
+  .max(1000);
+
+/** The record, refused alike when it is missing or outside the caller's scope (§4.4). */
+async function recordInScope(
+  sql: ReturnType<typeof db>,
+  session: Parameters<typeof inOrgScope>[1],
+  recordId: string,
+) {
+  const [row] = await sql<
+    {
+      id: string;
+      org_unit_id: string;
+      metric_id: string;
+      submitted_by: string;
+      approval_status: string;
+      data_quality_state: string;
+      document_id: string | null;
+      document_type_id: string | null;
+      file_name: string | null;
+    }[]
+  >`
+    select r.id, r.org_unit_id, r.metric_id, r.submitted_by, r.approval_status::text,
+           r.data_quality_state::text, d.id as document_id, d.document_type_id, d.file_name
+    from public.esg_records r
+    left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
+    left join public.documents d on d.id = erd.document_id and d.deleted_at is null
+    where r.id = ${recordId}`;
+  if (!row || !(await inOrgScope(sql, session, row.org_unit_id))) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "That record isn't available." });
+  }
+  return row;
+}
 
 export const recordsRouter = router({
   /** The Control Tower for one node and period, with the picker's options. */
@@ -320,6 +371,7 @@ export const recordsRouter = router({
           periodIds,
           scopeCode: input.scopeCode,
           metricCode: input.metricCode,
+          documentTypeCode: input.documentTypeCode,
           roleCode: input.roleCode,
           status: input.status,
           issue: input.issue,
@@ -373,9 +425,20 @@ export const recordsRouter = router({
           data_quality_state: string;
           activity_value: number | null;
           activity_unit: string | null;
+          metric_id: string;
+          bill_number: string | null;
+          late: boolean;
+          duplicate: boolean;
+          document_type_id: string | null;
+          document_type_name: string | null;
+          document_type_source: "ocr" | "person" | "admin" | null;
         }[]
       >`
-        select r.id, m.name as metric_name, o.name as org_unit_name, p.label as period_label,
+        select r.id, r.metric_id, r.bill_number, r.submitted_late as late, r.is_duplicate_flag as duplicate,
+               d.document_type_id, dt.name as document_type_name,
+               case when d.document_type_id is null then null
+                    else coalesce(d.document_type_source, 'ocr') end as document_type_source,
+               m.name as metric_name, o.name as org_unit_name, p.label as period_label,
                d.id as document_id, d.file_name, d.mime_type, su.display_name as submitted_by,
                vu.display_name as verified_by, r.verification_status::text,
                r.validation_status::text, r.approval_status::text, r.data_quality_state::text,
@@ -388,10 +451,11 @@ export const recordsRouter = router({
         left join public.users vu on vu.id = r.verified_by
         left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
         left join public.documents d on d.id = erd.document_id and d.deleted_at is null
+        left join public.document_types dt on dt.id = d.document_type_id
         where r.id = ${input.recordId}`;
       if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Record not found." });
 
-      const [fields, results, audit, calculations] = await Promise.all([
+      const [fields, results, audit, calculations, typeOptions] = await Promise.all([
         sql<{ label: string; value: string | null }[]>`
           select f.field_label as label, coalesce(f.verified_value, f.extracted_value) as value
           from public.ocr_extractions e join public.ocr_fields f on f.ocr_extraction_id = e.id
@@ -410,6 +474,10 @@ export const recordsRouter = router({
           where a.entity_id = ${r.id} or a.entity_id = ${r.document_id}
           order by a.created_at`,
         loadCalculations(sql, [r.id]),
+        sql<{ id: string; name: string }[]>`
+          select dt.id, dt.name from public.document_type_metric_mappings map
+          join public.document_types dt on dt.id = map.document_type_id
+          where map.metric_id = ${r.metric_id} order by dt.name`,
       ]);
 
       return {
@@ -443,6 +511,119 @@ export const recordsRouter = router({
           who: a.who,
           reason: a.reason,
         })),
+        billNumber: r.bill_number,
+        late: r.late,
+        duplicate: r.duplicate,
+        documentType:
+          r.document_type_id && r.document_type_name && r.document_type_source
+            ? { id: r.document_type_id, name: r.document_type_name, source: r.document_type_source }
+            : null,
+        documentTypeOptions: typeOptions,
       };
+    }),
+
+  /**
+   * An Admin corrects the document type OCR suggested or the uploader chose (Phase 2). Only the label
+   * changes — values, calculation and activity stay — and only to a type of the record's own activity.
+   */
+  setDocumentType: adminAreaProcedure
+    .input(z.object({ recordId: z.uuid(), documentTypeId: z.uuid(), reason: ADMIN_REASON }))
+    .mutation(async ({ ctx, input }) => {
+      const sql = db();
+      const record = await recordInScope(sql, ctx.session, input.recordId);
+      if (!record.document_id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This record has no document." });
+      }
+      if (record.data_quality_state === "rejected") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This record was rejected." });
+      }
+      if (record.document_type_id === input.documentTypeId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "That is already its document type." });
+      }
+      await sql.begin(async (tx) => {
+        const [mapped] = await tx`
+          select 1 from public.document_type_metric_mappings
+          where metric_id = ${record.metric_id} and document_type_id = ${input.documentTypeId}`;
+        if (!mapped) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "That document type belongs to another activity. Return the record as the wrong activity instead.",
+          });
+        }
+        await tx`
+          update public.documents
+          set document_type_id = ${input.documentTypeId}, document_type_source = 'admin'
+          where id = ${record.document_id}`;
+        await writeAudit(tx, {
+          eventType: "document.type_corrected",
+          entityType: "document",
+          entityId: record.document_id!,
+          userId: ctx.session.userId,
+          reason: input.reason,
+          oldValue: { document_type_id: record.document_type_id },
+          newValue: { document_type_id: input.documentTypeId, record_id: record.id },
+        });
+      });
+      return null;
+    }),
+
+  /**
+   * The activity chosen at upload is wrong (Phase 2): an Admin returns the record. It is closed as rejected
+   * — fields, factor and scope all depend on the activity, so it is never changed in place — and the
+   * uploader is asked to upload it again under the right activity; the new upload is linked to this one as
+   * its new version (documents.related_document_id).
+   */
+  returnWrongActivity: adminAreaProcedure
+    .input(z.object({ recordId: z.uuid(), reason: ADMIN_REASON }))
+    .mutation(async ({ ctx, input }) => {
+      const sql = db();
+      const record = await recordInScope(sql, ctx.session, input.recordId);
+      if (record.approval_status === "approved") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "An approved record cannot be returned.",
+        });
+      }
+      if (record.data_quality_state === "rejected") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This record was already rejected." });
+      }
+      await sql.begin(async (tx) => {
+        const [updated] = await tx`
+          update public.esg_records
+          set data_quality_state = 'rejected',
+              approval_status = case when approval_status = 'review_pending'
+                                     then 'not_submitted'::public.record_approval_status
+                                     else approval_status end
+          where id = ${record.id} and data_quality_state <> 'rejected'
+            and approval_status <> 'approved'
+          returning id`;
+        if (!updated) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "The record changed meanwhile. Reload.",
+          });
+        }
+        await writeAudit(tx, {
+          eventType: "record.returned_wrong_activity",
+          entityType: "esg_record",
+          entityId: record.id,
+          userId: ctx.session.userId,
+          reason: input.reason,
+          oldValue: {
+            data_quality_state: record.data_quality_state,
+            approval_status: record.approval_status,
+          },
+          newValue: { data_quality_state: "rejected" },
+        });
+        await tx`
+          insert into public.notifications
+            (user_id, type, title, message, related_entity_type, related_entity_id, deep_link_path)
+          values (${record.submitted_by}, 'returned', 'Upload again under the right activity',
+                  ${`${record.file_name ?? "Your document"}: ${input.reason}`},
+                  'esg_record', ${record.id},
+                  ${record.document_id ? `/app/upload?replaces=${record.document_id}` : "/app/upload"})`;
+      });
+      return null;
     }),
 });

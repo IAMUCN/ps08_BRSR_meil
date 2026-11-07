@@ -35,14 +35,43 @@ Date: 2026-11-07
   id (not a credential) because Supabase clears its own cookie as soon as the revoked session is refused.
 - Profile's password fields got the show/hide button too (requirement 11 named forgot-password only).
 
+## Phase 2 decisions (2026-11-07)
+- Decision (req. 39, plan 2.1): several reporting periods may be open at once (the one-open-period rule is dropped);
+  the uploader picks the period among the open ones, newest first, each shown with its dates. Periods stay centrally
+  configured by a Super Admin. Reason: a month's bills arrive after the month ends (August's bill in mid-September).
+  Alternatives: one open period plus reopening (today) — rejected; late-only path without several open periods.
+- Decision: each period has a due date (submission_closes_on, default 15 days after the period ends) and a "late
+  uploads until" date (default 45 days after), both editable. Between them an upload is accepted but marked Late;
+  on the second date the automatic job locks the period; after that only reopen-with-reason. Reason: owner's choice;
+  a hard end keeps a period's report from changing for ever.
+- Decision: lateness is a validation flag ("Submitted after the due date …") that sends the record to the Validation
+  Queue under a Late category; a Super Admin, a holder of validation.review (Corporate ESG) or the unit's
+  Administrator accepts it with a reason or returns it; the Late mark stays visible on the record. Administrators
+  already hold validation.review (0050) and the queue is scope-limited, so no new permission.
+- Decision (req. 22, 23, plan 2.3): duplicate policy — a file name is never a reason by itself; identical content
+  (SHA-256), in the same or another period, is a validation flag naming the earlier record (it used to be a warning
+  only); a re-upload after return or rejection is a new version linked to the old record, not a duplicate;
+  different files where OCR reads the same supplier + bill number + billing period are flagged as the same bill;
+  same project, period and activity with different bills stays a warning only. Nothing is ever overwritten.
+- Decision: files keep their storage id; the confirmed bill number is stored with the supplier and is the duplicate
+  key; monitoring shows a Bill no. column and searches it; downloads get readable names
+  (supplier_Bill-number_period). Alternative: storing files by bill number (owner's idea) — not taken: the number is
+  unknown at upload, OCR can miss or misread it, and numbers are unique only within one supplier. Owner agreed.
+- Decision (req. 2, 4, 22, plan 2.2/2.4): one approval list for approvers and Admins — a thumbnail of the bill, bill
+  no., activity, value, uploader, date, Late / Duplicate badges, Approve and Return on the row for records with no
+  flags; every record shows a stage tracker (Uploaded → Read by OCR → Checked by uploader → Validated → Approved) with
+  whom it waits on and the next action; the record panel shows the bill beside its values.
+- Decision (req. 25, 28, plan 2.4): Submission Monitoring, the Data Explorer and the approval list filter by both
+  Document type and Activity; each record says whether OCR suggested its document type or a person chose it. An
+  Admin may correct the document type (reason, audited; values unchanged). A wrong activity is returned to the
+  uploader ("wrong activity") and re-uploaded as a new version, never changed in place.
+
 ## Surfaced assumptions
 - "Device" cannot be identified by a web app; a browser (cookie) is the device. One account per browser already holds.
 - A session left open on a closed laptop stays active until its 3-hour idle limit, so the takeover prompt will
   appear in that case too; that is intended.
 
 ## Open questions (asked at the start of the phase that needs them)
-- Phase 2: reporting calendar (grace period, late submission, who configures); duplicate policy across periods;
-  what "simpler" approval screens means (req. 4); which screen lacks the PDF preview (req. 2).
 - Phase 3: a failing image for the billing-period bug (req. 27); handwriting reference diagram (req. 15).
 - Phase 4: who receives a forwarded report and what outcomes exist; which roles see whose logs.
 - Phase 5: one reminder schedule reconciling the 7-day daily window with 5/3/0-day reminders.

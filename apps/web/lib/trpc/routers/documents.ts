@@ -47,8 +47,23 @@ export type UploadTarget = {
   unitTypeLabel: string;
   categories: UploadCategory[];
 };
+/** A period that takes uploads now (migration 0056): open, and its late-upload window not yet over. */
+export type UploadPeriod = {
+  id: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  /** Due date: uploads after it are late. */
+  dueOn: string;
+  /** Last day uploads are taken at all. */
+  lastUploadDay: string;
+  /** An upload now would be late. */
+  late: boolean;
+};
+
 export type UploadOptions = {
-  openPeriod: { id: string; label: string } | null;
+  /** Newest first; the first is the default choice. */
+  periods: UploadPeriod[];
   targets: UploadTarget[];
   maxBytes: number;
 };
@@ -62,16 +77,53 @@ export type DuplicateWarnings = {
 };
 
 export const NO_PERIOD = "No active reporting period — contact your Admin.";
+export const PERIOD_CLOSED = "That reporting period no longer takes uploads — choose another one.";
 const NOT_ALLOWED = "You can't upload that category for that project.";
 
 export function badRequest(message: string): never {
   throw new TRPCError({ code: "BAD_REQUEST", message });
 }
 
+/**
+ * The period an upload goes to: the one asked for if it still takes uploads, else (nothing asked) the
+ * newest. Throws a message the person can act on.
+ */
+export function resolvePeriod(options: UploadOptions, periodId?: string | null): UploadPeriod {
+  if (options.periods.length === 0) badRequest(NO_PERIOD);
+  if (!periodId) return options.periods[0];
+  const period = options.periods.find((p) => p.id === periodId);
+  if (!period) badRequest(PERIOD_CLOSED);
+  return period;
+}
+
 export async function loadUploadOptions(sql: Sql, userId: string): Promise<UploadOptions> {
-  const [period] = await sql<{ id: string; label: string }[]>`
-    select rp.id, rp.label from public.reporting_periods rp
-    where rp.status = 'open' and not public.reporting_period_past_deadline(rp)`;
+  const periodRows = await sql<
+    {
+      id: string;
+      label: string;
+      start_date: string;
+      end_date: string;
+      due_on: string;
+      last_upload_day: string;
+      late: boolean;
+    }[]
+  >`
+    select rp.id, rp.label, rp.start_date::text, rp.end_date::text,
+           coalesce(rp.submission_closes_on, rp.end_date)::text as due_on,
+           coalesce(rp.late_uploads_until, rp.submission_closes_on, rp.end_date)::text as last_upload_day,
+           public.reporting_period_late(rp) as late
+    from public.reporting_periods rp
+    where rp.status = 'open' and not public.reporting_period_locked(rp)
+    order by rp.start_date desc`;
+  const periods: UploadPeriod[] = periodRows.map((r) => ({
+    id: r.id,
+    label: r.label,
+    startDate: r.start_date,
+    endDate: r.end_date,
+    dueOn: r.due_on,
+    lastUploadDay: r.last_upload_day,
+    late: r.late,
+  }));
   const levels = await loadLevels(sql);
 
   const nodeRows = await loadOrgNodes(sql);
@@ -162,7 +214,7 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  return { openPeriod: period ?? null, targets, maxBytes: MAX_UPLOAD_BYTES };
+  return { periods, targets, maxBytes: MAX_UPLOAD_BYTES };
 }
 
 /** Resolves the target node + metric for this user, or throws a non-revealing error. */
@@ -206,6 +258,8 @@ export async function duplicateWarnings(
 }
 
 const fileInput = {
+  /** The period chosen; omitted = the newest one that takes uploads. */
+  reportingPeriodId: z.uuid().optional(),
   orgUnitId: z.uuid(),
   metricId: z.uuid(),
   mimeType: z.string().max(100),
@@ -220,11 +274,18 @@ export type ReplacementTarget = {
   fileName: string;
   orgUnitId: string;
   metricId: string;
+  /**
+   * Why it is replaced: its extraction failed (same activity), or the record was rejected — for instance
+   * returned as the wrong activity — and is uploaded again as a new version (Phase 2; the activity may
+   * change).
+   */
+  reason: "ocr_failed" | "rejected";
 };
 
 /**
- * The failed document this upload replaces, or null. Only a document whose extraction failed and whose
- * record is still waiting can be replaced, and only by someone who could verify it.
+ * The document this upload replaces, or null: one whose extraction failed while its record still waits, or
+ * one whose record was rejected (Phase 2: a corrected re-upload is a new version, linked to the old one,
+ * never a duplicate). Only by someone who could verify it, only once, and only for the same project.
  */
 async function replacementTarget(
   sql: Sql,
@@ -254,14 +315,16 @@ async function replacementTarget(
     left join public.ocr_jobs j on j.document_id = d.id
     where d.id = ${documentId} and d.deleted_at is null`;
   if (!row) badRequest("That document can't be replaced.");
-  if (
-    row.job_status !== "failed" ||
-    row.verification_status !== "document_uploaded" ||
-    row.data_quality_state === "rejected"
-  ) {
-    badRequest("That document no longer needs replacing.");
+  const rejected = row.data_quality_state === "rejected";
+  const ocrFailed = row.job_status === "failed" && row.verification_status === "document_uploaded";
+  if (!rejected && !ocrFailed) badRequest("That document no longer needs replacing.");
+  const [already] = await sql`
+    select 1 from public.documents where related_document_id = ${documentId} and deleted_at is null`;
+  if (already) badRequest("That document was already replaced.");
+  if (expected && row.org_unit_id !== expected.orgUnitId) {
+    badRequest("A replacement must be for the same project.");
   }
-  if (expected && (row.org_unit_id !== expected.orgUnitId || row.metric_id !== expected.metricId)) {
+  if (expected && !rejected && row.metric_id !== expected.metricId) {
     badRequest("A replacement must be for the same project and activity.");
   }
   return {
@@ -270,6 +333,7 @@ async function replacementTarget(
     fileName: row.file_name,
     orgUnitId: row.org_unit_id,
     metricId: row.metric_id,
+    reason: rejected ? "rejected" : "ocr_failed",
   };
 }
 
@@ -309,7 +373,7 @@ async function supportingTarget(sql: Sql, session: ActiveSession, recordId: stri
   const options = await loadUploadOptions(sql, session.userId);
   const { metric } = resolveTarget(options, record.org_unit_id, record.metric_id);
   // A closed period takes no new documents; what was already uploaded still finishes its review.
-  if (options.openPeriod?.id !== record.reporting_period_id) {
+  if (!options.periods.some((p) => p.id === record.reporting_period_id)) {
     badRequest("This record's reporting period is closed. No new evidence can be added.");
   }
   if (record.approval_status === "approved") {
@@ -354,7 +418,7 @@ export const documentsRouter = router({
       const sql = db();
       await enforceUploadLimit(ctx.session.userId);
       const options = await loadUploadOptions(sql, ctx.session.userId);
-      if (!options.openPeriod) badRequest(NO_PERIOD);
+      const period = resolvePeriod(options, input.reportingPeriodId);
       const { target, metric } = resolveTarget(options, input.orgUnitId, input.metricId);
       checkDeclaredFile(metric, input.fileSize, input.mimeType);
       const replaces = await replacementTarget(sql, ctx.session, input.replacesDocumentId, {
@@ -366,7 +430,7 @@ export const documentsRouter = router({
         sql,
         input.sha256,
         input.orgUnitId,
-        options.openPeriod.id,
+        period.id,
         input.metricId,
         replaces?.recordId ?? null,
       );
@@ -377,18 +441,13 @@ export const documentsRouter = router({
             ...warnings,
             orgUnitName: target.name,
             metricName: metric.name,
-            periodLabel: options.openPeriod.label,
+            periodLabel: period.label,
           } satisfies DuplicateWarnings,
         };
       }
 
       const documentId = randomUUID();
-      const path = evidencePath(
-        input.orgUnitId,
-        options.openPeriod.id,
-        documentId,
-        input.mimeType,
-      )!;
+      const path = evidencePath(input.orgUnitId, period.id, documentId, input.mimeType)!;
       const { data, error } = await createSupabaseAdminClient()
         .storage.from(evidenceBucket())
         .createSignedUploadUrl(path);
@@ -396,7 +455,7 @@ export const documentsRouter = router({
       return {
         status: "ready" as const,
         documentId,
-        reportingPeriodId: options.openPeriod.id,
+        reportingPeriodId: period.id,
         signedUrl: data.signedUrl,
       };
     }),
@@ -432,9 +491,9 @@ export const documentsRouter = router({
       // Scope first: nothing in storage is touched for a node outside the user's scope.
       const options = await loadUploadOptions(sql, ctx.session.userId);
       const { metric } = resolveTarget(options, input.orgUnitId, input.metricId);
-      if (!options.openPeriod) return reject(NO_PERIOD);
-      if (options.openPeriod.id !== input.reportingPeriodId) {
-        return reject("The reporting period changed while you were uploading — upload again.");
+      if (options.periods.length === 0) return reject(NO_PERIOD);
+      if (!options.periods.some((p) => p.id === input.reportingPeriodId)) {
+        return reject("The reporting period closed while you were uploading — choose another one.");
       }
 
       const { data: blob, error: downloadError } = await storage.download(path);
@@ -463,7 +522,7 @@ export const documentsRouter = router({
           await tx`select pg_advisory_xact_lock_shared(hashtext('reporting_period_status'))`;
           await tx`select pg_advisory_xact_lock_shared(hashtext('org_units_tree'))`;
           const current = await loadUploadOptions(tx, ctx.session.userId);
-          if (current.openPeriod?.id !== input.reportingPeriodId) badRequest(NO_PERIOD);
+          const period = resolvePeriod(current, input.reportingPeriodId);
           const { target } = resolveTarget(current, input.orgUnitId, input.metricId);
 
           const replaces = await replacementTarget(tx, ctx.session, input.replacesDocumentId, {
@@ -486,7 +545,7 @@ export const documentsRouter = router({
                 ...warnings,
                 orgUnitName: target.name,
                 metricName: metric.name,
-                periodLabel: current.openPeriod.label,
+                periodLabel: period.label,
               } satisfies DuplicateWarnings,
             };
           }
@@ -509,11 +568,12 @@ export const documentsRouter = router({
           const [record] = await tx<{ id: string }[]>`
             insert into public.esg_records (
               org_unit_id, reporting_period_id, metric_id, scope_id, submitted_by,
-              verification_status, calculation_status, is_duplicate_flag
+              verification_status, calculation_status, is_duplicate_flag, submitted_late
             ) values (
               ${input.orgUnitId}, ${input.reportingPeriodId}, ${input.metricId}, ${metricRow.scope_id},
               ${userId}, 'document_uploaded',
-              ${metricRow.requires_calculation ? "pending" : "not_applicable"}, ${warnings.sameFile}
+              ${metricRow.requires_calculation ? "pending" : "not_applicable"}, ${warnings.sameFile},
+              ${period.late}
             ) returning id`;
           await tx`
             insert into public.esg_record_documents (esg_record_id, document_id, is_primary, added_by)
@@ -521,9 +581,10 @@ export const documentsRouter = router({
           const [job] = await tx<{ id: string }[]>`
             insert into public.ocr_jobs (document_id) values (${input.documentId}) returning id`;
 
-          if (replaces) {
+          if (replaces?.reason === "ocr_failed") {
             // The replaced record closes in the same transaction, so a failed upload can never leave a
-            // half-done replacement (.grill/phase-7-ocr-verification-decisions.md).
+            // half-done replacement (.grill/phase-7-ocr-verification-decisions.md). A rejected one is
+            // closed already; the new document's related_document_id is the link.
             await tx`
               update public.esg_records set data_quality_state = 'rejected'
               where id = ${replaces.recordId}`;

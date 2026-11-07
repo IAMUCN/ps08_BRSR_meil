@@ -20,6 +20,7 @@ export default async function DataExplorerPage({
     financialYear: q.financialYear,
     scopeCode: q.scopeCode,
     metricCode: q.metricCode,
+    documentTypeCode: q.documentTypeCode,
     status: q.status,
     text: q.text,
   });

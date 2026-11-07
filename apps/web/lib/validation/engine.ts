@@ -7,7 +7,9 @@ import {
   aggregate,
   checkAllowedUnits,
   checkBillingPeriodOverlap,
-  checkDuplicateInvoice,
+  checkLate,
+  checkSameBill,
+  checkSameFile,
   checkDuplicatePeriod,
   checkEvidence,
   checkFormat,
@@ -58,12 +60,21 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
       file_name: string | null;
       extraction_id: string | null;
       extraction_source: string | null;
+      submitted_late: boolean;
+      due_on: string;
+      uploaded_on: string | null;
+      file_hash: string | null;
+      replaces_document_id: string | null;
     }[]
   >`
     select r.id, r.org_unit_id, o.name as org_unit_name, r.reporting_period_id, p.label as period_label,
            p.start_date::text, p.end_date::text, r.metric_id, m.name as metric_name, r.submitted_by,
            d.id as document_id, d.file_name, e.id as extraction_id,
-           e.raw_output->>'source' as extraction_source
+           e.raw_output->>'source' as extraction_source,
+           r.submitted_late,
+           to_char(coalesce(p.submission_closes_on, p.end_date), 'DD Mon YYYY') as due_on,
+           to_char(d.created_at at time zone 'Asia/Kolkata', 'DD Mon YYYY') as uploaded_on,
+           d.file_hash, d.related_document_id as replaces_document_id
     from public.esg_records r
     join public.org_units o on o.id = r.org_unit_id
     join public.reporting_periods p on p.id = r.reporting_period_id
@@ -143,6 +154,58 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
     }),
   );
 
+  // --- Late and duplicate checks (feature_enhancement.md Phase 2, migration 0056) ---------------------
+  builtIn(
+    "period",
+    checkLate({
+      late: record.submitted_late,
+      dueOn: record.due_on,
+      uploadedOn: record.uploaded_on ?? "an unknown date",
+    }),
+  );
+
+  // Live records elsewhere: not this one, not rejected, and not the record this upload replaces (or one
+  // that replaced it) — a corrected re-upload is a new version, not a duplicate.
+  const otherRecords = (where: ReturnType<typeof tx>) => tx<
+    {
+      metric_name: string;
+      org_unit_name: string;
+      period_label: string;
+      submitted_by: string;
+      uploaded_on: string;
+    }[]
+  >`
+    select m.name as metric_name, o.name as org_unit_name, p.label as period_label,
+           u.display_name as submitted_by,
+           to_char(d.created_at at time zone 'Asia/Kolkata', 'DD Mon YYYY') as uploaded_on
+    from public.esg_records r
+    join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
+    join public.documents d on d.id = erd.document_id and d.deleted_at is null
+    join public.esg_metrics m on m.id = r.metric_id
+    join public.org_units o on o.id = r.org_unit_id
+    join public.reporting_periods p on p.id = r.reporting_period_id
+    join public.users u on u.id = r.submitted_by
+    where r.id <> ${record.id}
+      and r.data_quality_state <> 'rejected'
+      and d.id is distinct from ${record.replaces_document_id}::uuid
+      and d.related_document_id is distinct from ${record.document_id}::uuid
+      and ${where}
+    order by d.created_at`;
+  const named = (rows: Awaited<ReturnType<typeof otherRecords>>) =>
+    rows.map((row) => ({
+      metricName: row.metric_name,
+      orgUnitName: row.org_unit_name,
+      periodLabel: row.period_label,
+      submittedBy: row.submitted_by,
+      uploadedOn: row.uploaded_on,
+    }));
+
+  const sameFile = record.file_hash
+    ? named(await otherRecords(tx`d.file_hash = ${record.file_hash}`))
+    : [];
+  const sameFileVerdict = checkSameFile(sameFile);
+  builtIn("evidence", sameFileVerdict);
+
   // --- Configured checks (validation_rules, migration 0015) ------------------------------------------
   const rules = await tx<Rule[]>`
     select id, rule_type, rule_definition, severity from public.validation_rules
@@ -182,21 +245,31 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
         });
         break;
       case "duplicate_invoice": {
-        const invoice = valueOf(def.field);
-        const [row] = await tx<{ n: number }[]>`
-          select count(*)::int as n
-          from public.esg_records r
-          join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
-          join public.ocr_extractions e on e.document_id = erd.document_id
-          join public.ocr_fields f on f.ocr_extraction_id = e.id and f.field_key = ${def.field ?? ""}
-          where r.id <> ${record.id}
-            and r.org_unit_id = ${record.org_unit_id}
-            and r.reporting_period_id = ${record.reporting_period_id}
-            and r.metric_id = ${record.metric_id}
-            and r.verification_status = 'user_verified'
-            and r.data_quality_state <> 'rejected'
-            and upper(trim(coalesce(f.verified_value, ''))) = upper(trim(${invoice ?? ""}))`;
-        verdict = checkDuplicateInvoice(invoice, row.n, where);
+        // Same bill = same activity, same bill number and, where both have one, the same billing
+        // period, in any unit and any period (owner's rule of 2026-11-07). No supplier is captured for
+        // most activities yet, so the activity stands in for it.
+        const invoice = valueOf(def.field)?.trim() || null;
+        const billingPeriod = valueOf("billing_period")?.trim() || null;
+        const others = invoice
+          ? named(
+              await otherRecords(tx`
+                r.metric_id = ${record.metric_id}
+                and r.verification_status = 'user_verified'
+                and upper(trim(coalesce(r.bill_number, ''))) = upper(${invoice})
+                and (
+                  ${billingPeriod}::text is null
+                  or not exists (
+                    select 1 from public.ocr_extractions e2
+                    join public.ocr_fields f2
+                      on f2.ocr_extraction_id = e2.id and f2.field_key = 'billing_period'
+                    where e2.document_id = d.id
+                      and nullif(trim(f2.verified_value), '') is not null
+                      and upper(trim(f2.verified_value)) <> upper(${billingPeriod})
+                  )
+                )`),
+            )
+          : [];
+        verdict = checkSameBill(invoice, others);
         duplicateInvoice ||= !verdict.ok;
         break;
       }
@@ -262,7 +335,8 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
     set validation_status = ${status},
         data_quality_state = ${status === "failed" ? "verified" : status},
         approval_status = 'not_submitted',
-        is_duplicate_flag = is_duplicate_flag or ${duplicateInvoice}
+        is_duplicate_flag = ${duplicateInvoice || !sameFileVerdict.ok},
+        bill_number = ${valueOf("invoice_number")?.trim() || null}
     where id = ${record.id}`;
   const failures = results.filter((r) => r.outcome === "fail").map((r) => r.message);
   const flags = results.filter((r) => r.outcome === "flagged").map((r) => r.message);

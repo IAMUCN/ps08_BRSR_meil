@@ -35,6 +35,8 @@ export type RecordFilters = {
   periodIds: string[];
   scopeCode?: string;
   metricCode?: string;
+  /** Document type as OCR detected it or a person chose it (Phase 2): electricity bill, fuel invoice … */
+  documentTypeCode?: string;
   /** The role that owns the metric's category (PM, HR, EHS …). */
   roleCode?: string;
   status?: Status;
@@ -45,15 +47,16 @@ export type RecordFilters = {
 
 /**
  * The search box (owner's page feedback, 2026-10-11): each word must appear — letter case ignored — in the
- * document's name, the metric or its code, the category, the org unit or its code, the period, the
- * submitter, or the record's value or unit. Words are bound as values and their %, _ and \ are taken
+ * document's name, the bill number, the metric or its code, the category, the document type, the org unit
+ * or its code, the period, the submitter, or the record's value or unit. Words are bound as values and their %, _ and \ are taken
  * literally, so nothing typed can change the query.
  */
 function textCondition(sql: Sql, text: string) {
   const words = text.split(/\s+/).filter(Boolean).slice(0, 8);
   return words.map((word) => {
     const like = `%${word.replace(/[\\%_]/g, "\\$&")}%`;
-    return sql`and (d.file_name ilike ${like} or m.name ilike ${like} or m.code ilike ${like}
+    return sql`and (d.file_name ilike ${like} or r.bill_number ilike ${like} or dt.name ilike ${like}
+      or m.name ilike ${like} or m.code ilike ${like}
       or cat.name ilike ${like} or o.name ilike ${like} or o.code ilike ${like} or p.label ilike ${like}
       or u.display_name ilike ${like} or r.activity_unit ilike ${like} or c.result_unit ilike ${like}
       or r.activity_value_verified::text ilike ${like} or c.result_value::text ilike ${like})`;
@@ -118,7 +121,7 @@ function statusCondition(sql: Sql, status: Status) {
 
 /**
  * The FROM/WHERE shared by every records query: `r` records in the node's subtree and periods, `m` metric,
- * `cat` its category, `d` primary document, `c` current calculation, `o` org unit, `p` period, `u`
+ * `cat` its category, `d` primary document, `dt` its document type, `c` current calculation, `o` org unit, `p` period, `u`
  * submitter. Rejected records are excluded unless the status filter asks for them.
  */
 export function recordsFrom(sql: Sql, f: RecordFilters) {
@@ -135,6 +138,7 @@ export function recordsFrom(sql: Sql, f: RecordFilters) {
     join public.esg_categories cat on cat.id = m.category_id
     left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
     left join public.documents d on d.id = erd.document_id and d.deleted_at is null
+    left join public.document_types dt on dt.id = d.document_type_id
     left join public.calculations c on c.esg_record_id = r.id and c.is_current
     join public.org_units o on o.id = r.org_unit_id
     join public.reporting_periods p on p.id = r.reporting_period_id
@@ -143,6 +147,7 @@ export function recordsFrom(sql: Sql, f: RecordFilters) {
       ${f.status === "rejected" ? sql`` : sql`and r.data_quality_state <> 'rejected'`}
       ${scope}
       ${f.metricCode ? sql`and m.code = ${f.metricCode}` : sql``}
+      ${f.documentTypeCode ? sql`and dt.code = ${f.documentTypeCode}` : sql``}
       ${f.roleCode ? sql`and cat.owning_role_id = (select id from public.roles where code = ${f.roleCode})` : sql``}
       ${f.status ? sql`and ${statusCondition(sql, f.status)}` : sql``}
       ${f.issue ? sql`and ${issueCondition(sql, f.issue)}` : sql``}
@@ -168,6 +173,13 @@ export type RecordRow = {
   activityUnit: string | null;
   resultValue: number | null;
   resultUnit: string | null;
+  /** The confirmed bill / invoice number (migration 0056). */
+  billNumber: string | null;
+  documentTypeName: string | null;
+  /** Who chose the document type: OCR, the person verifying it, or an Admin's correction. */
+  documentTypeSource: "ocr" | "person" | "admin" | null;
+  late: boolean;
+  duplicate: boolean;
 };
 
 // ponytail: capped at 500 rows (newest first); page or narrow the filters if a period grows past that.
@@ -194,6 +206,11 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
       activity_unit: string | null;
       result_value: number | null;
       result_unit: string | null;
+      bill_number: string | null;
+      document_type_name: string | null;
+      document_type_source: "ocr" | "person" | "admin" | null;
+      late: boolean;
+      duplicate: boolean;
     }[]
   >`
     select r.id as record_id, d.id as document_id, d.file_name, d.mime_type, o.name as org_unit_name,
@@ -202,7 +219,11 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
            r.verification_status::text, r.validation_status::text, r.approval_status::text,
            r.data_quality_state::text,
            r.activity_value_verified::float as activity_value, r.activity_unit,
-           c.result_value::float as result_value, c.result_unit
+           c.result_value::float as result_value, c.result_unit,
+           r.bill_number, dt.name as document_type_name,
+           case when d.document_type_id is null then null
+                else coalesce(d.document_type_source, 'ocr') end as document_type_source,
+           r.submitted_late as late, r.is_duplicate_flag as duplicate
     ${recordsFrom(sql, f)}
     order by r.created_at desc
     limit ${RECORD_LIMIT}`;
@@ -225,5 +246,10 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
     activityUnit: r.activity_unit,
     resultValue: r.result_value,
     resultUnit: r.result_unit,
+    billNumber: r.bill_number,
+    documentTypeName: r.document_type_name,
+    documentTypeSource: r.document_type_source,
+    late: r.late,
+    duplicate: r.duplicate,
   }));
 }

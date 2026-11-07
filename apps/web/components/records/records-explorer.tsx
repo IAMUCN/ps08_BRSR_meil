@@ -62,7 +62,9 @@ export function ContextFilters({
   const applied = useRef(params.q ?? "");
   const latest = useRef<(value: string) => void>(() => {});
   // Whatever narrows the list beyond the organization and the period, which always have a value.
-  const narrowed = ["fy", "scope", "metric", "role", "status", "issue", "q"].some((k) => params[k]);
+  const narrowed = ["fy", "scope", "metric", "doctype", "role", "status", "issue", "q"].some(
+    (k) => params[k],
+  );
   const set = (key: string, value: string) => {
     const next = new URLSearchParams();
     const merged = { ...params, org: context.orgUnitId, [key]: value };
@@ -217,21 +219,31 @@ export function ContextFilters({
           "All",
           "flex-[0_1_7.5rem]",
         )}
-        {variant === "explorer"
+        {/* Both categories on both screens (Phase 2): the activity chosen at upload, and the document
+            type OCR detected or a person chose. */}
+        {select(
+          "f-metric",
+          variant === "explorer" ? "Metric" : "Activity",
+          params.metric ?? "",
+          context.metrics.map((m) => [m.code, m.name]),
+          "metric",
+        )}
+        {select(
+          "f-doctype",
+          "Document type",
+          params.doctype ?? "",
+          context.documentTypes.map((t) => [t.code, t.name]),
+          "doctype",
+        )}
+        {variant === "monitoring"
           ? select(
-              "f-metric",
-              "Metric",
-              params.metric ?? "",
-              context.metrics.map((m) => [m.code, m.name]),
-              "metric",
-            )
-          : select(
               "f-role",
               "Role",
               params.role ?? "",
               context.roles.map((r) => [r.code, r.name]),
               "role",
-            )}
+            )
+          : null}
         {select("f-status", "Status", params.status ?? "", Object.entries(STATUS_LABELS), "status")}
         {variant === "monitoring"
           ? select(
@@ -247,6 +259,13 @@ export function ContextFilters({
     </div>
   );
 }
+
+/** Who chose a record's document type, in words. */
+export const DOCUMENT_TYPE_SOURCE: Record<"ocr" | "person" | "admin", string> = {
+  ocr: "OCR",
+  person: "Uploader",
+  admin: "Admin",
+};
 
 function valueOf(row: RecordRow) {
   if (row.resultValue !== null && row.resultUnit)
@@ -264,6 +283,11 @@ const csvCell = (v: string | number | null) => {
 function exportCsv(rows: RecordRow[], name: string) {
   const header = [
     "Document",
+    "Bill no.",
+    "Document type",
+    "Document type chosen by",
+    "Late",
+    "Possible duplicate",
     "Metric",
     "Category",
     "Org unit",
@@ -281,6 +305,11 @@ function exportCsv(rows: RecordRow[], name: string) {
   const lines = rows.map((r) =>
     [
       r.fileName,
+      r.billNumber,
+      r.documentTypeName,
+      r.documentTypeSource ? DOCUMENT_TYPE_SOURCE[r.documentTypeSource] : null,
+      r.late ? "Yes" : "No",
+      r.duplicate ? "Yes" : "No",
       r.metricName,
       r.categoryName,
       r.orgUnitName,
@@ -374,6 +403,15 @@ export function RecordsTable({
                     >
                       {r.fileName ?? "Record without a document"}
                     </button>
+                    {r.billNumber || r.documentTypeName ? (
+                      <span className="block text-xs text-muted-foreground">
+                        {r.billNumber ? `Bill no. ${r.billNumber}` : null}
+                        {r.billNumber && r.documentTypeName ? " · " : null}
+                        {r.documentTypeName
+                          ? `${r.documentTypeName}${r.documentTypeSource ? ` (${DOCUMENT_TYPE_SOURCE[r.documentTypeSource]})` : ""}`
+                          : null}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2.5">
                     {r.metricName}
@@ -397,6 +435,16 @@ export function RecordsTable({
                         quality: r.dataQualityState,
                       }}
                     />
+                    {r.late ? (
+                      <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                        Late
+                      </span>
+                    ) : null}
+                    {r.duplicate ? (
+                      <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                        Possible duplicate
+                      </span>
+                    ) : null}
                   </td>
                 </tr>
               ))}

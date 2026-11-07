@@ -41,6 +41,10 @@ export type ApprovalRow = {
   /** The stored calculation, or why there isn't one yet — Approve is blocked until it exists (Phase 9). */
   calculation: CalculationState;
   requiresCalculation: boolean;
+  /** Phase 2: shown on the row. */
+  billNumber: string | null;
+  late: boolean;
+  duplicate: boolean;
 };
 
 /** Org units an approver may act on: everything for Admin, else their approval.decide subtrees. */
@@ -81,6 +85,9 @@ export const approvalsRouter = router({
         activity_unit: string | null;
         manual_exception: boolean;
         requires_calculation: boolean;
+        bill_number: string | null;
+        late: boolean;
+        duplicate: boolean;
         values: { label: string; value: string | null }[] | null;
         results: ApprovalRow["results"] | null;
       }[]
@@ -92,6 +99,7 @@ export const approvalsRouter = router({
              r.activity_value_verified::float as activity_value, r.activity_unit,
              coalesce(v.is_manual_exception, false) as manual_exception,
              m.requires_calculation,
+             r.bill_number, r.submitted_late as late, r.is_duplicate_flag as duplicate,
              (select json_agg(json_build_object('label', f.field_label, 'value', f.verified_value)
                               order by f.field_label)
                 from public.ocr_extractions e join public.ocr_fields f on f.ocr_extraction_id = e.id
@@ -137,6 +145,9 @@ export const approvalsRouter = router({
       activityValue: r.activity_value,
       activityUnit: r.activity_unit,
       manualException: r.manual_exception,
+      billNumber: r.bill_number,
+      late: r.late,
+      duplicate: r.duplicate,
       // A Super Admin may decide on their own record (nobody sits above them); it is marked when they do.
       ownRecord:
         !ctx.session.isAdmin &&

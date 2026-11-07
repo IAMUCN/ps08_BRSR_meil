@@ -32,6 +32,8 @@ export type QueueRow = {
   status: "flagged" | "failed";
   manualException: boolean;
   duplicate: boolean;
+  /** Uploaded after its period's due date (migration 0056). */
+  late: boolean;
   results: QueueResult[];
 };
 
@@ -56,6 +58,7 @@ export const validationRouter = router({
         status: "flagged" | "failed";
         manual_exception: boolean;
         duplicate: boolean;
+        late: boolean;
         results: QueueResult[] | null;
       }[]
     >`
@@ -64,7 +67,7 @@ export const validationRouter = router({
              u.display_name as submitted_by, v.verified_at,
              r.activity_value_verified::float as activity_value, r.activity_unit,
              r.validation_status::text as status, coalesce(v.is_manual_exception, false) as manual_exception,
-             r.is_duplicate_flag as duplicate,
+             r.is_duplicate_flag as duplicate, r.submitted_late as late,
              (select json_agg(json_build_object(
                         'ruleType', vr.rule_type, 'outcome', vr.result, 'message', vr.message)
                       order by vr.rule_type, vr.result desc)
@@ -102,6 +105,7 @@ export const validationRouter = router({
       status: r.status,
       manualException: r.manual_exception,
       duplicate: r.duplicate,
+      late: r.late,
       results: r.results ?? [],
     }));
   }),

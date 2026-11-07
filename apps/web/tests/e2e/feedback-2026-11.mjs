@@ -50,17 +50,21 @@ const [seeded] = await sql`
   select id, label, submission_closes_on::text as closes from public.reporting_periods where status = 'open'`;
 check("a period is open to begin with", !!seeded);
 const options = await pm.query("documents.uploadOptions");
-check("before its deadline the period takes uploads", options.data?.openPeriod?.id === seeded.id);
+check(
+  "before its deadline the period takes uploads",
+  options.data?.periods?.some((p) => p.id === seeded.id),
+);
 
 // The deadline passes; the job has not run yet. Uploads check the date themselves.
 await sql`
   update public.reporting_periods
-  set submission_closes_on = (now() at time zone 'Asia/Kolkata')::date - 1
+  set submission_closes_on = (now() at time zone 'Asia/Kolkata')::date - 1, late_uploads_until = null
   where id = ${seeded.id}`;
 const past = await pm.query("documents.uploadOptions");
 check(
   "past its deadline, uploads see no period even before the job runs",
-  past.data?.openPeriod === null,
+  // No late-upload date set: the period closes on its due date, as before migration 0056.
+  !past.data?.periods?.some((p) => p.id === seeded.id),
 );
 const anyMetric = await one(
   sql`select id from public.esg_metrics where code = 'DIESEL_CONSUMPTION'`,

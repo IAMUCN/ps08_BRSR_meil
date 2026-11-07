@@ -9,6 +9,7 @@ export async function createPeriodAction(input: {
   endDate: string;
   submissionOpensOn: string;
   submissionClosesOn: string;
+  lateUploadsUntil: string;
 }) {
   return runAction((api) => api.reportingPeriods.create(input));
 }
@@ -17,6 +18,7 @@ export async function updatePeriodWindowAction(input: {
   id: string;
   submissionOpensOn: string;
   submissionClosesOn: string;
+  lateUploadsUntil: string;
 }) {
   return runAction((api) => api.reportingPeriods.updateWindow(input));
 }

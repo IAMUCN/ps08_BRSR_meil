@@ -18,6 +18,8 @@ import type { RecordDetail } from "@/lib/trpc/routers/records";
 import type { Outcome, RuleType } from "@/lib/validation/checks";
 import { StageBadge } from "./stage-badge";
 import { EvidenceFiles } from "./evidence-files";
+import { RecordCorrections } from "./record-corrections";
+import { StageTracker } from "./stage-tracker";
 
 // The shared record detail (03_APP_FLOW.md §2.2 Submission Monitoring → "record detail view, shared
 // component also used by … ESG Data Explorer"): evidence, extracted values, validation, calculation and the
@@ -40,6 +42,8 @@ const EVENT_LABELS: Record<string, string> = {
   "calculation.blocked": "Calculation blocked",
   "approval.approved": "Approved",
   "approval.returned": "Returned by the approver",
+  "document.type_corrected": "Document type corrected",
+  "record.returned_wrong_activity": "Returned as the wrong activity",
 };
 
 /** Where this record can be acted on, if anywhere. */
@@ -62,6 +66,8 @@ export function RecordDrawer({
 }) {
   const [detail, setDetail] = useState<RecordDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumped after a correction, so the panel reads the record again.
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     if (!recordId) return;
@@ -76,7 +82,7 @@ export function RecordDrawer({
       setDetail(null);
       setError(null);
     };
-  }, [recordId]);
+  }, [recordId, version]);
 
   const queue = detail ? queueFor(detail) : null;
   return (
@@ -123,6 +129,18 @@ export function RecordDrawer({
                     </Link>
                   ) : null}
                 </div>
+                <StageTracker statuses={detail.statuses} submittedBy={detail.submittedBy} />
+                {detail.billNumber || detail.late || detail.duplicate ? (
+                  <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                    {detail.billNumber ? <span>Bill no. {detail.billNumber}</span> : null}
+                    {detail.late ? (
+                      <span className="font-medium text-status-warning">Late submission</span>
+                    ) : null}
+                    {detail.duplicate ? (
+                      <span className="font-medium text-status-warning">Possible duplicate</span>
+                    ) : null}
+                  </p>
+                ) : null}
 
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold">Extracted and verified values</h3>
@@ -169,6 +187,8 @@ export function RecordDrawer({
                 {detail.calculation.trace || detail.calculation.blockedReason ? (
                   <CalculationTraceView state={detail.calculation} />
                 ) : null}
+
+                <RecordCorrections detail={detail} onChanged={() => setVersion((v) => v + 1)} />
 
                 <EvidenceFiles recordId={detail.recordId} />
 

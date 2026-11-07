@@ -423,7 +423,8 @@ export const verificationRouter = router({
           });
         }
         await tx`
-          update public.documents set document_type_id = ${input.documentTypeId}
+          update public.documents
+          set document_type_id = ${input.documentTypeId}, document_type_source = 'person'
           where id = ${input.documentId}`;
         await writeAudit(tx, {
           eventType: "document.type_selected",
