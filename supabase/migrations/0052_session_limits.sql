@@ -1,7 +1,7 @@
 -- Session time limits (.grill/scoped-admin-onboarding-decisions.md, stage 3; SCHEMA_DEVIATIONS D43).
 --
 -- A sign-in ends by itself after `idle_minutes` without activity (180) and `absolute_minutes` after it
--- started (720), whichever comes first. Supabase Auth's own session would otherwise live for as long as its
+-- started (4320), whichever comes first. Supabase Auth's own session would otherwise live for as long as its
 -- refresh token keeps being used. The app enforces the limits itself, on every request, from this table:
 -- one row per sign-in, keyed by the `session_id` claim of the Supabase access token.
 --
@@ -28,7 +28,7 @@ alter table public.user_sessions enable row level security;
 revoke all on public.user_sessions from anon, authenticated;
 
 insert into public.org_settings (key, value)
-values ('session_limits', '{"idle_minutes": 180, "absolute_minutes": 720}'::jsonb)
+values ('session_limits', '{"idle_minutes": 180, "absolute_minutes": 4320}'::jsonb)
 on conflict (key) do nothing;
 
 -- The limits in force. A missing or senseless setting falls back to the defaults rather than to "no limit".
@@ -52,7 +52,7 @@ begin
     idle_minutes := 180;
   end if;
   if absolute_minutes is null or absolute_minutes < idle_minutes or absolute_minutes > 10080 then
-    absolute_minutes := greatest(720, idle_minutes);
+    absolute_minutes := greatest(4320, idle_minutes);
   end if;
 end;
 $$;

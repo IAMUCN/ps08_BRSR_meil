@@ -27,5 +27,5 @@ export async function GET(request: NextRequest) {
 
   if (user) await endSessions(user.id);
   await supabase.auth.signOut();
-  redirect(reason && FORWARDED_REASONS.has(reason) ? `/login?reason=${reason}` : "/login");
+  redirect(reason && FORWARDED_REASONS.has(reason) ? `/login?reason=${reason}` : "/");
 }
