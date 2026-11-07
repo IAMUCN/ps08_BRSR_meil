@@ -115,8 +115,8 @@ select ok(
   not has_function_privilege('authenticated', 'public.touch_session(uuid, uuid, boolean)', 'execute')
     and not has_function_privilege('anon', 'public.touch_session(uuid, uuid, boolean)', 'execute'),
   'the browser roles cannot call touch_session (nobody extends a session through the API)');
-select is((select row(idle_minutes, absolute_minutes)::text from public.session_limits()), '(180,720)',
-  'the limits are 3 hours idle and 12 hours in all');
+select is((select row(idle_minutes, absolute_minutes)::text from public.session_limits()), '(180,4320)',
+  'the limits are 3 hours idle and 72 hours in all (0054)');
 
 -- --- Sessions: the clock ------------------------------------------------------------------------------------
 select is(pg_temp.state('52525252-0000-4000-8000-000000000001',
@@ -150,11 +150,11 @@ select is(pg_temp.state('52525252-0000-4000-8000-000000000001',
 -- Busy all day: the absolute limit ends it anyway.
 select pg_temp.state('52525252-0000-4000-8000-000000000002',
   '51515151-0000-4000-8000-000000000001', true);
-update public.user_sessions set started_at = now() - interval '721 minutes'
+update public.user_sessions set started_at = now() - interval '4321 minutes'
 where session_id = '52525252-0000-4000-8000-000000000002';
 select is(pg_temp.state('52525252-0000-4000-8000-000000000002',
   '51515151-0000-4000-8000-000000000001', true), 'expired',
-  '12 hours after sign-in the session is over however busy it was');
+  '72 hours after sign-in the session is over however busy it was');
 select is((select ended_reason from public.user_sessions
            where session_id = '52525252-0000-4000-8000-000000000002'), 'absolute', 'and says why');
 
@@ -168,7 +168,7 @@ select is(pg_temp.state('52525252-0000-4000-8000-000000000003',
 -- A senseless setting falls back to the defaults, never to "no limit".
 update public.org_settings set value = '{"idle_minutes": 0, "absolute_minutes": "never"}'::jsonb
 where key = 'session_limits';
-select is((select row(idle_minutes, absolute_minutes)::text from public.session_limits()), '(180,720)',
+select is((select row(idle_minutes, absolute_minutes)::text from public.session_limits()), '(180,4320)',
   'a broken setting means the default limits, not no limits');
 
 select * from finish();

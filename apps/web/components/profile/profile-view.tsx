@@ -9,6 +9,7 @@ import { PasswordStrengthMeter } from "@/components/auth/password-strength";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import type { ActiveSession } from "@/lib/auth/session";
 import { changePasswordAction, updateDisplayNameAction } from "@/lib/profile/actions";
 
@@ -106,9 +107,8 @@ export function ProfileView({ session }: { session: ActiveSession }) {
         <form onSubmit={onChangePassword} className="mt-4 space-y-4" noValidate>
           <div className="space-y-2">
             <Label htmlFor="current-password">Current password</Label>
-            <Input
+            <PasswordInput
               id="current-password"
-              type="password"
               autoComplete="current-password"
               value={passwords.currentPassword}
               onChange={(e) => setPasswords((p) => ({ ...p, currentPassword: e.target.value }))}
@@ -117,9 +117,8 @@ export function ProfileView({ session }: { session: ActiveSession }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="new-password">New password</Label>
-            <Input
+            <PasswordInput
               id="new-password"
-              type="password"
               autoComplete="new-password"
               value={passwords.newPassword}
               onChange={(e) => setPasswords((p) => ({ ...p, newPassword: e.target.value }))}
@@ -130,9 +129,8 @@ export function ProfileView({ session }: { session: ActiveSession }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm-new-password">Confirm new password</Label>
-            <Input
+            <PasswordInput
               id="confirm-new-password"
-              type="password"
               autoComplete="new-password"
               value={passwords.confirmPassword}
               onChange={(e) => setPasswords((p) => ({ ...p, confirmPassword: e.target.value }))}

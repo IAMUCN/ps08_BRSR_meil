@@ -639,3 +639,17 @@ time, with a system audit entry and a `period_closed` notification to Super Admi
 minutes (`close-expired-reporting-periods`). Records are not touched. `users.notifications_seen_at` records how
 far pop-ups have reached, so each notification pops up once per account. The schema specified manual open and
 close only. `.grill/org-tree-users-notifications-periods-decisions.md`.
+
+## D45 — One signed-in session per account (migration `0055`, 2026-11-07)
+
+`user_sessions` gains `user_agent`, `ip_address`, `replaced_by` and the ending `replaced`. `live_sessions()` lists a
+person's sign-ins that are within both time limits and still known to Supabase Auth. `start_session()` (the
+sign-in form) refuses to start beside a live sign-in unless told to replace it; replacing ends the others as
+`replaced`, deletes their `auth.sessions` rows (refresh tokens cascade) and writes `auth.session_replaced` to the
+audit log with both devices, in one transaction; refusing deletes the new `auth.sessions` row. `touch_session_single()`
+is `touch_session()` for code from this migration on: a session it has never seen replaces the others, so a sign-in
+that skipped the form cannot sit beside another. `touch_session()` itself is unchanged, so code built before keeps
+its behaviour. The specification allows any number of sessions. feature_enhancement.md requirements 18 and 32;
+`.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** in the migration's header.

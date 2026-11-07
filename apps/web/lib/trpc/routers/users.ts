@@ -488,8 +488,9 @@ export const usersRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const sql = db();
-      const profile = await pendingAccount(sql, input.userId);
+      // Scope first, so nothing about an account outside it (whether it exists, whether it is set up) leaks.
       await assertAccountReach(sql, ctx.session, input.userId);
+      const profile = await pendingAccount(sql, input.userId);
 
       const emailChanged = input.email !== profile.email.toLowerCase();
       if (!emailChanged && input.displayName === profile.displayName) {
@@ -567,8 +568,9 @@ export const usersRouter = router({
     .input(z.object({ userId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
       const sql = db();
-      const profile = await pendingAccount(sql, input.userId);
+      // Scope first, so nothing about an account outside it (whether it exists, whether it is set up) leaks.
       await assertAccountReach(sql, ctx.session, input.userId);
+      const profile = await pendingAccount(sql, input.userId);
 
       const limits = await rateLimits();
       const perAccount = bucket("invitation-account", input.userId);
@@ -619,8 +621,8 @@ export const usersRouter = router({
     .input(z.object({ userId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
       const sql = db();
-      await pendingAccount(sql, input.userId);
       await assertAccountReach(sql, ctx.session, input.userId);
+      await pendingAccount(sql, input.userId);
       await sql.begin(async (tx) => {
         const revoked = await revokeInvitations(tx, input.userId);
         if (revoked === 0) badRequest("This account has no open invitation link.");

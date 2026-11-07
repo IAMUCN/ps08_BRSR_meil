@@ -18,6 +18,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { permissionLabel } from "@/lib/roles/permission-labels";
 import type { RoleMatrix } from "@/lib/trpc/routers/roles";
 import {
   createRoleAction,
@@ -212,7 +213,7 @@ function RolePermissions({
                   }
                 />
                 <label htmlFor={`perm-${permission.id}`} className="text-sm leading-5">
-                  <span className="block font-mono text-xs">{permission.code}</span>
+                  <span className="block font-medium">{permissionLabel(permission.code)}</span>
                   <span className="text-muted-foreground">{permission.description}</span>
                 </label>
               </li>

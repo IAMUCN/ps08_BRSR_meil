@@ -237,17 +237,25 @@ check(
 check("the new session works", ok(await fresh.query("session.me")));
 const stolen = new Session();
 stolen.jar = new Map(fresh.jar);
+// One signed-in session per account (migration 0055): a second device signs in only by taking over.
 const elsewhere = new Session();
-await elsewhere.login(signOutCredentials);
-check("a second device is signed in at the same time", ok(await elsewhere.query("session.me")));
-await fresh.get("/auth/signout");
+await elsewhere.login(signOutCredentials, { takeover: true });
+check(
+  "a second device that takes over works, and the first is signed out",
+  ok(await elsewhere.query("session.me")) && (await fresh.query("session.me")).status === 401,
+);
+await elsewhere.get("/auth/signout");
 check(
   "after sign-out the browser's own session is gone",
-  (await fresh.query("session.me")).status === 401,
+  (await elsewhere.query("session.me")).status === 401,
 );
 check(
-  "and the person's other devices are signed out with it",
-  (await elsewhere.query("session.me")).status === 401,
+  "and no sign-in of the person is left open",
+  (
+    await one(sql`
+      select count(*)::int as n from public.user_sessions s join public.users u on u.id = s.user_id
+      where u.email = ${signOutCredentials.email} and s.ended_at is null`)
+  ).n === 0,
 );
 check(
   "and a copy of the old cookie no longer works either (the session is revoked, not just forgotten)",
@@ -265,7 +273,9 @@ const plain = await hrSession();
 const noMarker = await plain.get("/reset-password");
 check(
   "a signed-in session without the link's marker is sent away from /reset-password",
-  noMarker.status === 307 && /\/login\?reason=link_invalid/.test(noMarker.location ?? ""),
+  // A 307, or (root loading.tsx, ui 2026-11) the same redirect streamed inside the page.
+  (noMarker.status === 307 && /\/login\?reason=link_invalid/.test(noMarker.location ?? "")) ||
+    noMarker.html.includes("NEXT_REDIRECT;replace;/login?reason=link_invalid"),
   `${noMarker.status} ${noMarker.location}`,
 );
 const link = await (
@@ -340,6 +350,9 @@ check(
   elevated === "/app",
   String(elevated),
 );
+
+// The sign-ins above took HR's shared session over; take it back for the checks below.
+await hr.login(credentials.hr, { takeover: true });
 
 // ---------------------------------------------------------------------------------------------------------
 section("Injection and markup in input");
@@ -720,7 +733,7 @@ else {
     check("then even the right code is refused", !exhausted.includes("password_set"), exhausted);
     check(
       "and the old password still works",
-      Boolean((await new Session().login(outsiderCredentials)).location),
+      Boolean((await new Session().login(outsiderCredentials, { takeover: true })).location),
     );
     await sql`delete from public.rate_limit_events`;
     await request();
@@ -767,7 +780,7 @@ function randomUuid() {
 }
 async function hrSession() {
   const s = new Session();
-  await s.login(credentials.hr);
+  await s.login(credentials.hr, { takeover: true });
   return s;
 }
 /** Signs in and returns the raw Set-Cookie lines of the response. */
@@ -782,6 +795,8 @@ async function signInRaw(session, who) {
   }
   body.append("email", who.email);
   body.append("password", who.password);
+  // The account is signed in elsewhere in this run: answer yes to the takeover question (migration 0055).
+  body.append("takeover", "confirm");
   const r = await fetch(`${APP}/login`, {
     method: "POST",
     body,
@@ -803,6 +818,7 @@ async function signInTo(session, who, next) {
   }
   body.append("email", who.email);
   body.append("password", who.password);
+  body.append("takeover", "confirm");
   const r = await fetch(`${APP}/login`, {
     method: "POST",
     body,

@@ -715,3 +715,13 @@ name and email corrected (Manage panel); a changed email replaces the link. Orga
 an Edit button, Expected Submissions has a tree selector, a selected shared unit is highlighted under every parent.
 Submission Monitoring and the Data Explorer choose the org unit from the same tree. The bell checks every 5 seconds
 while the tab is visible, shows pop-ups and has Mark all read. `.grill/org-tree-users-notifications-periods-decisions.md`.
+
+## A41 — One device per account, permission names, show/hide password (2026-11-07)
+
+Sign-in on a second device asks "This account is signed in on another device" (a dialog, and the same choice on the
+page itself, which also works without JavaScript); Sign out there and continue ends the other sign-in, Cancel signs in
+nowhere. The other device goes to sign-in with "You were signed out because this account signed in on another
+device at <time>" (shown for 24 hours; the browser keeps an `emeilsg-sign-in` cookie holding only the session id
+for this). A Super Admin whose account takes over a sign-in is emailed. Roles & Permissions shows the 20 approved
+permission names instead of codes (`lib/roles/permission-labels.ts`); the Audit Trail keeps codes. The eye button
+is on forgot-password, reset-password and Profile's password fields. `.grill/feature-enhancement-roadmap-decisions.md`.

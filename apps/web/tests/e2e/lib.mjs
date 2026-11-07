@@ -106,6 +106,8 @@ export async function validationResults(recordId) {
 // --- Sessions -------------------------------------------------------------------------------------------
 
 export const ok = (r) => r?.status === 200;
+/** What the login form says when the account is already signed in elsewhere (migration 0055). */
+export const TAKEOVER_QUESTION = "This account is signed in on another device";
 export const rejected = (r, includes) =>
   !!r && r.status >= 400 && (!includes || !!r.error?.includes(includes));
 
@@ -133,8 +135,11 @@ export class Session {
     this.store(r);
     return { status: r.status, location: r.headers.get("location"), html: await r.text() };
   }
-  /** Signs in through the real login form (a Server Action). Returns where the app sends the user. */
-  async login({ email, password }) {
+  /**
+   * Signs in through the real login form (a Server Action). Returns where the app sends the user. With
+   * `takeover`, answers yes to "signed in on another device" (migration 0055): the other sign-in ends.
+   */
+  async login({ email, password }, { takeover = false } = {}) {
     const page = await this.get("/login");
     const form = page.html.match(/<form[^>]*>([\s\S]*?)<\/form>/)[1];
     const body = new FormData();
@@ -145,6 +150,7 @@ export class Session {
     }
     body.append("email", email);
     body.append("password", password);
+    if (takeover) body.append("takeover", "confirm");
     const r = await fetch(`${APP}/login`, {
       method: "POST",
       body,

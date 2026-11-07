@@ -4,6 +4,7 @@
 import {
   RUN,
   Session,
+  TAKEOVER_QUESTION,
   check,
   confirm,
   ensureInvited,
@@ -161,9 +162,14 @@ for (const path of ["audit.query", "records.search", "users.list"]) {
     (await pm.query(path, path === "users.list" ? undefined : {})).status === 403,
   );
 }
+// The root loading.tsx (ui, 2026-11) streams every page, so the refusal may arrive as a streamed redirect
+// instead of a 307; either way no Admin content may be in the answer.
+const pmOnAdmin = await pm.get("/admin/users");
 check(
   "an Admin page redirects a PM",
-  (await pm.get("/admin/users")).location?.includes("notice=forbidden"),
+  (pmOnAdmin.location?.includes("notice=forbidden") ||
+    pmOnAdmin.html.includes("NEXT_REDIRECT;replace;/app?notice=forbidden")) &&
+    !pmOnAdmin.html.includes("Invite user"),
 );
 
 section("Approval: in scope, and never your own record");
@@ -238,9 +244,10 @@ check(
     )
   ).n === 0,
 );
+// The PM is signed in elsewhere, so the password being accepted shows as the takeover question.
 check(
   "another account is unaffected",
-  (await new Session().login(credentials.pm)).location?.includes("/app"),
+  (await new Session().login(credentials.pm)).text.includes(TAKEOVER_QUESTION),
 );
 await sql`delete from public.rate_limit_events where bucket = ${bucketOf("login-account", locked.email)}`;
 check(

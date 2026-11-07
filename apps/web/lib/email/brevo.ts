@@ -125,3 +125,21 @@ export function submissionReminderEmailHtml(input: {
     .join("")}</ul>
 <p>Sign in to EmeilSG and upload the supporting document for each.</p>`;
 }
+
+/**
+ * Sent to a Super Admin when their account signed in on another device and the earlier sign-in was ended
+ * (migration 0055). It names the new device so the person can tell whether it was them.
+ */
+export function sessionReplacedEmailHtml(input: {
+  displayName: string;
+  when: string;
+  browser: string;
+  address: string;
+}): string {
+  return `<p>Hi ${escapeHtml(input.displayName)},</p>
+<p>Your EmeilSG Super Admin account was signed in on another device at ${escapeHtml(input.when)}, and the
+sign-in that was open before was ended.</p>
+<p>New device: ${escapeHtml(input.browser)}, from address ${escapeHtml(input.address)}.</p>
+<p>If this was you, there is nothing to do. If it was not, sign in, change your password on Profile at once
+(that signs every other device out) and tell the other Super Admin.</p>`;
+}

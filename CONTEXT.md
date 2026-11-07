@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-11-01._
+_Last updated: 2026-11-07._
 
 ---
 
@@ -569,12 +569,23 @@ _Last updated: 2026-11-01._
   no scope check. (4) `admin@meil.local` invites `niharbehera965@gmail.com` as the second Super Admin from
   Admin → Users. The migration history will hold `0051`, `0052` before `0050`; both scripts record by hand,
   so a plain `supabase db push` is not needed and should not be used for these three.
+- **Feature roadmap (2026-11-07):** `PS_Documents/implementation_docs/feature_enhancement.md` (owner's file,
+  untracked) is the master document; its Appendix A holds every requirement's status. Phase 0 audit:
+  `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`. **Phase 1 is done on branch `feature-session-takeover-security`**
+  (fast-forwarded to `ucn/main` `95545c3` first), **uncommitted; migration `0055` is on the LOCAL database only.**
+  `ucn/main` gained a ui-lane `0054` (absolute session limit 72 hours): its setting is on hosted, the migration is
+  not recorded there. Hosted step prepared, not run: `node "test data/_backup/hosted-0054-0055.cjs" check|apply`
+  (backs up `user_sessions` first; must run BEFORE this code reaches hosted or the dev server on 3000).
+  Requirement 37 (local database) is deferred by the owner until after the HoD demo.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
+| Phase 1 of the feature roadmap (2026-11-07) | Commit `feature-session-takeover-security`; "go" for `hosted-0054-0055.cjs apply`; confirm the build-time decisions in `.grill/feature-enhancement-roadmap-decisions.md` (sessions that skip the form replace the others; the Super Admin email goes to the Super Admin whose account took over). |
+| For the ui role (2026-11-07) | The root `app/loading.tsx` makes server redirects arrive inside a 200 page; `app/loading.tsx` and `app/page.tsx` fail `format:check`; after Add ID on Users the filtered list does not refresh (feedback-2026-11 stops there, also without Phase 1). |
+| Hosted OCR worker | `traceesg-ocr-worker-hosted` was found exited (137, out of memory) on 2026-11-07; hosted uploads wait until it is started again. |
 | Stages 1–3 of the 2026-10-13 work | Say "go" for the hosted step that must come first (`hosted-invitations-sessions.cjs apply`; the dev server on port 3000 is broken until then), when to commit `feature-scoped-admins`, when to merge it, and when to run the placement script (after the deploy). Then stage 4 starts. |
 | Decisions the agent made in stages 2 and 3 | Listed in `.grill/scoped-admin-onboarding-decisions.md`. The ones with a cost: forgot-password no longer works for an account that was never set up (an administrator sends a link); only activity on the page keeps a session alive; an ended session signs out that device only. |
 | Brevo click tracking | If it is on for transactional email, invitation links pass through Brevo's redirect. Switch it off for this sender in the Brevo dashboard. |
@@ -607,7 +618,7 @@ _Last updated: 2026-11-01._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D45** and **A41**; the next migration is `0054`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D46** and **A42**; the next migration is `0056`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -870,6 +881,14 @@ _Last updated: 2026-11-01._
   needs that date set before `migration up`.
 - **`clickCount` no longer selects text in this Puppeteer:** clear a field with Backspace. The security hook
   refuses a new file containing Puppeteer's `$eval`; use `page.evaluate`.
+- **One signed-in session per account (migration `0055`).** A test that signs an account in a second time gets the
+  takeover question instead of a session: use `login(who, { takeover: true })` (`tests/e2e/lib.mjs`), and expect the
+  first session to be refused afterwards. A browser and a script sharing one account share cookies
+  (`signedIn(who, share)` in `feedback-2026-11.mjs`).
+- **The root `app/loading.tsx` (ui, 2026-11-07) streams every page:** a server `redirect()` arrives as a 200 page
+  holding `NEXT_REDIRECT;replace;<path>` instead of a 307. Tests check for either.
+- **`next start` keeps serving the build it started with:** after a rebuild, stop the old process (find it by its
+  `start -p 3100` command line) or the tests run against stale code.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

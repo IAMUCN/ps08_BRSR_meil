@@ -18,10 +18,11 @@ export const AUTH_MESSAGES = {
   temporaryPassword:
     "You signed in with a temporary password. Choose your own password to continue.",
   tooManyAttempts: "Too many sign-in attempts — wait 15 minutes and try again",
+  replaced: "You were signed out because this account signed in on another device.",
 } as const;
 
 export type LoginReason =
-  "expired" | "deactivated" | "unprovisioned" | "link_invalid" | "password_set";
+  "expired" | "deactivated" | "unprovisioned" | "link_invalid" | "password_set" | "replaced";
 
 export const LOGIN_NOTICES: Record<LoginReason, { tone: "info" | "error"; message: string }> = {
   expired: { tone: "info", message: AUTH_MESSAGES.expired },
@@ -29,6 +30,7 @@ export const LOGIN_NOTICES: Record<LoginReason, { tone: "info" | "error"; messag
   unprovisioned: { tone: "error", message: AUTH_MESSAGES.unprovisioned },
   link_invalid: { tone: "error", message: AUTH_MESSAGES.linkInvalid },
   password_set: { tone: "info", message: AUTH_MESSAGES.passwordSet },
+  replaced: { tone: "info", message: AUTH_MESSAGES.replaced },
 };
 
 export function isLoginReason(value: unknown): value is LoginReason {

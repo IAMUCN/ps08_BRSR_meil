@@ -100,6 +100,7 @@ may run in parallel with Phases 3–5.
 | — | Report PDFs on Vercel (headless shell) and a small connection pool there | Done, on `main` | `fe93b23` |
 | — | Stage 1 of 6: Super Admins and scoped Administrators (migration `0050`) | Done on branch `feature-scoped-admins`, **uncommitted, not on hosted** | — |
 | — | Stages 2 and 3 of 6: invitation links (migration `0051`) and session time limits (migration `0052`) | Done in the same working tree, **uncommitted, not on hosted** | — |
+| — | Feature roadmap (`feature_enhancement.md`) Phase 0 audit and Phase 1: one session per account (migration `0055`), permission names, show/hide password, security re-check | Done on branch `feature-session-takeover-security`, **uncommitted; `0055` local only** | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -823,6 +824,18 @@ period takes no new documents but what was uploaded finishes review. Invited peo
 Role codes give clear messages, and every form now shows a validator's words instead of its raw JSON. Notifications
 pop up within 5 seconds while the tab is visible, once per account. Submission Monitoring, the Data Explorer and
 Expected Submissions choose units from one tree. Test results: `CONTEXT.md`.
+
+**Feature roadmap, Phase 0 and Phase 1 (2026-11-07).** `PS_Documents/implementation_docs/feature_enhancement.md`
+(40 requirements, status in its Appendix A), audit `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`, decisions
+`.grill/feature-enhancement-roadmap-decisions.md`; D45, A41. One signed-in session per account: a second device is
+asked first and, on confirmation, ends the other sign-in (revoked in Supabase Auth too, audited with both devices);
+the other device is told why and when; a Super Admin's takeover is emailed to them (migration `0055`, requirements
+18 and 32). The 20 approved permission names on Roles & Permissions (13); show/hide on forgot-password,
+reset-password and Profile (11); a re-check of the code written since the October audits (20): one Low fixed, three
+Low recorded. Checks: web unit 238/238, database 408/408, end-to-end 10 of 11 scripts in full (sessions 112/112,
+authorization 42/42, audit-regression 110/110, scoped-admin 77/77, scenarios A–F, edge cases), feedback-2026-11
+85/85 before an Add ID step that also fails without these changes, cross-project 264 passed, production build,
+lint, typecheck. Not on hosted.
 
 Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
 docs, the phone and tablet pass.

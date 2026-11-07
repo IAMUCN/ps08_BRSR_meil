@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { publicEnv } from "@/lib/env";
+import { sessionIdForNotice } from "@/lib/auth/session-cookie";
 import { SESSION_COOKIE_OPTIONS } from "@/lib/supabase/cookie-options";
 
 // Next.js 16 proxy (formerly middleware). Refreshes the Supabase session cookie on every request and
@@ -19,6 +20,9 @@ export async function proxy(request: NextRequest) {
   const hadAuthCookie = request.cookies
     .getAll()
     .some(({ name }) => name.startsWith("sb-") && name.includes("-auth-token"));
+
+  // Read before the Supabase client may clear them: a refused session's cookie still names the sign-in.
+  const originalCookies = request.cookies.getAll();
 
   let response = NextResponse.next({ request });
 
@@ -56,7 +60,16 @@ export async function proxy(request: NextRequest) {
     loginUrl.search = "";
     loginUrl.searchParams.set("next", `${pathname}${search}`);
     // §4.3: a cookie that no longer yields a valid session means the session expired.
-    if (hadAuthCookie) loginUrl.searchParams.set("reason", "expired");
+    if (hadAuthCookie) {
+      const takenOverAt = await replacedAtQuietly(sessionIdForNotice(originalCookies));
+      if (takenOverAt) {
+        // Taken over by another device (migration 0055): say so, with the time, instead of "expired".
+        loginUrl.searchParams.set("reason", "replaced");
+        loginUrl.searchParams.set("at", takenOverAt);
+      } else {
+        loginUrl.searchParams.set("reason", "expired");
+      }
+    }
     const redirectResponse = NextResponse.redirect(loginUrl);
     response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
     return redirectResponse;
@@ -69,6 +82,17 @@ export async function proxy(request: NextRequest) {
   }
 
   return response;
+}
+
+/** The database lookup must never stop a page from loading: if it fails, the notice is just "expired". */
+async function replacedAtQuietly(sessionId: string | null): Promise<string | null> {
+  if (!sessionId) return null;
+  try {
+    const { replacedAt } = await import("@/lib/auth/session-limits");
+    return await replacedAt(sessionId);
+  } catch {
+    return null;
+  }
 }
 
 export const config = {

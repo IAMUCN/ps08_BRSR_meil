@@ -321,10 +321,12 @@ check(
 );
 const again = await poll();
 check("and never again", again.data?.fresh.total === 0);
+// One signed-in session per account (migration 0055): the other device takes over, then hands back.
 const elsewhere = new Session();
-await elsewhere.login(credentials.pm);
+await elsewhere.login(credentials.pm, { takeover: true });
 const otherDevice = await elsewhere.mutate("notifications.poll", { sweep: false });
 check("not on another device either", otherDevice.data?.fresh.total === 0);
+await pm.login(credentials.pm, { takeover: true });
 for (const t of ["A", "B", "C", "D", "E"]) await notify(t);
 const burst = await poll();
 check("five waiting come as a count", burst.data?.fresh.total === 5);
@@ -349,7 +351,12 @@ const browser = await puppeteer.launch({
 const shot = async (page, name) => {
   if (SHOTS) await page.screenshot({ path: join(SHOTS, `${name}.png`) });
 };
-async function signedIn({ email, password }) {
+/**
+ * Signs in in the browser. The account may be signed in already (one session per account, migration 0055):
+ * the takeover question is answered yes, and `share`, the script's own session for the same account, is
+ * given the browser's cookies so both keep working as one sign-in.
+ */
+async function signedIn({ email, password }, share = null) {
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
   await page.setViewport({ width: 1440, height: 900 });
@@ -357,7 +364,26 @@ async function signedIn({ email, password }) {
   await page.type('input[type="email"]', email);
   await page.type('input[type="password"]', password);
   await page.keyboard.press("Enter");
-  await page.waitForFunction(() => !location.pathname.startsWith("/login"), { timeout: 30_000 });
+  await page.waitForFunction(
+    () => !location.pathname.startsWith("/login") || document.querySelector('[role="dialog"]'),
+    { timeout: 30_000 },
+  );
+  if (new URL(page.url()).pathname.startsWith("/login")) {
+    await page.waitForFunction(
+      () =>
+        [...document.querySelectorAll('[role="dialog"] button')].some(
+          (b) => b.textContent.trim() === "Sign out there and continue here",
+        ),
+      { timeout: 10_000 },
+    );
+    await page.evaluate(() =>
+      [...document.querySelectorAll('[role="dialog"] button')]
+        .find((b) => b.textContent.trim() === "Sign out there and continue here")
+        .click(),
+    );
+    await page.waitForFunction(() => !location.pathname.startsWith("/login"), { timeout: 30_000 });
+  }
+  if (share) share.jar = new Map((await page.cookies()).map((c) => [c.name, c.value]));
   return page;
 }
 const clickText = (page, selector, text) =>
@@ -376,7 +402,7 @@ const exists = (page, selector) =>
 const POPOVER = '[data-slot="popover-content"], [role="dialog"]';
 const popoverButtons = '[data-slot="popover-content"] button, [role="dialog"] button';
 
-const adminPage = await signedIn(credentials.admin);
+const adminPage = await signedIn(credentials.admin, admin);
 const errors = [];
 adminPage.on("pageerror", (e) => errors.push(String(e)));
 
@@ -531,7 +557,7 @@ await shot(scopedPage, "tree-scoped");
 
 // Employee IDs stay inside what an Administrator administers.
 const scopedSession = new Session();
-await scopedSession.login({ email: scopedEmail, password: scopedPassword });
+await scopedSession.login({ email: scopedEmail, password: scopedPassword }, { takeover: true });
 const invitePerson = async (label, orgUnitId) =>
   (
     await admin.mutate("users.invite", {

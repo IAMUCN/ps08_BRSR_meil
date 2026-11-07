@@ -25,6 +25,7 @@ import {
   roleId,
   section,
   Session,
+  TAKEOVER_QUESTION,
   setup,
   sql,
   userId,
@@ -36,7 +37,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const GOOD_PASSWORD = `Chosen-${RUN}-Pass!9`;
 
-const { sessions } = await setup();
+const { sessions, credentials } = await setup();
 const { admin } = sessions;
 const PM = await roleId("project_manager");
 const PRJ_X = await orgId("PRJ-X");
@@ -563,9 +564,11 @@ check(
   (await one1.file(`/api/documents/${PRJ_X}/file`)).status === 401,
 );
 const idlePage = await one1.get("/app");
+// The root loading.tsx (ui, 2026-11) streams pages, so the redirect may come inside the page.
 check(
   "a page goes to the sign-out route with the reason",
-  idlePage.location?.includes("/auth/signout?reason=expired"),
+  idlePage.location?.includes("/auth/signout?reason=expired") ||
+    idlePage.html.includes("NEXT_REDIRECT;replace;/auth/signout?reason=expired"),
   idlePage.location,
 );
 clocks = await sessionRows();
@@ -591,10 +594,10 @@ check("its session cookies are gone", ![...one1.jar.keys()].some((k) => /auth-to
 check("the other device keeps working", (await two.get("/app")).status === 200);
 check("an ended session stays ended", (await one1.get("/app")).location?.includes("/login"));
 
-section("Sessions: twelve hours after sign-in, however busy");
+section("Sessions: 72 hours after sign-in, however busy (0054)");
 clocks = await sessionRows();
 const live = clocks.find((c) => !c.ended_at);
-await move(live.session_id, { idle: 0, age: 721 });
+await move(live.session_id, { idle: 0, age: 4321 });
 const afterAbsolute = await two.query("notifications.list", { limit: 5 });
 check("the session is refused", afterAbsolute.status === 401, `${afterAbsolute.status}`);
 clocks = await sessionRows();
@@ -611,19 +614,110 @@ check(
 );
 
 // ============================================================================================================
+section("Sessions: one account, one device (migration 0055)");
+// ============================================================================================================
+const second = new Session();
+const asked = await second.login(person);
+check(
+  "a second device is asked first",
+  !asked.location && asked.text.includes(TAKEOVER_QUESTION),
+  asked.location,
+);
+check("the first device is untouched meanwhile", (await fresh.get("/app")).status === 200);
+clocks = await sessionRows();
+check("and no second clock was started", clocks.filter((c) => !c.ended_at).length === 1);
+const firstClock = clocks.find((c) => !c.ended_at);
+const took = await second.login(person, { takeover: true });
+check("confirming signs in here", took.location?.includes("/app"), took.location);
+check("the new device works", (await second.get("/app")).status === 200);
+const refused = await fresh.query("notifications.list", { limit: 5 });
+check("the first device is refused at once", refused.status === 401, `${refused.status}`);
+clocks = await sessionRows();
+check(
+  "its clock ended as replaced",
+  clocks.find((c) => c.session_id === firstClock.session_id)?.ended_reason === "replaced",
+);
+const firstPage = await fresh.get("/app");
+const toLogin = firstPage.location?.includes("/login") ? firstPage.location : "/login";
+const notice = await fresh.get(toLogin.replace(APP, ""));
+check(
+  "it is told another device signed in, and when",
+  /signed in on another device at \d{1,2}:\d{2} [ap]m on/.test(notice.html),
+  firstPage.location,
+);
+const takeoverAudit = await one(sql`
+  select old_value, new_value from public.audit_logs
+  where event_type = 'auth.session_replaced' and entity_id = ${personId}
+  order by created_at desc limit 1`);
+check(
+  "the takeover is audited with both devices",
+  takeoverAudit?.old_value?.sessions?.[0]?.session_id === firstClock.session_id &&
+    takeoverAudit?.new_value?.via === "sign_in" &&
+    Boolean(takeoverAudit?.new_value?.session_id),
+);
+
+// ============================================================================================================
 section("Sessions in the browser: activity, warning, sign-out");
 // ============================================================================================================
+clocks = await sessionRows();
 const tab = await freshPage();
 await tab.goto(`${APP}/login`, { waitUntil: "networkidle0" });
 await tab.type('input[name="email"]', person.email);
 await tab.type('input[name="password"]', person.password);
+// Waits for the button (a dialog's content mounts a moment after its frame), then clicks it.
+const clickIn = async (scope, label) => {
+  const found = await tab
+    .waitForFunction(
+      (selector, text) =>
+        [...document.querySelectorAll(selector)].some((x) => x.textContent.trim() === text),
+      { timeout: 20_000 },
+      scope,
+      label,
+    )
+    .then(() => true)
+    .catch(() => false);
+  if (!found) {
+    const seen = await tab.evaluate(
+      (selector) => [...document.querySelectorAll(selector)].map((x) => x.textContent.trim()),
+      scope,
+    );
+    throw new Error(`no "${label}" in ${scope}; found: ${JSON.stringify(seen)}`);
+  }
+  await tab.evaluate(
+    (selector, text) =>
+      [...document.querySelectorAll(selector)].find((x) => x.textContent.trim() === text).click(),
+    scope,
+    label,
+  );
+};
+const dialogOpen = () =>
+  tab.waitForFunction(() => document.querySelector('[role="dialog"]'), { timeout: 20_000 });
+await clickIn("button", "Sign in");
+await dialogOpen();
+check(
+  "the browser asks before taking over the other device",
+  /signed in on another device/i.test(
+    await tab.evaluate(() => document.querySelector('[role="dialog"]').innerText),
+  ),
+);
+await clickIn('[role="dialog"] button', "Cancel");
+await tab.waitForFunction(() => !document.querySelector('[role="dialog"]'), { timeout: 10_000 });
+check(
+  "Cancel signs in nowhere",
+  new URL(tab.url()).pathname === "/login" && (await second.get("/app")).status === 200,
+);
+await tab.type('input[name="password"]', person.password);
+await clickIn("button", "Sign in");
+await dialogOpen();
 await Promise.all([
   tab.waitForNavigation({ waitUntil: "networkidle0" }),
-  tab.evaluate(() =>
-    [...document.querySelectorAll("button")].find((x) => /sign in/i.test(x.textContent)).click(),
-  ),
+  clickIn('[role="dialog"] button', "Sign out there and continue here"),
 ]);
 check("the browser is signed in", new URL(tab.url()).pathname.startsWith("/app"), tab.url());
+check(
+  "and the other device is signed out",
+  (await second.query("notifications.list", { limit: 5 })).status === 401,
+);
 const tabCookie = (await authCookies(tab)).map((c) => c.value).join("");
 const browserSession = async () => {
   const known = new Set(clocks.map((c) => c.session_id));
@@ -676,16 +770,40 @@ check(
   tab.url().includes("reason=expired"),
 );
 check("with the page to come back to", tab.url().includes("next="), tab.url());
-check("and says why", /session expired/i.test(await textOf(tab)));
+// Waited for, not read once: the page may still be settling after the sign-out route's redirects.
+check(
+  "and says why",
+  await tab
+    .waitForFunction(() => /session expired/i.test(document.body.innerText), { timeout: 20_000 })
+    .then(() => true)
+    .catch(() => false),
+  tab.url(),
+);
 check("the browser holds no session any more", (await authCookies(tab)).length === 0);
 
 section("Sessions: signing out closes the clock");
-check("a live session before sign-out", (await fresh.get("/app")).status === 200);
-await fresh.get("/auth/signout");
+const last = new Session();
+await last.login(person);
+check("a live session before sign-out", (await last.get("/app")).status === 200);
+await last.get("/auth/signout");
 clocks = await sessionRows();
 check(
   "every clock of the person is closed",
   clocks.every((c) => c.ended_at) && clocks.some((c) => c.ended_reason === "signed_out"),
+);
+
+// ============================================================================================================
+section("Sessions: a Super Admin's takeover is emailed to them (0055)");
+// ============================================================================================================
+const emailedAfter = Date.now() - 1_000;
+const adminAgain = await new Session().login(credentials.admin, { takeover: true });
+check("the Super Admin signs in on a second device", adminAgain.location?.endsWith("/admin"));
+const warning = await mailTo(credentials.admin.email, { after: emailedAfter });
+check(
+  "and gets an email naming the new device",
+  /signed in on another device/i.test(warning?.Subject ?? "") &&
+    /New device:/.test(warning?.HTML ?? ""),
+  warning?.Subject,
 );
 
 await browser.close();

@@ -1,6 +1,6 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
@@ -9,6 +9,10 @@ import { passwordMeetsPolicy, passwordPolicyMessage } from "@/lib/auth/password-
 import { postLoginPath, safeNextPath } from "@/lib/auth/redirects";
 import { AUTH_MESSAGES } from "@/lib/auth/messages";
 import { resolveSession } from "@/lib/auth/session";
+import { deviceLabel } from "@/lib/auth/device-label";
+import { SIGN_IN_MARKER, sessionIdFromAccessToken, signedOutAt } from "@/lib/auth/session-cookie";
+import { SESSION_COOKIE_OPTIONS } from "@/lib/supabase/cookie-options";
+import { startSession } from "@/lib/auth/session-limits";
 import {
   bucket,
   clear,
@@ -21,7 +25,14 @@ import { db } from "@/lib/db";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type SignInState = { error: string | null; email: string };
+/** Another device holds a sign-in of this account: what the question on screen names. */
+export type TakeoverQuestion = { device: string; lastActive: string | null };
+
+export type SignInState = {
+  error: string | null;
+  email: string;
+  takeover?: TakeoverQuestion | null;
+};
 
 const signInSchema = z.object({
   email: z.email(),
@@ -52,7 +63,7 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
     password: parsed.data.password,
   });
@@ -69,6 +80,44 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
   }
 
   await clear(account);
+
+  // One sign-in per account (migration 0055). Asked only of an account that may sign in at all, so a
+  // deactivated or unknown account gets its own message below, not the question.
+  const [profile] = await db()<{ is_active: boolean }[]>`
+    select is_active from public.users where id = ${data.user.id} and deleted_at is null`;
+  const sessionId = sessionIdFromAccessToken(data.session.access_token);
+  if (profile?.is_active && sessionId) {
+    const requestHeaders = await headers();
+    const ip = clientAddress(requestHeaders);
+    const userAgent = requestHeaders.get("user-agent")?.slice(0, 512) ?? null;
+    const started = await startSession({
+      sessionId,
+      userId: data.user.id,
+      replace: formData.get("takeover") === "confirm",
+      userAgent,
+      ipAddress: ip === "unknown" ? null : ip,
+    });
+    if (started.outcome !== "started") {
+      // The database has already revoked this sign-in; this clears the cookies too.
+      await supabase.auth.signOut({ scope: "local" });
+      if (started.outcome === "refused") return { error: AUTH_MESSAGES.retry, email };
+      const latest = started.others[0];
+      return {
+        error: null,
+        email,
+        takeover: {
+          device: deviceLabel(latest?.user_agent),
+          lastActive: latest ? signedOutAt(new Date(latest.last_activity_at).toISOString()) : null,
+        },
+      };
+    }
+    // So this browser can be told why, should another device take this sign-in over later.
+    (await cookies()).set(SIGN_IN_MARKER, sessionId, {
+      ...SESSION_COOKIE_OPTIONS,
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
+
   const result = await resolveSession(supabase);
   if (result.status === "password_change_required") {
     const next = safeNextPath(parsed.data.next);

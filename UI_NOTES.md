@@ -260,3 +260,15 @@ and the system cursor stays. Not checked: a real phone or tablet.
 - `notification-bell.tsx`: pop-ups through `sonner`, Mark all read in the header. `users-manager.tsx`: Edit name and
   email in the Manage panel. `roles-manager.tsx`: the code field shows its rule's message under it, in red.
 - `periods-manager.tsx`: a date field in the open and reopen dialogs when the deadline has passed.
+
+## Feature lane, 2026-11-07 (Phase 1 of feature_enhancement.md)
+
+- `app/login/login-form.tsx`: the takeover question (a `ConfirmDialog`, plus an inline block with the same button
+  for the no-JavaScript case and after Cancel).
+- `app/admin/roles/roles-manager.tsx`: each permission shows its name (`permissionLabel`) instead of its code.
+- `components/profile/profile-view.tsx`, `app/forgot-password/forgot-password-form.tsx`,
+  `app/reset-password/set-password-form.tsx`: `PasswordInput` in place of plain password fields.
+- For the ui role: the root `app/loading.tsx` (merged 2026-11-07) makes every page stream, so a server-side
+  `redirect()` (for example a Project Manager opening an Admin page) now arrives as a 200 page with a client-side
+  redirect instead of a 307. Access is still refused (no Admin content is sent), but the status changed; two
+  end-to-end checks now accept either. `app/loading.tsx` and `app/page.tsx` also fail `pnpm format:check`.
