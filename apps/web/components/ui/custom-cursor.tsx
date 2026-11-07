@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useSyncExternalStore } from "react";
-import { Pointer, usePointer, type CursorMode } from "@/registry/magicui/pointer";
+import { Pointer, usePointer } from "@/registry/magicui/pointer";
+import { cn } from "@/lib/utils";
 
 /**
  * Common SVG path for default and hovering arrow cursor variants:
@@ -225,7 +226,7 @@ export function CustomCursor({ className }: { className?: string }) {
   if (!mounted) return null;
 
   return (
-    <Pointer global hotspot={{ x: 1.7, y: 1.7 }} className={className}>
+    <Pointer global hotspot={{ x: 1.7, y: 1.7 }} className={cn("max-md:hidden", className)}>
       {({ cursorMode }) => {
         if (cursorMode === "not-allowed") {
           return <ProhibitionCursorIcon />;

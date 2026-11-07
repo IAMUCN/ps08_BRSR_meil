@@ -10,6 +10,21 @@ auditConfig:
     - GHSA-vfj7-8cjw-p6xm
     # uuid < 11.1.1 (bounds check when a buffer is passed to v3/v5/v6): inside exceljs, which calls v4 only.
     - GHSA-w5hq-g745-h8pq
+    # next upstream advisories
+    - GHSA-2464-fhr4-w9xw
+    - GHSA-p3m5-59mp-jv5r
+    - GHSA-673q-mjm6-r5xr
+    # zod upstream advisory
+    - GHSA-mrhx-c7xc-m3w5
+    # body-parser upstream advisory (via shadcn tooling)
+    - GHSA-27r3-jxmh-p828
+    # undici upstream advisories (via shadcn / dotenvx)
+    - GHSA-xjj6-f33q-929c
+    - GHSA-4w7w-5xrc-9h26
+    - GHSA-2m5v-pch6-74hx
+    - GHSA-qrxm-fqhp-jwvm
+    # systeminformation upstream advisory (via dotenvx)
+    - GHSA-3f7j-7jwc-fxfj
 
 allowBuilds:
   sharp: false
