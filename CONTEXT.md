@@ -599,6 +599,9 @@ _Last updated: 2026-11-07._
   `traceesg-ocr-worker-hosted-rules13` (image `5ee1ae92263e`) for rollback; delete it once rules-14 has read a real
   upload. The end-to-end suite takes `E2E_WORKER_IMAGE`.
   Handwriting (req. 15) waits for the owner's bus-ticket photos.
+- **Phase 4 (2026-11-08), uncommitted; migration `0058` applied to hosted 2026-11-08 (owner's "go")** with
+  `test data/_backup/hosted-0058.cjs`; read back: RLS on, closed to the browser roles, the one-open-step index
+  present, 34 users and 73 records unchanged. The local stack has test Administrators `e2e.prjx.admin` (PRJ-X) and `e2e.suba.admin` (SUB-A).
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)

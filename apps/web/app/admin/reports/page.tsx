@@ -1,6 +1,7 @@
 import { Archive, FileText, FolderOpen, History } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ReportsToVerify } from "@/components/reports/report-forwarding";
 import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
@@ -38,7 +39,11 @@ export default async function ReportsPage({
     from: param("from"),
     to: param("to"),
   };
-  const [options, runs] = await Promise.all([caller.reports.options(), caller.reports.list()]);
+  const [options, runs, toVerify] = await Promise.all([
+    caller.reports.options(),
+    caller.reports.list(),
+    caller.reportForwarding.inbox(),
+  ]);
   const inputsYear = options.defaultFinancialYear ?? options.financialYears[0]?.startYear ?? null;
   // The yearly inputs and the written disclosures are group-wide configuration: Super Admin only.
   const inputs =
@@ -86,6 +91,7 @@ export default async function ReportsPage({
           </div>
         }
       />
+      <ReportsToVerify items={toVerify} />
       <ReportForm key={JSON.stringify(preset)} options={options} preset={preset} />
       {inputsYear !== null && unanswered > 0 ? (
         <p

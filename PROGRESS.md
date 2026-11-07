@@ -103,6 +103,7 @@ may run in parallel with Phases 3–5.
 | — | Feature roadmap (`feature_enhancement.md`) Phase 0 audit and Phase 1: one session per account (migration `0055`), permission names, show/hide password, security re-check | Done on branch `feature-session-takeover-security`, **uncommitted; `0055` local only** | — |
 | — | Feature roadmap Phase 2: several open periods, late uploads, duplicate rules, bill number, monitoring filters, stage tracker, approval list (migration `0056`) | Done, **uncommitted**; `0056` on hosted (2026-11-08) | — |
 | — | Feature roadmap Phase 3: billing-period fix (rules-14), document-kind check, one monitoring page, field grid with source boxes, electricity bill number (migration `0057`) | Done, **uncommitted**; `0057` and the rules-14 worker on hosted (2026-11-08) | — |
+| — | Feature roadmap Phase 4: forwarding reports for verification (migration `0058`), scoped audit trail, search, My Activity | Done, **uncommitted**; `0058` on hosted (2026-11-08) | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -861,6 +862,14 @@ panel). Verify Extraction boxes each value on the document and keeps both in ste
 are red; the values download as Excel. Grid Electricity records its bill number (migration `0057`). Handwriting
 (conductor-written bus tickets) waits for sample photos. Checks: worker unit 53/53 and Ruff, web unit 244, database
 425/425, end-to-end 13 of 14 scripts in full with the rules-14 image (601 checks, `phase3-ocr.mjs` 22/22; feedback-2026-11 stops at the old Add ID step), browser `ui-phase3.mjs` 8/8, typecheck, lint, build.
+
+**Feature roadmap, Phase 4 (2026-11-08).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 4
+decisions"); D48, A44. A ready report is forwarded for verification to the Administrators of the next unit up (or
+the Super Admins at the top), who verify it, optionally sending it on, or return it with a reason; every step is
+audited and notified and the report shows its trail; nobody verifies a report they generated or forwarded. The audit
+log is open to everyone, scoped by what an entry is about: own entries for all (My Activity), plus an
+Administrator's units; search bar, role filter and roles shown. Checks: web unit 250, database 432/432,
+end-to-end 14 of 15 scripts in full (637 checks, `phase4-forwarding-audit.mjs` 36/36; feedback-2026-11 stops at the old Add ID step), browser `ui-phase4.mjs` 10/10, typecheck, lint, build.
 
 Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
 docs, the phone and tablet pass.

@@ -295,3 +295,11 @@ and the system cursor stays. Not checked: a real phone or tablet.
 - `components/records/records-explorer.tsx` (OCR column and filter), new `components/records/record-ocr.tsx` in the
   record drawer; `components/shell/admin-nav.ts` (OCR Monitoring removed); `app/admin/ocr-monitoring/page.tsx` is a
   redirect, its table and actions removed.
+
+## Feature lane, 2026-11-08 (Phase 4 of feature_enhancement.md)
+
+- New `components/reports/report-forwarding.tsx` (the Verification section on a report's page and the Reports to
+  verify list on Reports); `app/admin/reports/page.tsx` and `[reportId]/page.tsx` use it.
+- `app/admin/audit-trail/audit-view.tsx`: search, Show (Only my activity), Role filters and roles under each name;
+  a `compact` mode for the new `app/app/activity/page.tsx` (My Activity). Menus: My Activity in both; the Audit Trail
+  item no longer Super Admin only.

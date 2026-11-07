@@ -12,6 +12,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   // Daily work: file evidence, then review and approve what comes in.
   { href: "/app/upload", label: "Upload", icon: "upload", startsGroup: true },
   { href: "/app/submissions", label: "My Uploads", icon: "submissions" },
+  { href: "/app/activity", label: "My Activity", icon: "audit" },
   { href: "/admin/submissions", label: "Submission Monitoring", icon: "submissions" },
   { href: "/admin/validation-queue", label: "Validation Queue", icon: "validation" },
   { href: "/admin/approval-queue", label: "Approval Queue", icon: "approvals" },
@@ -25,7 +26,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/simulator", label: "Reduction Simulator", icon: "simulator", superOnly: true },
   // Output and oversight.
   { href: "/admin/reports", label: "Reports", icon: "reports", startsGroup: true },
-  { href: "/admin/audit-trail", label: "Audit Trail", icon: "audit", superOnly: true },
+  { href: "/admin/audit-trail", label: "Audit Trail", icon: "audit" },
   // Set up again each reporting cycle or financial year.
   {
     href: "/admin/reporting-periods",

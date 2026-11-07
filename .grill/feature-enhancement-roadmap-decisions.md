@@ -89,13 +89,25 @@ Date: 2026-11-07
   same-bill check and the Bill no. column work for electricity; the utility it already records stands in for the
   supplier.
 
+## Phase 4 decisions (2026-11-08)
+- Decision (req. 9, plan 4.1): whoever may generate reports for a unit may forward a ready report, with an optional
+  note, to the Administrators of the next unit up; if that unit has none, the next one above, ending with the Super
+  Admins. A unit under several parents goes to each parent's Administrators. Outcomes: Verify (optionally forward
+  on to the level above) or Return for correction with a reason; no Rejected. Every step audited and notified; the
+  report shows its trail; nobody verifies a report they generated or forwarded.
+- Decision (req. 12, 29, 30, plan 4.2): everyone sees their own entries ("My activity"); an Administrator also sees
+  every entry about something inside their units (records, documents, OCR, reports and forwarding, people holding a
+  role there), with the person's name and role; Super Admin sees everything. Entries are scoped by what they are
+  about, not by who did them; group-wide configuration stays Super Admin only. The Audit Trail gets a search bar and
+  filters (mine / all I may see / a person / a role / dates / action). Approvers see a record's history in its panel,
+  as today.
+
 ## Surfaced assumptions
 - "Device" cannot be identified by a web app; a browser (cookie) is the device. One account per browser already holds.
 - A session left open on a closed laptop stays active until its 3-hour idle limit, so the takeover prompt will
   appear in that case too; that is intended.
 
 ## Open questions (asked at the start of the phase that needs them)
-- Phase 4: who receives a forwarded report and what outcomes exist; which roles see whose logs.
 - Phase 5: one reminder schedule reconciling the 7-day daily window with 5/3/0-day reminders.
 - Phase 6: an authoritative factor source (SEBI API existence is unconfirmed).
 - Lane: who builds ui-lane items (3, 6, 8, 40 and the UI parts of others).

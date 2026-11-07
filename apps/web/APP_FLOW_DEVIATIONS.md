@@ -747,3 +747,11 @@ in the record panel (Retry open to an Administrator inside their units). `/admin
 step; low-confidence values not yet dealt with are red; a changed value shows what OCR read; a missing billing
 period says why; the values download as an Excel sheet. A document that clearly looks like another activity's is
 flagged in the Validation Queue.
+
+## A44 — Report verification and scoped audit logs (2026-11-08, Phase 4)
+
+A ready report can be forwarded for verification from its page; Reports lists "Reports to verify" for the receiving
+Administrators (or the Super Admins), who verify it (and may forward it on) or return it with a reason; the report
+page shows the whole trail. Everyone has My Activity (their own audit entries, with a search bar). The Audit Trail is
+open to Administrators, showing their own entries and everything about their units, with search, Only my activity,
+a role filter and each person's roles; a record's full history opens for its unit's Administrators.

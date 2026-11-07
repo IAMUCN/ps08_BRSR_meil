@@ -41,3 +41,20 @@ export async function bundlePreviewAction(input: {
 }) {
   return runAction((api) => api.reports.bundlePreview(input));
 }
+
+// Forwarding a report for verification (Phase 4); the procedures check who may.
+export async function forwardReportAction(input: {
+  reportRunId: string;
+  fromForwardId?: string;
+  note?: string;
+}) {
+  return runAction((api) => api.reportForwarding.forward(input));
+}
+
+export async function decideForwardAction(input: {
+  forwardId: string;
+  decision: "verify" | "return";
+  reason?: string;
+}) {
+  return runAction((api) => api.reportForwarding.decide(input));
+}

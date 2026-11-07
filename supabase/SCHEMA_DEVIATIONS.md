@@ -674,3 +674,14 @@ An optional `invoice_number` field ("Bill number") for Grid Electricity, so the 
 column work for electricity bills; the utility in Source classification stands in for the supplier. OCR rules-14
 also stores `page_sizes`, `classification.mismatch` and `diagnostics` in `ocr_extractions.raw_output` (no schema
 change). feature_enhancement.md Phase 3; `.grill/feature-enhancement-roadmap-decisions.md`.
+
+## D48 — Forwarding a report for verification (migration `0058`, 2026-11-08)
+
+`report_forwards`: one row per step of a report travelling up the organisation (from unit, to unit — null for the
+Super Admins — who forwarded, an optional note, the previous step, and the decision: pending, verified or returned
+with a reason). One open step per report and receiver; server-only. The receivers are the Administrators of the
+next unit up that has any (lib/reports/forwarding.ts). The audit log is now readable by everyone through the app,
+scoped: own entries, plus an Administrator's units' entries (lib/trpc/routers/audit.ts); no schema change for that.
+feature_enhancement.md Phase 4; `.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** `drop table public.report_forwards`.

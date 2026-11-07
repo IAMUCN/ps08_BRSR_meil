@@ -5,14 +5,20 @@ import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { PageHeader } from "@/components/shell/page-header";
 import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api, orNotFound } from "@/lib/trpc/server";
+import { ReportForwarding } from "@/components/reports/report-forwarding";
 import { ReportView } from "./report-view";
 
 export const metadata: Metadata = { title: "Report · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Report Detail / Drill-down: the stored report with live links into its data trail.
 export default async function ReportDetailPage({ params }: PageProps<"/admin/reports/[reportId]">) {
-  const [, caller, { reportId }] = await Promise.all([requireAdminAreaSession(), api(), params]);
+  const [session, caller, { reportId }] = await Promise.all([
+    requireAdminAreaSession(),
+    api(),
+    params,
+  ]);
   const run = await orNotFound(caller.reports.get({ id: reportId }));
+  const steps = await caller.reportForwarding.trail({ reportRunId: reportId });
   const s = run.snapshot;
 
   return (
@@ -53,6 +59,17 @@ export default async function ReportDetailPage({ params }: PageProps<"/admin/rep
           Generating report… this page refreshes on its own, and you&apos;ll be notified when
           it&apos;s ready.
         </p>
+      ) : null}
+      {run.status === "completed" ? (
+        <ReportForwarding
+          reportRunId={run.id}
+          steps={steps}
+          // The server decides precisely; offered while the report may be sent and nothing waits.
+          canForward={
+            session.permissions.includes("report.generate") &&
+            !steps.some((step) => step.status === "pending")
+          }
+        />
       ) : null}
       {s ? <ReportView snapshot={s} /> : null}
     </div>

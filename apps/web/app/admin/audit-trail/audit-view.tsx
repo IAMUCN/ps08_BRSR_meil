@@ -17,9 +17,18 @@ export type AuditFilterValues = Record<string, string | undefined>;
 export function AuditFilters({
   options,
   values,
+  compact = false,
 }: {
-  options: { users: { id: string; name: string }[]; eventTypes: string[]; entityTypes: string[] };
+  options: {
+    users: { id: string; name: string }[];
+    eventTypes: string[];
+    entityTypes: string[];
+    roles?: { code: string; name: string }[];
+    reach?: "all" | "units" | "own";
+  };
   values: AuditFilterValues;
+  /** My Activity: search, action and dates only (the entries are all the caller's own). */
+  compact?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -43,17 +52,48 @@ export function AuditFilters({
       onSubmit={submit}
       className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3"
     >
-      <label className={label}>
-        User
-        <NativeSelect {...field("user")}>
-          <option value="">Anyone (incl. system)</option>
-          {options.users.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name}
-            </option>
-          ))}
-        </NativeSelect>
+      {/* The search bar (Phase 4, requirement 12): action, person, reason and values. */}
+      <label className={`${label} min-w-56 flex-1`}>
+        Search
+        <Input type="search" placeholder="e.g. approved diesel, a name" {...field("q")} />
       </label>
+      {options.reach !== "own" ? (
+        <label className={label}>
+          Show
+          <NativeSelect {...field("mine")}>
+            <option value="">
+              {options.reach === "units" ? "Everything I may see" : "Everyone"}
+            </option>
+            <option value="1">Only my activity</option>
+          </NativeSelect>
+        </label>
+      ) : null}
+      {options.roles?.length && options.reach !== "own" ? (
+        <label className={label}>
+          Role
+          <NativeSelect {...field("role")}>
+            <option value="">Any role</option>
+            {options.roles.map((r) => (
+              <option key={r.code} value={r.code}>
+                {r.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </label>
+      ) : null}
+      {compact ? null : (
+        <label className={label}>
+          User
+          <NativeSelect {...field("user")}>
+            <option value="">Anyone (incl. system)</option>
+            {options.users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </label>
+      )}
       <label className={label}>
         Action
         <NativeSelect {...field("event")}>
@@ -65,25 +105,29 @@ export function AuditFilters({
           ))}
         </NativeSelect>
       </label>
-      <label className={label}>
-        Record type
-        <NativeSelect {...field("entity")}>
-          <option value="">Any</option>
-          {options.entityTypes.map((e) => (
-            <option key={e} value={e}>
-              {e}
-            </option>
-          ))}
-        </NativeSelect>
-      </label>
-      <label className={label}>
-        Record id
-        <Input
-          placeholder="uuid"
-          className="w-72 max-w-[calc(100vw-7rem)] font-mono text-xs"
-          {...field("id")}
-        />
-      </label>
+      {compact ? null : (
+        <>
+          <label className={label}>
+            Record type
+            <NativeSelect {...field("entity")}>
+              <option value="">Any</option>
+              {options.entityTypes.map((e) => (
+                <option key={e} value={e}>
+                  {e}
+                </option>
+              ))}
+            </NativeSelect>
+          </label>
+          <label className={label}>
+            Record id
+            <Input
+              placeholder="uuid"
+              className="w-72 max-w-[calc(100vw-7rem)] font-mono text-xs"
+              {...field("id")}
+            />
+          </label>
+        </>
+      )}
       <label className={label}>
         From
         <Input type="date" {...field("from")} />
@@ -124,7 +168,7 @@ function exportCsv(events: AuditEvent[]) {
       e.event,
       e.entityType,
       e.entityId,
-      e.who ?? "system",
+      e.who ? `${e.who}${e.whoRoles ? ` (${e.whoRoles})` : ""}` : "system",
       e.oldValue,
       e.newValue,
       e.reason,
@@ -213,7 +257,12 @@ export function AuditTable({ events }: { events: AuditEvent[] }) {
                         {e.entityId}
                       </span>
                     </td>
-                    <td className="px-3 py-2">{e.who ?? "System"}</td>
+                    <td className="px-3 py-2">
+                      {e.who ?? "System"}
+                      {e.whoRoles ? (
+                        <span className="block text-xs text-muted-foreground">{e.whoRoles}</span>
+                      ) : null}
+                    </td>
                     <td className="max-w-xs px-3 py-2 text-xs">{e.reason ?? "—"}</td>
                   </tr>
                   {expanded ? (

@@ -16,6 +16,7 @@ import { chatRouter } from "@/lib/trpc/routers/chat";
 import { consolidationRouter } from "@/lib/trpc/routers/consolidation";
 import { recordsRouter } from "@/lib/trpc/routers/records";
 import { reportsRouter } from "@/lib/trpc/routers/reports";
+import { reportForwardingRouter } from "@/lib/trpc/routers/report-forwarding";
 import { validationRouter } from "@/lib/trpc/routers/validation";
 import { verificationRouter } from "@/lib/trpc/routers/verification";
 import { rolesRouter } from "@/lib/trpc/routers/roles";
@@ -53,6 +54,7 @@ export const appRouter = router({
   consolidation: consolidationRouter,
   records: recordsRouter,
   reports: reportsRouter,
+  reportForwarding: reportForwardingRouter,
   audit: auditRouter,
   chat: chatRouter,
   carbonCredits: carbonCreditsRouter,

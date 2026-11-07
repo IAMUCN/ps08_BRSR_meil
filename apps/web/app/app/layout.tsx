@@ -13,6 +13,7 @@ const APP_NAV: NavItem[] = [
   { href: "/app", label: "Dashboard", icon: "dashboard" },
   { href: "/app/upload", label: "Upload", icon: "upload" },
   { href: "/app/submissions", label: "My Submissions", icon: "submissions" },
+  { href: "/app/activity", label: "My Activity", icon: "audit" },
 ];
 
 export default async function WorkspaceLayout({ children }: LayoutProps<"/app">) {

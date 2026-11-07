@@ -932,7 +932,9 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   3       COMPLETED     2026-11-08 except 3.4 (handwriting: waiting for
                         bus-ticket photos); uncommitted; migration 0057
                         and the rules-14 worker on hosted (2026-11-08)
-  4--10   NOT STARTED
+  4       COMPLETED     2026-11-08, uncommitted; migration 0058 on
+                        local and hosted (2026-11-08)
+  5--10   NOT STARTED
 
 ## Requirements
 
@@ -952,11 +954,13 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
        pen-laptop cursor fix                         on mobile" merged on ucn
                                                      main 2026-11-07 (debbcce);
                                                      not yet checked
-  9    Missing                         NOT STARTED
+  9    Missing                         COMPLETED     forward up the hierarchy;
+                                                     verify or return; trail
   10   Partial                         NOT STARTED
   11   Partial                         COMPLETED     show/hide on forgot-password,
                                                      reset-password and Profile
-  12   Missing                         NOT STARTED
+  12   Missing                         COMPLETED     search bar on Audit Trail
+                                                     and My Activity
   13   Partial                         COMPLETED     20 approved names; codes off
                                                      Roles & Permissions
   14   Missing                         NOT STARTED   after feature freeze
@@ -986,8 +990,9 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                                                      in rules-14; reason stored
   28   Partial                         COMPLETED     OCR checks every type; a
                                                      mismatch is flagged
-  29   Missing                         NOT STARTED
-  30   Missing                         NOT STARTED
+  29   Missing                         COMPLETED     My Activity for everyone
+  30   Missing                         COMPLETED     Administrators see their
+                                                     units' entries; roles shown
   31   Missing                         NOT STARTED
   32   Missing                         COMPLETED     decided: one device per
                                                      account (same as 18)

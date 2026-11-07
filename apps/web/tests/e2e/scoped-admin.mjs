@@ -104,8 +104,11 @@ check(
   "their sidebar offers no group-wide configuration",
   !dashboard.html.includes("/admin/conversion-factors") &&
     !dashboard.html.includes("/admin/roles") &&
-    !dashboard.html.includes("/admin/audit-trail") &&
     dashboard.html.includes("/admin/users"),
+);
+check(
+  "and the Audit Trail, scoped to their units (Phase 4)",
+  dashboard.html.includes("/admin/audit-trail"),
 );
 
 section("Group-wide configuration stays with the Super Admin");
@@ -115,12 +118,14 @@ for (const path of [
   "/admin/reporting-periods",
   "/admin/brsr-mapping",
   "/admin/disclosures",
-  "/admin/audit-trail",
 ]) {
   check(`${path} sends the subsidiary Administrator away`, sentAway(await subAdmin.get(path)));
 }
-for (const path of ["audit.query", "roles.matrix", "ocr.jobs"]) {
-  const input = path === "audit.query" ? {} : undefined;
+// Phase 4: an Administrator reads the audit log too, but only their own entries and their units'.
+const subAudit = await subAdmin.query("audit.query", {});
+check("the Administrator may open the audit log (scoped)", ok(subAudit), subAudit.error);
+for (const path of ["roles.matrix", "ocr.jobs"]) {
+  const input = undefined;
   check(`reading ${path} is refused`, (await subAdmin.query(path, input)).status === 403);
 }
 // Phase 3: OCR Monitoring is part of Submission Monitoring now; the old address sends everyone there.

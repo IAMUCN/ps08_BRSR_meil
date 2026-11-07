@@ -156,7 +156,23 @@ const adminOnly = [
 ];
 for (const [path, input] of adminOnly)
   check(`a PM calling ${path} is refused`, (await pm.mutate(path, input)).status === 403);
-for (const path of ["audit.query", "records.search", "users.list"]) {
+// Phase 4: the audit log is open to everyone, scoped; a PM gets only their own entries.
+const pmAudit = await pm.query("audit.query", {});
+const pmEventIds = (pmAudit.data?.events ?? []).map((e) => e.id);
+const notPms = pmEventIds.length
+  ? (
+      await one(sql`
+        select count(*)::int as n from public.audit_logs
+        where id = any(${pmEventIds}::uuid[])
+          and user_id is distinct from (select id from public.users where email = ${credentials.pm.email})`)
+    ).n
+  : 0;
+check(
+  "a PM reading audit.query gets their own entries and nobody else's",
+  ok(pmAudit) && pmEventIds.length > 0 && notPms === 0,
+  `${pmEventIds.length} entries, ${notPms} not theirs`,
+);
+for (const path of ["records.search", "users.list"]) {
   check(
     `a PM reading ${path} is refused`,
     (await pm.query(path, path === "users.list" ? undefined : {})).status === 403,
