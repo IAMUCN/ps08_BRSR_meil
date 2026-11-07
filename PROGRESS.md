@@ -102,6 +102,7 @@ may run in parallel with Phases 3–5.
 | — | Stages 2 and 3 of 6: invitation links (migration `0051`) and session time limits (migration `0052`) | Done in the same working tree, **uncommitted, not on hosted** | — |
 | — | Feature roadmap (`feature_enhancement.md`) Phase 0 audit and Phase 1: one session per account (migration `0055`), permission names, show/hide password, security re-check | Done on branch `feature-session-takeover-security`, **uncommitted; `0055` local only** | — |
 | — | Feature roadmap Phase 2: several open periods, late uploads, duplicate rules, bill number, monitoring filters, stage tracker, approval list (migration `0056`) | Done, **uncommitted**; `0056` on hosted (2026-11-08) | — |
+| — | Feature roadmap Phase 3: billing-period fix (rules-14), document-kind check, one monitoring page, field grid with source boxes, electricity bill number (migration `0057`) | Done, **uncommitted**; `0057` and the rules-14 worker on hosted (2026-11-08) | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -850,6 +851,16 @@ names. Checks: web unit 243, database 425/425, end-to-end 12 of 13 scripts in fu
 `phase2-lifecycle.mjs` 45/45; feedback-2026-11 stops at the old Add ID refresh step), browser `ui-phase2.mjs` 13/13
 in Edge, typecheck, lint, production build. Not on hosted. Findings: Grid Electricity captures no bill number; every
 activity has one document type.
+
+**Feature roadmap, Phase 3 (2026-11-08).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 3
+decisions"); D47, A43. The missing billing period on photographed TPCODL bills was traced on hosted (the present
+reading's date runs into the reading, "PRES:7591.1201-04-2026") and fixed in OCR `rules-14` at a capped confidence;
+a missing period now says why. OCR checks every document type and flags a clear mismatch with the chosen activity.
+OCR Monitoring is part of Submission Monitoring (OCR column, filter, stalled-worker warning, Retry in the record
+panel). Verify Extraction boxes each value on the document and keeps both in step; unresolved low-confidence values
+are red; the values download as Excel. Grid Electricity records its bill number (migration `0057`). Handwriting
+(conductor-written bus tickets) waits for sample photos. Checks: worker unit 53/53 and Ruff, web unit 244, database
+425/425, end-to-end 13 of 14 scripts in full with the rules-14 image (601 checks, `phase3-ocr.mjs` 22/22; feedback-2026-11 stops at the old Add ID step), browser `ui-phase3.mjs` 8/8, typecheck, lint, build.
 
 Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
 docs, the phone and tablet pass.

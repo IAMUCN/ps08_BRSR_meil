@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OrgTreeSelect } from "@/components/org/org-tree-select";
 import { NativeSelect } from "@/components/ui/native-select";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { csvSafeText } from "@/lib/csv";
 import { formatQuantity } from "@/lib/calculation/trace";
 import type { RecordRow } from "@/lib/records/search";
@@ -26,6 +27,15 @@ export const ISSUE_LABELS: Record<string, string> = {
   anomaly: "Anomalous values",
   pending_approval: "Pending approvals",
   missing_submissions: "Missing submissions",
+};
+
+/** What OCR made of the document (Phase 3: OCR Monitoring folded in), with its colour. */
+export const OCR_LABELS: Record<string, { label: string; tone: StatusTone }> = {
+  reading: { label: "Reading", tone: "neutral" },
+  read: { label: "Read", tone: "success" },
+  attention: { label: "Needs attention", tone: "warning" },
+  failed: { label: "Failed", tone: "error" },
+  manual: { label: "Manual entry", tone: "warning" },
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -62,7 +72,7 @@ export function ContextFilters({
   const applied = useRef(params.q ?? "");
   const latest = useRef<(value: string) => void>(() => {});
   // Whatever narrows the list beyond the organization and the period, which always have a value.
-  const narrowed = ["fy", "scope", "metric", "doctype", "role", "status", "issue", "q"].some(
+  const narrowed = ["fy", "scope", "metric", "doctype", "role", "status", "issue", "q", "ocr"].some(
     (k) => params[k],
   );
   const set = (key: string, value: string) => {
@@ -247,6 +257,15 @@ export function ContextFilters({
         {select("f-status", "Status", params.status ?? "", Object.entries(STATUS_LABELS), "status")}
         {variant === "monitoring"
           ? select(
+              "f-ocr",
+              "OCR",
+              params.ocr ?? "",
+              Object.entries(OCR_LABELS).map(([k, v]) => [k, v.label]),
+              "ocr",
+            )
+          : null}
+        {variant === "monitoring"
+          ? select(
               "f-issue",
               "Issue",
               params.issue ?? "",
@@ -349,7 +368,7 @@ export function RecordsTable({
   const [selected, setSelected] = useState<string | null>(null);
   const headings =
     variant === "monitoring"
-      ? ["Document", "ESG activity", "Org unit", "Period", "Submitted by", "Status"]
+      ? ["Document", "ESG activity", "Org unit", "Period", "Submitted by", "OCR", "Status"]
       : ["Document", "Metric", "Org unit", "Period", "Value", "Status"];
 
   return (
@@ -426,6 +445,22 @@ export function RecordsTable({
                       valueOf(r)
                     )}
                   </td>
+                  {variant === "monitoring" ? (
+                    <td className="px-3 py-2.5">
+                      {OCR_LABELS[r.ocrState] ? (
+                        <StatusBadge tone={OCR_LABELS[r.ocrState].tone}>
+                          {OCR_LABELS[r.ocrState].label}
+                        </StatusBadge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No document</span>
+                      )}
+                      {r.ocrState === "failed" && r.ocrError ? (
+                        <span className="mt-1 block max-w-48 text-xs leading-4 text-muted-foreground">
+                          {r.ocrError}
+                        </span>
+                      ) : null}
+                    </td>
+                  ) : null}
                   <td className="px-3 py-2.5">
                     <StageBadge
                       row={{

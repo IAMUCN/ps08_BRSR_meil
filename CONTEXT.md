@@ -592,6 +592,13 @@ _Last updated: 2026-11-07._
   Hosted's open period "oct" has no late date, so it closes on its due date (11 Nov 2026) unless one is set.
   Findings: Grid Electricity captures no bill number (same-bill and Bill no. work only for the 40 activities with
   one); every activity maps to one document type, so type correction has nothing to choose until one has several.
+- **Phase 3 (2026-11-08), uncommitted. On hosted since 2026-11-08 (owner's "go"):** migration `0057` (read back:
+  the field exists, 34 users and 73 records unchanged) and the OCR worker on `rules-14`: `traceesg-ocr-worker:latest`
+  now = the rules-14 image, container `traceesg-ocr-worker-hosted` recreated with the old container's own four
+  settings, reports "worker ready"; hosted queue: 79 jobs, all completed. The previous container is kept stopped as
+  `traceesg-ocr-worker-hosted-rules13` (image `5ee1ae92263e`) for rollback; delete it once rules-14 has read a real
+  upload. The end-to-end suite takes `E2E_WORKER_IMAGE`.
+  Handwriting (req. 15) waits for the owner's bus-ticket photos.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)

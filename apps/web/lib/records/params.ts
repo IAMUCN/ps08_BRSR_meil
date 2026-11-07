@@ -1,4 +1,4 @@
-import { ISSUES, STATUSES, type Issue, type Status } from "./search";
+import { ISSUES, OCR_STATES, STATUSES, type Issue, type Status } from "./search";
 
 // URL search params → a validated records query (unknown values are dropped, never passed through).
 
@@ -25,6 +25,9 @@ export function readParams(params: Params) {
     documentTypeCode: one(params, "doctype"),
     roleCode: one(params, "role"),
     text: one(params, "q")?.trim().slice(0, 100) || undefined,
+    ocr: OCR_STATES.includes(one(params, "ocr") as never)
+      ? (one(params, "ocr") as (typeof OCR_STATES)[number])
+      : undefined,
     status: STATUSES.includes(status as Status) ? (status as Status) : undefined,
     issue: ISSUES.includes(issue as Issue) ? (issue as Issue) : undefined,
     missingSubmissions: issue === "missing_submissions",

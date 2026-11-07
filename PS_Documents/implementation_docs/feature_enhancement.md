@@ -929,13 +929,17 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                         (hosted needs the owner's go-ahead)
   2       COMPLETED     2026-11-08, same branch, uncommitted; migration
                         0056 on local and hosted (2026-11-08)
-  3--10   NOT STARTED
+  3       COMPLETED     2026-11-08 except 3.4 (handwriting: waiting for
+                        bus-ticket photos); uncommitted; migration 0057
+                        and the rules-14 worker on hosted (2026-11-08)
+  4--10   NOT STARTED
 
 ## Requirements
 
   \#   Found in Phase 0                Status        Notes
   ---- ------------------------------- ------------- ----------------------------
-  1    Partial                         NOT STARTED
+  1    Partial                         COMPLETED     one monitoring page; document
+                                                     and OCR in the record panel
   2    Partial                         COMPLETED     thumbnail on approval rows;
                                                      bill beside its values
   3    Missing                         NOT STARTED   ui lane
@@ -956,7 +960,8 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   13   Partial                         COMPLETED     20 approved names; codes off
                                                      Roles & Permissions
   14   Missing                         NOT STARTED   after feature freeze
-  15   Missing                         BLOCKED       reference diagram needed
+  15   Missing                         BLOCKED       = conductor-written bus tickets;
+                                                     waiting for 3-5 real photos
   16   Partial                         NOT STARTED
   17   Missing                         NOT STARTED   research first
   18   Missing                         COMPLETED     one session per account for
@@ -974,10 +979,13 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   24   Missing                         NOT STARTED
   25   Missing                         COMPLETED     Document type and Activity
                                                      filters; Admin correction
-  26   Partial                         NOT STARTED
-  27   Unknown                         NOT STARTED   failing image needed
-  28   Partial                         IN PROGRESS   filters and correction done;
-                                                     detection itself is Phase 3
+  26   Partial                         COMPLETED     OCR column, colours, filter,
+                                                     banner, Retry in the panel
+  27   Unknown                         COMPLETED     cause found on hosted photos
+                                                     (date glued to reading); fixed
+                                                     in rules-14; reason stored
+  28   Partial                         COMPLETED     OCR checks every type; a
+                                                     mismatch is flagged
   29   Missing                         NOT STARTED
   30   Missing                         NOT STARTED
   31   Missing                         NOT STARTED
@@ -986,10 +994,11 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   33   Partial                         NOT STARTED
   34   Partial                         NOT STARTED
   35   Partial                         NOT STARTED
-  36   Exists                          NOT STARTED   verify on device
+  36   Exists                          COMPLETED     zoom kept; boxes follow zoom
   37   Partial (dump ready)            BLOCKED       deferred by the owner
                                                      until after the HoD demo
-  38   Missing                         NOT STARTED
+  38   Missing                         COMPLETED     field grid: red cells, boxes
+                                                     on the document, Excel
   39   Exists (mostly)                 COMPLETED     several open periods; due and
                                                      late dates; Late flag
   40   Exists                          NOT STARTED   ui lane

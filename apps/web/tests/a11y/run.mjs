@@ -59,7 +59,6 @@ const ADMIN = [
   "/admin/reports",
   "/admin/reports/bundle",
   "/admin/audit-trail",
-  "/admin/ocr-monitoring",
   "/admin/deadlines",
   "/admin/forecast",
   "/admin/simulator",

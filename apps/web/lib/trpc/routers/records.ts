@@ -19,6 +19,7 @@ import { db } from "@/lib/db";
 import { loadOrgNodes } from "@/lib/org/nodes";
 import {
   ISSUES,
+  OCR_STATES,
   searchRecords,
   STATUSES,
   RECORD_LIMIT,
@@ -136,6 +137,8 @@ const searchInput = contextInput.extend({
   issue: z.enum(ISSUES).optional(),
   /** The search box: words a record must contain. */
   text: z.string().trim().max(100).optional(),
+  /** What OCR made of the document (Phase 3). */
+  ocr: z.enum(OCR_STATES).optional(),
 });
 
 export type AuditEntry = {
@@ -169,6 +172,17 @@ export type RecordDetail = {
   documentType: { id: string; name: string; source: "ocr" | "person" | "admin" } | null;
   /** The document types of this activity, for an Admin's correction. */
   documentTypeOptions: { id: string; name: string }[];
+  /** What OCR made of the document (Phase 3: OCR Monitoring folded into this panel). */
+  ocr: {
+    jobId: string;
+    status: string;
+    attempts: number;
+    error: string | null;
+    modelVersion: string | null;
+    completedAt: string | null;
+  } | null;
+  /** Each field's OCR confidence (0–100), by label, for the panel's values. */
+  confidences: Record<string, number | null>;
 };
 
 /** A reason an Admin gives for a correction or a return; the same length as other review reasons. */
@@ -351,36 +365,52 @@ export const recordsRouter = router({
     };
   }),
 
-  search: adminAreaProcedure
-    .input(searchInput)
-    .query(
-      async ({
-        ctx,
-        input,
-      }): Promise<{ context: ContextOptions; rows: RecordRow[]; truncated: boolean }> => {
-        const context = await resolveContext(ctx.session, input.orgUnitId, input.periodId);
-        let periodIds = context.periodId ? [context.periodId] : [];
-        if (input.financialYear !== undefined) {
-          const { from, to } = financialYearRange(input.financialYear);
-          const periods = await db()<{ id: string }[]>`
+  search: adminAreaProcedure.input(searchInput).query(
+    async ({
+      ctx,
+      input,
+    }): Promise<{
+      context: ContextOptions;
+      rows: RecordRow[];
+      truncated: boolean;
+      /** The oldest document still waiting for OCR, for the stalled-worker banner (Phase 3). */
+      oldestPendingSince: string | null;
+    }> => {
+      const context = await resolveContext(ctx.session, input.orgUnitId, input.periodId);
+      let periodIds = context.periodId ? [context.periodId] : [];
+      if (input.financialYear !== undefined) {
+        const { from, to } = financialYearRange(input.financialYear);
+        const periods = await db()<{ id: string }[]>`
           select id from public.reporting_periods where start_date >= ${from} and end_date <= ${to}`;
-          periodIds = periods.map((p) => p.id);
-        }
-        const filters: RecordFilters = {
-          orgUnitId: context.orgUnitId,
-          periodIds,
-          scopeCode: input.scopeCode,
-          metricCode: input.metricCode,
-          documentTypeCode: input.documentTypeCode,
-          roleCode: input.roleCode,
-          status: input.status,
-          issue: input.issue,
-          text: input.text,
-        };
-        const rows = await searchRecords(db(), filters);
-        return { context, rows, truncated: rows.length === RECORD_LIMIT };
-      },
-    ),
+        periodIds = periods.map((p) => p.id);
+      }
+      const filters: RecordFilters = {
+        orgUnitId: context.orgUnitId,
+        periodIds,
+        scopeCode: input.scopeCode,
+        metricCode: input.metricCode,
+        documentTypeCode: input.documentTypeCode,
+        roleCode: input.roleCode,
+        status: input.status,
+        issue: input.issue,
+        text: input.text,
+        ocr: input.ocr,
+      };
+      const [rows, [pending]] = await Promise.all([
+        searchRecords(db(), filters),
+        db()<{ since: Date | null }[]>`
+            select min(d.created_at) as since
+            from public.ocr_jobs j join public.documents d on d.id = j.document_id
+            where j.status = 'pending' and d.deleted_at is null`,
+      ]);
+      return {
+        context,
+        rows,
+        truncated: rows.length === RECORD_LIMIT,
+        oldestPendingSince: pending?.since?.toISOString() ?? null,
+      };
+    },
+  ),
 
   /** Expected submissions with nothing filed for the period (Control Tower "missing submissions"). */
   missing: adminAreaProcedure
@@ -455,30 +485,50 @@ export const recordsRouter = router({
         where r.id = ${input.recordId}`;
       if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Record not found." });
 
-      const [fields, results, audit, calculations, typeOptions] = await Promise.all([
-        sql<{ label: string; value: string | null }[]>`
+      const [fields, results, audit, calculations, typeOptions, [job], confidenceRows] =
+        await Promise.all([
+          sql<{ label: string; value: string | null }[]>`
           select f.field_label as label, coalesce(f.verified_value, f.extracted_value) as value
           from public.ocr_extractions e join public.ocr_fields f on f.ocr_extraction_id = e.id
           where e.document_id = ${r.document_id} order by f.field_label`,
-        sql<{ rule_type: string; outcome: string; message: string }[]>`
+          sql<{ rule_type: string; outcome: string; message: string }[]>`
           select vr.rule_type::text, vr.result::text as outcome, vr.message
           from public.validation_results vr
           where vr.esg_record_id = ${r.id}
             and vr.evaluated_at = (select max(evaluated_at) from public.validation_results
                                    where esg_record_id = ${r.id})
           order by vr.rule_type`,
-        // The record's own events and its document's (upload, OCR), oldest first.
-        sql<{ created_at: Date; event_type: string; who: string | null; reason: string | null }[]>`
+          // The record's own events and its document's (upload, OCR), oldest first.
+          sql<
+            { created_at: Date; event_type: string; who: string | null; reason: string | null }[]
+          >`
           select a.created_at, a.event_type, u.display_name as who, a.reason
           from public.audit_logs a left join public.users u on u.id = a.user_id
           where a.entity_id = ${r.id} or a.entity_id = ${r.document_id}
           order by a.created_at`,
-        loadCalculations(sql, [r.id]),
-        sql<{ id: string; name: string }[]>`
+          loadCalculations(sql, [r.id]),
+          sql<{ id: string; name: string }[]>`
           select dt.id, dt.name from public.document_type_metric_mappings map
           join public.document_types dt on dt.id = map.document_type_id
           where map.metric_id = ${r.metric_id} order by dt.name`,
-      ]);
+          sql<
+            {
+              id: string;
+              status: string;
+              retry_count: number;
+              error_message: string | null;
+              model_version: string | null;
+              completed_at: Date | null;
+            }[]
+          >`
+          select id, status::text, retry_count, error_message, model_version, completed_at
+          from public.ocr_jobs where document_id = ${r.document_id}
+          order by started_at desc nulls first limit 1`,
+          sql<{ label: string; confidence: number | null }[]>`
+          select f.field_label as label, f.confidence::float as confidence
+          from public.ocr_extractions e join public.ocr_fields f on f.ocr_extraction_id = e.id
+          where e.document_id = ${r.document_id}`,
+        ]);
 
       return {
         recordId: r.id,
@@ -519,6 +569,17 @@ export const recordsRouter = router({
             ? { id: r.document_type_id, name: r.document_type_name, source: r.document_type_source }
             : null,
         documentTypeOptions: typeOptions,
+        ocr: job
+          ? {
+              jobId: job.id,
+              status: job.status,
+              attempts: job.retry_count,
+              error: job.error_message,
+              modelVersion: job.model_version,
+              completedAt: job.completed_at?.toISOString() ?? null,
+            }
+          : null,
+        confidences: Object.fromEntries(confidenceRows.map((c) => [c.label, c.confidence])),
       };
     }),
 

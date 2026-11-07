@@ -46,3 +46,8 @@ export async function rejectDocumentAction(documentId: string, reason: string) {
   if (result.ok) revalidateWorkspace();
   return result;
 }
+
+/** Where each field was read and why one was not (Phase 3, the field grid's highlighting). */
+export async function fieldSourcesAction(documentId: string) {
+  return runAction((api) => api.verification.sources({ documentId }));
+}

@@ -116,7 +116,6 @@ for (const path of [
   "/admin/brsr-mapping",
   "/admin/disclosures",
   "/admin/audit-trail",
-  "/admin/ocr-monitoring",
 ]) {
   check(`${path} sends the subsidiary Administrator away`, sentAway(await subAdmin.get(path)));
 }
@@ -124,6 +123,14 @@ for (const path of ["audit.query", "roles.matrix", "ocr.jobs"]) {
   const input = path === "audit.query" ? {} : undefined;
   check(`reading ${path} is refused`, (await subAdmin.query(path, input)).status === 403);
 }
+// Phase 3: OCR Monitoring is part of Submission Monitoring now; the old address sends everyone there.
+const oldOcr = await subAdmin.get("/admin/ocr-monitoring");
+check(
+  "the old OCR Monitoring address opens Submission Monitoring's OCR filter",
+  /\/admin\/submissions\?ocr=attention/.test(oldOcr.location ?? "") ||
+    oldOcr.html.includes("NEXT_REDIRECT;replace;/admin/submissions?ocr=attention"),
+  oldOcr.location,
+);
 check(
   "the yearly report inputs are refused",
   (await subAdmin.query("reports.inputs", { financialYear: 2026 })).status === 403,

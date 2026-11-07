@@ -193,6 +193,27 @@ export function checkDuplicateInvoice(
       };
 }
 
+/**
+ * Built-in (Phase 3): OCR found that the document clearly looks like another activity's type than the one
+ * chosen at upload. A review flag: the reviewer returns it as the wrong activity, or accepts it.
+ */
+export function checkDocumentKind(
+  suggestion: { typeName: string; activities: string[] } | null,
+  chosenActivity: string,
+): Verdict {
+  if (!suggestion) {
+    return { ok: true, message: `The document matches ${chosenActivity}.` };
+  }
+  const activities = suggestion.activities.length
+    ? ` (used for ${suggestion.activities.join(", ")})`
+    : "";
+  return {
+    ok: false,
+    forceFlag: true,
+    message: `This looks like ${/^[aeiou]/i.test(suggestion.typeName) ? "an" : "a"} ${suggestion.typeName}${activities}, suggested by OCR, but it was uploaded as ${chosenActivity}. If the activity is wrong, return it as the wrong activity.`,
+  };
+}
+
 /** Another record a new one is compared with, named so a reviewer can find it. */
 export type OtherRecord = {
   metricName: string;

@@ -345,6 +345,13 @@ const petrol = await upload(
 );
 await runWorker();
 const petrolConfirm = await confirm(pm, petrol.documentId);
+// The sample is a waste certificate filed as steam, so OCR (rules-14) flags it as another activity's document;
+// an Admin accepts the flag, and the record goes on as before.
+await admin.mutate("validation.review", {
+  recordId: (await recordOf(petrol.documentId)).id,
+  decision: "accept",
+  reason: "Test document reused for steam on purpose.",
+});
 const petrolRecord = await recordOf(petrol.documentId);
 check(
   "the record still reaches the approval queue",

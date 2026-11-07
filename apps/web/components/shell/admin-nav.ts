@@ -13,7 +13,6 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: "/app/upload", label: "Upload", icon: "upload", startsGroup: true },
   { href: "/app/submissions", label: "My Uploads", icon: "submissions" },
   { href: "/admin/submissions", label: "Submission Monitoring", icon: "submissions" },
-  { href: "/admin/ocr-monitoring", label: "OCR Monitoring", icon: "ocr", superOnly: true },
   { href: "/admin/validation-queue", label: "Validation Queue", icon: "validation" },
   { href: "/admin/approval-queue", label: "Approval Queue", icon: "approvals" },
   { href: "/admin/deadlines", label: "Reporting Deadlines", icon: "deadlines", superOnly: true },

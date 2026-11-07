@@ -7,6 +7,7 @@ import {
   aggregate,
   checkAllowedUnits,
   checkBillingPeriodOverlap,
+  checkDocumentKind,
   checkLate,
   checkSameBill,
   checkSameFile,
@@ -61,6 +62,7 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
       extraction_id: string | null;
       extraction_source: string | null;
       submitted_late: boolean;
+      mismatch_code: string | null;
       due_on: string;
       uploaded_on: string | null;
       file_hash: string | null;
@@ -72,6 +74,7 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
            d.id as document_id, d.file_name, e.id as extraction_id,
            e.raw_output->>'source' as extraction_source,
            r.submitted_late,
+           e.raw_output #>> '{classification,mismatch,document_type}' as mismatch_code,
            to_char(coalesce(p.submission_closes_on, p.end_date), 'DD Mon YYYY') as due_on,
            to_char(d.created_at at time zone 'Asia/Kolkata', 'DD Mon YYYY') as uploaded_on,
            d.file_hash, d.related_document_id as replaces_document_id
@@ -153,6 +156,23 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
       manualException: record.extraction_source === "manual_exception",
     }),
   );
+
+  // --- The document's kind (Phase 3): OCR thinks it is another activity's document ------------------
+  let suggestion: { typeName: string; activities: string[] } | null = null;
+  if (record.mismatch_code) {
+    const [type] = await tx<{ name: string; activities: string[] | null }[]>`
+      select dt.name, array_agg(m.name order by m.name) filter (where m.id is not null) as activities
+      from public.document_types dt
+      left join public.document_type_metric_mappings map on map.document_type_id = dt.id
+      left join public.esg_metrics m on m.id = map.metric_id and m.deleted_at is null
+      where dt.code = ${record.mismatch_code}
+        -- Still another activity's type: a mapping added since the upload makes it this one's.
+        and not exists (select 1 from public.document_type_metric_mappings own
+                        where own.document_type_id = dt.id and own.metric_id = ${record.metric_id})
+      group by dt.name`;
+    if (type) suggestion = { typeName: type.name.toLowerCase(), activities: type.activities ?? [] };
+  }
+  builtIn("evidence", checkDocumentKind(suggestion, record.metric_name));
 
   // --- Late and duplicate checks (feature_enhancement.md Phase 2, migration 0056) ---------------------
   builtIn(

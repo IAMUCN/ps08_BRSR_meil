@@ -250,7 +250,60 @@ const fieldEntry = z.object({
   acknowledged: z.boolean().default(false),
 });
 
+/** Where on the document each field was read, and why a field was not (Phase 3, the field grid). */
+export type FieldSources = {
+  /** Width and height of each page image the boxes are measured on; null for uploads read before
+   * rules-14 (the viewer then uses the image's own size, or the PDF page at RENDER_DPI). */
+  pageSizes: [number, number][] | null;
+  renderDpi: number;
+  /** Boxes as [x0, y0, x1, y1] on a 1-based page, per field key. */
+  boxes: Record<string, { page: number; box: [number, number, number, number] }[]>;
+  /** Why a field was not read, in the person's words (only for fields OCR explains). */
+  diagnostics: Record<string, string>;
+};
+
+/** The OCR worker renders PDF pages at this resolution (apps/ocr-worker/worker/files.py). */
+const OCR_RENDER_DPI = 200;
+
+type RawLine = { page?: number; box?: number[] };
+type RawOutput = {
+  lines?: RawLine[];
+  fields?: Record<string, { lines?: number[] } | null>;
+  diagnostics?: Record<string, string>;
+  page_sizes?: [number, number][];
+};
+
 export const verificationRouter = router({
+  /** Field source boxes for the grid's highlighting; nothing for a document the caller can't verify. */
+  sources: protectedProcedure
+    .input(z.object({ documentId: z.uuid() }))
+    .query(async ({ ctx, input }): Promise<FieldSources> => {
+      await requireAccess(ctx.session, input.documentId);
+      const [row] = await db()<{ raw: RawOutput | null }[]>`
+        select e.raw_output as raw from public.ocr_extractions e
+        where e.document_id = ${input.documentId}
+        order by e.extracted_at desc limit 1`;
+      const raw = row?.raw ?? {};
+      const lines = raw.lines ?? [];
+      const boxes: FieldSources["boxes"] = {};
+      for (const [key, source] of Object.entries(raw.fields ?? {})) {
+        const found = (source?.lines ?? [])
+          .map((i) => lines[i])
+          .filter((l): l is Required<RawLine> => Array.isArray(l?.box) && l.box.length === 4)
+          .map((l) => ({
+            page: l.page ?? 1,
+            box: l.box.map(Number) as [number, number, number, number],
+          }));
+        if (found.length) boxes[key] = found;
+      }
+      return {
+        pageSizes: raw.page_sizes ?? null,
+        renderDpi: OCR_RENDER_DPI,
+        boxes,
+        diagnostics: raw.diagnostics ?? {},
+      };
+    }),
+
   /** Everything the Verify Extraction screen renders. Null when the document isn't visible (§4.4). */
   load: protectedProcedure
     .input(z.object({ documentId: z.uuid() }))

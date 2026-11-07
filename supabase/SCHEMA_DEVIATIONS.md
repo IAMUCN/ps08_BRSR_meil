@@ -667,3 +667,10 @@ invoice number, written by validation; existing ones back-filled). `documents.do
 activity). feature_enhancement.md Phase 2; `.grill/feature-enhancement-roadmap-decisions.md`.
 
 **Undo:** in the migration's footer.
+
+## D47 — Grid Electricity records its bill number (migration `0057`, 2026-11-08)
+
+An optional `invoice_number` field ("Bill number") for Grid Electricity, so the same-bill check and the Bill no.
+column work for electricity bills; the utility in Source classification stands in for the supplier. OCR rules-14
+also stores `page_sizes`, `classification.mismatch` and `diagnostics` in `ocr_extractions.raw_output` (no schema
+change). feature_enhancement.md Phase 3; `.grill/feature-enhancement-roadmap-decisions.md`.

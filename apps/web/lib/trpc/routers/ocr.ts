@@ -4,7 +4,8 @@ import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import type { OcrJobStatus, RecordStatus } from "@/lib/ocr/rules";
-import { adminProcedure, protectedProcedure, router } from "@/lib/trpc/init";
+import { inOrgScope } from "@/lib/auth/scope";
+import { adminAreaProcedure, adminProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 
 // Phase 6 OCR status surfacing (.grill/phase-6-ocr-integration-decisions.md). The worker owns job
 // processing (SCHEMA_DEVIATIONS D11); the app reads status and lets Admin re-queue failed jobs.
@@ -287,19 +288,31 @@ export const ocrRouter = router({
     }));
   }),
 
-  /** Re-queue a failed job with fresh attempts (.grill/phase-6-ocr-integration-decisions.md). */
-  retry: adminProcedure.input(z.object({ jobId: z.uuid() })).mutation(async ({ ctx, input }) => {
-    await db().begin(async (tx) => {
-      const [job] = await tx<
-        {
-          id: string;
-          status: OcrJobStatus;
-          retry_count: number;
-          error_message: string | null;
-          document_id: string;
-          verification_status: string | null;
-        }[]
-      >`
+  /**
+   * Re-queue a failed job with fresh attempts (.grill/phase-6-ocr-integration-decisions.md). From the record
+   * panel of Submission Monitoring (Phase 3), so an Administrator may retry inside their own units.
+   */
+  retry: adminAreaProcedure
+    .input(z.object({ jobId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const [owner] = await db()<{ org_unit_id: string }[]>`
+      select d.org_unit_id from public.ocr_jobs j join public.documents d on d.id = j.document_id
+      where j.id = ${input.jobId}`;
+      // Outside the caller's scope reads the same as missing (§4.4).
+      if (!owner || !(await inOrgScope(db(), ctx.session, owner.org_unit_id))) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "That OCR job no longer exists." });
+      }
+      await db().begin(async (tx) => {
+        const [job] = await tx<
+          {
+            id: string;
+            status: OcrJobStatus;
+            retry_count: number;
+            error_message: string | null;
+            document_id: string;
+            verification_status: string | null;
+          }[]
+        >`
           select j.id, j.status, j.retry_count, j.error_message, j.document_id, r.verification_status
           from public.ocr_jobs j
           join public.documents d on d.id = j.document_id and d.deleted_at is null
@@ -307,34 +320,38 @@ export const ocrRouter = router({
           left join public.esg_records r on r.id = erd.esg_record_id
           where j.id = ${input.jobId}
           for update of j`;
-      if (!job) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "That OCR job no longer exists." });
-      }
-      if (job.status !== "failed") {
-        throw new TRPCError({ code: "CONFLICT", message: "Only failed jobs can be retried." });
-      }
-      if (job.verification_status !== "document_uploaded") {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "This document's record is no longer waiting for extraction.",
-        });
-      }
+        if (!job) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "That OCR job no longer exists." });
+        }
+        if (job.status !== "failed") {
+          throw new TRPCError({ code: "CONFLICT", message: "Only failed jobs can be retried." });
+        }
+        if (job.verification_status !== "document_uploaded") {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This document's record is no longer waiting for extraction.",
+          });
+        }
 
-      await tx`
+        await tx`
           update public.ocr_jobs
           set status = 'pending', retry_count = 0, error_message = null, started_at = null,
               completed_at = null
           where id = ${job.id}`;
-      await tx`update public.documents set upload_status = 'uploaded' where id = ${job.document_id}`;
-      await writeAudit(tx, {
-        eventType: "ocr.job_retried",
-        entityType: "ocr_job",
-        entityId: job.id,
-        userId: ctx.session.userId,
-        oldValue: { status: "failed", error_message: job.error_message, attempts: job.retry_count },
-        newValue: { status: "pending", attempts: 0 },
+        await tx`update public.documents set upload_status = 'uploaded' where id = ${job.document_id}`;
+        await writeAudit(tx, {
+          eventType: "ocr.job_retried",
+          entityType: "ocr_job",
+          entityId: job.id,
+          userId: ctx.session.userId,
+          oldValue: {
+            status: "failed",
+            error_message: job.error_message,
+            attempts: job.retry_count,
+          },
+          newValue: { status: "pending", attempts: 0 },
+        });
       });
-    });
-    return null;
-  }),
+      return null;
+    }),
 });

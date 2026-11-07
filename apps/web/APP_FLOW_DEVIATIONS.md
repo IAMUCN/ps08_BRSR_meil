@@ -737,3 +737,13 @@ bill number. The record panel shows a five-step stage tracker with who it waits 
 correct the document type or return the record as the wrong activity (the uploader re-uploads it as a new version).
 The approval list shows a thumbnail of the bill, the bill number and the marks, with Approve / Return on rows that
 need no reading. Downloaded originals are named activity_Bill-number_period.
+
+## A43 — One monitoring page, the field grid, document-kind checks (2026-11-08, Phase 3)
+
+OCR Monitoring is part of Submission Monitoring: an OCR column (Reading, Read, Needs attention, Failed with its
+reason, Manual entry), an OCR filter, the stalled-worker warning, and OCR status, rules version, confidences and Retry
+in the record panel (Retry open to an Administrator inside their units). `/admin/ocr-monitoring` redirects to the
+"Needs attention" filter. Verify Extraction boxes each value where it was read on the document and keeps the two in
+step; low-confidence values not yet dealt with are red; a changed value shows what OCR read; a missing billing
+period says why; the values download as an Excel sheet. A document that clearly looks like another activity's is
+flagged in the Validation Queue.

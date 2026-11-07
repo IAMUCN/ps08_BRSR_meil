@@ -285,3 +285,13 @@ and the system cursor stays. Not checked: a real phone or tablet.
   beside its values and the stage tracker.
 - `app/admin/reporting-periods/periods-manager.tsx`, `app/admin/validation-queue/validation-queue-table.tsx`,
   `app/app/page.tsx` (every open period with its dates).
+
+## Feature lane, 2026-11-08 (Phase 3 of feature_enhancement.md)
+
+- `components/document-viewer/document-viewer.tsx`: optional `regions` overlay (boxes in percent of the page,
+  clickable), used only by Verify Extraction; other screens unchanged.
+- New `components/verification/verify-split.tsx` (Verify Extraction's two halves in step); `field-row.tsx` (red when
+  unresolved, "OCR read:", the missing-field reason, selection); `verify-workspace.tsx` (hint and Download as Excel).
+- `components/records/records-explorer.tsx` (OCR column and filter), new `components/records/record-ocr.tsx` in the
+  record drawer; `components/shell/admin-nav.ts` (OCR Monitoring removed); `app/admin/ocr-monitoring/page.tsx` is a
+  redirect, its table and actions removed.

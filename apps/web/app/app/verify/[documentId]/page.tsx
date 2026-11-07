@@ -3,14 +3,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { DocumentViewer } from "@/components/document-viewer/document-viewer";
 import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CalculationTraceView } from "@/components/calculation/calculation-trace";
 import { ValidationResult } from "@/components/validation/validation-result";
-import { VerifyWorkspace } from "@/components/verification/verify-workspace";
+import { VerifySplit } from "@/components/verification/verify-split";
 import { requireAppSession } from "@/lib/auth/session";
 import { JOB_STATUS_LABELS, JOB_STATUS_TONES } from "@/lib/ocr/rules";
 import type { VerifyDocument } from "@/lib/trpc/routers/verification";
@@ -192,15 +191,7 @@ export default async function VerifyPage({ params }: PageProps<"/app/verify/[doc
           ) : null
         }
       />
-      <div className="grid gap-4 xl:grid-cols-[55fr_45fr]">
-        <DocumentViewer
-          src={`/api/documents/${doc.documentId}/file`}
-          mimeType={doc.mimeType}
-          fileName={doc.fileName}
-          className="max-h-[calc(100vh-10rem)]"
-        />
-        {workable ? <VerifyWorkspace doc={doc} /> : <StatePanel doc={doc} />}
-      </div>
+      <VerifySplit doc={doc} workable={workable} statePanel={<StatePanel doc={doc} />} />
     </div>
   );
 }

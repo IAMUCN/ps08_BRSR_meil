@@ -66,13 +66,35 @@ Date: 2026-11-07
   Admin may correct the document type (reason, audited; values unchanged). A wrong activity is returned to the
   uploader ("wrong activity") and re-uploaded as a new version, never changed in place.
 
+## Phase 3 decisions (2026-11-08)
+- Finding (req. 27): 4 of 5 hosted electricity photos with no billing period are one TPCODL bill whose PRES line
+  reads "PRES:7591.1201-04-2026" — the reading and the date run together, and the date rule refuses a date glued to a
+  number; the 5th photo gave only 6 text lines (unreadable). Fix: accept a date glued to the end of a meter reading on
+  PREV/PRES lines, confidence capped so it is always reviewed; store a reason whenever the billing period is missing.
+- Decision (req. 28, plan 3.2): OCR classifies against every document type; when the document clearly looks like
+  another activity's, validation flags it ("looks like an electricity bill — wrong activity?") for the Validation
+  Queue, where an Admin returns it (Phase 2) or accepts. The uploader still picks the activity. Alternatives: no
+  activity at upload (OCR decides) — rejected; show the guess only — rejected.
+- Decision (req. 38, plan 3.3): a spreadsheet-style grid of the extracted fields on the verify screen — value read,
+  confidence, the person's value; low-confidence cells red and edited in place; selecting a cell boxes its source on
+  the document and selecting a box selects its cell; original and corrected values kept and shown; Excel download.
+  Alternative: recreating the bill's printed table — rejected for now.
+- Decision (req. 1, 26, plan 3.1): Submission Monitoring and OCR Monitoring become one page: an OCR column with
+  colour-coded states, an OCR filter, the stuck-queue banner, Retry and OCR details in the record panel; the OCR
+  Monitoring address redirects to the filtered Submission Monitoring.
+- Decision (req. 15, plan 3.4): "handwritten notes" are bus tickets written by the conductor. Possible, as assisted
+  entry under the existing bus passenger-km activity (passengers x distance x factor); distance from an Admin-kept
+  route list (else typed). Waits for 3-5 real ticket photos to test a handwriting model before anything is built.
+- Agent's decision, to confirm: Grid Electricity gains an optional Bill number field (OCR reads "Bill No"), so the
+  same-bill check and the Bill no. column work for electricity; the utility it already records stands in for the
+  supplier.
+
 ## Surfaced assumptions
 - "Device" cannot be identified by a web app; a browser (cookie) is the device. One account per browser already holds.
 - A session left open on a closed laptop stays active until its 3-hour idle limit, so the takeover prompt will
   appear in that case too; that is intended.
 
 ## Open questions (asked at the start of the phase that needs them)
-- Phase 3: a failing image for the billing-period bug (req. 27); handwriting reference diagram (req. 15).
 - Phase 4: who receives a forwarded report and what outcomes exist; which roles see whose logs.
 - Phase 5: one reminder schedule reconciling the 7-day daily window with 5/3/0-day reminders.
 - Phase 6: an authoritative factor source (SEBI API existence is unconfirmed).

@@ -17,7 +17,13 @@ from worker.errors import (
     TransientError,
 )
 from worker.extraction.bundle import propose_metric, split_pages
-from worker.extraction.fields import TextLine, classify, extract_fields
+from worker.extraction.fields import (
+    TextLine,
+    billing_period_diagnosis,
+    classify,
+    detect_mismatch,
+    extract_fields,
+)
 from worker.extraction.profiles import EXTRACTOR_VERSION
 from worker.logs import capture
 from worker.ocr import MODEL_VERSION
@@ -78,12 +84,26 @@ def process_next(
         raw_output = {
             "engine": {"models": MODEL_VERSION, "extractor": EXTRACTOR_VERSION},
             "pages": {"total": total_pages, "processed": len(pages)},
+            # Width and height of each page image the boxes below are measured on, so a viewer can
+            # draw a field's box on the document at any zoom (Phase 3).
+            "page_sizes": [[int(page.shape[1]), int(page.shape[0])] for page in pages],
             "lines": [
                 {"page": ln.page, "text": ln.text, "score": round(ln.score, 4), "box": ln.box}
                 for ln in lines
             ],
-            "classification": {"document_type": document_type, "scores": type_scores},
+            "classification": {
+                "document_type": document_type,
+                "scores": type_scores,
+                # Looks like another activity's document (Phase 3); validation flags it for review.
+                "mismatch": detect_mismatch(lines, list(job_context.document_types)),
+            },
             "fields": {f.key: f.source for f in fields},
+            # Why a field the person must type was not read (Phase 3); shown on the verify screen.
+            "diagnostics": {
+                f.key: billing_period_diagnosis(lines)
+                for f in fields
+                if f.key == "billing_period" and f.value is None
+            },
         }
         db.complete_job(
             conn, job, job_context, JOB_MODEL_VERSION, document_type, fields, raw_output

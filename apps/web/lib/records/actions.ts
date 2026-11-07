@@ -18,3 +18,8 @@ export async function correctDocumentTypeAction(input: {
 export async function returnWrongActivityAction(input: { recordId: string; reason: string }) {
   return runAction((api) => api.records.returnWrongActivity(input));
 }
+
+/** Read a failed document again (Phase 3: Retry moved from OCR Monitoring to the record panel). */
+export async function retryOcrAction(jobId: string) {
+  return runAction((api) => api.ocr.retry({ jobId }));
+}

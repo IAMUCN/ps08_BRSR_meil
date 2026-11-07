@@ -5,6 +5,7 @@ import {
   checkAllowedUnits,
   checkBillingPeriodOverlap,
   checkDuplicateInvoice,
+  checkDocumentKind,
   checkLate,
   checkSameBill,
   checkSameFile,
@@ -150,4 +151,17 @@ test("late submissions, identical files and the same bill are review flags (migr
   const sameBill = checkSameBill(" INV-9 ", [other]);
   assert.equal(outcomeOf(sameBill, "flag"), "flagged");
   assert.match(sameBill.message, /same bill \(no\. INV-9\) as Grid Electricity/);
+});
+
+test("a document that looks like another activity's is a review flag (Phase 3)", () => {
+  assert.equal(checkDocumentKind(null, "Diesel Consumption").ok, true);
+  const verdict = checkDocumentKind(
+    { typeName: "electricity bill", activities: ["Grid Electricity Consumption"] },
+    "Diesel Consumption",
+  );
+  assert.equal(outcomeOf(verdict, "hard_fail"), "flagged");
+  assert.match(
+    verdict.message,
+    /looks like an electricity bill \(used for Grid Electricity Consumption\), suggested by OCR, but it was uploaded as Diesel Consumption/,
+  );
 });

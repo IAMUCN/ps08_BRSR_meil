@@ -24,6 +24,20 @@ type PdfDocument = {
   }>;
 };
 
+/**
+ * A place on the document where OCR read a value (Phase 3: the field grid). `box` is [x0, y0, x1, y1] in the
+ * pixels of the page image OCR read; `pageSize` is that image's [width, height], when known.
+ */
+export type Region = {
+  key: string;
+  label: string;
+  page: number;
+  box: [number, number, number, number];
+  selected: boolean;
+  /** Low confidence, not yet dealt with: drawn in the warning colour. */
+  warning: boolean;
+};
+
 /** `destroy()` belongs to the loading task, not the document (pdfjs-dist 6). */
 type PdfLoadingTask = { promise: Promise<PdfDocument>; destroy: () => Promise<void> };
 
@@ -32,11 +46,22 @@ export function DocumentViewer({
   mimeType,
   fileName,
   className,
+  regions = [],
+  pageSizes = null,
+  renderDpi = 200,
+  onRegionClick,
 }: {
   src: string;
   mimeType: string;
   fileName: string;
   className?: string;
+  /** Boxes to draw over the document; the selected one is brought into view. */
+  regions?: Region[];
+  /** The OCR page images' [width, height]; null for older uploads (measured here instead). */
+  pageSizes?: [number, number][] | null;
+  /** The resolution OCR rendered PDF pages at, for older uploads without page sizes. */
+  renderDpi?: number;
+  onRegionClick?: (key: string) => void;
 }) {
   const isPdf = mimeType === "application/pdf";
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -47,6 +72,9 @@ export function DocumentViewer({
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(isPdf ? "loading" : "ready");
   const zoom = ZOOM_STEPS[zoomIndex];
+  const selectedRef = useRef<HTMLButtonElement | null>(null);
+  // The size of the OCR image the boxes are measured on, when the upload did not record it.
+  const [measured, setMeasured] = useState<[number, number] | null>(null);
 
   useEffect(() => {
     if (!isPdf) return;
@@ -101,7 +129,60 @@ export function DocumentViewer({
     canvas.style.width = `${viewport.width / ratio}px`;
     canvas.style.height = `${viewport.height / ratio}px`;
     await rendered.render({ canvas, canvasContext: context, viewport }).promise;
-  }, [page, zoom]);
+    const base = rendered.getViewport({ scale: 1 });
+    // OCR rendered the page at renderDpi (PDF points are 1/72 inch).
+    setMeasured([(base.width * renderDpi) / 72, (base.height * renderDpi) / 72]);
+  }, [page, zoom, renderDpi]);
+
+  // Selecting a region elsewhere (a grid cell) shows its page and scrolls it into view.
+  const selected = regions.find((r) => r.selected);
+  // Adjusted while rendering when the selection changes (not in an effect), so there is no extra pass.
+  const [shownSelection, setShownSelection] = useState<string | null>(null);
+  if ((selected?.key ?? null) !== shownSelection) {
+    setShownSelection(selected?.key ?? null);
+    if (selected && isPdf && selected.page !== page) setPage(selected.page);
+  }
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+  }, [selected?.key, page, zoom, measured]);
+
+  const pageSize = pageSizes?.[page - 1] ?? measured;
+  const visible = regions.filter((r) => r.page === page);
+  const overlay =
+    // In percent of the page, so the boxes stay put at every zoom.
+    pageSize && visible.length ? (
+      <div className="pointer-events-none absolute inset-0" aria-hidden={!onRegionClick}>
+        {visible.map((r) => {
+          const [x0, y0, x1, y1] = r.box;
+          const [w, h] = pageSize;
+          const pad = 0.4; // percent of the page around the text, so the box frames it
+          return (
+            <button
+              key={`${r.key}-${x0}-${y0}`}
+              ref={r.selected ? selectedRef : undefined}
+              type="button"
+              tabIndex={-1}
+              aria-label={`Where ${r.label} was read`}
+              onClick={() => onRegionClick?.(r.key)}
+              style={{
+                left: `${(x0 / w) * 100 - pad}%`,
+                top: `${(y0 / h) * 100 - pad}%`,
+                width: `${((x1 - x0) / w) * 100 + 2 * pad}%`,
+                height: `${((y1 - y0) / h) * 100 + 2 * pad}%`,
+              }}
+              className={cn(
+                "pointer-events-auto absolute rounded-sm border-2 transition-colors",
+                r.selected
+                  ? "border-primary bg-primary/15"
+                  : r.warning
+                    ? "border-status-error/70 bg-status-error/5 hover:bg-status-error/15"
+                    : "border-transparent hover:border-primary/40 hover:bg-primary/5",
+              )}
+            />
+          );
+        })}
+      </div>
+    ) : null;
 
   useEffect(() => {
     if (status !== "ready" || !isPdf) return;
@@ -137,20 +218,29 @@ export function DocumentViewer({
             </p>
           </div>
         ) : isPdf ? (
-          <canvas
-            ref={canvasRef}
-            className="mx-auto shadow-sm"
-            aria-label={`${fileName}, page ${page}`}
-          />
+          <div className="relative mx-auto w-fit">
+            <canvas
+              ref={canvasRef}
+              className="shadow-sm"
+              aria-label={`${fileName}, page ${page}`}
+            />
+            {overlay}
+          </div>
         ) : (
-          /* eslint-disable-next-line @next/next/no-img-element -- private, session-authorized bytes */
-          <img
-            src={src}
-            alt={fileName}
-            onError={() => setStatus("error")}
-            style={{ width: `${zoom * 100}%` }}
-            className="mx-auto h-auto max-w-none shadow-sm"
-          />
+          <div className="relative mx-auto" style={{ width: `${zoom * 100}%` }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- private, session-authorized bytes */}
+            <img
+              src={src}
+              alt={fileName}
+              onError={() => setStatus("error")}
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                setMeasured([img.naturalWidth, img.naturalHeight]);
+              }}
+              className="h-auto w-full max-w-none shadow-sm"
+            />
+            {overlay}
+          </div>
         )}
       </div>
 
