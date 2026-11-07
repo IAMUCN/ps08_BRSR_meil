@@ -34,6 +34,23 @@ const nextConfig: NextConfig = {
       ],
     },
     {
+      // Protected dashboard routes must not be cached by browsers (audit / back navigation safety)
+      source: "/:prefix(admin|app)/:path*",
+      headers: [
+        { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, proxy-revalidate" },
+        { key: "Pragma", value: "no-cache" },
+        { key: "Expires", value: "0" },
+      ],
+    },
+    {
+      source: "/:prefix(admin|app)",
+      headers: [
+        { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, proxy-revalidate" },
+        { key: "Pragma", value: "no-cache" },
+        { key: "Expires", value: "0" },
+      ],
+    },
+    {
       // Not on /api: a header set here replaces a route's own, and the evidence file route sends a
       // stricter policy (sandbox, nothing loadable) that must stay in force.
       source: "/((?!api/).*)",

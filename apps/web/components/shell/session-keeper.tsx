@@ -122,6 +122,14 @@ export function SessionKeeper() {
     const onVisible = () => document.visibilityState === "visible" && void ask(false);
     document.addEventListener("visibilitychange", onVisible);
 
+    // Re-verify session immediately if restored from bfcache on back/forward navigation
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        void ask(false);
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+
     return () => {
       clearTimeout(first);
       clearInterval(timer);
@@ -129,6 +137,7 @@ export function SessionKeeper() {
         window.removeEventListener(name, onActivity, { capture: true });
       }
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onPageShow);
     };
   }, []);
 
