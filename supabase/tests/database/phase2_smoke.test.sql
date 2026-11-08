@@ -23,7 +23,8 @@ select tables_are('public', array[
   'rate_limit_events', 'submission_expectations', 'password_reset_otps', 'document_bundle_parts',
   'org_levels', 'chat_conversations', 'chat_messages', 'org_unit_parents',
   'carbon_credits', 'carbon_credit_transactions', 'internal_carbon_prices', 'capex_carbon_evaluations',
-  'user_invitations', 'user_sessions', 'report_forwards', 'reminder_sends'
+  'user_invitations', 'user_sessions', 'report_forwards', 'reminder_sends',
+  'carbon_credit_links'
 ], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(
@@ -153,10 +154,12 @@ select lives_ok(
 insert into public.conversion_factors (id, activity_type, name)
 values ('77777777-7777-4777-8777-777777777777', 'DIESEL', 'Synthetic diesel factor');
 insert into public.conversion_factor_versions (id, conversion_factor_id, version_number, value,
-  input_unit, output_unit, source_reference, effective_from, status, created_by)
+  input_unit, output_unit, source_reference, effective_from, status, created_by,
+  approved_by, approved_at, self_approved)
 values ('88888888-8888-4888-8888-888888888888', '77777777-7777-4777-8777-777777777777', 1, 1.0,
   'L', 'kgCO2e', 'SYNTHETIC TEST VALUE — not a real factor', '2026-01-01', 'active',
-  '33333333-3333-4333-8333-333333333333');
+  '33333333-3333-4333-8333-333333333333',
+  '33333333-3333-4333-8333-333333333333', now(), true);
 insert into public.calculations (esg_record_id, conversion_factor_version_id, input_value, input_unit,
   normalized_value, normalized_unit, factor_value_snapshot, result_value, result_unit, engine_version)
 values ('55555555-5555-4555-8555-555555555555', '88888888-8888-4888-8888-888888888888', 1, 'L',

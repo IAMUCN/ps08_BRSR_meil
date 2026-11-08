@@ -105,6 +105,7 @@ may run in parallel with Phases 3–5.
 | — | Feature roadmap Phase 3: billing-period fix (rules-14), document-kind check, one monitoring page, field grid with source boxes, electricity bill number (migration `0057`) | Done, **uncommitted**; `0057` and the rules-14 worker on hosted (2026-11-08) | — |
 | — | Feature roadmap Phase 4: forwarding reports for verification (migration `0058`), scoped audit trail, search, My Activity | Done, **uncommitted**; `0058` on hosted (2026-11-08) | — |
 | — | Feature roadmap Phase 5: deadline reminders on a schedule, Administrators' summaries, sent log, daily Vercel Cron (migration `0059`) | Done, **uncommitted**; `0059` on hosted (2026-11-08) | — |
+| — | Feature roadmap Phase 6: factor sources and fetching from official sites, factor approval, yearly review, carbon-credit links (migration `0060`) | Done, **uncommitted**; `0060` local only | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -882,6 +883,16 @@ more. Reporting Deadlines shows the schedule and the sent log, and opens to Admi
 bell's own "due soon" notices and the sweep's before-due stages are gone (overdue escalations stay). Checks: web unit
 256, database 439/439, `phase5-reminders.mjs` 33/33, browser `ui-phase5.mjs` 17/17 in Edge, typecheck, production
 build; full suite in CONTEXT.md. `0059` on hosted 2026-11-08; the daily run needs `CRON_SECRET` on Vercel and a deploy.
+
+**Feature roadmap, Phase 6 (2026-11-08).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 6
+decisions"); D50, A46. No SEBI or other official API publishes emission factors (recorded). Each factor version now
+keeps its source link, publisher, financial year and the date it was read; a link on an official site (CEA, BEE,
+IPCC and others) can be fetched and a value picked from the page, never saved by itself. New and corrected versions
+are drafts until another Super Admin approves them (the only Super Admin may approve their own, marked). A yearly
+review lists what each financial year still needs. Carbon Markets lists outside sites for exploring or buying
+credits, checked, under a notice that EmeilSG sells none. Checks: web unit 263, database 453/453, procedures
+`test:factors` 46/46, `phase6-factors.mjs` 28/28, browser `ui-phase6.mjs` 18/18 in Edge, a real CEA PDF and the
+BEE page read through the built app, typecheck, lint, production build; full suite in CONTEXT.md. Not on hosted.
 
 Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
 docs, the phone and tablet pass.

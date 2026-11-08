@@ -22,6 +22,7 @@ import {
   setup,
   sql,
   upload,
+  approveSyntheticFactor,
 } from "./lib.mjs";
 
 const { sessions } = await setup();
@@ -55,6 +56,7 @@ for (const [activityType, name, value, inputUnit] of FACTORS) {
     effectiveFrom: "2026-01-01",
   });
   if (!ok(created)) throw new Error(`could not enter the synthetic ${activityType} factor`);
+  await approveSyntheticFactor(admin, created.data.versionId);
 }
 const factorOf = async (code) =>
   (

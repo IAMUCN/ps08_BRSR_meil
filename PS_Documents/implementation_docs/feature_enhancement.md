@@ -937,7 +937,9 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   5       COMPLETED     2026-11-08, uncommitted; migration 0059 on
                         hosted (2026-11-08); needs CRON_SECRET
                         on Vercel and a deploy
-  6--10   NOT STARTED
+  6       COMPLETED     2026-11-08, uncommitted; migration 0060 on
+                        the local database only
+  7--10   NOT STARTED
 
 ## Requirements
 
@@ -952,7 +954,9 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                                                      stage tracker
   5    Partial, cause found            NOT STARTED
   6    Exists                          NOT STARTED   ui lane
-  7    Partial                         NOT STARTED
+  7    Partial                         COMPLETED     source link, publisher, FY,
+                                                     read date; fetch from official
+                                                     sites, value picked by a person
   8    Partial, conflicts with the     IN PROGRESS   ui lane: "hide custom cursor
        pen-laptop cursor fix                         on mobile" merged on ucn
                                                      main 2026-11-07 (debbcce);
@@ -972,7 +976,9 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                                                      waiting for 3-5 real photos
   16   Partial                         COMPLETED     Administrators' summary by
                                                      unit; Super Admins on email days
-  17   Missing                         NOT STARTED   research first
+  17   Missing                         COMPLETED     no SEBI API exists (recorded);
+                                                     yearly review, drafts approved
+                                                     by a second Super Admin
   18   Missing                         COMPLETED     one session per account for
                                                      everyone, with the takeover
                                                      question (migration 0055)
@@ -1004,7 +1010,8 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                                                      account (same as 18)
   33   Partial                         NOT STARTED
   34   Partial                         NOT STARTED
-  35   Partial                         NOT STARTED
+  35   Partial                         COMPLETED     preset, editable outside links;
+                                                     addresses checked; no-sale notice
   36   Exists                          COMPLETED     zoom kept; boxes follow zoom
   37   Partial (dump ready)            BLOCKED       deferred by the owner
                                                      until after the HoD demo

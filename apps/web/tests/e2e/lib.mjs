@@ -327,7 +327,36 @@ async function ensureFactors(admin) {
     });
     if (!ok(created))
       throw new Error(`could not enter the synthetic ${activityType} factor: ${created.error}`);
+    await approveSyntheticFactor(admin, created.data.versionId);
   }
+}
+
+/**
+ * A new factor version is a draft until a Super Admin approves it (migration 0060). The suite's Admin approves its
+ * own synthetic value when it is the only Super Admin; where another Super Admin exists (a local database with a
+ * second one), the fixture is marked self-approved directly, labelled as the synthetic test value it is.
+ */
+export async function approveSyntheticFactor(admin, versionId) {
+  const approved = await admin.mutate("factors.approve", {
+    versionId,
+    note: "Synthetic test value (tests/e2e)",
+  });
+  if (ok(approved)) return;
+  if (approved.status !== 403)
+    throw new Error(`could not approve a synthetic factor: ${approved.error}`);
+  await sql.begin(async (tx) => {
+    await tx`
+      update public.conversion_factor_versions v
+      set status = 'superseded', effective_to = n.effective_from - 1
+      from public.conversion_factor_versions n
+      where n.id = ${versionId} and v.conversion_factor_id = n.conversion_factor_id and v.status = 'active'
+        and v.effective_from < n.effective_from`;
+    await tx`
+      update public.conversion_factor_versions
+      set status = 'active', approved_by = created_by, approved_at = now(), self_approved = true,
+          review_note = 'Synthetic test value (tests/e2e fixture)'
+      where id = ${versionId} and status = 'draft'`;
+  });
 }
 
 // --- Documents and the OCR worker -----------------------------------------------------------------------

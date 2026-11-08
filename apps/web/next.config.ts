@@ -7,8 +7,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // The end-to-end run builds into its own folder so it never touches a dev server's output.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
-  // Report PDFs (TRD §17): a headless browser and its binary are loaded at runtime, never bundled.
-  serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium"],
+  // Report PDFs (TRD §17): a headless browser and its binary are loaded at runtime, never bundled. pdf.js reads a
+  // conversion factor's source PDF on the server (feature_enhancement.md 6.1) and loads its worker file by path.
+  serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium", "pdfjs-dist"],
   // The browser itself is a set of compressed files in the package's bin folder, opened by path at runtime:
   // file tracing does not see them, so a deployed function would have the package and no browser. They are
   // added to the two places a report can be started from (the Reports page's action and the API route).

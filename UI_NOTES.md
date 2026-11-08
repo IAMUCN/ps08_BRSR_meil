@@ -311,3 +311,13 @@ and the system cursor stays. Not checked: a real phone or tablet.
   `components/shell/admin-nav.ts`: Reporting Deadlines is no longer Super Admin only.
 - The schedule is a grid of labelled selects, not a table: the global first-column rule for tables painted its first
   header cell dark.
+
+## Feature lane, 2026-11-08 (Phase 6 of feature_enhancement.md)
+
+- `app/admin/conversion-factors/factors-manager.tsx` rewritten (source column, approval column, Approve / Turn down /
+  Withdraw, Put back, the form's Source fieldset with Fetch values and a list of values to pick, financial year,
+  result unit as a select); new `review-panel.tsx` (yearly review, its list folded in a `<details>` so the factor
+  table stays near the top); `page.tsx` reads `?fy=`.
+- New `app/admin/carbon-credits/credit-links-panel.tsx`, rendered by `carbon-credits/page.tsx` above the existing
+  client. `carbon-credits-client.tsx` untouched.
+- `next.config.ts` (shared): `pdfjs-dist` added to `serverExternalPackages` (the server reads source PDFs).

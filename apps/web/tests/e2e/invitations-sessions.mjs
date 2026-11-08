@@ -509,9 +509,11 @@ check(
   `${limitedAt}`,
 );
 await openLink(guesser, renewed);
+const limitedText = await textOf(guesser);
 check(
   "while limited, even a good link is not confirmed to that address",
-  /too many attempts/i.test(await textOf(guesser)),
+  /too many attempts/i.test(limitedText),
+  limitedText.replace(/\s+/g, " ").slice(0, 200),
 );
 await sql`delete from public.rate_limit_events`;
 

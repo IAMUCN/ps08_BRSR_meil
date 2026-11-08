@@ -697,3 +697,16 @@ covers. Server-only (RLS on, no browser grants). Written by lib/reminders/run.ts
 `.grill/feature-enhancement-roadmap-decisions.md`.
 
 **Undo:** `drop table public.reminder_sends; delete from public.org_settings where key = 'reminder_schedule';`
+
+## D50 — Factor sources, factor approval and carbon-credit links (migration `0060`, 2026-11-08)
+
+`conversion_factor_versions` gains `source_url` (https only), `source_publisher`, `financial_year` ("2026-27"),
+`source_retrieved_on`, `value_origin` (manual or fetched), `source_content_sha256`, `approved_by`, `approved_at`,
+`self_approved` and `review_note`. A check keeps the approver consistent (self-approved only by the person who entered
+it, and only when marked so); a trigger refuses a version entering use (inserted active, or a draft switched on)
+without an approver, and any change to an approval once made. Versions active before the migration are untouched (no
+approver). `org_settings.factor_source_hosts`: the official sites a link may be fetched from. `carbon_credit_links`:
+outside sites for exploring or trading credits (https only, unique address, last check), server-only.
+feature_enhancement.md Phase 6; `.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** in the header of `0060_factor_sources_approval_credit_links.sql`.

@@ -609,6 +609,16 @@ _Last updated: 2026-11-08._
   Deadlines (open to Administrators). `0059` read back on hosted: recorded, `reminder_sends` with RLS and no
   browser access, the default schedule row, 34 users and 73 records unchanged. **Still to do:** `CRON_SECRET`
   (16+ characters) in the Vercel project and a deploy; until then the daily trigger refuses every call. The local e2e env file in the scratchpad now has a `CRON_SECRET`.
+- **Phase 6 (2026-11-08), uncommitted; migration `0060` on the LOCAL database only** (D50, A46; decisions in
+  `.grill/feature-enhancement-roadmap-decisions.md`). Factor versions carry their source (link, publisher, FY,
+  read date, typed or fetched); `lib/factors/source.ts` fetches only from `org_settings.factor_source_hosts`
+  (guarded lookup, no private addresses); every new version is a draft that another Super Admin approves
+  (`factors.approve`; the only Super Admin may approve their own, marked); a yearly review on Conversion
+  Factors; `carbon_credit_links` on Carbon Markets. **Hosted needs:** `node "test data/_backup/hosted-0060.cjs"
+  apply` before the code reaches the dev server on 3000 (its check ran read-only: nothing of `0060`, 31 factor
+  versions all active, 34 users, 73 records). New test: `pnpm --filter web test:factors` (needs the local
+  database's two Super Admins). Full end-to-end suite: 16 of 17 scripts in full (feedback-2026-11 stops at the
+  old Add ID step); invitations-sessions 112/112 once run with `E2E_APP_URL=http://localhost:3100`.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -650,7 +660,7 @@ _Last updated: 2026-11-08._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D50** and **A46**; the next migration is `0060`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D51** and **A47**; the next migration is `0061`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -930,6 +940,19 @@ _Last updated: 2026-11-08._
   the port is free before starting again — an old server left on 3100 serves stale code.
 - **Tables pick up a global first-column rule** (pinned, dark header cell): a small settings layout is better as a
   grid of labelled fields than a table.
+- **`Get-NetTCPConnection -State Listen` can miss the test app on 3100** (Windows reported its socket as
+  "Closed"), so a stale `next start` kept answering and two runs tested old code. Stop it in PowerShell by command
+  line: `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | ? CommandLine -like '*next*start -p 3100*'`,
+  then check the new server's log says Ready.
+- **pdf.js on the server must stay out of the bundle** (`serverExternalPackages` in `next.config.ts`) and its
+  worker is imported by name (`lib/factors/source.ts`) so Vercel's file trace includes it; bundled, every PDF
+  read failed with "The file could not be read".
+- **A conversion factor version cannot be inserted active without an approver** (migration `0060`): fixtures
+  set `approved_by`, `approved_at` and `self_approved = true` (see `phase9_calculation.test.sql`); the e2e suite
+  uses `approveSyntheticFactor` in `tests/e2e/lib.mjs`.
+- **Run the e2e suite with `E2E_APP_URL` on the same host as the env file's `NEXT_PUBLIC_APP_URL`**
+  (`http://localhost:3100`). With `127.0.0.1` the emailed invitation links (localhost, IPv6) come from another
+  client address than the test's own requests, and the link-guessing limit check fails.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

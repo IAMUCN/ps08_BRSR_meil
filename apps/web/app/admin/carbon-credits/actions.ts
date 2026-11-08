@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { runAction } from "@/lib/trpc/server";
 
 export async function mintCreditAction(input: {
@@ -86,4 +87,37 @@ export async function createIcpAction(input: {
   sourceRational: string;
 }) {
   return runAction((api) => api.carbonCredits.icpCreate(input));
+}
+
+// Carbon-credit links (feature_enhancement.md 6.3). Super Admin only, checked again by each procedure.
+type LinkFields = {
+  name: string;
+  url: string;
+  description: string;
+  kind: "india_official" | "exchange" | "registry";
+  position?: number;
+};
+
+export async function createCarbonLinkAction(input: LinkFields) {
+  const result = await runAction((api) => api.carbonLinks.create(input));
+  if (result.ok) revalidatePath("/admin/carbon-credits");
+  return result;
+}
+
+export async function updateCarbonLinkAction(input: LinkFields & { id: string; active: boolean }) {
+  const result = await runAction((api) => api.carbonLinks.update(input));
+  if (result.ok) revalidatePath("/admin/carbon-credits");
+  return result;
+}
+
+export async function removeCarbonLinkAction(input: { id: string }) {
+  const result = await runAction((api) => api.carbonLinks.remove(input));
+  if (result.ok) revalidatePath("/admin/carbon-credits");
+  return result;
+}
+
+export async function checkCarbonLinksAction() {
+  const result = await runAction((api) => api.carbonLinks.check());
+  if (result.ok) revalidatePath("/admin/carbon-credits");
+  return result;
 }

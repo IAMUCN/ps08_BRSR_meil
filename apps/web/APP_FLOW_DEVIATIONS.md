@@ -764,3 +764,13 @@ schedule read-only and the reminders about their units; the task list and the es
 reminders run once a day at 9:00 India time: each person gets one message listing their missing submissions, each
 Administrator a summary by unit, the Super Admins a group summary on email days. The bell no longer writes its own
 "due soon" notices.
+
+## A46 — Factor sources and approval; carbon-credit links (2026-11-08, Phase 6)
+
+Conversion Factors opens with a yearly review (per financial year: activities with no value, an earlier year's value
+or one entered for that year, each with Add value). Add factor and New version take a source link, publisher, the date
+it was read and a financial year; a link on an official site can be fetched and a value picked from the page. Every
+new version is saved as a draft that another Super Admin approves or turns down; the version history shows the
+source, its reliability (official site, other site, no link) and who approved it. Carbon Markets gains "Where to
+explore or buy carbon credits": outside sites grouped by kind, a notice that EmeilSG does not sell, certify or
+guarantee credits, and for the Super Admin Add / Edit / Remove and Check addresses.

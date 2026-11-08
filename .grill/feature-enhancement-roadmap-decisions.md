@@ -122,11 +122,44 @@ Date: 2026-11-07
   the Reminders section only; the task list and the sweep stay Super Admin. The log shows the newest 200, 20 at a
   time. Without CRON_SECRET the daily trigger refuses every call (503), so nothing runs until the owner sets it.
 
+### Phase 6 decisions (2026-11-08)
+- Research (req. 17, plan 6.2): no SEBI or other official API publishes emission factors. SEBI's BRSR is a
+  disclosure format; CEA publishes the grid factor once a year as the CO2 Baseline Database (Excel and a PDF user
+  guide, e.g. cea.nic.in/api/cdm-report-version/view-pdf/en/68), not an API. Recorded as the limitation the plan
+  asks for.
+- Decision (req. 7, plan 6.1): every version stores its link, publisher, financial year, the date it was read and
+  whether the value was typed or picked from the fetched page (with the page's SHA-256). "Fetch values" works
+  only for a link on the official list (org_settings.factor_source_hosts: CEA, BEE, MoEFCC, Steel, NITI Aayog,
+  IPCC NGGIP, IPCC, GHG Protocol, India GHG Program); it reads HTML, PDF, CSV or Excel and offers the numbers that
+  look like factors; nothing is saved until the person picks one and saves a draft. Alternatives: no fetching --
+  rejected; any link -- rejected (the server could be sent to internal addresses).
+- Decision (plan 6.2): a new or corrected version is a draft; a different Super Admin approves it. While only one
+  Super Admin exists they may approve their own, marked "self-approved" in the version and the audit trail. A
+  draft can be turned down (or withdrawn) with a reason and is kept, retired. Alternatives: strictly a second
+  Super Admin -- rejected (hosted has one today); no approval step -- rejected.
+- Decision (req. 17): a yearly review on Conversion Factors lists, for a financial year, every activity that takes
+  a factor with no value, an earlier year's value, or one entered for that year, with "Add value". Alternative:
+  also reading CEA's Excel -- rejected (its layout changes between versions).
+- Decision (req. 35, plan 6.3): a preset, editable list of outside sites on Carbon Markets, grouped India's carbon
+  market / exchanges / international registries, each opening in a new tab with its address shown, under a notice
+  that EmeilSG does not sell, certify or guarantee credits. Preset after fetching each on 2026-11-08: Indian Carbon
+  Market (indiancarbonmarket.gov.in, BEE), BEE, IEX, HPX, Verra Registry, Gold Standard Registry. Left out: PXIL
+  (refused connections that day), Grid-India (its page did not show its registry role). "Check addresses"
+  records each answer; all six answered 200 on 2026-11-08.
+- Built that way (agent's choices, for the owner to confirm): a version's result unit must be kgCO2e, tCO2e,
+  kgCO2 or tCO2 and match the factor's earlier versions; its per-unit must measure the same thing as the
+  activity's unit; a financial year sets 1 April - 31 March and the start date must fall in it. Versions active
+  before this phase stay active, shown as "Before the approval step". Retire and Put back stay for approved
+  versions; a turned-down draft cannot be put back. The source fetch is limited to 20 per person per 10 minutes,
+  10 MB, 15 seconds and three redirects, each re-checked against the list; every address the name resolves to
+  must be public. Carbon links are listed to anyone with carbon_credit.view (the page itself is Super Admin only
+  today) and changed by a Super Admin.
+
 ## Surfaced assumptions
 - "Device" cannot be identified by a web app; a browser (cookie) is the device. One account per browser already holds.
 - A session left open on a closed laptop stays active until its 3-hour idle limit, so the takeover prompt will
   appear in that case too; that is intended.
 
 ## Open questions (asked at the start of the phase that needs them)
-- Phase 6: an authoritative factor source (SEBI API existence is unconfirmed).
+- Phase 6: answered -- no SEBI API exists; a yearly review with sources and approval instead (Phase 6 decisions).
 - Lane: who builds ui-lane items (3, 6, 8, 40 and the UI parts of others).
