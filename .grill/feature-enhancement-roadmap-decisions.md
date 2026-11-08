@@ -102,12 +102,31 @@ Date: 2026-11-07
   filters (mine / all I may see / a person / a role / dates / action). Approvers see a record's history in its panel,
   as today.
 
+## Phase 5 decisions (2026-11-08)
+- Decision (req. 10, 24, plan 5.1): one reminder schedule, a Super Admin setting, counted in days before each
+  period's due date, India time: in-app on days 7, 6, 5, 4, 3, 2, 1 and 0; email on days 7, 5, 3 and 0. Sent only to
+  the owners of expected submissions still missing; at most one reminder per person, period, schedule day and
+  channel. After the due date the existing overdue escalations continue. Days and channels editable.
+- Decision (req. 16, plan 5.2): each unit's Administrators get one summary of what is still missing in their units
+  and below, on the same schedule, until nothing is missing; the Super Admins get the group summary on email days
+  only. The Deadlines page shows each reminder sent (day, channel, recipient, email accepted or failed), for the Super
+  Admin and for Administrators' own units. A failed email is retried once on the next run; an accepted one never again.
+- Decision (plan 5.3): Vercel Cron calls a protected /api/cron/reminders once a day at 09:00 India time; the owner
+  adds CRON_SECRET to the Vercel project; a Super Admin also has "Run now". Alternatives: the database calling the
+  app — rejected; manual only — rejected.
+- Built that way (agent's choices, for the owner to confirm): the reminders replace the bell's own "due soon"
+  notices and the escalation sweep's before-due stages (one mechanism, no doubles); the sweep keeps only the
+  overdue escalations. An Administrator's log shows their own reminders and the owners' reminders about their
+  units, never another Administrator's or a Super Admin's summary (those count units outside theirs). The
+  schedule allows 0 to 14 days on the page (60 in the setting). Reporting Deadlines opens to Administrators for
+  the Reminders section only; the task list and the sweep stay Super Admin. The log shows the newest 200, 20 at a
+  time. Without CRON_SECRET the daily trigger refuses every call (503), so nothing runs until the owner sets it.
+
 ## Surfaced assumptions
 - "Device" cannot be identified by a web app; a browser (cookie) is the device. One account per browser already holds.
 - A session left open on a closed laptop stays active until its 3-hour idle limit, so the takeover prompt will
   appear in that case too; that is intended.
 
 ## Open questions (asked at the start of the phase that needs them)
-- Phase 5: one reminder schedule reconciling the 7-day daily window with 5/3/0-day reminders.
 - Phase 6: an authoritative factor source (SEBI API existence is unconfirmed).
 - Lane: who builds ui-lane items (3, 6, 8, 40 and the UI parts of others).

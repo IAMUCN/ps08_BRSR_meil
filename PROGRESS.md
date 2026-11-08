@@ -104,6 +104,7 @@ may run in parallel with Phases 3–5.
 | — | Feature roadmap Phase 2: several open periods, late uploads, duplicate rules, bill number, monitoring filters, stage tracker, approval list (migration `0056`) | Done, **uncommitted**; `0056` on hosted (2026-11-08) | — |
 | — | Feature roadmap Phase 3: billing-period fix (rules-14), document-kind check, one monitoring page, field grid with source boxes, electricity bill number (migration `0057`) | Done, **uncommitted**; `0057` and the rules-14 worker on hosted (2026-11-08) | — |
 | — | Feature roadmap Phase 4: forwarding reports for verification (migration `0058`), scoped audit trail, search, My Activity | Done, **uncommitted**; `0058` on hosted (2026-11-08) | — |
+| — | Feature roadmap Phase 5: deadline reminders on a schedule, Administrators' summaries, sent log, daily Vercel Cron (migration `0059`) | Done, **uncommitted**; `0059` on hosted (2026-11-08) | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -870,6 +871,17 @@ audited and notified and the report shows its trail; nobody verifies a report th
 log is open to everyone, scoped by what an entry is about: own entries for all (My Activity), plus an
 Administrator's units; search bar, role filter and roles shown. Checks: web unit 250, database 432/432,
 end-to-end 14 of 15 scripts in full (637 checks, `phase4-forwarding-audit.mjs` 36/36; feedback-2026-11 stops at the old Add ID step), browser `ui-phase4.mjs` 10/10, typecheck, lint, build.
+
+**Feature roadmap, Phase 5 (2026-11-08).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 5
+decisions"); D49, A45. Reminders go out once a day at 9:00 India time (Vercel Cron on `/api/cron/reminders`,
+protected by `CRON_SECRET`; a Super Admin can Run now): 7 to 0 days before a period's due date in the app, by email
+on 7, 5, 3 and the due day, each a Super Admin setting. Each person gets one message listing their missing
+submissions; each Administrator a summary of their units; the Super Admins a group summary on email days. Every
+reminder is a row (migration `0059`) claimed before sending, so nothing goes out twice; a failed email is tried once
+more. Reporting Deadlines shows the schedule and the sent log, and opens to Administrators for their units. The
+bell's own "due soon" notices and the sweep's before-due stages are gone (overdue escalations stay). Checks: web unit
+256, database 439/439, `phase5-reminders.mjs` 33/33, browser `ui-phase5.mjs` 17/17 in Edge, typecheck, production
+build; full suite in CONTEXT.md. `0059` on hosted 2026-11-08; the daily run needs `CRON_SECRET` on Vercel and a deploy.
 
 Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
 docs, the phone and tablet pass.

@@ -26,6 +26,7 @@ const ALL = [
   "phase2-lifecycle",
   "phase3-ocr",
   "phase4-forwarding-audit",
+  "phase5-reminders",
 ];
 const chosen = process.argv.slice(2).length ? process.argv.slice(2) : ALL;
 const APP = process.env.E2E_APP_URL ?? "http://localhost:3000";

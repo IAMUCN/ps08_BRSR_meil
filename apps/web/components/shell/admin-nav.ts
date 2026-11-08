@@ -16,7 +16,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/submissions", label: "Submission Monitoring", icon: "submissions" },
   { href: "/admin/validation-queue", label: "Validation Queue", icon: "validation" },
   { href: "/admin/approval-queue", label: "Approval Queue", icon: "approvals" },
-  { href: "/admin/deadlines", label: "Reporting Deadlines", icon: "deadlines", superOnly: true },
+  { href: "/admin/deadlines", label: "Reporting Deadlines", icon: "deadlines" },
   // The numbers: emissions by scope, exploring and looking ahead.
   { href: "/admin/scope-1", label: "Scope 1", icon: "scope1", startsGroup: true },
   { href: "/admin/scope-2", label: "Scope 2", icon: "scope2" },

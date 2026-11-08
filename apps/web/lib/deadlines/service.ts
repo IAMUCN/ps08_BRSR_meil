@@ -499,12 +499,13 @@ export async function executeEscalationSweep(input: {
         referenceDate: refDate,
       });
 
-      if (evalResult.eligibleReminderStage === "none") {
-        continue;
-      }
-
       const stage = evalResult.eligibleReminderStage;
       const isEscalation = stage === "overdue_l1" || stage === "overdue_l2";
+      // Before the due date, reminders come from the schedule (lib/reminders, Phase 5); this sweep keeps only
+      // the overdue escalations, so nobody gets the same reminder twice.
+      if (!isEscalation) {
+        continue;
+      }
       const escalationLevel = evalResult.escalationLevel;
 
       // Determine recipients

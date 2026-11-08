@@ -56,23 +56,8 @@ function toItem(r: Row): NotificationItem {
   };
 }
 
-// PRD §32 "approaching deadline": there is no scheduler for this, so the reminder is written the first time
-// the user's bell loads within three days of an open period's closing date — once per period.
-async function writeDeadlineReminders(userId: string, isAdmin: boolean) {
-  await db()`
-    insert into public.notifications
-      (user_id, type, title, message, related_entity_type, related_entity_id, deep_link_path)
-    select ${userId}, 'deadline_approaching', 'Submission deadline approaching',
-           p.label || ' closes for submissions on ' || to_char(p.submission_closes_on, 'DD Mon YYYY') || '.',
-           'reporting_period', p.id, ${isAdmin ? "/admin/submissions" : "/app/upload"}
-    from public.reporting_periods p
-    where p.status = 'open'
-      and p.submission_closes_on between current_date and current_date + 3
-      and not exists (
-        select 1 from public.notifications n
-        where n.user_id = ${userId} and n.type = 'deadline_approaching'
-          and n.related_entity_id = p.id)`;
-}
+// PRD §32 "approaching deadline": written by the reminder schedule (lib/reminders, Phase 5), once a day by
+// Vercel Cron. The bell only reads.
 
 /**
  * Unread notifications that have not popped up yet, claimed for this account in one step: another tab or
@@ -105,15 +90,14 @@ async function claimFresh(userId: string): Promise<{ total: number; items: Notif
 
 export const notificationsRouter = router({
   /**
-   * The bell's check: what `list` gives for its dropdown, plus what should pop up. `sweep` also writes
-   * deadline reminders; the bell asks for that once a minute, not on every check.
+   * The bell's check: what `list` gives for its dropdown, plus what should pop up. `sweep` is still accepted
+   * from older pages but does nothing: deadline reminders come from the schedule (Phase 5).
    */
   poll: protectedProcedure
     .input(z.object({ sweep: z.boolean().default(false) }))
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx }) => {
       const sql = db();
       const userId = ctx.session.userId;
-      if (input.sweep) await writeDeadlineReminders(userId, ctx.session.isAdmin);
       const [rows, [unread], fresh] = await Promise.all([
         sql<Row[]>`
           select id, type, title, message, deep_link_path, is_read, created_at
@@ -139,7 +123,6 @@ export const notificationsRouter = router({
     .query(async ({ ctx, input }) => {
       const sql = db();
       const userId = ctx.session.userId;
-      await writeDeadlineReminders(userId, ctx.session.isAdmin);
       const [rows, [unread]] = await Promise.all([
         sql<Row[]>`
           select id, type, title, message, deep_link_path, is_read, created_at

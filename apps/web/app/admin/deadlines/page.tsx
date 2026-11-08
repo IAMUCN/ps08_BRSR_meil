@@ -3,18 +3,24 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { DeadlinesClient } from "./deadlines-client";
+import { RemindersPanel } from "./reminders-panel";
 
 export const metadata: Metadata = {
   title: "Reporting Deadlines & Escalation Engine · EmeilSG",
 };
 
 export default async function DeadlinesPage() {
-  await requireAdminSession();
+  // Phase 5: Administrators see the reminders for their units; the task list stays with the Super Admin.
+  const session = await requireAdminAreaSession();
   const caller = await api();
-  const data = await caller.deadlines.list();
+  const [data, schedule, log] = await Promise.all([
+    session.isAdmin ? caller.deadlines.list() : null,
+    caller.deadlines.schedule(),
+    caller.deadlines.reminderLog(),
+  ]);
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -45,12 +51,16 @@ export default async function DeadlinesPage() {
         }
       />
 
-      <DeadlinesClient
-        initialTasks={data.tasks}
-        initialKpis={data.kpis}
-        periods={data.periods}
-        orgUnits={data.orgUnits}
-      />
+      <RemindersPanel schedule={schedule} log={log} canEdit={session.isAdmin} />
+
+      {data ? (
+        <DeadlinesClient
+          initialTasks={data.tasks}
+          initialKpis={data.kpis}
+          periods={data.periods}
+          orgUnits={data.orgUnits}
+        />
+      ) : null}
     </div>
   );
 }

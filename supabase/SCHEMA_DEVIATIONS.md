@@ -685,3 +685,15 @@ scoped: own entries, plus an Administrator's units' entries (lib/trpc/routers/au
 feature_enhancement.md Phase 4; `.grill/feature-enhancement-roadmap-decisions.md`.
 
 **Undo:** `drop table public.report_forwards`.
+
+## D49 — Deadline reminder schedule and sends (migration `0059`, 2026-11-08)
+
+`org_settings.reminder_schedule`: the days before a period's due date on which reminders go out and which of them
+also by email (default 7 to 0 days in the app, email on 7, 5, 3 and the due day; India time). `reminder_sends`: one
+row per reminder per period, kind (owner, digest), recipient, schedule day and channel, unique on those five, with
+its status (sending, sent, failed), attempts (a failed email is tried once more), the number missing and the units it
+covers. Server-only (RLS on, no browser grants). Written by lib/reminders/run.ts, called daily by Vercel Cron
+(/api/cron/reminders, protected by `CRON_SECRET`) or by a Super Admin's Run now. feature_enhancement.md Phase 5;
+`.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** `drop table public.reminder_sends; delete from public.org_settings where key = 'reminder_schedule';`

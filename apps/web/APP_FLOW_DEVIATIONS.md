@@ -755,3 +755,12 @@ Administrators (or the Super Admins), who verify it (and may forward it on) or r
 page shows the whole trail. Everyone has My Activity (their own audit entries, with a search bar). The Audit Trail is
 open to Administrators, showing their own entries and everything about their units, with search, Only my activity,
 a role filter and each person's roles; a record's full history opens for its unit's Administrators.
+
+## A45 — Deadline reminders on a schedule (2026-11-08, Phase 5)
+
+Reporting Deadlines has a Reminders section: the schedule (a Super Admin changes it and can Run now), and every
+reminder sent with its day, channel, recipient and whether it went out. Administrators now open the page and see the
+schedule read-only and the reminders about their units; the task list and the escalation sweep stay Super Admin. The
+reminders run once a day at 9:00 India time: each person gets one message listing their missing submissions, each
+Administrator a summary by unit, the Super Admins a group summary on email days. The bell no longer writes its own
+"due soon" notices.

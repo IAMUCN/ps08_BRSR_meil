@@ -143,3 +143,25 @@ sign-in that was open before was ended.</p>
 <p>If this was you, there is nothing to do. If it was not, sign in, change your password on Profile at once
 (that signs every other device out) and tell the other Super Admin.</p>`;
 }
+
+/** A deadline reminder (Phase 5): what is still missing, and where to file it. */
+export function deadlineReminderEmailHtml(input: {
+  displayName: string;
+  title: string;
+  dueOn: string;
+  lines: string[];
+  link: string;
+  digest: boolean;
+}): string {
+  const shown = input.lines.slice(0, 25);
+  const more = input.lines.length - shown.length;
+  return `<p>Hi ${escapeHtml(input.displayName)},</p>
+<p>${escapeHtml(input.title)} (due ${escapeHtml(input.dueOn)}).</p>
+<ul>${shown.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}${more > 0 ? `<li>and ${more} more</li>` : ""}</ul>
+<p><a href="${escapeHtml(input.link)}">${input.digest ? "See what is missing" : "Upload the documents"}</a></p>
+<p>${
+    input.digest
+      ? "You receive this summary as an Administrator of these units, until nothing is missing."
+      : "Reminders stop for each item as soon as its document is uploaded."
+  }</p>`;
+}

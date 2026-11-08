@@ -303,3 +303,11 @@ and the system cursor stays. Not checked: a real phone or tablet.
 - `app/admin/audit-trail/audit-view.tsx`: search, Show (Only my activity), Role filters and roles under each name;
   a `compact` mode for the new `app/app/activity/page.tsx` (My Activity). Menus: My Activity in both; the Audit Trail
   item no longer Super Admin only.
+
+## Feature lane, 2026-11-08 (Phase 5 of feature_enhancement.md)
+
+- New `app/admin/deadlines/reminders-panel.tsx` (schedule grid, Run now, the sent log 20 rows at a time);
+  `app/admin/deadlines/page.tsx` opens to Administrators and shows the task list to the Super Admin only.
+  `components/shell/admin-nav.ts`: Reporting Deadlines is no longer Super Admin only.
+- The schedule is a grid of labelled selects, not a table: the global first-column rule for tables painted its first
+  header cell dark.

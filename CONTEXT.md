@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-11-07._
+_Last updated: 2026-11-08._
 
 ---
 
@@ -602,6 +602,13 @@ _Last updated: 2026-11-07._
 - **Phase 4 (2026-11-08), uncommitted; migration `0058` applied to hosted 2026-11-08 (owner's "go")** with
   `test data/_backup/hosted-0058.cjs`; read back: RLS on, closed to the browser roles, the one-open-step index
   present, 34 users and 73 records unchanged. The local stack has test Administrators `e2e.prjx.admin` (PRJ-X) and `e2e.suba.admin` (SUB-A).
+- **Phase 5 (2026-11-08), uncommitted; migration `0059` applied to hosted 2026-11-08 (owner's "go")** (D49, A45; decisions in
+  `.grill/feature-enhancement-roadmap-decisions.md`). Deadline reminders: `lib/reminders/plan.ts` (who gets what,
+  pure), `lib/reminders/run.ts` (claims a `reminder_sends` row, then sends), `app/api/cron/reminders/route.ts`
+  (Bearer `CRON_SECRET`; 503 when unset), `vercel.json` cron `30 3 * * *`, the Reminders section on Reporting
+  Deadlines (open to Administrators). `0059` read back on hosted: recorded, `reminder_sends` with RLS and no
+  browser access, the default schedule row, 34 users and 73 records unchanged. **Still to do:** `CRON_SECRET`
+  (16+ characters) in the Vercel project and a deploy; until then the daily trigger refuses every call. The local e2e env file in the scratchpad now has a `CRON_SECRET`.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -643,7 +650,7 @@ _Last updated: 2026-11-07._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D46** and **A42**; the next migration is `0056`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D50** and **A46**; the next migration is `0060`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -918,6 +925,11 @@ _Last updated: 2026-11-07._
   queued behind a busy connection never returns (pipelining and type fetching off made no difference); the session
   pooler (5432) is fine. The pages run queries in parallel, so the app hangs there. Recorded as a Phase 10 item in
   `feature_enhancement.md`. The session pool on hosted is 15 clients; recommended 24 (60 max connections).
+- **Stopping the test app by command line kills the shell doing it:** a Bash command that filters processes on
+  `start -p 3100` matches its own command line. Stop it by port (`Get-NetTCPConnection -LocalPort 3100`) and check
+  the port is free before starting again — an old server left on 3100 serves stale code.
+- **Tables pick up a global first-column rule** (pinned, dark header cell): a small settings layout is better as a
+  grid of labelled fields than a table.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

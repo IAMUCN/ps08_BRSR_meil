@@ -934,7 +934,10 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                         and the rules-14 worker on hosted (2026-11-08)
   4       COMPLETED     2026-11-08, uncommitted; migration 0058 on
                         local and hosted (2026-11-08)
-  5--10   NOT STARTED
+  5       COMPLETED     2026-11-08, uncommitted; migration 0059 on
+                        hosted (2026-11-08); needs CRON_SECRET
+                        on Vercel and a deploy
+  6--10   NOT STARTED
 
 ## Requirements
 
@@ -956,7 +959,8 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                                                      not yet checked
   9    Missing                         COMPLETED     forward up the hierarchy;
                                                      verify or return; trail
-  10   Partial                         NOT STARTED
+  10   Partial                         COMPLETED     schedule 7..0 days, in-app and
+                                                     email; daily Vercel Cron
   11   Partial                         COMPLETED     show/hide on forgot-password,
                                                      reset-password and Profile
   12   Missing                         COMPLETED     search bar on Audit Trail
@@ -966,7 +970,8 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   14   Missing                         NOT STARTED   after feature freeze
   15   Missing                         BLOCKED       = conductor-written bus tickets;
                                                      waiting for 3-5 real photos
-  16   Partial                         NOT STARTED
+  16   Partial                         COMPLETED     Administrators' summary by
+                                                     unit; Super Admins on email days
   17   Missing                         NOT STARTED   research first
   18   Missing                         COMPLETED     one session per account for
                                                      everyone, with the takeover
@@ -980,7 +985,8 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                                                      Validation Queue; stage tracker
   23   Exists (no overwrite)           COMPLETED     policy decided and enforced;
                                                      re-upload = new version
-  24   Missing                         NOT STARTED
+  24   Missing                         COMPLETED     sent log on Reporting
+                                                     Deadlines; never sent twice
   25   Missing                         COMPLETED     Document type and Activity
                                                      filters; Admin correction
   26   Partial                         COMPLETED     OCR column, colours, filter,
