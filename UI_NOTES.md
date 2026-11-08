@@ -321,3 +321,12 @@ and the system cursor stays. Not checked: a real phone or tablet.
 - New `app/admin/carbon-credits/credit-links-panel.tsx`, rendered by `carbon-credits/page.tsx` above the existing
   client. `carbon-credits-client.tsx` untouched.
 - `next.config.ts` (shared): `pdfjs-dist` added to `serverExternalPackages` (the server reads source PDFs).
+
+## Feature lane, 2026-11-09 (Phase 7 of feature_enhancement.md)
+
+- New `app/admin/carbon-analytics/` (`page.tsx`, `year-charts.tsx`, `recommendations.tsx`, `alerts-panel.tsx`,
+  `unit-picker.tsx`, `actions.ts`). The charts are inline SVG small multiples in `--primary-text`, not the scope
+  colours: those fail the colour-separation check as a set (Dark theme Scope 1 / Scope 3 are both near-grey).
+- `components/shell/admin-nav.ts` (one line: Carbon Analytics, open to Administrators) and
+  `components/shell/sidebar.tsx` (one icon, `analytics: ChartColumn`).
+- `app/admin/kpi-trends.tsx`: one sentence linking to Carbon Analytics.

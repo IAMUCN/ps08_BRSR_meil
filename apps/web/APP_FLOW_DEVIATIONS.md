@@ -774,3 +774,14 @@ new version is saved as a draft that another Super Admin approves or turns down;
 source, its reliability (official site, other site, no link) and who approved it. Carbon Markets gains "Where to
 explore or buy carbon credits": outside sites grouped by kind, a notice that EmeilSG does not sell, certify or
 guarantee credits, and for the Super Admin Add / Edit / Remove and Check addresses.
+
+## A47 — Carbon Analytics: year-wise trends, suggested actions, emission alerts (2026-11-09, Phase 7)
+
+A new page in the sidebar, Carbon Analytics, for Super Admins and Administrators (their units). For one org unit and
+everything beneath it: a small chart per scope and the total by financial year (a hatched bar is a year that is not
+complete), a table with each scope's change on the year before (full year, or the months both years have) and what
+is missing, a table by activity, suggested actions from fixed rules with their figures and evidence (and, where the
+AI service is set up, "Explain in plain words"), and emission alerts with the measured figure, the expected average,
+the difference, the threshold and the periods averaged, each acknowledged with a note. A Super Admin sets the
+thresholds and can run the daily check now. Alerts also arrive as a notification and an email. The Control Tower's
+KPI card links to the page.

@@ -155,6 +155,40 @@ Date: 2026-11-07
   must be public. Carbon links are listed to anyone with carbon_credit.view (the page itself is Super Admin only
   today) and changed by a Super Admin.
 
+### Phase 7 decisions (2026-11-09)
+- Decision (req. 33, plan 7.1): a new page, Carbon Analytics (/admin/carbon-analytics), for Super Admins (every
+  unit) and Administrators (their units and below); the Control Tower's KPI card stays and links to it. Year-wise
+  emissions per scope and per activity from approved records only, in tCO2e. A year is complete when all 12 months
+  have approved data, nothing awaits approval or a factor, no expected submission is missing and the year is over;
+  otherwise the page says what is missing. Years are compared like for like: in full when both are complete, else
+  on the months both have, else "not comparable". Alternative: extending the Control Tower card -- rejected.
+- Decision (req. 33, plan 7.2): owner's choice "rules plus AI wording". A reviewed list of rules (11 activity
+  groups: travel, grid electricity, fuels, coal, refrigerants, freight, commuting, cement and steel, waste, process,
+  steam and heat) picks the suggestion and states its figures; "Explain in plain words" asks the AI service
+  (NVIDIA, the chatbot's settings; needs chat.use) to reword one, on request only. The model sees the suggestion's
+  wording and figures, not the unit's name, people or documents; a reply with a number it was not given (or a
+  tonnage, percentage or ratio not given with that unit) is refused and the fixed wording stays. Every request is
+  audited without its text. Alternatives: rules only; AI decides -- rejected (not explainable or testable).
+- Decision (req. 34, plan 7.3): owner's choice -- the expected average of a period is the mean of the same period
+  in up to three earlier financial years (at least two), per unit and scope; an alert when approved emissions are
+  more than the scope's threshold above it (default 20%, a Super Admin setting). Checked by the daily 9:00 call
+  (the same Vercel Cron as the reminders) and by "Check now"; delivered in the app and by email to the unit's
+  Administrators (at the unit or above) and the Super Admins, one notification and one email per person per run,
+  never twice. Skipped when the period or an earlier one has anything missing, awaiting approval or uncalculated.
+  Alternatives: trailing average (seasonal false alarms); fixed limits only -- rejected.
+- Built that way (agent's choices, for the owner to confirm): "rising" is +20% and at least 0.5 tCO2e on the year
+  before (+50% is high priority); "unusually high" is a month at least 1.5 times the median of the 12 months with
+  data before it, and not a lasting step (it must stand out from the later months of its year too); a group that
+  is 40% or more of the year's total gets a low-priority "largest source" suggestion when nothing else fired; one
+  suggestion per activity group. Alerts: only closed periods that ended within 180 days, at least 0.5 tCO2e above
+  the average; an alert keeps its figures and earlier periods, is acknowledged once with a note (Administrator of
+  the unit or a Super Admin), and is sent to people who become Administrators later only within 7 days. The scope
+  colours were not used for a stacked chart (they fail the colour-separation check in the Special and Dark themes):
+  one small chart per scope instead.
+- Found while testing: on this machine's .env.local the three NVIDIA models answer 404 (not for this account), 410
+  (retired) and a timeout, so AI wording -- and probably the chatbot -- does not work on the owner's dev server
+  until NVIDIA_NIM_MODEL lists a working model.
+
 ## Surfaced assumptions
 - "Device" cannot be identified by a web app; a browser (cookie) is the device. One account per browser already holds.
 - A session left open on a closed laptop stays active until its 3-hour idle limit, so the takeover prompt will
@@ -162,4 +196,6 @@ Date: 2026-11-07
 
 ## Open questions (asked at the start of the phase that needs them)
 - Phase 6: answered -- no SEBI API exists; a yearly review with sources and approval instead (Phase 6 decisions).
+- Phase 7: answered -- new page, rules plus AI wording, same period of earlier years, daily in-app and email
+  (Phase 7 decisions).
 - Lane: who builds ui-lane items (3, 6, 8, 40 and the UI parts of others).

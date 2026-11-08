@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarRange,
   Calculator,
+  ChartColumn,
   ClipboardCheck,
   Coins,
   Flame,
@@ -61,6 +62,7 @@ const ICONS = {
   reports: FileText,
   audit: History,
   carbon: Coins,
+  analytics: ChartColumn,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;

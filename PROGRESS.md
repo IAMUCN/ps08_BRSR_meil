@@ -105,7 +105,8 @@ may run in parallel with Phases 3–5.
 | — | Feature roadmap Phase 3: billing-period fix (rules-14), document-kind check, one monitoring page, field grid with source boxes, electricity bill number (migration `0057`) | Done, **uncommitted**; `0057` and the rules-14 worker on hosted (2026-11-08) | — |
 | — | Feature roadmap Phase 4: forwarding reports for verification (migration `0058`), scoped audit trail, search, My Activity | Done, **uncommitted**; `0058` on hosted (2026-11-08) | — |
 | — | Feature roadmap Phase 5: deadline reminders on a schedule, Administrators' summaries, sent log, daily Vercel Cron (migration `0059`) | Done, **uncommitted**; `0059` on hosted (2026-11-08) | — |
-| — | Feature roadmap Phase 6: factor sources and fetching from official sites, factor approval, yearly review, carbon-credit links (migration `0060`) | Done, **uncommitted**; `0060` local only | — |
+| — | Feature roadmap Phase 6: factor sources and fetching from official sites, factor approval, yearly review, carbon-credit links (migration `0060`) | Done, **uncommitted**; `0060` on hosted (2026-11-09) | — |
+| — | Feature roadmap Phase 7: Carbon Analytics — year-wise trends, suggested actions, emission threshold alerts (migration `0061`) | Done, **uncommitted**; `0061` on hosted (2026-11-09) | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -892,7 +893,19 @@ are drafts until another Super Admin approves them (the only Super Admin may app
 review lists what each financial year still needs. Carbon Markets lists outside sites for exploring or buying
 credits, checked, under a notice that EmeilSG sells none. Checks: web unit 263, database 453/453, procedures
 `test:factors` 46/46, `phase6-factors.mjs` 28/28, browser `ui-phase6.mjs` 18/18 in Edge, a real CEA PDF and the
-BEE page read through the built app, typecheck, lint, production build; full suite in CONTEXT.md. Not on hosted.
+BEE page read through the built app, typecheck, lint, production build; full suite in CONTEXT.md. `0060` on hosted
+2026-11-09.
+
+**Feature roadmap, Phase 7 (2026-11-09).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 7
+decisions"); D51, A47. A new page, Carbon Analytics, shows emissions by financial year for a unit and everything
+beneath it, per scope and per activity, from approved records, compared like for like and saying what is missing.
+Fixed rules suggest actions (travel policy, energy audit, leak checks and others) with the figures behind them;
+the AI service may reword one on request, and a wording with figures it was not given is refused. A daily check
+compares each closed period with the same period of earlier years and alerts the unit's Administrators and the
+Super Admins in the app and by email, once (migration `0061`). Checks: web unit 273, database 465/465,
+procedures `test:analytics` 44/44, `phase7-analytics.mjs` 23/23 through the daily trigger and the mail catcher,
+browser `ui-phase7.mjs` 23/23 in Edge; full suite in CONTEXT.md. `0061` on hosted 2026-11-09. AI wording not confirmed with a
+real reply (the configured models are retired or refused).
 
 Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
 docs, the phone and tablet pass.

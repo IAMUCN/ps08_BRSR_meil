@@ -19,6 +19,7 @@
     "test:isolation": "node --conditions=react-server --import ./tests/isolation/hooks.mjs tests/isolation/cross-project.mjs",
     "test:chatbot": "node --conditions=react-server --import ./tests/isolation/hooks.mjs tests/isolation/chatbot.mjs",
     "test:factors": "node --conditions=react-server --import ./tests/isolation/hooks.mjs tests/isolation/factors.mjs",
+    "test:analytics": "node --conditions=react-server --import ./tests/isolation/hooks.mjs tests/isolation/analytics.mjs",
     "test:a11y": "node tests/a11y/run.mjs"
   },
   "dependencies": {

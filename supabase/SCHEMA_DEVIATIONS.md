@@ -710,3 +710,15 @@ outside sites for exploring or trading credits (https only, unique address, last
 feature_enhancement.md Phase 6; `.grill/feature-enhancement-roadmap-decisions.md`.
 
 **Undo:** in the header of `0060_factor_sources_approval_credit_links.sql`.
+
+## D51 — Emission threshold alerts (migration `0061`, 2026-11-09)
+
+`org_settings.emission_alert_settings` (daily check on/off, threshold per scope in percent, earlier years needed,
+smallest increase in tCO2e, how far back a closed period is checked). `emission_alerts`: one row per org unit,
+reporting period and scope whose approved emissions came out above the mean of the same period in up to three
+earlier financial years by more than the threshold; it keeps the measured figure, the average, the threshold and the
+periods averaged, which a trigger keeps unchanged; an alert is acknowledged once, with who, when and a note.
+`emission_alert_sends`: one row per alert, person and channel, claimed before sending. Both tables server-only.
+feature_enhancement.md Phase 7; `.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** in the header of `0061_emission_alerts.sql`.

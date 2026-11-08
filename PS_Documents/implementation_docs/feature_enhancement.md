@@ -938,8 +938,10 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                         hosted (2026-11-08); needs CRON_SECRET
                         on Vercel and a deploy
   6       COMPLETED     2026-11-08, uncommitted; migration 0060 on
-                        the local database only
-  7--10   NOT STARTED
+                        hosted 2026-11-09
+  7       COMPLETED     2026-11-09, uncommitted; migration 0061 on
+                        hosted 2026-11-09
+  8--10   NOT STARTED
 
 ## Requirements
 
@@ -1008,8 +1010,13 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   31   Missing                         NOT STARTED
   32   Missing                         COMPLETED     decided: one device per
                                                      account (same as 18)
-  33   Partial                         NOT STARTED
-  34   Partial                         NOT STARTED
+  33   Partial                         COMPLETED     Carbon Analytics: year-wise by
+                                                     scope and activity, like for
+                                                     like; rule-based suggestions,
+                                                     AI wording on request
+  34   Partial                         COMPLETED     same period of earlier years;
+                                                     daily check, in-app and email
+                                                     to the unit's Administrators
   35   Partial                         COMPLETED     preset, editable outside links;
                                                      addresses checked; no-sale notice
   36   Exists                          COMPLETED     zoom kept; boxes follow zoom

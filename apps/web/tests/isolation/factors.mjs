@@ -516,7 +516,11 @@ try {
     await sql`delete from public.conversion_factor_versions where conversion_factor_id = ${factor[0].id}`;
     await sql`delete from public.conversion_factors where id = ${factor[0].id}`;
   }
-  await sql`update public.esg_metrics set deleted_at = now() where code = ${CODE}`;
+  // Removed outright (nothing refers to it), so database tests that list every activity are not disturbed;
+  // soft-deleted only if something unexpected still points at it.
+  await sql`delete from public.esg_metrics where code = ${CODE}`.catch(
+    () => sql`update public.esg_metrics set deleted_at = now() where code = ${CODE}`,
+  );
   await sql.end();
 }
 

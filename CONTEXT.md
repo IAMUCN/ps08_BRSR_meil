@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-11-08._
+_Last updated: 2026-11-09._
 
 ---
 
@@ -609,22 +609,36 @@ _Last updated: 2026-11-08._
   Deadlines (open to Administrators). `0059` read back on hosted: recorded, `reminder_sends` with RLS and no
   browser access, the default schedule row, 34 users and 73 records unchanged. **Still to do:** `CRON_SECRET`
   (16+ characters) in the Vercel project and a deploy; until then the daily trigger refuses every call. The local e2e env file in the scratchpad now has a `CRON_SECRET`.
-- **Phase 6 (2026-11-08), uncommitted; migration `0060` on the LOCAL database only** (D50, A46; decisions in
+- **Phase 6 (2026-11-08), uncommitted; migration `0060` applied to hosted 2026-11-09 (owner's "go")** (D50, A46; decisions in
   `.grill/feature-enhancement-roadmap-decisions.md`). Factor versions carry their source (link, publisher, FY,
   read date, typed or fetched); `lib/factors/source.ts` fetches only from `org_settings.factor_source_hosts`
   (guarded lookup, no private addresses); every new version is a draft that another Super Admin approves
   (`factors.approve`; the only Super Admin may approve their own, marked); a yearly review on Conversion
-  Factors; `carbon_credit_links` on Carbon Markets. **Hosted needs:** `node "test data/_backup/hosted-0060.cjs"
-  apply` before the code reaches the dev server on 3000 (its check ran read-only: nothing of `0060`, 31 factor
-  versions all active, 34 users, 73 records). New test: `pnpm --filter web test:factors` (needs the local
+  Factors; `carbon_credit_links` on Carbon Markets. `0060` read back on hosted: recorded, `carbon_credit_links`
+  with RLS and no browser access, 6 preset links, the approval trigger present and closed to the browser roles,
+  the official-site list set; 31 factor versions still active (shown as "Before the approval step"), 34 users
+  and 73 records unchanged. Every new factor on hosted is self-approved until a second Super Admin exists. New test: `pnpm --filter web test:factors` (needs the local
   database's two Super Admins). Full end-to-end suite: 16 of 17 scripts in full (feedback-2026-11 stops at the
   old Add ID step); invitations-sessions 112/112 once run with `E2E_APP_URL=http://localhost:3100`.
+- **Phase 7 (2026-11-09), uncommitted; migration `0061` applied to hosted 2026-11-09 (owner's "go")** (D51, A47; decisions in
+  `.grill/feature-enhancement-roadmap-decisions.md`, "Phase 7 decisions"). New page `/admin/carbon-analytics`
+  (Super Admins and Administrators): year-wise emissions by scope and activity, compared like for like
+  (`lib/analytics/trends.ts`), rule-based suggestions (`recommend.ts`) with AI wording on request
+  (`wording.ts`, refused when it adds figures), emission alerts against the same period of earlier years
+  (`alerts.ts`, `run-alerts.ts`), run by the same daily cron call as the reminders and by "Check now".
+  `0061` read back on hosted: recorded, both tables with RLS and no browser access, the guard trigger present and
+  closed to the browser roles, thresholds 20% per scope, no alerts; 34 users, 73 records, 2 periods unchanged. New tests:
+  `pnpm --filter web test:analytics`, `tests/e2e/phase7-analytics.mjs` (in the suite), `ui-phase7.mjs`. Full
+  end-to-end suite: 17 of 18 scripts in full (feedback-2026-11 stops at the old Add ID step, 85 checks before
+  it). AI wording not confirmed with a real reply: see §2.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
+| NVIDIA models in `apps/web/.env.local` (2026-11-09) | Of the three in `NVIDIA_NIM_MODEL`, one answers 404 (not for this account), one 410 (retired), one timed out at 25 s. The chatbot and Phase 7's AI wording do not work until a working model is listed (probe it with a tool call first, §5). |
+| Phase 6 and 7 build-time choices | Listed under "Built that way" in `.grill/feature-enhancement-roadmap-decisions.md` for each phase: thresholds for rising / unusual month / largest source, alert window and minimum increase, factor units and fetch limits. |
 | Phase 1 of the feature roadmap (2026-11-07) | Confirm the build-time decisions in `.grill/feature-enhancement-roadmap-decisions.md` (sessions that skip the form replace the others; the Super Admin email goes to the Super Admin whose account took over). |
 | For the ui role (2026-11-07) | The root `app/loading.tsx` makes server redirects arrive inside a 200 page; `app/loading.tsx` and `app/page.tsx` fail `format:check`; after Add ID on Users the filtered list does not refresh (feedback-2026-11 stops there, also without Phase 1). |
 | Hosted OCR worker | `traceesg-ocr-worker-hosted` was found exited (137, out of memory) on 2026-11-07; hosted uploads wait until it is started again. |
@@ -660,7 +674,7 @@ _Last updated: 2026-11-08._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D51** and **A47**; the next migration is `0061`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D52** and **A48**; the next migration is `0062`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -953,6 +967,15 @@ _Last updated: 2026-11-08._
 - **Run the e2e suite with `E2E_APP_URL` on the same host as the env file's `NEXT_PUBLIC_APP_URL`**
   (`http://localhost:3100`). With `127.0.0.1` the emailed invitation links (localhost, IPv6) come from another
   client address than the test's own requests, and the link-guessing limit check fails.
+- **`test:factors` used to leave soft-deleted `ISO_FACTOR_*` activities behind**, and three Scope 1 database
+  tests count deleted activities too; the test now deletes its activity outright (2026-11-09).
+- **A Python edit script turns `\b` into a backspace character** inside a normal (non-raw) string: a regex lost
+  its word boundaries that way. Write regexes with the Edit tool or a Node `String.raw`.
+- **The test app on 3100 reads `apps/web/.env.local` for anything the e2e env file lacks** (the NVIDIA key, for
+  one), so the AI button appears there; `ui-phase7.mjs` makes one real request on synthetic figures when it does.
+- **Phase 7 fixtures insert records and calculations directly** (`tests/e2e/analytics-fixture.mjs`) and remove
+  them with `session_replication_role = replica` in their own transaction; its dates work between Aug 2026 and
+  Jan 2027 (the scripts refuse to run outside that window).
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

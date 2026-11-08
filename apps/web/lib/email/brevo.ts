@@ -165,3 +165,18 @@ export function deadlineReminderEmailHtml(input: {
       : "Reminders stop for each item as soon as its document is uploaded."
   }</p>`;
 }
+
+/** Emission threshold alerts found by the daily check, one email per person per run (Phase 7, A47). */
+export function emissionAlertEmailHtml(input: {
+  displayName: string;
+  lines: string[];
+  link: string;
+}): string {
+  const shown = input.lines.slice(0, 25);
+  const more = input.lines.length - shown.length;
+  return `<p>Hi ${escapeHtml(input.displayName)},</p>
+<p>Approved emissions came out above their expected average in ${input.lines.length === 1 ? "one case" : `${input.lines.length} cases`}:</p>
+<ul>${shown.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}${more > 0 ? `<li>and ${more} more</li>` : ""}</ul>
+<p><a href="${escapeHtml(input.link)}">Open Carbon Analytics</a> to see the figures behind each alert and acknowledge it.</p>
+<p>The expected average is the same period in up to three earlier financial years. You receive this as an Administrator of these units or as a Super Admin.</p>`;
+}
