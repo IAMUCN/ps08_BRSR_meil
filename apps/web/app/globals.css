@@ -365,6 +365,70 @@
   }
 }
 
+/* The Ask button (feature_enhancement.md 8.2, requirement 6): a pill with a slowly turning gradient ring and a
+   soft glow in an accent that stands out from the header, brighter on hover and while the chat pane is open. The ring stops
+   turning for people who ask for reduced motion (the rule below). */
+@property --ask-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+/* The accent must stand out from the header: in the Special theme the header is the primary colour itself. */
+.ask-button {
+  --ask-accent: var(--primary-text);
+  position: relative;
+  isolation: isolate;
+  border-radius: 9999px;
+}
+.ask-button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--ask-angle),
+    var(--ask-accent),
+    color-mix(in oklab, var(--ask-accent) 25%, transparent),
+    var(--ask-accent)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: ask-spin 6s linear infinite;
+}
+.ask-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  border-radius: inherit;
+  box-shadow: 0 0 14px 1px color-mix(in oklab, var(--ask-accent) 45%, transparent);
+  opacity: 0.55;
+  transition: opacity 200ms ease;
+}
+.ask-button:hover::after,
+.ask-button:focus-visible::after,
+.ask-button[aria-expanded="true"]::after {
+  opacity: 1;
+}
+[data-theme="theme-1"] .ask-button {
+  --ask-accent: var(--header-fg);
+}
+.ask-fab {
+  box-shadow:
+    0 6px 18px -4px color-mix(in oklab, var(--primary) 55%, transparent),
+    0 0 0 4px color-mix(in oklab, var(--primary-text) 18%, transparent);
+}
+@keyframes ask-spin {
+  to {
+    --ask-angle: 360deg;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

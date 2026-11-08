@@ -189,6 +189,36 @@ Date: 2026-11-07
   (retired) and a timeout, so AI wording -- and probably the chatbot -- does not work on the owner's dev server
   until NVIDIA_NIM_MODEL lists a working model.
 
+### Phase 8 decisions (2026-11-09)
+- Decision (req. 31, plan 8.1): owner's choice -- four templates, all printing the same frozen snapshot of approved
+  figures with the same permissions and drill-down: the full SEBI BRSR (today's report, unchanged), BRSR Core (the
+  14 Core KPIs from ASSURANCE.md section 3, each marked evidence-backed or typed and reported or not, then those
+  questions in full), a GHG inventory (Scope 1/2/3 by activity, gas, emission source and org unit, factors and
+  method) and an executive summary (headline figures against the year before, emissions by year, open alerts and
+  suggested actions from Phase 7). Chosen on Reports; `report_runs.template` records it (migration 0062).
+  Alternatives: three templates without Core or without GHG -- rejected.
+- Decision (req. 31): owner's choice -- PDF for every template, plus an Excel workbook for the GHG inventory (About,
+  By scope, By activity, By org unit, Factors, Records), from the same snapshot, with typed text written so a
+  spreadsheet cannot run it as a formula. The private reports bucket also takes .xlsx; the file route serves it
+  with ?format=xlsx and the same checks. Alternatives: PDF only; Excel for all -- rejected.
+- Decision (req. 19, plan 8.3): owner's choice -- one search in the top bar (Ctrl+K, or "/"), results grouped by
+  section with the current page's section first. Each section is searched only for people who may open its page:
+  records (Administrators and Super Admins in their units, everyone else only what they submitted), people and org
+  units (administrators, their units), reports (administrators with report.generate), pages from the person's own
+  navigation, and a link into the audit trail or My Activity. Every word must match. Alternatives: a search box on
+  each page; both -- rejected.
+- Decision (reqs. 5, 6, 40): owner's choice -- the feature lane builds all three (recorded in UI_NOTES.md).
+  Scope pages: one Table | Chart switch for every summary section (categories, activities, units, trend), kept in
+  the address (`view=chart`) so drilling and changing the period keep it; records stay a table; bars never add
+  different units. Ask button: an "Ask AI" pill with a turning gradient ring and a glow in an accent that stands out
+  from the header in each theme; no animation with reduced motion. Landing page: the sample trend chart drawn from
+  data with straight segments (the old curve overshot its points) and bars that match their numbers, the
+  Traceability points beside the chain, full-width buttons and tick-marked points in the hero on phones, step
+  numbers dark enough to read (they failed contrast).
+- Built that way (agent's choices, for the owner to confirm): the hero's card deck was left as the ui role designed
+  it; a search shows at most 6 results per section and 6 words; the executive summary lists up to 10 open alerts
+  and 5 suggestions; the BRSR Core list is ASSURANCE.md's (SEBI's own Core annexure is still not in the repo).
+
 ## Surfaced assumptions
 - "Device" cannot be identified by a web app; a browser (cookie) is the device. One account per browser already holds.
 - A session left open on a closed laptop stays active until its 3-hour idle limit, so the takeover prompt will
@@ -198,4 +228,6 @@ Date: 2026-11-07
 - Phase 6: answered -- no SEBI API exists; a yearly review with sources and approval instead (Phase 6 decisions).
 - Phase 7: answered -- new page, rules plus AI wording, same period of earlier years, daily in-app and email
   (Phase 7 decisions).
+- Phase 8: answered -- four templates, Excel for the GHG inventory, one top-bar search, the feature lane builds
+  the ui items too (Phase 8 decisions).
 - Lane: who builds ui-lane items (3, 6, 8, 40 and the UI parts of others).

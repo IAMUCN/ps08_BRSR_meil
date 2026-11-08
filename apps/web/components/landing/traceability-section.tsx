@@ -65,9 +65,9 @@ export function TraceabilitySection() {
           can walk it in either direction.
         </SectionHeading>
 
-        <div className="grid items-center gap-10 lg:grid-cols-12">
-          <BlurFade inView className="min-w-0 lg:col-span-5">
-            <ul className="space-y-5 text-sm leading-relaxed text-slate-600">
+        <div className="grid items-start gap-10 lg:grid-cols-12">
+          <BlurFade inView className="min-w-0 lg:sticky lg:top-28 lg:col-span-5 lg:pt-12">
+            <ul className="space-y-5 border-l-2 border-[#313490]/15 pl-5 text-sm leading-relaxed text-slate-600">
               <li>
                 <strong className="block text-base font-semibold text-slate-900">
                   Nothing is silently overwritten

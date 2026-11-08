@@ -22,7 +22,7 @@ export function KpiTrendsCard({ trends, orgName }: { trends: KpiTrends; orgName:
           data is left empty, never shown as zero.{" "}
           <Link
             href="/admin/carbon-analytics"
-            className="text-primary-text underline-offset-2 hover:underline"
+            className="text-primary-text underline underline-offset-2"
           >
             Carbon Analytics
           </Link>{" "}

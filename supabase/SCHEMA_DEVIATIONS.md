@@ -722,3 +722,12 @@ periods averaged, which a trigger keeps unchanged; an alert is acknowledged once
 feature_enhancement.md Phase 7; `.grill/feature-enhancement-roadmap-decisions.md`.
 
 **Undo:** in the header of `0061_emission_alerts.sql`.
+
+## D52 — Report templates (migration `0062`, 2026-11-09)
+
+`report_runs.template` ('brsr', 'brsr_core', 'ghg', 'summary'; default 'brsr', which is what every earlier run
+printed) and `report_runs.workbook_path` (a run id with `.xlsx`, for the GHG inventory's Excel workbook). The private
+`reports` bucket accepts `.xlsx` beside `.pdf`. feature_enhancement.md Phase 8.1;
+`.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** in the header of `0062_report_templates.sql`.

@@ -17,3 +17,23 @@ test("a negative or zero total never invents a tonne figure", () => {
   assert.equal(formatTotal(0, "kgCO2e"), "0 kgCO2e");
   assert.equal(formatTotal(-2000, "kgCO2e"), "-2,000 kgCO2e (-2 tCO2e)");
 });
+
+test("a bar never adds different units together", async () => {
+  const { barValue } = await import("../lib/scope/display.ts");
+  assert.deepEqual(barValue([]), null);
+  assert.deepEqual(barValue([{ unit: "kgCO2e", approved: 0 }]), null);
+  assert.deepEqual(
+    barValue([
+      { unit: "kgCO2e", approved: 1500 },
+      { unit: "tCO2e", approved: 2 },
+    ]),
+    { value: 3.5, unit: "tCO2e", leftOut: [] },
+  );
+  assert.deepEqual(
+    barValue([
+      { unit: "KL", approved: 40 },
+      { unit: "kg", approved: 12 },
+    ]),
+    { value: 40, unit: "KL", leftOut: ["kg"] },
+  );
+});

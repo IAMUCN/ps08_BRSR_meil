@@ -6,8 +6,18 @@ import { UsersManager } from "./users-manager";
 
 export const metadata: Metadata = { title: "Users · EmeilSG" };
 
-export default async function UsersPage() {
-  const [session, caller] = await Promise.all([requireAdminAreaSession(), api()]);
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
+  const [session, caller, params] = await Promise.all([
+    requireAdminAreaSession(),
+    api(),
+    searchParams,
+  ]);
+  // The top-bar search links here with ?q= (feature_enhancement.md 8.3).
+  const initialQuery = typeof params.q === "string" ? params.q.slice(0, 100) : "";
   const [users, options, nodes, bulkImportOptions, levels] = await Promise.all([
     caller.users.list(),
     caller.users.options(),
@@ -32,6 +42,7 @@ export default async function UsersPage() {
         roles={options.roles}
         nodes={nodes}
         levels={levels}
+        initialQuery={initialQuery}
         bulkImportOptions={bulkImportOptions}
       />
     </div>

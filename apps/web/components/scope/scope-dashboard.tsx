@@ -2,7 +2,7 @@
 
 import { rowClick } from "@/components/ui/row-click";
 import { BarChart3, ChevronRight, Table2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { cn } from "cn";
 import { CalculationTraceView } from "@/components/calculation/calculation-trace";
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sheet";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import type { CalculationState } from "@/lib/calculation/trace";
-import { formatCompact, formatTotal } from "@/lib/scope/display";
+import { barValue, formatCompact, formatTotal } from "@/lib/scope/display";
 import type {
   ActivityTotal,
   ScopeBranch,
@@ -39,8 +39,6 @@ const APPROVAL: Record<string, { tone: StatusTone; label: string }> = {
   not_submitted: { tone: "neutral", label: "Not submitted" },
 };
 
-const approvedOf = (totals: UnitTotal[]) => totals.reduce((sum, t) => sum + t.approved, 0);
-
 export function ScopeDashboard({
   scopeName,
   view,
@@ -54,16 +52,22 @@ export function ScopeDashboard({
   loadRecord: (recordId: string) => Promise<CalculationState>;
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"table" | "chart">("table");
+  // Table or chart (feature_enhancement.md 8.2, requirement 5): kept in the address, so drilling down and
+  // changing the period keep it, and it switches every summary section, not only the org-unit one.
+  const mode: "table" | "chart" = useSearchParams().get("view") === "chart" ? "chart" : "table";
   const [selected, setSelected] = useState<ScopeRecord | null>(null);
   const [trace, setTrace] = useState<CalculationState | null>(null);
 
-  const go = (params: { org?: string; period?: string }) => {
+  const href = (params: { org?: string; period?: string; view?: "table" | "chart" }) => {
     const search = new URLSearchParams();
     search.set("org", params.org ?? view.node.id);
     search.set("period", params.period ?? view.periodId);
-    router.push(`${basePath}?${search.toString()}`);
+    if ((params.view ?? mode) === "chart") search.set("view", "chart");
+    return `${basePath}?${search.toString()}`;
   };
+  const go = (params: { org?: string; period?: string }) => router.push(href(params));
+  const setMode = (next: "table" | "chart") =>
+    router.replace(href({ view: next }), { scroll: false });
 
   async function openRecord(record: ScopeRecord) {
     setSelected(record);
@@ -111,14 +115,29 @@ export function ScopeDashboard({
               </option>
             ))}
           </NativeSelect>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setMode(mode === "table" ? "chart" : "table")}
+          <div
+            role="group"
+            aria-label="Show the figures as"
+            className="inline-flex rounded-md border border-border p-0.5"
           >
-            {mode === "table" ? <BarChart3 aria-hidden /> : <Table2 aria-hidden />}
-            {mode === "table" ? "Chart" : "Table"}
-          </Button>
+            {(
+              [
+                ["table", "Table", Table2],
+                ["chart", "Chart", BarChart3],
+              ] as const
+            ).map(([value, label, Icon]) => (
+              <Button
+                key={value}
+                variant={mode === value ? "default" : "ghost"}
+                size="sm"
+                aria-pressed={mode === value}
+                onClick={() => setMode(value)}
+              >
+                <Icon aria-hidden />
+                {label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -163,7 +182,16 @@ export function ScopeDashboard({
             Categories — {view.categories.filter((c) => c.active).length} of{" "}
             {view.categories.length} active
           </h2>
-          <CategoryTable categories={view.categories} />
+          {mode === "chart" ? (
+            <Bars
+              label="Approved emissions by category"
+              items={view.categories
+                .filter((c) => c.active)
+                .map((c) => ({ key: c.code, label: c.name, totals: c.totals }))}
+            />
+          ) : (
+            <CategoryTable categories={view.categories} />
+          )}
         </section>
       ) : null}
 
@@ -172,7 +200,18 @@ export function ScopeDashboard({
           <h2 id="scope-activities" className="text-sm leading-5 font-semibold">
             By activity
           </h2>
-          <ActivityTable activities={view.byActivity} />
+          {mode === "chart" ? (
+            <Bars
+              label="Approved emissions by activity"
+              items={view.byActivity.map((a) => ({
+                key: a.metricId,
+                label: a.metricName,
+                totals: a.totals,
+              }))}
+            />
+          ) : (
+            <ActivityTable activities={view.byActivity} />
+          )}
         </section>
       ) : null}
 
@@ -182,7 +221,15 @@ export function ScopeDashboard({
             By organization unit
           </h2>
           {mode === "chart" ? (
-            <BranchBars branches={view.children} />
+            <Bars
+              label="Approved emissions by organization unit"
+              items={view.children.map((b) => ({
+                key: b.id,
+                label: b.name,
+                totals: b.totals,
+                onOpen: () => go({ org: b.id }),
+              }))}
+            />
           ) : (
             <BranchTable branches={view.children} onOpen={(id) => go({ org: id })} />
           )}
@@ -203,8 +250,14 @@ export function ScopeDashboard({
           <h2 id="scope-trend" className="text-sm leading-5 font-semibold">
             Across periods
           </h2>
-          <TrendBars trend={view.trend} />
+          {mode === "chart" ? <TrendBars trend={view.trend} /> : <TrendTable trend={view.trend} />}
         </section>
+      ) : null}
+
+      {mode === "chart" && view.records.length > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          The contributing records stay a table: each row is a document to open.
+        </p>
       ) : null}
 
       <Sheet open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
@@ -430,44 +483,122 @@ function BranchTable({
   );
 }
 
-/** Inline SVG bars using the brief's chart tokens — no charting dependency. */
-function BranchBars({ branches }: { branches: ScopeBranch[] }) {
-  const max = Math.max(...branches.map((b) => approvedOf(b.totals)), 1);
+/**
+ * Horizontal bars, one hue (the brief's chart tokens), every bar labelled with its figure, no charting
+ * dependency. Approved figures only; units are never added together (barValue).
+ */
+function Bars({
+  label,
+  items,
+}: {
+  label: string;
+  items: { key: string; label: string; totals: UnitTotal[]; onOpen?: () => void }[];
+}) {
+  const rows = items.map((item) => ({ ...item, bar: barValue(item.totals) }));
+  const units = [...new Set(rows.flatMap((r) => (r.bar ? [r.bar.unit] : [])))];
+  const max = Math.max(...rows.map((r) => r.bar?.value ?? 0), 0);
+  if (rows.every((r) => !r.bar))
+    return (
+      <p className="rounded-md border bg-card p-4 text-sm text-muted-foreground">
+        Nothing approved to draw yet.
+      </p>
+    );
   return (
-    <ul className="space-y-2 rounded-md border bg-card p-4">
-      {branches.map((branch) => {
-        const value = approvedOf(branch.totals);
-        const unit = branch.totals[0]?.unit ?? "";
-        return (
+    <figure className="rounded-md border bg-card p-4">
+      <figcaption className="mb-2 text-xs text-muted-foreground">
+        {label}
+        {units.length === 1 ? `, ${units[0]}` : ""}. Approved records only.
+      </figcaption>
+      <ul className="space-y-2">
+        {rows.map((r) => (
           <li
-            key={branch.id}
-            className="grid grid-cols-[10rem_1fr_auto] items-center gap-3 text-sm"
+            key={r.key}
+            className="grid grid-cols-[minmax(6rem,12rem)_1fr_auto] items-center gap-3 text-sm"
           >
-            <span className="truncate">{branch.name}</span>
-            <span className="h-3 rounded-sm bg-[var(--chart-neutral-reference)]">
+            {r.onOpen ? (
+              <button
+                type="button"
+                className="truncate text-left underline-offset-2 hover:underline"
+                onClick={r.onOpen}
+                title={`Drill down into ${r.label}`}
+              >
+                {r.label}
+              </button>
+            ) : (
+              <span className="truncate" title={r.label}>
+                {r.label}
+              </span>
+            )}
+            <span className="h-3 rounded-sm bg-[var(--chart-neutral-reference)]" aria-hidden>
               <span
                 className="block h-3 rounded-sm bg-[var(--chart-primary)]"
-                style={{ width: `${Math.round((value / max) * 100)}%` }}
-                aria-hidden
+                style={{
+                  width: `${r.bar && max > 0 ? Math.max(1, Math.round((r.bar.value / max) * 100)) : 0}%`,
+                }}
               />
             </span>
-            <span className="font-mono text-xs">{value ? formatCompact(value, unit) : "—"}</span>
+            <span className="font-mono text-xs">
+              {r.bar ? formatCompact(r.bar.value, r.bar.unit) : "—"}
+              {r.bar?.leftOut.length ? (
+                <span className="block text-[11px] text-muted-foreground">
+                  + {r.bar.leftOut.join(", ")} not drawn
+                </span>
+              ) : null}
+            </span>
           </li>
-        );
-      })}
-    </ul>
+        ))}
+      </ul>
+    </figure>
+  );
+}
+
+function TrendTable({ trend }: { trend: ScopeView["trend"] }) {
+  return (
+    <div className="overflow-x-auto rounded-md border border-table-border">
+      <table className="w-full border-collapse text-sm">
+        <thead className="bg-table-header text-table-header-foreground">
+          <tr>
+            {["Period", "Approved"].map((h) => (
+              <th
+                key={h}
+                scope="col"
+                className="px-3 py-3 text-left text-[11px] leading-[14px] font-medium tracking-wide uppercase"
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {trend.map((period) => (
+            <tr
+              key={period.periodId}
+              className="border-t border-table-border bg-table-row even:bg-table-row-alt"
+            >
+              <td className="px-3 py-3 font-medium">{period.label}</td>
+              <td className="px-3 py-3 font-mono text-xs">
+                {period.totals.length === 0
+                  ? "—"
+                  : period.totals.map((t) => formatTotal(t.approved, t.unit)).join(" · ")}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 function TrendBars({ trend }: { trend: ScopeView["trend"] }) {
-  const values = trend.map((t) => approvedOf(t.totals));
+  const bars = trend.map((t) => barValue(t.totals));
+  const values = bars.map((b) => b?.value ?? 0);
   const max = Math.max(...values, 1);
   return (
     <ol className="flex items-end gap-3 overflow-x-auto rounded-md border bg-card p-4">
       {trend.map((period, i) => (
         <li key={period.periodId} className="flex w-20 shrink-0 flex-col items-center gap-1">
           <span className="font-mono text-[11px] text-muted-foreground">
-            {values[i] ? formatCompact(values[i], period.totals[0]?.unit ?? "") : "—"}
+            {bars[i] ? formatCompact(bars[i]!.value, bars[i]!.unit) : "—"}
           </span>
           <span
             className={cn("w-full rounded-t-sm bg-[var(--chart-primary)]")}

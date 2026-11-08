@@ -172,7 +172,10 @@ const children = await sql`
   join public.esg_records r on r.id = erd.esg_record_id
   join public.esg_metrics m on m.id = r.metric_id
   join public.ocr_jobs j on j.document_id = d.id
-  where d.bundle_document_id = ${documentId} order by d.created_at`;
+  join public.document_bundle_parts bp on bp.created_document_id = d.id
+  where d.bundle_document_id = ${documentId}
+  -- In the bundle's order: the bills are created in one transaction, so created_at ties.
+  order by bp.part_number`;
 check(
   "each kept bill is its own document, record and OCR job",
   children.length === 2 &&

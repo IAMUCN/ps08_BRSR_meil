@@ -28,6 +28,7 @@ import { usersRouter } from "@/lib/trpc/routers/users";
 import { carbonCreditsRouter } from "@/lib/trpc/routers/carbonCredits";
 import { carbonLinksRouter } from "@/lib/trpc/routers/carbon-links";
 import { analyticsRouter } from "@/lib/trpc/routers/analytics";
+import { searchRouter } from "@/lib/trpc/routers/search";
 
 export const appRouter = router({
   session: router({
@@ -62,6 +63,7 @@ export const appRouter = router({
   carbonCredits: carbonCreditsRouter,
   carbonLinks: carbonLinksRouter,
   analytics: analyticsRouter,
+  search: searchRouter,
 });
 
 export type AppRouter = typeof appRouter;

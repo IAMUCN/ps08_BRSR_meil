@@ -316,6 +316,7 @@ export function UsersManager({
   nodes,
   levels,
   bulkImportOptions,
+  initialQuery = "",
 }: {
   currentUserId: string;
   users: UserRow[];
@@ -334,9 +335,11 @@ export function UsersManager({
     }[];
     withoutCode: string[];
   };
+  /** From the address (?q=), when the top-bar search links here. */
+  initialQuery?: string;
 }) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
   const [sort, setSort] = useState<UserSort>("role");
   const [idFilter, setIdFilter] = useState<"" | "missing">("");

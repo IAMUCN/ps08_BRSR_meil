@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { TEMPLATE_INFO } from "@/lib/reports/templates";
 import type { ReportRunRow } from "@/lib/trpc/routers/reports";
 
 const STATUS: Record<string, { tone: StatusTone; label: string }> = {
@@ -33,7 +34,12 @@ export function RunsTable({ runs }: { runs: ReportRunRow[] }) {
         <tbody>
           {runs.map((r) => (
             <tr key={r.id} className="border-t border-table-border bg-table-row align-top">
-              <td className="px-3 py-2.5 font-medium">BRSR · {r.coverage}</td>
+              <td className="px-3 py-2.5 font-medium">
+                {TEMPLATE_INFO[r.template].label}
+                <span className="block text-xs font-normal text-muted-foreground">
+                  {r.coverage}
+                </span>
+              </td>
               <td className="px-3 py-2.5">{r.orgUnitName}</td>
               <td className="px-3 py-2.5">
                 {when(r.requestedAt)}
@@ -58,6 +64,14 @@ export function RunsTable({ runs }: { runs: ReportRunRow[] }) {
                     >
                       Download PDF
                     </a>
+                    {r.hasWorkbook ? (
+                      <a
+                        href={`/api/reports/${r.id}/file?format=xlsx`}
+                        className="font-medium underline-offset-2 hover:underline"
+                      >
+                        Excel
+                      </a>
+                    ) : null}
                   </>
                 ) : null}
               </td>

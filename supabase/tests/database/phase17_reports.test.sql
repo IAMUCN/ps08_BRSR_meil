@@ -44,8 +44,10 @@ select throws_ok(
 
 select is((select public from storage.buckets where id = 'reports'), false,
   'the reports bucket is private');
-select is((select allowed_mime_types from storage.buckets where id = 'reports'), array['application/pdf'],
-  'and holds PDFs only');
+-- Migration 0062 (Phase 8) adds Excel workbooks beside the PDFs (the GHG inventory); nothing else.
+select is((select allowed_mime_types from storage.buckets where id = 'reports'),
+  array['application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  'and holds PDFs and report workbooks only');
 select is(
   (select count(*)::int from pg_policies where schemaname = 'storage' and tablename = 'objects'
      and (qual ilike '%reports%' or with_check ilike '%reports%')),

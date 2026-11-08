@@ -631,6 +631,17 @@ _Last updated: 2026-11-09._
   `pnpm --filter web test:analytics`, `tests/e2e/phase7-analytics.mjs` (in the suite), `ui-phase7.mjs`. Full
   end-to-end suite: 17 of 18 scripts in full (feedback-2026-11 stops at the old Add ID step, 85 checks before
   it). AI wording not confirmed with a real reply: see §2.
+- **Phase 8 (2026-11-09), uncommitted; migration `0062` applied to hosted 2026-11-09 (owner's "go")** (D52, A48, `UI_NOTES.md`;
+  decisions in `.grill/feature-enhancement-roadmap-decisions.md`, "Phase 8 decisions"). Report templates
+  (`lib/reports/templates.ts`, `template-html.ts`, `extras.ts`, `workbook.ts`; `report_runs.template`, the GHG
+  inventory's `.xlsx` beside its PDF); top-bar search (`lib/search/*`, `components/search/global-search.tsx`,
+  `search.global`); Scope Table / Chart kept as `view=chart`; the Ask button and landing fixes (the owner asked the
+  feature lane to do these ui items). `0062` read back on hosted: recorded, the 13 existing runs read as `brsr`
+  with no workbook, the reports bucket private and taking PDF and .xlsx, the browser roles still unable to change
+  a run; 34 users, 73 records, 2 periods unchanged. New tests: `pnpm --filter web
+  test:search`, `tests/e2e/phase8-templates-search.mjs` (in the suite), `ui-phase8.mjs` (axe included). Full
+  suite: 18 of 19 scripts in full after one fix (feedback-2026-11 stops at the old Add ID step, 85 checks before
+  it); accessibility suite 188 passed / 0 failed / 2 known open (now also on Carbon Analytics).
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -638,7 +649,7 @@ _Last updated: 2026-11-09._
 | Question | Notes |
 |---|---|
 | NVIDIA models in `apps/web/.env.local` (2026-11-09) | Of the three in `NVIDIA_NIM_MODEL`, one answers 404 (not for this account), one 410 (retired), one timed out at 25 s. The chatbot and Phase 7's AI wording do not work until a working model is listed (probe it with a tool call first, §5). |
-| Phase 6 and 7 build-time choices | Listed under "Built that way" in `.grill/feature-enhancement-roadmap-decisions.md` for each phase: thresholds for rising / unusual month / largest source, alert window and minimum increase, factor units and fetch limits. |
+| Phase 6, 7 and 8 build-time choices | Listed under "Built that way" in `.grill/feature-enhancement-roadmap-decisions.md` for each phase: thresholds for rising / unusual month / largest source, alert window and minimum increase, factor units and fetch limits. |
 | Phase 1 of the feature roadmap (2026-11-07) | Confirm the build-time decisions in `.grill/feature-enhancement-roadmap-decisions.md` (sessions that skip the form replace the others; the Super Admin email goes to the Super Admin whose account took over). |
 | For the ui role (2026-11-07) | The root `app/loading.tsx` makes server redirects arrive inside a 200 page; `app/loading.tsx` and `app/page.tsx` fail `format:check`; after Add ID on Users the filtered list does not refresh (feedback-2026-11 stops there, also without Phase 1). |
 | Hosted OCR worker | `traceesg-ocr-worker-hosted` was found exited (137, out of memory) on 2026-11-07; hosted uploads wait until it is started again. |
@@ -674,7 +685,7 @@ _Last updated: 2026-11-09._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D52** and **A48**; the next migration is `0062`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D53** and **A49**; the next migration is `0063`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -976,6 +987,16 @@ _Last updated: 2026-11-09._
 - **Phase 7 fixtures insert records and calculations directly** (`tests/e2e/analytics-fixture.mjs`) and remove
   them with `session_replication_role = replica` in their own transaction; its dates work between Aug 2026 and
   Jan 2027 (the scripts refuse to run outside that window).
+- **Scenario E's two split bills are created in one transaction** and share `created_at`; the script now orders
+  them by `document_bundle_parts.part_number` (it failed once on 2026-11-09 with the bills swapped).
+- **The accessibility suite runs axe over the page behind an open menu:** a link inside a sentence must be
+  underlined (link-in-text-block), and small header text must not be dimmed (the Special theme's header is
+  crimson; 80% opacity failed 4.5:1).
+- **The `secondary` button style fails contrast in the Corporate theme** (#222 on #ef102d, 3.6:1): do not use it
+  for a pressed or selected state.
+- **A landing-page screenshot taken after a fast scroll shows sections blank:** `BlurFade inView` reveals on
+  scroll, once. Scroll slowly (300 px, 150 ms) before a full-page capture or an axe run.
+- **pdf.js: destroy the loading task, not the document** (`task.destroy()`), in tests as in `lib/factors`.
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

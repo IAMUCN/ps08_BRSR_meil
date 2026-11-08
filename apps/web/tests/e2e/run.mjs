@@ -29,6 +29,7 @@ const ALL = [
   "phase5-reminders",
   "phase6-factors",
   "phase7-analytics",
+  "phase8-templates-search",
 ];
 const chosen = process.argv.slice(2).length ? process.argv.slice(2) : ALL;
 const APP = process.env.E2E_APP_URL ?? "http://localhost:3000";

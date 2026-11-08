@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api, orNotFound } from "@/lib/trpc/server";
 import { ReportForwarding } from "@/components/reports/report-forwarding";
+import { TEMPLATE_INFO } from "@/lib/reports/templates";
 import { ReportView } from "./report-view";
 
 export const metadata: Metadata = { title: "Report · EmeilSG" };
@@ -25,7 +26,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/admin/rep
     <div className="max-w-7xl space-y-4">
       <AutoRefresh active={run.status === "pending" || run.status === "generating"} />
       <PageHeader
-        title={`BRSR Report · ${run.coverage}`}
+        title={`${TEMPLATE_INFO[run.template].title} · ${run.coverage}`}
         description={
           s
             ? `${s.org.path.join(" › ")} · generated ${new Date(s.generatedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} by ${run.requestedBy}. Approved records only${s.excludedAwaitingApproval ? ` — ${s.excludedAwaitingApproval} awaiting approval not included` : ""}. Click any value to trace it to its document.`
@@ -33,13 +34,24 @@ export default async function ReportDetailPage({ params }: PageProps<"/admin/rep
         }
         action={
           run.status === "completed" ? (
-            <a
-              href={`/api/reports/${run.id}/file`}
-              className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted"
-            >
-              <Download className="size-4" aria-hidden />
-              Download PDF
-            </a>
+            <span className="flex flex-wrap gap-2">
+              <a
+                href={`/api/reports/${run.id}/file`}
+                className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+              >
+                <Download className="size-4" aria-hidden />
+                Download PDF
+              </a>
+              {run.hasWorkbook ? (
+                <a
+                  href={`/api/reports/${run.id}/file?format=xlsx`}
+                  className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+                >
+                  <Download className="size-4" aria-hidden />
+                  Download Excel
+                </a>
+              ) : null}
+            </span>
           ) : null
         }
       />

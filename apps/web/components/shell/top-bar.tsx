@@ -1,6 +1,7 @@
 import { LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
 import { ChatLauncher } from "@/components/chat/chat-launcher";
+import { GlobalSearch } from "@/components/search/global-search";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export function TopBar({
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-end gap-2 border-b bg-header px-4 text-header-foreground md:gap-4 md:px-6">
+      <GlobalSearch />
       <ThemeToggle current={session.theme} />
       {session.permissions.includes("chat.use") && chatConfig() ? <ChatLauncher /> : null}
       <NotificationBell viewAllHref={notificationsHref} />

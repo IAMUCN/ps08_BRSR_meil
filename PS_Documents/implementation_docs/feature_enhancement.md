@@ -941,7 +941,9 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                         hosted 2026-11-09
   7       COMPLETED     2026-11-09, uncommitted; migration 0061 on
                         hosted 2026-11-09
-  8--10   NOT STARTED
+  8       COMPLETED     2026-11-09, uncommitted; migration 0062 on
+                        hosted 2026-11-09
+  9--10   NOT STARTED
 
 ## Requirements
 
@@ -954,8 +956,10 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   3    Missing                         NOT STARTED   ui lane
   4    Partial                         COMPLETED     one list, row Approve/Return,
                                                      stage tracker
-  5    Partial, cause found            NOT STARTED
-  6    Exists                          NOT STARTED   ui lane
+  5    Partial, cause found            COMPLETED     Table | Chart switches every
+                                                     section, kept in the address
+  6    Exists                          COMPLETED     "Ask AI" pill, ring and glow,
+                                                     all three themes (feature lane)
   7    Partial                         COMPLETED     source link, publisher, FY,
                                                      read date; fetch from official
                                                      sites, value picked by a person
@@ -984,7 +988,8 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   18   Missing                         COMPLETED     one session per account for
                                                      everyone, with the takeover
                                                      question (migration 0055)
-  19   Partial                         NOT STARTED
+  19   Partial                         COMPLETED     top-bar search, permission-
+                                                     aware, page's section first
   20   Partial                         COMPLETED     re-check of code since
                                                      2026-10-12: 1 Low fixed,
                                                      3 Low recorded
@@ -1007,7 +1012,8 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   29   Missing                         COMPLETED     My Activity for everyone
   30   Missing                         COMPLETED     Administrators see their
                                                      units' entries; roles shown
-  31   Missing                         NOT STARTED
+  31   Missing                         COMPLETED     BRSR, BRSR Core, GHG inventory
+                                                     (+ Excel), executive summary
   32   Missing                         COMPLETED     decided: one device per
                                                      account (same as 18)
   33   Partial                         COMPLETED     Carbon Analytics: year-wise by
@@ -1026,7 +1032,9 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                                                      on the document, Excel
   39   Exists (mostly)                 COMPLETED     several open periods; due and
                                                      late dates; Late flag
-  40   Exists                          NOT STARTED   ui lane
+  40   Exists                          COMPLETED     charts from data, layout and
+                                                     phone fixes, contrast (feature
+                                                     lane); card deck unchanged
 
 ## Added to Phase 10 by the owner (2026-11-07)
 

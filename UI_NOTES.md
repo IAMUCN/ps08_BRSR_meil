@@ -330,3 +330,18 @@ and the system cursor stays. Not checked: a real phone or tablet.
 - `components/shell/admin-nav.ts` (one line: Carbon Analytics, open to Administrators) and
   `components/shell/sidebar.tsx` (one icon, `analytics: ChartColumn`).
 - `app/admin/kpi-trends.tsx`: one sentence linking to Carbon Analytics.
+
+## Feature lane, 2026-11-09 (Phase 8 of feature_enhancement.md; the owner asked the feature lane to do the ui items)
+
+- `components/scope/scope-dashboard.tsx`: Table | Chart switch (a button group, `aria-pressed`, the pressed one
+  in the default style -- "secondary" failed contrast in Corporate) kept in the address as `view=chart`; one `Bars`
+  component for categories, activities and units; a trend table in Table mode. `lib/scope/display.ts` `barValue`.
+- `components/search/global-search.tsx` (new) in `components/shell/top-bar.tsx`; `components/shell/admin-nav.ts`
+  now also holds the /app list (`workspaceNavFor`), used by `app/app/layout.tsx` and the search.
+- `components/chat/chat-launcher.tsx`: "Ask AI" pill (`.ask-button`) and `.ask-fab`; styles in `app/globals.css`
+  (`--ask-accent`, the header foreground in the Special theme).
+- Reports: `report-form.tsx` (Template select), `runs-table.tsx`, `[reportId]/page.tsx` (Excel download).
+  `app/admin/users/page.tsx` and `users-manager.tsx`: `?q=` fills the search box.
+- Landing: `performance-section.tsx` (charts from data), `traceability-section.tsx` (top-aligned, sticky points),
+  `hero-section.tsx` (phone buttons, ticked points, balanced eyebrow), `process-steps-section.tsx` (step number
+  contrast). The hero card deck is unchanged.

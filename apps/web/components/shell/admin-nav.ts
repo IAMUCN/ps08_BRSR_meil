@@ -67,3 +67,30 @@ export function adminNavFor(session: { isAdmin: boolean }): NavItem[] {
     return [nav];
   });
 }
+
+// The /app sidebar for everyone who is not an administrator (built pages only), and the list the top-bar
+// search offers as pages. An administrator keeps the /admin list in /app too.
+const APP_NAV: NavItem[] = [
+  { href: "/app", label: "Dashboard", icon: "dashboard" },
+  { href: "/app/upload", label: "Upload", icon: "upload" },
+  { href: "/app/submissions", label: "My Submissions", icon: "submissions" },
+  { href: "/app/activity", label: "My Activity", icon: "audit" },
+];
+
+export function workspaceNavFor(session: {
+  isAdmin: boolean;
+  isOrgAdmin: boolean;
+  permissions: string[];
+}): NavItem[] {
+  if (session.isAdmin || session.isOrgAdmin) return adminNavFor(session);
+  const nav = [...APP_NAV];
+  // A1: the Approvals item appears only for approvers (Corporate ESG/Sustainability).
+  if (session.permissions.includes("approval.decide"))
+    nav.push({ href: "/app/approvals", label: "Approvals", icon: "approvals" });
+  // A20: bulk-import items appear only for whichever role(s) an Admin has granted the permission to.
+  if (session.permissions.includes("user.bulk_import"))
+    nav.push({ href: "/app/users/bulk-import", label: "Add Employees", icon: "users" });
+  if (session.permissions.includes("org.bulk_import"))
+    nav.push({ href: "/app/org-units/bulk-import", label: "Add Org Units", icon: "organization" });
+  return nav;
+}

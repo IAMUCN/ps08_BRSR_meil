@@ -785,3 +785,12 @@ AI service is set up, "Explain in plain words"), and emission alerts with the me
 the difference, the threshold and the periods averaged, each acknowledged with a note. A Super Admin sets the
 thresholds and can run the daily check now. Alerts also arrive as a notification and an email. The Control Tower's
 KPI card links to the page.
+
+## A48 — Report templates, top-bar search, Scope Table / Chart, Ask button, landing page (2026-11-09, Phase 8)
+
+Reports has a Template choice (full SEBI BRSR, BRSR Core KPIs, GHG inventory, executive summary); the runs list and
+the report page name the template, and a GHG inventory also downloads as Excel. The top bar has Search (Ctrl+K or
+"/"): records, people, org units, reports, pages and the audit trail, limited to what the person may open, the
+current page's section first. The Users page reads `?q=`. Scope 1/2/3 have a Table | Chart switch for every summary
+section, kept in the address. The Ask button is an "Ask AI" pill. The landing page's sample charts, Traceability
+layout, phone hero and step numbers were corrected.

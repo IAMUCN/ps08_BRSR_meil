@@ -107,6 +107,7 @@ may run in parallel with Phases 3–5.
 | — | Feature roadmap Phase 5: deadline reminders on a schedule, Administrators' summaries, sent log, daily Vercel Cron (migration `0059`) | Done, **uncommitted**; `0059` on hosted (2026-11-08) | — |
 | — | Feature roadmap Phase 6: factor sources and fetching from official sites, factor approval, yearly review, carbon-credit links (migration `0060`) | Done, **uncommitted**; `0060` on hosted (2026-11-09) | — |
 | — | Feature roadmap Phase 7: Carbon Analytics — year-wise trends, suggested actions, emission threshold alerts (migration `0061`) | Done, **uncommitted**; `0061` on hosted (2026-11-09) | — |
+| — | Feature roadmap Phase 8: four report templates (GHG also as Excel), top-bar search, Scope Table / Chart, Ask button, landing fixes (migration `0062`) | Done, **uncommitted**; `0062` on hosted (2026-11-09) | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -906,6 +907,15 @@ Super Admins in the app and by email, once (migration `0061`). Checks: web unit 
 procedures `test:analytics` 44/44, `phase7-analytics.mjs` 23/23 through the daily trigger and the mail catcher,
 browser `ui-phase7.mjs` 23/23 in Edge; full suite in CONTEXT.md. `0061` on hosted 2026-11-09. AI wording not confirmed with a
 real reply (the configured models are retired or refused).
+
+**Feature roadmap, Phase 8 (2026-11-09).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 8
+decisions"); D52, A48, `UI_NOTES.md`. Reports offers four templates over the same approved figures: the full SEBI
+BRSR, BRSR Core, a GHG inventory (also as an Excel workbook) and an executive summary (migration `0062`). A search
+in the top bar (Ctrl+K) finds records, people, org units, reports and pages, only what each person may open. The
+Scope pages' Table / Chart switch now changes every summary section and is kept in the address. The Ask button
+and the landing page were reworked by the feature lane at the owner's request. Checks: web unit 287, database
+471/471, `test:search` 23/23, `phase8-templates-search.mjs` 35/35 (every template generated and read back, the
+workbook opened), browser `ui-phase8.mjs` 30/30 in Edge with axe; full suite in CONTEXT.md. `0062` on hosted 2026-11-09.
 
 Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
 docs, the phone and tablet pass.

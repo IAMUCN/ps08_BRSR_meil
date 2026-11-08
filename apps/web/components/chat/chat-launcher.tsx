@@ -19,6 +19,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { ChatBlocks } from "@/components/chat/chat-blocks";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import {
   deleteConversationAction,
@@ -190,9 +191,11 @@ export function ChatLauncher() {
         onClick={() => toggle(!open)}
         aria-controls="chat-pane"
         aria-expanded={open}
+        title="Ask a question about your ESG data"
+        className={cn("ask-button gap-1.5 px-3", open && "bg-white/15")}
       >
         <Sparkles aria-hidden />
-        <span className="sr-only sm:not-sr-only">Ask</span>
+        <span className="sr-only sm:not-sr-only">Ask AI</span>
       </Button>
       {open ? null : (
         <button
@@ -200,7 +203,7 @@ export function ChatLauncher() {
           onClick={() => toggle(true)}
           aria-controls="chat-pane"
           aria-expanded={false}
-          className="fixed right-4 bottom-4 z-40 inline-flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform outline-none hover:scale-105 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:right-6 md:bottom-6"
+          className="ask-fab fixed right-4 bottom-4 z-40 inline-flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform outline-none hover:scale-105 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:right-6 md:bottom-6"
         >
           <Sparkles className="size-5" aria-hidden />
           <span className="sr-only">Ask the ESG data analyst</span>

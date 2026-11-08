@@ -62,6 +62,7 @@ const ADMIN = [
   "/admin/deadlines",
   "/admin/forecast",
   "/admin/simulator",
+  "/admin/carbon-analytics",
   "/admin/carbon-credits",
   "/admin/profile",
 ];

@@ -18,6 +18,7 @@ import { REPORT_INPUTS_KEY, type FyInputs } from "@/lib/reports/inputs";
 import { loadReportInputs, type Snapshot } from "@/lib/reports/snapshot";
 import { getBundlePreview, type BundlePreview } from "@/lib/reports/bundle";
 import { adminProcedure, permissionProcedure, router } from "@/lib/trpc/init";
+import { isTemplate, REPORT_TEMPLATES, type ReportTemplate } from "@/lib/reports/templates";
 
 // Reports (03_APP_FLOW.md §2.2 Reports / Report Detail, §4.10; .grill/phase-17-reporting-decisions.md).
 // Generating needs `report.generate`; a requester who is not an Admin may only report inside their own
@@ -34,6 +35,9 @@ export type ReportRunRow = {
   requestedAt: string;
   completedAt: string | null;
   error: string | null;
+  /** Phase 8: the layout this run printed; and whether it has an Excel workbook beside the PDF. */
+  template: ReportTemplate;
+  hasWorkbook: boolean;
 };
 
 /** One evidence file behind a record of a financial year. */
@@ -73,7 +77,7 @@ const text = (max: number) =>
     .transform((v) => v || null);
 
 /** What a run covers, as the lists and the report's title name it. */
-const coverageOf = (r: {
+export const coverageOf = (r: {
   financial_year: number | null;
   period_from: string | null;
   period_to: string | null;
@@ -226,6 +230,8 @@ export const reportsRouter = router({
           /** A custom range (D35): every reporting period lying wholly between the two dates. */
           from: z.iso.date().optional(),
           to: z.iso.date().optional(),
+          /** Phase 8 (D52): the layout; the full BRSR format when not given. */
+          template: z.enum(REPORT_TEMPLATES).default("brsr"),
         })
         .refine(
           (i) =>
@@ -263,9 +269,10 @@ export const reportsRouter = router({
         const [run] = await tx<{ id: string }[]>`
           insert into public.report_runs
             (requested_by, org_unit_id, reporting_period_id, financial_year, period_from, period_to,
-             report_type)
+             report_type, template)
           values (${ctx.session.userId}, ${input.orgUnitId}, ${input.periodId ?? null},
-                  ${input.financialYear ?? null}, ${input.from ?? null}, ${input.to ?? null}, 'brsr')
+                  ${input.financialYear ?? null}, ${input.from ?? null}, ${input.to ?? null}, 'brsr',
+                  ${input.template})
           returning id`;
         await writeAudit(tx, {
           eventType: "report.requested",
@@ -297,12 +304,14 @@ export const reportsRouter = router({
         requested_at: Date;
         completed_at: Date | null;
         error_message: string | null;
+        template: string;
+        has_workbook: boolean;
       }[]
     >`
       select rr.id, rr.status::text as status, o.name as org_unit_name, p.label as period_label,
              rr.financial_year, rr.period_from::text, rr.period_to::text,
              u.display_name as requested_by, rr.requested_at, rr.completed_at,
-             rr.error_message
+             rr.error_message, rr.template, rr.workbook_path is not null as has_workbook
       from public.report_runs rr
       join public.org_units o on o.id = rr.org_unit_id
       join public.users u on u.id = rr.requested_by
@@ -319,6 +328,8 @@ export const reportsRouter = router({
       requestedAt: r.requested_at.toISOString(),
       completedAt: r.completed_at?.toISOString() ?? null,
       error: r.error_message,
+      template: isTemplate(r.template) ? r.template : "brsr",
+      hasWorkbook: r.has_workbook,
     }));
   }),
 
@@ -340,12 +351,15 @@ export const reportsRouter = router({
           completed_at: Date | null;
           error_message: string | null;
           snapshot_data: Snapshot | null;
+          template: string;
+          has_workbook: boolean;
         }[]
       >`
         select rr.id, rr.status::text as status, o.name as org_unit_name, p.label as period_label,
                rr.financial_year, rr.period_from::text, rr.period_to::text,
              u.display_name as requested_by, rr.requested_at, rr.completed_at,
-               rr.error_message, rr.snapshot_data
+               rr.error_message, rr.snapshot_data, rr.template,
+               rr.workbook_path is not null as has_workbook
         from public.report_runs rr
         join public.org_units o on o.id = rr.org_unit_id
         join public.users u on u.id = rr.requested_by
@@ -363,6 +377,8 @@ export const reportsRouter = router({
         requestedAt: r.requested_at.toISOString(),
         completedAt: r.completed_at?.toISOString() ?? null,
         error: r.error_message,
+        template: isTemplate(r.template) ? r.template : "brsr",
+        hasWorkbook: r.has_workbook,
         snapshot: r.snapshot_data,
       };
     }),

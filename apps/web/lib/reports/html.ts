@@ -36,7 +36,7 @@ export const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => ESCA
 type Figures = { unit: string; value: number | null }[];
 
 /** One column of a SEBI table: the reported year, or the year before it. */
-type Year = {
+export type Year = {
   label: string;
   scopes: ScopeTotal[];
   sections: ReportedSection[];
@@ -46,11 +46,11 @@ type Year = {
   breakups?: Breakups;
 };
 
-const NONE = '<span class="none">No approved data</span>';
+export const NONE = '<span class="none">No approved data</span>';
 const NOT_PROVIDED = '<span class="none">Not provided</span>';
 const FULL_YEAR_ONLY = '<span class="none">Financial-year reports only</span>';
 
-const num = (value: number, maximumFractionDigits = 2) =>
+export const num = (value: number, maximumFractionDigits = 2) =>
   value.toLocaleString("en-IN", { maximumFractionDigits });
 const significant = (value: number) =>
   value.toLocaleString("en-IN", { maximumSignificantDigits: 3 });
@@ -72,7 +72,7 @@ const figureText = (figures: Figures | undefined) =>
         .join("<br>");
 
 /** The figures in kg<suffix> or t<suffix> as one total in metric tonnes; null when there are none. */
-function tonnes(figures: Figures | undefined, suffix: "" | "co2e"): number | null {
+export function tonnes(figures: Figures | undefined, suffix: "" | "co2e"): number | null {
   let total: number | null = null;
   for (const f of figures ?? []) {
     const unit = f.unit.trim().toLowerCase();
@@ -85,7 +85,7 @@ function tonnes(figures: Figures | undefined, suffix: "" | "co2e"): number | nul
 const add = (a: number | null, b: number | null) =>
   a === null && b === null ? null : (a ?? 0) + (b ?? 0);
 
-const yearsOf = (s: Snapshot): Year[] => [
+export const yearsOf = (s: Snapshot): Year[] => [
   {
     label: s.coverage.label,
     scopes: s.scopes,
@@ -106,18 +106,19 @@ const yearsOf = (s: Snapshot): Year[] => [
     : []),
 ];
 
-const scopeTonnes = (y: Year, code: string) =>
+export const scopeTonnes = (y: Year, code: string) =>
   tonnes(y.scopes.find((sc) => sc.code === code)?.figures, "co2e");
-const indicatorOf = (y: Year, code: string) =>
+export const indicatorOf = (y: Year, code: string) =>
   y.sections.flatMap((x) => x.indicators).find((i) => i.code === code);
 
 const yearHeads = (years: Year[]) =>
   years.map((y) => `<th class="num">${escapeHtml(y.label)}</th>`).join("");
-const row = (parameter: string, unit: string, cells: string[]) =>
+export const row = (parameter: string, unit: string, cells: string[]) =>
   `<tr><td>${escapeHtml(parameter)}</td><td>${escapeHtml(unit)}</td>${cells
     .map((c) => `<td class="num">${c}</td>`)
     .join("")}</tr>`;
-const quantityCell = (value: number | null) => (value === null ? NONE : escapeHtml(num(value, 3)));
+export const quantityCell = (value: number | null) =>
+  value === null ? NONE : escapeHtml(num(value, 3));
 
 function intensityCell(quantity: number | null, y: Year, per: (i: FyInputs) => number | null) {
   if (!y.inputs) return FULL_YEAR_ONLY;
@@ -153,7 +154,7 @@ function intensityRows(what: string, unit: string, years: Year[], of: (y: Year) 
   ].join("");
 }
 
-const sebiTable = (years: Year[], rows: string) =>
+export const sebiTable = (years: Year[], rows: string) =>
   `<table><thead><tr><th>Parameter</th><th>Unit</th>${yearHeads(years)}</tr></thead><tbody>${rows}</tbody></table>`;
 
 const subRow = (parameter: string, unit: string, cells: string[]) =>
@@ -209,7 +210,7 @@ function scope1SourceTable(years: Year[]) {
 }
 
 // Principle 6, Essential Indicator 7.
-function ghgTable(years: Year[]) {
+export function ghgTable(years: Year[]) {
   const scope12 = (y: Year) => add(scopeTonnes(y, "SCOPE_1"), scopeTonnes(y, "SCOPE_2"));
   return (
     sebiTable(
@@ -232,7 +233,7 @@ function ghgTable(years: Year[]) {
 }
 
 // Principle 6, Leadership Indicator 2.
-function scope3Table(years: Year[]) {
+export function scope3Table(years: Year[]) {
   const scope3 = (y: Year) => scopeTonnes(y, "SCOPE_3");
   return sebiTable(
     years,
@@ -501,7 +502,7 @@ function metricRow(m: ReportedMetric, code: string, years: Year[]) {
   </tr>`;
 }
 
-function indicatorBlock(i: ReportedIndicator, years: Year[]) {
+export function indicatorBlock(i: ReportedIndicator, years: Year[]) {
   const sebi = SEBI_TABLES[i.code];
   const assurance = years[0].inputs
     ? `<p class="note">Note: independent assessment / evaluation / assurance by an external agency — ${
@@ -545,7 +546,7 @@ function indicatorBlock(i: ReportedIndicator, years: Year[]) {
     </div>`;
 }
 
-function methodology(s: Snapshot, years: Year[]) {
+export function methodology(s: Snapshot, years: Year[]) {
   const factors = s.factors.length
     ? `<table><thead><tr><th>Factor</th><th class="num">Value</th><th>Source</th><th>Geography</th><th>Effective</th><th class="num">Records</th></tr></thead><tbody>${s.factors
         .map(
@@ -608,7 +609,7 @@ function methodology(s: Snapshot, years: Year[]) {
 }
 
 /** Where the node's total comes from: each direct child's own roll-up, and what is recorded on the node. */
-function childrenTable(s: Snapshot) {
+export function childrenTable(s: Snapshot) {
   if (!s.children?.length) return "";
   const codes = ["SCOPE_1", "SCOPE_2", "SCOPE_3"];
   const of = (scopes: ScopeTotal[], code: string) =>
@@ -642,7 +643,7 @@ function childrenTable(s: Snapshot) {
 }
 
 /** A financial-year report built from fewer days than the year has says so. */
-function partialYearNote(s: Snapshot) {
+export function partialYearNote(s: Snapshot) {
   const fy = s.coverage.financialYear;
   if (fy === null || s.coverage.days === undefined) return "";
   const leap = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
@@ -658,7 +659,6 @@ function partialYearNote(s: Snapshot) {
 }
 
 export function renderReportHtml(s: Snapshot): string {
-  const generated = new Date(s.generatedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   const years = yearsOf(s);
   const scopes = s.scopes
     .map((sc) =>
@@ -695,10 +695,25 @@ export function renderReportHtml(s: Snapshot): string {
     })
     .join("");
 
-  return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<title>BRSR Report — ${escapeHtml(s.org.name)} — ${escapeHtml(s.coverage.label)}</title>
-<style>
+  return reportPage(s, {
+    title: "BRSR Report",
+    body: `
+  <h2>Greenhouse gas emissions summary</h2>
+  ${sebiTable(years, scopes)}
+  ${childrenTable(s)}
+  ${sections}
+  ${sdgSection(s)}
+  ${methodology(s, years)}
+`,
+    footer: `Every value is consolidated from verified, validated and approved source documents.
+  Question numbering and wording follow SEBI's BRSR format. Written disclosures are entered by the
+  entity; a question it has not answered is printed as "Not reported". Each value can be
+  traced to its original document from the report's page in EmeilSG.`,
+  });
+}
+
+/** The report styles, shared by every template. */
+export const REPORT_STYLE = `
   @page { size: A4; margin: 18mm 16mm; }
   body { font-family: "Segoe UI", Arial, sans-serif; font-size: 10pt; color: #1f1f1f; }
   h1 { font-size: 18pt; color: #ca2851; margin: 0 0 4pt; }
@@ -723,9 +738,23 @@ export function renderReportHtml(s: Snapshot): string {
   .sdg { margin-left: 6pt; padding: 0 4pt; border-radius: 2pt; background: #eef3f8; color: #1f4e79; font-weight: normal; font-size: 8pt; }
   tr.sub td:first-child { padding-left: 14pt; color: #444; }
   .footer { margin-top: 20pt; color: #666; font-size: 8.5pt; }
-</style></head>
+`;
+
+/**
+ * The frame every template prints in: title, the org unit and what the report covers, when it was generated,
+ * how many records awaiting approval were left out, a part-of-the-year note, then the body and a footer.
+ */
+export function reportPage(
+  s: Snapshot,
+  page: { title: string; body: string; footer: string },
+): string {
+  const generated = new Date(s.generatedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>${escapeHtml(page.title)} — ${escapeHtml(s.org.name)} — ${escapeHtml(s.coverage.label)}</title>
+<style>${REPORT_STYLE}</style></head>
 <body>
-  <h1>BRSR Report</h1>
+  <h1>${escapeHtml(page.title)}</h1>
   <p class="meta"><strong>${escapeHtml(s.org.path.join(" › "))}</strong> · ${escapeHtml(s.coverage.label)}</p>
   <p class="meta">Generated ${escapeHtml(generated)} IST by EmeilSG. Approved records only${
     s.excludedAwaitingApproval
@@ -733,15 +762,7 @@ export function renderReportHtml(s: Snapshot): string {
       : ""
   }.</p>
   ${partialYearNote(s)}
-  <h2>Greenhouse gas emissions summary</h2>
-  ${sebiTable(years, scopes)}
-  ${childrenTable(s)}
-  ${sections}
-  ${sdgSection(s)}
-  ${methodology(s, years)}
-  <p class="footer">Every value is consolidated from verified, validated and approved source documents.
-  Question numbering and wording follow SEBI's BRSR format. Written disclosures are entered by the
-  entity; a question it has not answered is printed as "Not reported". Each value can be
-  traced to its original document from the report's page in EmeilSG.</p>
+${page.body}
+  <p class="footer">${page.footer}</p>
 </body></html>`;
 }
