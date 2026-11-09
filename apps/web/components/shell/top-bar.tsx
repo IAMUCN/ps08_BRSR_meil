@@ -25,7 +25,14 @@ export function TopBar({
   const roles = [...new Set(session.assignments.map((a) => a.roleName))].join(", ");
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-end gap-2 border-b bg-header px-4 text-header-foreground md:gap-4 md:px-6">
+    <header className="flex h-14 shrink-0 items-center justify-end gap-1 border-b bg-header px-3 text-header-foreground sm:gap-2 sm:px-4 md:gap-4 md:px-6">
+      {/* Phones have no sidebar rail, so the name sits here (feature_enhancement.md 9.1). */}
+      <Link
+        href={profileHref.startsWith("/admin") ? "/admin" : "/app"}
+        className="mr-auto text-base font-semibold md:hidden"
+      >
+        EmeilSG
+      </Link>
       <GlobalSearch />
       <ThemeToggle current={session.theme} />
       {session.permissions.includes("chat.use") && chatConfig() ? <ChatLauncher /> : null}

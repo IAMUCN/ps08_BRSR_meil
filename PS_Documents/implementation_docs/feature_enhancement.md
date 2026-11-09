@@ -943,7 +943,10 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                         hosted 2026-11-09
   8       COMPLETED     2026-11-09, uncommitted; migration 0062 on
                         hosted 2026-11-09
-  9--10   NOT STARTED
+  9       COMPLETED     2026-11-09, uncommitted; no migration;
+                        installable web app (store app planned)
+  10      COMPLETED     2026-11-09, uncommitted; Help, runbooks,
+                        RELEASE.md, hosted reset and local server
 
 ## Requirements
 
@@ -953,7 +956,8 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                                                      and OCR in the record panel
   2    Partial                         COMPLETED     thumbnail on approval rows;
                                                      bill beside its values
-  3    Missing                         NOT STARTED   ui lane
+  3    Missing                         COMPLETED     bottom bar + Menu drawer on
+                                                     phones; no sideways scroll
   4    Partial                         COMPLETED     one list, row Approve/Return,
                                                      stage tracker
   5    Partial, cause found            COMPLETED     Table | Chart switches every
@@ -963,10 +967,9 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   7    Partial                         COMPLETED     source link, publisher, FY,
                                                      read date; fetch from official
                                                      sites, value picked by a person
-  8    Partial, conflicts with the     IN PROGRESS   ui lane: "hide custom cursor
-       pen-laptop cursor fix                         on mobile" merged on ucn
-                                                     main 2026-11-07 (debbcce);
-                                                     not yet checked
+  8    Partial, conflicts with the     COMPLETED     emulated mouse events after
+       pen-laptop cursor fix                         a tap ignored; pen and mouse
+                                                     still drive the cursor
   9    Missing                         COMPLETED     forward up the hierarchy;
                                                      verify or return; trail
   10   Partial                         COMPLETED     schedule 7..0 days, in-app and
@@ -977,7 +980,10 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
                                                      and My Activity
   13   Partial                         COMPLETED     20 approved names; codes off
                                                      Roles & Permissions
-  14   Missing                         NOT STARTED   after feature freeze
+  14   Missing                         COMPLETED     installable web app (owner's
+                                                     choice); Capacitor plan in
+                                                     docs/MOBILE_APP.md; no device
+                                                     test yet
   15   Missing                         BLOCKED       = conductor-written bus tickets;
                                                      waiting for 3-5 real photos
   16   Partial                         COMPLETED     Administrators' summary by
@@ -993,7 +999,8 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   20   Partial                         COMPLETED     re-check of code since
                                                      2026-10-12: 1 Low fixed,
                                                      3 Low recorded
-  21   Missing                         NOT STARTED
+  21   Missing                         COMPLETED     Help page for every role,
+                                                     figures from the settings
   22   Partial                         COMPLETED     duplicate flags in the
                                                      Validation Queue; stage tracker
   23   Exists (no overwrite)           COMPLETED     policy decided and enforced;
@@ -1026,8 +1033,10 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
   35   Partial                         COMPLETED     preset, editable outside links;
                                                      addresses checked; no-sale notice
   36   Exists                          COMPLETED     zoom kept; boxes follow zoom
-  37   Partial (dump ready)            BLOCKED       deferred by the owner
-                                                     until after the HoD demo
+  37   Partial (dump ready)            COMPLETED     hosted reset on the owner's
+                                                     go; copied to a local Supabase
+                                                     stack, verified table by table;
+                                                     the app's switch is the owner's
   38   Missing                         COMPLETED     field grid: red cells, boxes
                                                      on the document, Excel
   39   Exists (mostly)                 COMPLETED     several open periods; due and
@@ -1039,7 +1048,8 @@ began. Evidence: `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`.
 ## Added to Phase 10 by the owner (2026-11-07)
 
 -   **Database connections for production (owner's request, 2026-11-07).**
-    Status: NOT STARTED.
+    Status: COMPLETED 2026-11-09 as diagnosis and runbook (owner's choice): the hang does not
+    reproduce today (docs/PRODUCTION_DATABASE.md); the production project is the owner's step.
     -   Today the session pooler (port 5432) allows 15 clients, shared by
         the live site, every developer's machine and the OCR worker;
         `EMAXCONNSESSION` errors appear under normal use. Hosted allows

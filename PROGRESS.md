@@ -108,6 +108,8 @@ may run in parallel with Phases 3–5.
 | — | Feature roadmap Phase 6: factor sources and fetching from official sites, factor approval, yearly review, carbon-credit links (migration `0060`) | Done, **uncommitted**; `0060` on hosted (2026-11-09) | — |
 | — | Feature roadmap Phase 7: Carbon Analytics — year-wise trends, suggested actions, emission threshold alerts (migration `0061`) | Done, **uncommitted**; `0061` on hosted (2026-11-09) | — |
 | — | Feature roadmap Phase 8: four report templates (GHG also as Excel), top-bar search, Scope Table / Chart, Ask button, landing fixes (migration `0062`) | Done, **uncommitted**; `0062` on hosted (2026-11-09) | — |
+| — | Feature roadmap Phase 9: phone navigation, tap cursor, installable app | Done, **uncommitted**; no migration | — |
+| — | Feature roadmap Phase 10: Help, production database runbook, release checklist, hosted reset and the local database server | Done, **uncommitted**; hosted reset 2026-11-09 | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -916,6 +918,16 @@ Scope pages' Table / Chart switch now changes every summary section and is kept 
 and the landing page were reworked by the feature lane at the owner's request. Checks: web unit 287, database
 471/471, `test:search` 23/23, `phase8-templates-search.mjs` 35/35 (every template generated and read back, the
 workbook opened), browser `ui-phase8.mjs` 30/30 in Edge with axe; full suite in CONTEXT.md. `0062` on hosted 2026-11-09.
+
+**Feature roadmap, Phases 9 and 10 (2026-11-09).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md`
+("Phase 9 decisions", "Phase 10 decisions"); A49, `UI_NOTES.md`. Phones get a bottom bar and a Menu drawer,
+"Take a photo" on Upload and documents that fit on Verify; the custom cursor no longer follows taps; EmeilSG
+installs from the browser (docs/MOBILE_APP.md). A Help page explains the product as configured. The
+transaction-pooler hang no longer reproduces (docs/PRODUCTION_DATABASE.md). On the owner's go, hosted was reset to
+the Super Admins, the Administrators and the configuration (backup restored and compared first) and copied to a
+local Supabase stack on this machine, verified table by table (docs/LOCAL_DATABASE_SERVER.md). `RELEASE.md` holds
+the release checklist, rollback, operations and the regression run: unit 287, database 471/471, end-to-end 19 of
+20 scripts, isolation 264, accessibility 190/0/0, scale and large-file checks.
 
 Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
 docs, the phone and tablet pass.

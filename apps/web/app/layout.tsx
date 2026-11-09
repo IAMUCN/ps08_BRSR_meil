@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Lora } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { CustomCursor } from "@/components/ui/custom-cursor";
 import { DEFAULT_THEME, THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { FeedbackWidget } from "@/components/dev/feedback-widget";
+import { ServiceWorker } from "@/components/shell/service-worker";
 import "./globals.css";
 
 const inter = Inter({
@@ -25,6 +26,16 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: "EmeilSG",
   description: "Evidence-first ESG/BRSR reporting platform",
+  // Installable on phones and desktops (feature_enhancement.md 9.2; app/manifest.ts).
+  applicationName: "EmeilSG",
+  appleWebApp: { capable: true, title: "EmeilSG", statusBarStyle: "default" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#37358f",
+  // The content may sit under a phone's notch and home bar; the bottom navigation pads itself for it.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -52,6 +63,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <CustomCursor />
         {children}
         <Toaster />
+        <ServiceWorker />
         {process.env.NODE_ENV === "development" && <FeedbackWidget />}
       </body>
     </html>

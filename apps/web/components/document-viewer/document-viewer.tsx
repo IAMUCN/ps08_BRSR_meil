@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, FileWarning, Loader2, ZoomIn, ZoomOut } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +11,14 @@ import { Button } from "@/components/ui/button";
 
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3] as const;
 const DEFAULT_ZOOM_INDEX = 2;
+/** On a phone an A4 page at 100% is wider than the screen; it opens at 50% there (feature_enhancement.md 9.1). */
+const NARROW = "(max-width: 639px)";
+const NARROW_ZOOM_INDEX = 0;
+const subscribeNarrow = (onChange: () => void) => {
+  const mq = window.matchMedia(NARROW);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+};
 
 type PdfDocument = {
   numPages: number;
@@ -69,7 +77,14 @@ export function DocumentViewer({
   const taskRef = useRef<PdfLoadingTask | null>(null);
   const [pageCount, setPageCount] = useState(1);
   const [page, setPage] = useState(1);
-  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
+  const narrow = useSyncExternalStore(
+    subscribeNarrow,
+    () => window.matchMedia(NARROW).matches,
+    () => false,
+  );
+  // Null until the person zooms: then their choice wins over the screen-size default.
+  const [chosenZoom, setZoomIndex] = useState<number | null>(null);
+  const zoomIndex = chosenZoom ?? (narrow ? NARROW_ZOOM_INDEX : DEFAULT_ZOOM_INDEX);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(isPdf ? "loading" : "ready");
   const zoom = ZOOM_STEPS[zoomIndex];
   const selectedRef = useRef<HTMLButtonElement | null>(null);
@@ -252,7 +267,7 @@ export function DocumentViewer({
               size="icon"
               aria-label="Zoom out"
               disabled={zoomIndex === 0}
-              onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
+              onClick={() => setZoomIndex(Math.max(0, zoomIndex - 1))}
             >
               <ZoomOut aria-hidden />
             </Button>
@@ -264,7 +279,7 @@ export function DocumentViewer({
               size="icon"
               aria-label="Zoom in"
               disabled={zoomIndex === ZOOM_STEPS.length - 1}
-              onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}
+              onClick={() => setZoomIndex(Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1))}
             >
               <ZoomIn aria-hidden />
             </Button>

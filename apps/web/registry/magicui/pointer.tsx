@@ -196,7 +196,22 @@ export function Pointer({
           }
         };
 
+        // A tap fires touch events and then emulated mouse events at the same spot; those must not bring the
+        // cursor back (feature_enhancement.md 9.1, requirement 8). Pens and mice still drive it.
+        let lastTouch = -Infinity;
+        const emulated = () => performance.now() - lastTouch < 1000;
+        const handlePointer = (e: PointerEvent) => {
+          if (e.pointerType !== "touch") return;
+          lastTouch = performance.now();
+          if (isActiveRef.current) {
+            isActiveRef.current = false;
+            setIsActive(false);
+            setIsPressed(false);
+          }
+        };
+
         const handleMouseMove = (e: MouseEvent) => {
+          if (emulated()) return;
           x.set(e.clientX);
           y.set(e.clientY);
 
@@ -209,6 +224,7 @@ export function Pointer({
         };
 
         const handleMouseDown = (e: MouseEvent) => {
+          if (emulated()) return;
           setIsPressed(true);
           x.set(e.clientX);
           y.set(e.clientY);
@@ -240,6 +256,7 @@ export function Pointer({
         };
 
         const handleMouseEnterWindow = () => {
+          if (emulated()) return;
           isActiveRef.current = true;
           setIsActive(true);
         };
@@ -253,10 +270,13 @@ export function Pointer({
         };
 
         const handleTouchStart = () => {
+          lastTouch = performance.now();
           isActiveRef.current = false;
           setIsActive(false);
         };
 
+        window.addEventListener("pointerdown", handlePointer, { passive: true, capture: true });
+        window.addEventListener("pointermove", handlePointer, { passive: true, capture: true });
         window.addEventListener("mousemove", handleMouseMove, { passive: true });
         window.addEventListener("mousedown", handleMouseDown, { passive: true });
         window.addEventListener("mouseup", handleMouseUp, { passive: true });
@@ -276,6 +296,8 @@ export function Pointer({
           window.removeEventListener("mouseup", handleMouseUp);
           window.removeEventListener("dragstart", handleDragStart, { capture: true });
           window.removeEventListener("touchstart", handleTouchStart);
+          window.removeEventListener("pointerdown", handlePointer, { capture: true });
+          window.removeEventListener("pointermove", handlePointer, { capture: true });
           document.documentElement.removeEventListener("mouseleave", handleMouseLeaveWindow);
           document.documentElement.removeEventListener("mouseenter", handleMouseEnterWindow);
         };

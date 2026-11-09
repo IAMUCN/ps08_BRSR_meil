@@ -794,3 +794,10 @@ the report page name the template, and a GHG inventory also downloads as Excel. 
 current page's section first. The Users page reads `?q=`. Scope 1/2/3 have a Table | Chart switch for every summary
 section, kept in the address. The Ask button is an "Ask AI" pill. The landing page's sample charts, Traceability
 layout, phone hero and step numbers were corrected.
+
+## A49 — Phones, the installable app and Help (2026-11-09, Phases 9 and 10)
+
+Below 768px a bottom bar (Home, Upload, Uploads, Approvals or Activity) and Menu replace the icon rail; Upload
+offers "Take a photo" on touch screens; Verify opens documents at 50% on phones. EmeilSG can be installed from the
+browser (manifest, icons, an offline page). A Help page in both sidebars explains the product as configured, with
+administrator sections for administrators.

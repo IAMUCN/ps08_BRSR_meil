@@ -35,6 +35,11 @@ const nextConfig: NextConfig = {
       ],
     },
     {
+      // The service worker must never be cached, so a new version reaches every installed app (Phase 9.2).
+      source: "/sw.js",
+      headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }],
+    },
+    {
       // Protected dashboard routes must not be cached by browsers (audit / back navigation safety)
       source: "/:prefix(admin|app)/:path*",
       headers: [

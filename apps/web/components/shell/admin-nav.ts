@@ -48,6 +48,8 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/users", label: "Users", icon: "users" },
   { href: "/admin/roles", label: "Roles & Permissions", icon: "roles", superOnly: true },
   { href: "/admin/brsr-mapping", label: "BRSR Mapping", icon: "brsr", superOnly: true },
+  // Phase 10 (requirement 21): how EmeilSG works, for everyone.
+  { href: "/app/help", label: "Help", icon: "help", startsGroup: true },
 ];
 
 export function adminNavFor(session: { isAdmin: boolean }): NavItem[] {
@@ -76,6 +78,7 @@ const APP_NAV: NavItem[] = [
   { href: "/app/submissions", label: "My Submissions", icon: "submissions" },
   { href: "/app/activity", label: "My Activity", icon: "audit" },
 ];
+const HELP: NavItem = { href: "/app/help", label: "Help", icon: "help", startsGroup: true };
 
 export function workspaceNavFor(session: {
   isAdmin: boolean;
@@ -92,5 +95,6 @@ export function workspaceNavFor(session: {
     nav.push({ href: "/app/users/bulk-import", label: "Add Employees", icon: "users" });
   if (session.permissions.includes("org.bulk_import"))
     nav.push({ href: "/app/org-units/bulk-import", label: "Add Org Units", icon: "organization" });
+  nav.push(HELP);
   return nav;
 }

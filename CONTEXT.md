@@ -642,6 +642,21 @@ _Last updated: 2026-11-09._
   test:search`, `tests/e2e/phase8-templates-search.mjs` (in the suite), `ui-phase8.mjs` (axe included). Full
   suite: 18 of 19 scripts in full after one fix (feedback-2026-11 stops at the old Add ID step, 85 checks before
   it); accessibility suite 188 passed / 0 failed / 2 known open (now also on Carbon Analytics).
+- **Phases 9 and 10 (2026-11-09), uncommitted; no migration.** Phones: bottom bar and Menu drawer
+  (`components/shell/sidebar.tsx`), tap cursor fixed (`registry/magicui/pointer.tsx`), installable app
+  (`app/manifest.ts`, `public/sw.js`, `docs/MOBILE_APP.md`). Help at `/app/help`. Runbooks:
+  `docs/PRODUCTION_DATABASE.md`, `docs/LOCAL_DATABASE_SERVER.md`, `RELEASE.md`. New tests: `test:scale`,
+  `tests/e2e/release-checks.mjs` (in the suite), `ui-phase9.mjs`, `ui-phase10.mjs`.
+- **Hosted was reset on 2026-11-09 (owner's go)** with `test data/_backup/hosted-reset.cjs`: 7 people (2 Super
+  Admins, 5 Administrators), 6 org units and the configuration kept; everything else, every stored file and
+  the audit log removed; one `platform.reset` audit entry. Full backup (restored and compared) in
+  `test data/_backup/hosted-reset-2026-11-09/`. Every kept person was signed out.
+- **The local database server** (`emeilsg_local_server`, `D:/Non Newtonian Things/emeilsg-local-server`, ports
+  544xx) holds the same data, verified against hosted; the app runs on it with `pnpm --filter web
+  dev:local-server` (`apps/web/.env.localserver`). `.env.local` still points at hosted: switching is the owner's.
+  Two temporary files stay inside its database container: `/tmp/public.dump` and `/tmp/defacl.list` (a safety
+  check stopped their removal); delete them with `docker exec supabase_db_emeilsg_local_server rm
+  /tmp/public.dump /tmp/defacl.list`.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -649,7 +664,7 @@ _Last updated: 2026-11-09._
 | Question | Notes |
 |---|---|
 | NVIDIA models in `apps/web/.env.local` (2026-11-09) | Of the three in `NVIDIA_NIM_MODEL`, one answers 404 (not for this account), one 410 (retired), one timed out at 25 s. The chatbot and Phase 7's AI wording do not work until a working model is listed (probe it with a tool call first, §5). |
-| Phase 6, 7 and 8 build-time choices | Listed under "Built that way" in `.grill/feature-enhancement-roadmap-decisions.md` for each phase: thresholds for rising / unusual month / largest source, alert window and minimum increase, factor units and fetch limits. |
+| Phase 6–10 build-time choices | Listed under "Built that way" in `.grill/feature-enhancement-roadmap-decisions.md` for each phase: thresholds for rising / unusual month / largest source, alert window and minimum increase, factor units and fetch limits. |
 | Phase 1 of the feature roadmap (2026-11-07) | Confirm the build-time decisions in `.grill/feature-enhancement-roadmap-decisions.md` (sessions that skip the form replace the others; the Super Admin email goes to the Super Admin whose account took over). |
 | For the ui role (2026-11-07) | The root `app/loading.tsx` makes server redirects arrive inside a 200 page; `app/loading.tsx` and `app/page.tsx` fail `format:check`; after Add ID on Users the filtered list does not refresh (feedback-2026-11 stops there, also without Phase 1). |
 | Hosted OCR worker | `traceesg-ocr-worker-hosted` was found exited (137, out of memory) on 2026-11-07; hosted uploads wait until it is started again. |
@@ -997,6 +1012,13 @@ _Last updated: 2026-11-09._
 - **A landing-page screenshot taken after a fast scroll shows sections blank:** `BlurFade inView` reveals on
   scroll, once. Scroll slowly (300 px, 150 ms) before a full-page capture or an axe run.
 - **pdf.js: destroy the loading task, not the document** (`task.destroy()`), in tests as in `lib/factors`.
+- **Two Supabase stacks do not fit beside the app and the suites in memory:** stop the test stack while the local
+  server runs. Background jobs were killed for low memory on 2026-11-09; a killed accessibility run left
+  `super_admin_limit` at 3 locally (restored to 2) -- check it if `super_admin_and_administrators.test.sql` fails.
+- **DevTools offline mode covers the page, not its service worker:** switch the worker's own network off through
+  its CDP session to test the offline page (`ui-phase9.mjs`).
+- **A restore of `public` into a Supabase stack:** load the sign-in accounts first (users.id references them) and
+  the `supabase_admin` default grants as `supabase_admin` (`local-server.cjs load`).
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
 
 ## 6. Quick commands

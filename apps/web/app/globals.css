@@ -365,6 +365,14 @@
   }
 }
 
+/* Phones show a bottom navigation bar (feature_enhancement.md 9.1, components/shell/sidebar.tsx): toasts sit
+   above it instead of on it. */
+@media (max-width: 767px) {
+  [data-sonner-toaster][data-y-position="bottom"] {
+    bottom: calc(5.5rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
 /* The Ask button (feature_enhancement.md 8.2, requirement 6): a pill with a slowly turning gradient ring and a
    soft glow in an accent that stands out from the header, brighter on hover and while the chat pane is open. The ring stops
    turning for people who ask for reduced motion (the rule below). */

@@ -6,6 +6,7 @@ import {
   CalendarRange,
   Calculator,
   ChartColumn,
+  CircleHelp,
   ClipboardCheck,
   Coins,
   Flame,
@@ -63,6 +64,7 @@ const ICONS = {
   audit: History,
   carbon: Coins,
   analytics: ChartColumn,
+  help: CircleHelp,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;
@@ -104,8 +106,9 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
 
   const shown = (collapsed: string) => (expanded ? "" : collapsed);
   return (
-    // The placeholder keeps the page clear of the fixed rail.
-    <div className="w-16 shrink-0 xl:w-60">
+    // The placeholder keeps the page clear of the fixed rail. On phones there is no rail: a bottom bar and a
+    // Menu drawer instead (feature_enhancement.md 9.1, requirement 3).
+    <div className="shrink-0 md:w-16 xl:w-60">
       {expanded ? (
         <div
           aria-hidden
@@ -117,7 +120,7 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
         aria-label={label}
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden bg-sidebar text-sidebar-foreground xl:w-60 xl:shadow-none",
-          expanded ? "w-60 shadow-lg" : "w-16",
+          expanded ? "w-60 shadow-lg" : "w-16 max-md:hidden",
         )}
       >
         <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-divider px-3 xl:px-5">
@@ -186,6 +189,103 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
           })}
         </ul>
       </nav>
+      <BottomBar
+        items={items}
+        isActive={isActive}
+        onMenu={() => setExpanded(true)}
+        menuOpen={expanded}
+      />
     </div>
+  );
+}
+
+/** Short names for the bar, where the full one does not fit under an icon. */
+const SHORT: Record<string, string> = {
+  "/admin": "Home",
+  "/app": "Home",
+  "/app/submissions": "Uploads",
+  "/admin/approval-queue": "Approvals",
+  "/app/approvals": "Approvals",
+  "/app/activity": "Activity",
+};
+
+/** The pages a phone reaches most, in this order; whichever the person has. */
+const BOTTOM_PREFERENCE = [
+  ["/admin", "/app"],
+  ["/app/upload"],
+  ["/app/submissions"],
+  ["/admin/approval-queue", "/app/approvals", "/app/activity"],
+];
+
+/**
+ * Phones only (below 768px): the four most-used pages and Menu, which opens the full navigation as a drawer.
+ * Upload (the import of documents) sits in the middle, as the main action.
+ */
+function BottomBar({
+  items,
+  isActive,
+  onMenu,
+  menuOpen,
+}: {
+  items: NavItem[];
+  isActive: (item: NavItem) => boolean;
+  onMenu: () => void;
+  menuOpen: boolean;
+}) {
+  const picked = BOTTOM_PREFERENCE.flatMap((hrefs) => {
+    const found = hrefs.map((h) => items.find((i) => i.href === h)).find(Boolean);
+    return found ? [found] : [];
+  });
+  return (
+    <nav
+      aria-label="Quick navigation"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+    >
+      <ul
+        className="grid h-16"
+        style={{ gridTemplateColumns: `repeat(${picked.length + 1}, minmax(0, 1fr))` }}
+      >
+        {picked.map((item) => {
+          const Icon = ICONS[item.icon];
+          const active = isActive(item);
+          const upload = item.href === "/app/upload";
+          return (
+            <li key={item.href} className="flex">
+              <Link
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  active ? "text-primary-text" : "text-muted-foreground",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex size-8 items-center justify-center rounded-full",
+                    upload && "bg-primary text-primary-foreground",
+                  )}
+                >
+                  <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+                </span>
+                <span className="max-w-full truncate px-1">{SHORT[item.href] ?? item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+        <li className="flex">
+          <button
+            type="button"
+            onClick={onMenu}
+            aria-expanded={menuOpen}
+            className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <span className="flex size-8 items-center justify-center">
+              <Menu className="size-5" strokeWidth={1.75} aria-hidden />
+            </span>
+            Menu
+          </button>
+        </li>
+      </ul>
+    </nav>
   );
 }

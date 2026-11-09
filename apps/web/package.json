@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
+    "dev:local-server": "node scripts/with-env.mjs .env.localserver next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -21,6 +22,7 @@
     "test:factors": "node --conditions=react-server --import ./tests/isolation/hooks.mjs tests/isolation/factors.mjs",
     "test:analytics": "node --conditions=react-server --import ./tests/isolation/hooks.mjs tests/isolation/analytics.mjs",
     "test:search": "node --conditions=react-server --import ./tests/isolation/hooks.mjs tests/isolation/search.mjs",
+    "test:scale": "node --conditions=react-server --import ./tests/isolation/hooks.mjs tests/isolation/scale.mjs",
     "test:a11y": "node tests/a11y/run.mjs"
   },
   "dependencies": {

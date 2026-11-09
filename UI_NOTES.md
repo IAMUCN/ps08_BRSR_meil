@@ -345,3 +345,18 @@ and the system cursor stays. Not checked: a real phone or tablet.
 - Landing: `performance-section.tsx` (charts from data), `traceability-section.tsx` (top-aligned, sticky points),
   `hero-section.tsx` (phone buttons, ticked points, balanced eyebrow), `process-steps-section.tsx` (step number
   contrast). The hero card deck is unchanged.
+
+## Feature lane, 2026-11-09 (Phases 9 and 10 of feature_enhancement.md)
+
+- `components/shell/sidebar.tsx`: no rail below 768px; `BottomBar` (four pages and Menu, short labels); the drawer
+  is the existing expanded sidebar. `app/admin/layout.tsx`, `app/app/layout.tsx`: `pb-24` on phones.
+  `components/shell/top-bar.tsx`: the product name on phones, tighter gaps. `app/globals.css`: toasts above the
+  bar on phones. `components/chat/chat-launcher.tsx`: the floating Ask hidden on phones.
+- `registry/magicui/pointer.tsx`: emulated mouse events after a touch are ignored (requirement 8).
+- `components/upload/drop-zone.tsx`: "Take a photo" (`capture="environment"`) on coarse pointers.
+  `components/document-viewer/document-viewer.tsx`: 50% zoom below 640px until the person zooms.
+- `app/manifest.ts`, `public/sw.js`, `public/offline.html`, `public/icons/*`, `app/favicon.ico`,
+  `components/shell/service-worker.tsx`, root `layout.tsx` metadata and viewport; `next.config.ts` (shared): no
+  caching of `/sw.js`.
+- `app/app/help/page.tsx` (new), `components/shell/admin-nav.ts` (Help in both lists; the /app list moved here as
+  `workspaceNavFor`).

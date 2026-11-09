@@ -219,7 +219,39 @@ Date: 2026-11-07
   it; a search shows at most 6 results per section and 6 words; the executive summary lists up to 10 open alerts
   and 5 suggestions; the BRSR Core list is ASSURANCE.md's (SEBI's own Core annexure is still not in the repo).
 
-## Surfaced assumptions
+### Phase 9 decisions (2026-11-09)
+- Decision (req. 14, plan 9.2): owner's choice -- an installable web app now (manifest, icons, a service worker
+  that only serves an offline page and stores no data, "Take a photo" on touch screens), checked in Edge's device
+  emulation; a Capacitor store app later, planned in docs/MOBILE_APP.md. Alternatives: a Capacitor Android
+  project now (no SDK or device here) -- rejected; nothing -- rejected.
+- Decision (req. 3, plan 9.1): below 768px the icon rail gives way to a bottom bar (Home, Upload in the middle,
+  Uploads, Approvals or Activity by role) and Menu, which opens the full navigation as a drawer; the floating Ask
+  button hides on phones (Ask stays in the top bar), toasts sit above the bar, the top bar shows the product name
+  and fits at 360px, documents open at 50% on Verify so an A4 page fits.
+- Decision (req. 8): the custom cursor ignores the emulated mouse events a browser fires after a tap (for one
+  second after a touch); pens and mice still drive it, so the pen-laptop fix of 2026-11 stays.
+- Built that way (agent's choices, for the owner to confirm): the four bar items and their short labels; 50% as
+  the phone zoom; `/app` as the installed app's start page; theme colour #37358f; a favicon.ico added (browsers
+  asked for it and logged a 404).
+
+### Phase 10 decisions (2026-11-09)
+- Decision (req. 21, plan 10.1): owner's choice -- a Help page inside the app for everyone (in both sidebars):
+  getting started, the process flow, upload and OCR, verification, periods and deadlines, roles (from the
+  database), hierarchy (levels from the database), where things are, phones, common errors, questions; the
+  administrator sections (validation and approval, reports, factors, analytics) only for administrators. Every
+  limit it quotes is read from the platform's settings when the page opens.
+- Decision ("Database connections for production"): owner's choice -- diagnose and write the runbook
+  (docs/PRODUCTION_DATABASE.md); the owner creates the production project. Found: the transaction-pooler hang of
+  2026-11-07 does not reproduce today (hosted 6543 and a local transaction pooler with fewer server connections
+  than the client opens both answered every query, `apps/web/scripts/pooler-check.mjs`); the app needs no change;
+  move to 6543 only after a preview deployment passes the same check.
+- Decision (req. 37): owner's choice -- before moving the database to this machine, reset hosted to the Super
+  Admins, the Administrators, their org units with the units above them, and the configuration; remove all
+  activity data, stored files, the other accounts and the whole audit log (one entry records the reset); then
+  copy that database to a local Supabase stack in Docker on this machine. Backup first
+  (`test data/_backup/hosted-reset.cjs backup`, restored and compared table by table), the reset itself only on
+  the owner's "go".
+
 - "Device" cannot be identified by a web app; a browser (cookie) is the device. One account per browser already holds.
 - A session left open on a closed laptop stays active until its 3-hour idle limit, so the takeover prompt will
   appear in that case too; that is intended.
