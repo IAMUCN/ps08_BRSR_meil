@@ -653,17 +653,29 @@ _Last updated: 2026-11-09._
   `test data/_backup/hosted-reset-2026-11-09/`. Every kept person was signed out.
 - **The local database server** (`emeilsg_local_server`, `D:/Non Newtonian Things/emeilsg-local-server`, ports
   544xx) holds the same data, verified against hosted; the app runs on it with `pnpm --filter web
-  dev:local-server` (`apps/web/.env.localserver`). `.env.local` still points at hosted: switching is the owner's.
+  dev:local-server` (`apps/web/.env.localserver`).
+- **2026-11-09, owner's request: the app points at the local server.** `apps/web/.env.local` and
+  `.env.production.local` switched (database, Auth, storage, chatbot); hosted values in `*.hosted-backup`. Sign-in
+  is the local server's own Auth (the 7 accounts and passwords). Docker: the local server (six containers) and one
+  OCR worker `emeilsg-ocr-worker-local`; `traceesg-ocr-worker-hosted` stopped, not deleted (hosted / Vercel uploads
+  wait for OCR). **The e2e suite and the test stack now need `E2E_ENV_FILE`** (the scratchpad's local test env):
+  `.env.local` no longer names the test stack either. Stop the local server before starting the test stack
+  (memory).
   Two temporary files stay inside its database container: `/tmp/public.dump` and `/tmp/defacl.list` (a safety
   check stopped their removal); delete them with `docker exec supabase_db_emeilsg_local_server rm
   /tmp/public.dump /tmp/defacl.list`.
+- **Chatbot scope refusals (2026-11-09, owner's request), uncommitted, no migration:** a lookup of a unit outside
+  the person's scope ends the question with fixed words, and an answer with no successful lookup is replaced by a
+  fixed refusal (a short question back is allowed). `lib/chat/orchestrate.ts` (`OUT_OF_SCOPE`), `lib/chat/tools.ts`
+  (`ToolError.kind`), `tests/chat.test.ts`; `.grill/chat-analyst-decisions.md` last section. Unit 288/288,
+  typecheck, lint, format. Not run: `test:chatbot`, the real model (key refused, §2).
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
-| NVIDIA models in `apps/web/.env.local` (2026-11-09) | Of the three in `NVIDIA_NIM_MODEL`, one answers 404 (not for this account), one 410 (retired), one timed out at 25 s. The chatbot and Phase 7's AI wording do not work until a working model is listed (probe it with a tool call first, §5). |
+| NVIDIA key in `apps/web/.env.local` (2026-11-09) | NVIDIA now refuses the key itself ("Authorization failed", 403, every model); before that the three listed models answered 404 / 410 / timeout. The owner creates a new key at build.nvidia.com and puts it in `NVIDIA_NIM_API_KEY`; then probe models with the scratchpad's `nim-probe.mjs` pattern (tool call, no MEIL data) and set `NVIDIA_NIM_MODEL`. Until then the chatbot and Phase 7's AI wording do not work. |
 | Phase 6–10 build-time choices | Listed under "Built that way" in `.grill/feature-enhancement-roadmap-decisions.md` for each phase: thresholds for rising / unusual month / largest source, alert window and minimum increase, factor units and fetch limits. |
 | Phase 1 of the feature roadmap (2026-11-07) | Confirm the build-time decisions in `.grill/feature-enhancement-roadmap-decisions.md` (sessions that skip the form replace the others; the Super Admin email goes to the Super Admin whose account took over). |
 | For the ui role (2026-11-07) | The root `app/loading.tsx` makes server redirects arrive inside a 200 page; `app/loading.tsx` and `app/page.tsx` fail `format:check`; after Add ID on Users the filtered list does not refresh (feedback-2026-11 stops there, also without Phase 1). |

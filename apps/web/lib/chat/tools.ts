@@ -173,7 +173,14 @@ export type ToolContext = {
 export type ToolResult = { data: unknown; blocks: Block[]; orgUnitIds: string[] };
 
 /** A refusal the model may read and pass on: wrong name, out of scope, too wide. Never internal detail. */
-export class ToolError extends Error {}
+export class ToolError extends Error {
+  /** "out_of_scope": the lookup named something this person may not see; the answer becomes a fixed refusal. */
+  readonly kind: "error" | "out_of_scope";
+  constructor(message: string, kind: "error" | "out_of_scope" = "error") {
+    super(message);
+    this.kind = kind;
+  }
+}
 
 // --- Limits -----------------------------------------------------------------------------------------------
 
@@ -252,6 +259,7 @@ export function resolveUnit(ctx: ToolContext, ref: string | undefined): OrgUnit 
       roots.length
         ? `Ask which org unit is meant. This person can see: ${names(roots)}.`
         : "This person has no org unit in scope.",
+      roots.length ? "error" : "out_of_scope",
     );
   }
   const wanted = ref.toLowerCase();
@@ -265,7 +273,7 @@ export function resolveUnit(ctx: ToolContext, ref: string | undefined): OrgUnit 
   if (found.length > 1) {
     throw new ToolError(`"${ref}" matches several org units: ${names(found)}. Ask which one.`);
   }
-  throw new ToolError(`No org unit called "${ref}" is in this person's scope.`);
+  throw new ToolError(`No org unit called "${ref}" is in this person's scope.`, "out_of_scope");
 }
 
 function resolveWhen(ctx: ToolContext, spec: PeriodSpec) {
@@ -1626,7 +1634,8 @@ const withoutNulls = (value: unknown): unknown =>
       : value;
 
 export type ToolOutcome =
-  { ok: true; name: ToolName; args: unknown; result: ToolResult } | { ok: false; error: string };
+  | { ok: true; name: ToolName; args: unknown; result: ToolResult }
+  | { ok: false; error: string; outOfScope?: boolean };
 
 /**
  * Runs one tool call a model asked for. The name must be on the list and the arguments must pass the
@@ -1665,7 +1674,8 @@ export async function runTool(
       result: await t.run(parsed.data, ctx),
     };
   } catch (error) {
-    if (error instanceof ToolError) return { ok: false, error: error.message };
+    if (error instanceof ToolError)
+      return { ok: false, error: error.message, outOfScope: error.kind === "out_of_scope" };
     onUnexpected(error);
     return { ok: false, error: "That lookup failed. Tell the person it could not be completed." };
   }

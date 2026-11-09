@@ -33,7 +33,31 @@ Admins, the Administrators and the configuration, then move that database to thi
    - The app's own procedures, run as a Super Admin against it, read 7 users, 6 org units, 31 factors and
      10 roles.
 
-## 2. Using it
+## 2. The switch (2026-11-09, owner's request)
+
+- **The app now uses the local server** for its database, sign-in and file storage: `apps/web/.env.local` and
+  `.env.production.local` were switched. Only the Supabase, database, bucket and chatbot settings changed; Brevo,
+  NVIDIA, Chromium and the rest stayed. The hosted versions are in `.env.local.hosted-backup` and
+  `.env.production.local.hosted-backup` (git-ignored). To go back, copy them over the switched files.
+- **Sign-in uses the local server's own Auth service** (GoTrue in the `supabase_auth_emeilsg_local_server`
+  container). It holds the 7 accounts with their password hashes, so everyone signs in with the password
+  they had on hosted. Checked through the app: a wrong password for a kept Super Admin is refused as wrong
+  credentials by the local service. Password resets and invitations are the app's own emails (Brevo); the
+  local Auth's own emails, if any, go to its mail catcher at `http://127.0.0.1:54424`.
+- **The chatbot** reads the local server through the `chat_reader` role, given its own random password
+  (in `.env.local` only).
+- **Docker holds two things:**
+  - the local server, one Supabase project (`emeilsg_local_server`) of six containers: database, Auth,
+    API gateway, REST, storage and mail catcher;
+  - one OCR worker, `emeilsg-ocr-worker-local` (image `traceesg-ocr-worker:latest`, restart `unless-stopped`),
+    reading the local server through `host.docker.internal`.
+  The hosted worker `traceesg-ocr-worker-hosted` is **stopped, not deleted**: uploads on the hosted / Vercel
+  site wait for OCR until `docker start traceesg-ocr-worker-hosted`. The old `traceesg-ocr-worker-hosted-rules13`
+  container is still there, stopped.
+- **Restart your dev server** (`pnpm dev`) so it reads the new settings. Everyone signs in again (a new
+  sign-in service means new sessions).
+
+## 3. Using it
 
 | Task | Command (from the repository root unless stated) |
 |---|---|
@@ -47,18 +71,18 @@ Admins, the Administrators and the configuration, then move that database to thi
 - **Memory:** this machine fits one stack beside the app. Stop the test stack (`npx supabase stop` in the
   repository) while the local server runs, and the other way round.
 
-## 3. What is not done (decisions for the owner)
+## 4. What is not done (decisions for the owner)
 
-- **The app still points at hosted by default.** Switching `.env.local` (or Vercel) to the local server is the
-  owner's step. Until then hosted and the local server are two copies; whichever is used from now on becomes the
-  real one. Run `verify` just before switching to be sure they still match.
+- **Vercel still points at hosted.** The deployed site is a separate app on a separate database now; the local
+  server is reachable only from this machine.
 - **Keys:** the local server uses the Supabase CLI's demo keys and JWT secret, which are public. That is fine on
   `127.0.0.1`. **Before anyone else can reach this server over a network**, give it its own JWT secret and keys
   (config `auth.jwt_secret` and regenerated keys) and a strong database password.
-- **OCR on the local server** needs a worker container pointed at it. Run a second container from
-  `traceesg-ocr-worker:latest` with `DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:54422/postgres`,
-  `NEXT_PUBLIC_SUPABASE_URL=http://host.docker.internal:54421` and the local service key. Do not point the hosted
-  worker at it.
+- **To recreate the local worker:** `docker run -d --name emeilsg-ocr-worker-local --restart unless-stopped
+  --add-host=host.docker.internal:host-gateway --env-file <file> traceesg-ocr-worker:latest`, where the file
+  (a `C:/` path) holds `DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:54422/postgres`,
+  `NEXT_PUBLIC_SUPABASE_URL=http://host.docker.internal:54421`, the local service key and
+  `SUPABASE_STORAGE_BUCKET_EVIDENCE=evidence`. Delete the file afterwards.
 - **Email** from the local server's own Auth goes to its mail catcher (`http://127.0.0.1:54424`). The app's own
   email (invitations, reminders) goes through Brevo when its settings are present.
 - **Hosted** is now the reset copy. Its full previous state is in the backup folder above (database dump, sign-in
