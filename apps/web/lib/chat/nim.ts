@@ -52,14 +52,19 @@ export type ChatConfig = { apiKey: string; baseUrl: string; models: string[]; da
  * not shown. NVIDIA_NIM_MODEL is one model or a comma-separated list in order of preference.
  */
 export function readConfig(env: Record<string, string | undefined>): ChatConfig | null {
-  const apiKey = env.NVIDIA_NIM_API_KEY?.trim();
+  // OPENAI_* names are accepted as aliases (OpenAI's API speaks the same protocol); NVIDIA_NIM_* wins if both set.
+  const apiKey = (env.NVIDIA_NIM_API_KEY || env.OPENAI_API_KEY)?.trim();
   const databaseUrl = env.CHAT_DATABASE_URL?.trim();
-  const models = (env.NVIDIA_NIM_MODEL ?? "")
+  const models = (env.NVIDIA_NIM_MODEL || env.OPENAI_MODEL || "")
     .split(",")
     .map((m) => m.trim())
     .filter(Boolean);
   if (!apiKey || !databaseUrl || models.length === 0) return null;
-  const baseUrl = (env.NVIDIA_NIM_BASE_URL?.trim() || "https://integrate.api.nvidia.com/v1")
+  const baseUrl = (
+    env.NVIDIA_NIM_BASE_URL?.trim() ||
+    env.OPENAI_BASE_URL?.trim() ||
+    "https://integrate.api.nvidia.com/v1"
+  )
     .replace(/\/chat\/completions\/?$/, "")
     .replace(/\/+$/, "");
   return { apiKey, baseUrl, models, databaseUrl };
