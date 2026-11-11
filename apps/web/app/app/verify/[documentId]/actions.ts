@@ -51,3 +51,17 @@ export async function rejectDocumentAction(documentId: string, reason: string) {
 export async function fieldSourcesAction(documentId: string) {
   return runAction((api) => api.verification.sources({ documentId }));
 }
+
+/** The uploader changes the document's optional description (migration 0063). */
+export async function setDescriptionAction(documentId: string, description: string) {
+  const result = await runAction((api) =>
+    api.documents.setDescription({ documentId, description }),
+  );
+  if (result.ok) revalidatePath(`/app/verify/${documentId}`);
+  return result;
+}
+
+/** The eye button (migration 0065): remember the choice on the person's account. */
+export async function setShowExtractionBoxesAction(show: boolean) {
+  return runAction((api) => api.profile.setShowExtractionBoxes({ show }));
+}

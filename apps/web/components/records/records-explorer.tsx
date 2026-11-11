@@ -178,7 +178,7 @@ export function ContextFilters({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 maxLength={100}
-                placeholder="Document, metric, org unit, period, person, value or unit…"
+                placeholder="Document, description, metric, org unit, period, person, value or unit…"
                 className="px-8 text-sm text-foreground [&::-webkit-search-cancel-button]:hidden"
               />
               {text ? (
@@ -373,6 +373,7 @@ const csvCell = (v: string | number | null) => {
 function exportCsv(rows: RecordRow[], name: string) {
   const header = [
     "Document",
+    "Description",
     "Bill no.",
     "Document type",
     "Document type chosen by",
@@ -396,6 +397,7 @@ function exportCsv(rows: RecordRow[], name: string) {
   const lines = rows.map((r) =>
     [
       r.fileName,
+      r.description,
       r.billNumber,
       r.documentTypeName,
       r.documentTypeSource ? DOCUMENT_TYPE_SOURCE[r.documentTypeSource] : null,
@@ -495,6 +497,14 @@ export function RecordsTable({
                     >
                       {r.fileName ?? "Record without a document"}
                     </button>
+                    {r.description ? (
+                      <span
+                        className="block max-w-80 truncate text-xs text-foreground"
+                        title={r.description}
+                      >
+                        {r.description}
+                      </span>
+                    ) : null}
                     {r.billNumber || r.documentTypeName ? (
                       <span className="block text-xs text-muted-foreground">
                         {r.billNumber ? `Bill no. ${r.billNumber}` : null}

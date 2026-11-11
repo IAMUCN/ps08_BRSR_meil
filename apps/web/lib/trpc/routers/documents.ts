@@ -22,6 +22,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 import { documentAccess } from "@/lib/verification/access";
+import { expectedProgress, type ExpectedProgress } from "@/lib/upload/progress";
 import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 
 // Phase 5 document ingestion (.grill/phase-5-document-ingestion-decisions.md; SCHEMA_DEVIATIONS.md D3).
@@ -29,6 +30,17 @@ import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 // object and records it. Scope is decided here from the session, never from client-supplied identity.
 
 const upload = permissionProcedure("document.upload");
+
+/**
+ * The optional description typed on Upload (migration 0063, owner's request 2026-11-11): trimmed, at most 500
+ * characters; empty means none.
+ */
+export const DESCRIPTION = z
+  .string()
+  .trim()
+  .max(500, "Keep the description to 500 characters.")
+  .optional()
+  .transform((v) => (v ? v : undefined));
 
 export type Sql = Tx | ReturnType<typeof db>;
 
@@ -467,6 +479,7 @@ export const documentsRouter = router({
         documentId: z.uuid(),
         reportingPeriodId: z.uuid(),
         fileName: z.string().trim().min(1).max(255),
+        description: DESCRIPTION,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -559,11 +572,11 @@ export const documentsRouter = router({
           await tx`
             insert into public.documents (
               id, org_unit_id, reporting_period_id, storage_path, file_name, mime_type,
-              file_size_bytes, file_hash, uploaded_by, related_document_id
+              file_size_bytes, file_hash, uploaded_by, related_document_id, description
             ) values (
               ${input.documentId}, ${input.orgUnitId}, ${input.reportingPeriodId}, ${path},
               ${input.fileName}, ${content.mimeType}, ${bytes.length}, ${fileHash}, ${userId},
-              ${replaces?.documentId ?? null}
+              ${replaces?.documentId ?? null}, ${input.description ?? null}
             )`;
           const [record] = await tx<{ id: string }[]>`
             insert into public.esg_records (
@@ -612,6 +625,7 @@ export const documentsRouter = router({
               mime_type: content.mimeType,
               file_size_bytes: bytes.length,
               file_hash: fileHash,
+              description: input.description ?? null,
               org_unit_id: input.orgUnitId,
               reporting_period_id: input.reportingPeriodId,
               metric_id: input.metricId,
@@ -637,6 +651,85 @@ export const documentsRouter = router({
         throw error;
       }
     }),
+  /**
+   * The expected submissions of a unit the caller can upload for, in a period that takes uploads, with what
+   * is on file for each (owner's request, 2026-11-11). Every expected activity of the unit is listed, other
+   * roles' too; nothing beyond activity names and stages is shown.
+   */
+  expectedProgress: upload
+    .input(z.object({ orgUnitId: z.uuid(), periodId: z.uuid() }))
+    .query(async ({ ctx, input }): Promise<ExpectedProgress> => {
+      const sql = db();
+      const options = await loadUploadOptions(sql, ctx.session.userId);
+      if (
+        !options.targets.some((t) => t.orgUnitId === input.orgUnitId) ||
+        !options.periods.some((p) => p.id === input.periodId)
+      ) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That project or period isn't available.",
+        });
+      }
+      return expectedProgress(sql, input.orgUnitId, input.periodId);
+    }),
+
+  /**
+   * Change a document's description (migration 0063): only the person who uploaded it, and only while its
+   * record is not yet approved or rejected (a multi-bill PDF: until its bills are recorded). Audited.
+   */
+  setDescription: upload
+    .input(z.object({ documentId: z.uuid(), description: DESCRIPTION }))
+    .mutation(async ({ ctx, input }) => {
+      const description = input.description ?? null;
+      return db().begin(async (tx) => {
+        const [doc] = await tx<
+          {
+            uploaded_by: string;
+            description: string | null;
+            is_bundle: boolean;
+            bundle_open: boolean;
+            approval_status: string | null;
+            data_quality_state: string | null;
+          }[]
+        >`
+          select d.uploaded_by, d.description, d.is_bundle,
+                 not exists (select 1 from public.document_bundle_parts bp
+                             where bp.bundle_document_id = d.id and bp.status <> 'proposed') as bundle_open,
+                 r.approval_status::text, r.data_quality_state::text
+          from public.documents d
+          left join public.esg_record_documents erd on erd.document_id = d.id and erd.is_primary
+          left join public.esg_records r on r.id = erd.esg_record_id
+          where d.id = ${input.documentId} and d.deleted_at is null
+          for update of d`;
+        // Someone else's document is refused like a missing one.
+        if (!doc || doc.uploaded_by !== ctx.session.userId) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "That document isn't available." });
+        }
+        const closed = doc.is_bundle
+          ? !doc.bundle_open
+          : doc.approval_status === "approved" || doc.data_quality_state === "rejected";
+        if (closed) {
+          badRequest(
+            doc.is_bundle
+              ? "The bills in this PDF are already recorded; change each bill's description instead."
+              : "The record is approved or rejected, so its description can no longer change.",
+          );
+        }
+        if (doc.description === description) return { description };
+        await tx`update public.documents set description = ${description}
+                 where id = ${input.documentId}`;
+        await writeAudit(tx, {
+          eventType: "document.description_changed",
+          entityType: "document",
+          entityId: input.documentId,
+          userId: ctx.session.userId,
+          oldValue: { description: doc.description },
+          newValue: { description },
+        });
+        return { description };
+      });
+    }),
+
   /** Every evidence file of a record the caller can see (RLS: org scope or Admin), the primary one first. */
   recordEvidence: protectedProcedure
     .input(z.object({ recordId: z.uuid() }))

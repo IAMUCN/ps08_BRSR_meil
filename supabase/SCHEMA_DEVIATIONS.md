@@ -731,3 +731,30 @@ printed) and `report_runs.workbook_path` (a run id with `.xlsx`, for the GHG inv
 `.grill/feature-enhancement-roadmap-decisions.md`.
 
 **Undo:** in the header of `0062_report_templates.sql`.
+
+## D53 — Document description (migration `0063`, 2026-11-11)
+
+`documents.description`: optional text, at most 500 characters (check `documents_description_length`), typed by
+the uploader on Upload and changeable by them (`documents.setDescription`, audited `document.description_changed`)
+until the record is approved or rejected. A bill cut out of a multi-bill PDF copies the PDF's description. No
+browser write grant. Owner's request; `.grill/upload-description-progress-decisions.md`.
+
+**Undo:** `alter table public.documents drop column description;`
+
+## D54 — Conversion factors per financial year (migration `0064`, 2026-11-11)
+
+`conversion_factor_versions.effective_from` is always 1 April and `effective_to` (now required) always 31 March:
+a trigger rounds any written date to its financial year, with check constraints behind it. A version after its
+last year is inherited until a newer one starts (the engine ignores `effective_to` when choosing). Existing rows
+were moved to year boundaries (old dates in `factor.version_years_set` audit entries). Owner's decision;
+`.grill/factor-financial-years-decisions.md`.
+
+**Undo:** in the header of `0064_factor_financial_years.sql`.
+
+## D55 — The eye button's choice on the account (migration `0065`, 2026-11-11)
+
+`users.show_extraction_boxes boolean not null default false`: Verify Extraction draws where each value was read,
+coloured by confidence. Server-written (`profile.setShowExtractionBoxes`), audited. Owner's request;
+`.grill/extraction-boxes-toggle-decisions.md`.
+
+**Undo:** `alter table public.users drop column show_extraction_boxes;`

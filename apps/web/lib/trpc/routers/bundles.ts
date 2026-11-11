@@ -21,6 +21,7 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { permissionProcedure, router } from "@/lib/trpc/init";
 import {
+  DESCRIPTION,
   NO_PERIOD,
   PERIOD_CLOSED,
   badRequest,
@@ -171,6 +172,7 @@ export const bundlesRouter = router({
         reportingPeriodId: z.uuid(),
         fileName: z.string().trim().min(1).max(255),
         acknowledgeDuplicates: z.boolean().default(false),
+        description: DESCRIPTION,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -244,10 +246,11 @@ export const bundlesRouter = router({
           await tx`
             insert into public.documents (
               id, org_unit_id, reporting_period_id, storage_path, file_name, mime_type,
-              file_size_bytes, file_hash, uploaded_by, is_bundle
+              file_size_bytes, file_hash, uploaded_by, is_bundle, description
             ) values (
               ${input.documentId}, ${input.orgUnitId}, ${input.reportingPeriodId}, ${path},
-              ${input.fileName}, ${PDF}, ${bytes.length}, ${fileHash}, ${ctx.session.userId}, true
+              ${input.fileName}, ${PDF}, ${bytes.length}, ${fileHash}, ${ctx.session.userId}, true,
+              ${input.description ?? null}
             )`;
           const [job] = await tx<{ id: string }[]>`
             insert into public.ocr_jobs (document_id) values (${input.documentId}) returning id`;
@@ -260,6 +263,7 @@ export const bundlesRouter = router({
               file_name: input.fileName,
               file_size_bytes: bytes.length,
               file_hash: fileHash,
+              description: input.description ?? null,
               page_count: pages,
               org_unit_id: input.orgUnitId,
               reporting_period_id: input.reportingPeriodId,
@@ -540,10 +544,12 @@ export const bundlesRouter = router({
             await tx`
               insert into public.documents (
                 id, org_unit_id, reporting_period_id, storage_path, file_name, mime_type,
-                file_size_bytes, file_hash, uploaded_by, bundle_document_id
+                file_size_bytes, file_hash, uploaded_by, bundle_document_id, description
               ) values (
                 ${file.id}, ${bundle.org_unit_id}, ${bundle.reporting_period_id}, ${file.path},
-                ${file.name}, ${PDF}, ${file.bytes.length}, ${file.hash}, ${userId}, ${bundle.id}
+                ${file.name}, ${PDF}, ${file.bytes.length}, ${file.hash}, ${userId}, ${bundle.id},
+                -- A bill cut out of the PDF takes the PDF's description (migration 0063).
+                (select description from public.documents where id = ${bundle.id})
               )`;
             const [record] = await tx<{ id: string }[]>`
               insert into public.esg_records (

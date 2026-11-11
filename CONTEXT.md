@@ -679,7 +679,7 @@ _Last updated: 2026-11-11._
   hosted month is closed yet** — rerun `feed … --extract ocr` for those three months, then `close`, only when the
   owner asks. 17 test accounts per database (`<role>.<unit>@emeilsg.test`, passwords in `test data/_backup/`). All
   of it is in `e763572`, pushed to `ucn` `main` (not `origin`). The hosted worker container is stopped again.
-- **Owner's page feedback of 2026-11-11, uncommitted on branch `feature-page-feedback-2026-11-11`** (from
+- **Owner's page feedback of 2026-11-11, committed as `e148b9e` on branch `feature-page-feedback-2026-11-11` and pushed to `ucn` `main` (fast-forward, no pull request, CI not run; not on `origin`)** (from
   `e763572`; A50, `.grill/page-feedback-2026-11-11-decisions.md`, `UI_NOTES.md`; no migration). Submission
   Monitoring / Data Explorer filters (no Document type, Activity by scope, upload-date range, Reset filters, wider
   Period, submitter role line), the factor review's years (current FY back; neither database had future-year rows),
@@ -695,15 +695,43 @@ _Last updated: 2026-11-11._
   were updated for the removed controls but not run), the split page and Conversion Factors and Save schedule in a
   browser (they need a Super Admin or a pending multi-bill PDF), an on-behalf upload's role line (no such record on
   the local data). The temporary account `ui.check.admin@emeilsg.test` is deactivated on the local server.
+- **Upload description and expected-submission progress (2026-11-11, owner's request), uncommitted on branch
+  `feature-upload-description-progress` (from `e148b9e`); migration `0063` is on the LOCAL server only, NOT on
+  hosted** (D53, A51, `.grill/upload-description-progress-decisions.md`, `UI_NOTES.md`). Checked: typecheck, lint,
+  unit 292/292, format (known two), the new database test 5/5 on the local server, the procedures 11/11 there
+  (`documents.expectedProgress` against the tables, `setDescription` rules and audit; the description was put back),
+  the Upload page in Edge 5/5 (description box, the list beside the form, phone width). **Not run:** an actual upload
+  with a description, a ticked item seen in the browser (October has no uploads for the units with expectations),
+  Verify's editor in a browser, the build, the e2e suite. **Hosted needs `0063` before this code runs against it.**
+  Only MSRTC (2), BEST (1) and Olectra (1) have expected submissions on the local database.
+- **Conversion factors per financial year (2026-11-11, owner's request), uncommitted on the same branch
+  (`feature-upload-description-progress`); migration `0064` is on the LOCAL server only, NOT on hosted** (D54, A52,
+  `.grill/factor-financial-years-decisions.md`). Versions are "effective for FY X to FY Y", inherited after Y; new
+  versions start next FY unless the years have no value yet; PNG moved to 1 Apr 2026. Checked: database tests
+  482/482 on the test database (with `0063`/`0064`), the 704 stored calculations pick the same versions, the
+  procedures 8/8 on the local server (refusals and yearly review; nothing written), typecheck, lint, unit 292/292.
+  **Not run:** the Conversion Factors page in a browser (needs a Super Admin login), `test:factors` and the e2e
+  suite, the build. PNG's April–July 2026 records need "Run calculation".
+- **Eye button on Verify (2026-11-11, owner's request), uncommitted on the same branch; migration `0065` on the
+  LOCAL server only** (D55, A53, `.grill/extraction-boxes-toggle-decisions.md`). Checked: Edge 8/8 as MSRTC's
+  Project Manager on two September documents (off by default, on colours every box, the key, the next document and
+  a new browser session open with it on, off sticks; the account's choice put back to off), typecheck, lint, unit
+  292/292. Not run: the build, the e2e suite, database tests after `0065`.
+- **Also 2026-11-11, same branch, uncommitted, no migration:** Carbon Analytics suggestions have "Which project
+  emits the most?" (A54; checked in Edge as the temporary Administrator, reactivated and deactivated again: the
+  coal suggestion lists BEST Mumbai e-buses, 12,088.9 tCO2e, 24 records, which the tables confirm). Section A of
+  BRSR Disclosures: 9 written answers added on the LOCAL server from meil.in (24 of 26 answered; hosted has 15);
+  the FY 2023-24 annual return link on meil.in is broken (404), so answers still cite FY 2022-23.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
+| Migrations `0063`, `0064` and `0065` on hosted (2026-11-11) | Both needed before this branch's code is deployed or the dev server points at hosted again (one nullable column, additive). Say "go". |
+| Expected submissions for the demo (2026-11-11) | The Upload page's progress list is empty for most projects: only MSRTC, BEST and Olectra have expectations. Fill them in on Admin → Organization, or ask the agent to set them from the test data. |
 | Daily reminders on Vercel (2026-11-11) | Save schedule now sends today's reminders at once, but nothing runs daily until `CRON_SECRET` (16+ random characters) is added to the Vercel project's environment variables and the app is redeployed; the panel then says "Active · runs daily at 9:00 IST". |
 | Hosted July–September 2026 test data (2026-11-11) | The real-OCR load was killed for low memory and not restarted (system rule). Say when to resume (`feed --months "July 2026,August 2026,September 2026" --extract ocr`, other apps stopped, hosted worker started), then `close` all 18 hosted months. |
-| Commit the page-feedback branch (2026-11-11) | `feature-page-feedback-2026-11-11` is uncommitted; say when to commit, and whether to push / open a pull request. |
 | NVIDIA key in `apps/web/.env.local` (2026-11-09) | NVIDIA now refuses the key itself ("Authorization failed", 403, every model); before that the three listed models answered 404 / 410 / timeout. The owner creates a new key at build.nvidia.com and puts it in `NVIDIA_NIM_API_KEY`; then probe models with the scratchpad's `nim-probe.mjs` pattern (tool call, no MEIL data) and set `NVIDIA_NIM_MODEL`. Until then the chatbot and Phase 7's AI wording do not work. |
 | Phase 6–10 build-time choices | Listed under "Built that way" in `.grill/feature-enhancement-roadmap-decisions.md` for each phase: thresholds for rising / unusual month / largest source, alert window and minimum increase, factor units and fetch limits. |
 | Phase 1 of the feature roadmap (2026-11-07) | Confirm the build-time decisions in `.grill/feature-enhancement-roadmap-decisions.md` (sessions that skip the form replace the others; the Super Admin email goes to the Super Admin whose account took over). |
@@ -741,7 +769,7 @@ _Last updated: 2026-11-11._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D53** and **A51**; the next migration is `0063`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D56** and **A55**; the next migration is `0066`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on

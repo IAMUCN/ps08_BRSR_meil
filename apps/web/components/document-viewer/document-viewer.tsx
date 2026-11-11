@@ -44,7 +44,19 @@ export type Region = {
   selected: boolean;
   /** Low confidence, not yet dealt with: drawn in the warning colour. */
   warning: boolean;
+  /**
+   * How sure the reading is, for the eye button (owner's request, 2026-11-11): read confidently or confirmed by
+   * a person; low confidence on an optional field; low confidence on a field Confirm needs.
+   */
+  tone?: "ok" | "check" | "blocking";
 };
+
+/** The eye button's colours, by confidence (shared with its legend). */
+export const REGION_TONE = {
+  ok: "border-status-success/80 bg-status-success/10 hover:bg-status-success/20",
+  check: "border-status-warning/90 bg-status-warning/15 hover:bg-status-warning/25",
+  blocking: "border-status-error/80 bg-status-error/10 hover:bg-status-error/20",
+} as const;
 
 /** `destroy()` belongs to the loading task, not the document (pdfjs-dist 6). */
 type PdfLoadingTask = { promise: Promise<PdfDocument>; destroy: () => Promise<void> };
@@ -67,7 +79,10 @@ export function DocumentViewer({
   renderDpi = 200,
   onRegionClick,
   arrowKeys = false,
+  showRegions = false,
 }: {
+  /** Draw every region in its confidence colour (the eye button); otherwise only the selected and warning ones. */
+  showRegions?: boolean;
   /**
    * ← / → turn the page from anywhere on the page, except while typing in a field (owner's page feedback,
    * 2026-11-11, the split page). Off by default: a page with several viewers would turn them all.
@@ -216,9 +231,11 @@ export function DocumentViewer({
                 "pointer-events-auto absolute rounded-sm border-2 transition-colors",
                 r.selected
                   ? "border-primary bg-primary/15"
-                  : r.warning
-                    ? "border-status-error/70 bg-status-error/5 hover:bg-status-error/15"
-                    : "border-transparent hover:border-primary/40 hover:bg-primary/5",
+                  : showRegions && r.tone
+                    ? REGION_TONE[r.tone]
+                    : r.warning
+                      ? "border-status-error/70 bg-status-error/5 hover:bg-status-error/15"
+                      : "border-transparent hover:border-primary/40 hover:bg-primary/5",
               )}
             />
           );

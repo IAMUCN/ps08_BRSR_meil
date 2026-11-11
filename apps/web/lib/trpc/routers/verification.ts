@@ -34,6 +34,12 @@ export type VerifyDocument = {
   canVerify: boolean;
   documentId: string;
   fileName: string;
+  /** The uploader's optional description (migration 0063). */
+  description: string | null;
+  /** The caller uploaded it and the record is not approved or rejected yet. */
+  canEditDescription: boolean;
+  /** The caller's eye-button choice (migration 0065). */
+  showExtractionBoxes: boolean;
   mimeType: string;
   fileSizeBytes: number;
   uploadedAt: string;
@@ -113,6 +119,7 @@ async function loadDocument(sql: Sql, documentId: string) {
   const [row] = await sql<
     {
       file_name: string;
+      description: string | null;
       mime_type: string;
       file_size_bytes: number;
       created_at: Date;
@@ -136,7 +143,7 @@ async function loadDocument(sql: Sql, documentId: string) {
       extraction_id: string | null;
     }[]
   >`
-    select d.file_name, d.mime_type, d.file_size_bytes, d.created_at, u.display_name as uploaded_by_name,
+    select d.file_name, d.description, d.mime_type, d.file_size_bytes, d.created_at, u.display_name as uploaded_by_name,
            d.org_unit_id, o.name as org_unit_name, d.reporting_period_id, p.label as period_label,
            d.document_type_id, dt.name as document_type_name,
            r.id as record_id, r.metric_id, m.name as metric_name, m.unit as metric_unit,
@@ -274,11 +281,14 @@ type RawOutput = {
 };
 
 export const verificationRouter = router({
-  /** Field source boxes for the grid's highlighting; nothing for a document the caller can't verify. */
+  /**
+   * Where each field was read on the document: for the grid's highlighting and the eye button. Anyone who may
+   * open the document may see where its values are (owner's request, 2026-11-11); verifying is not needed.
+   */
   sources: protectedProcedure
     .input(z.object({ documentId: z.uuid() }))
     .query(async ({ ctx, input }): Promise<FieldSources> => {
-      await requireAccess(ctx.session, input.documentId);
+      if (!(await documentAccess(ctx.session, input.documentId))) notFound();
       const [row] = await db()<{ raw: RawOutput | null }[]>`
         select e.raw_output as raw from public.ocr_extractions e
         where e.document_id = ${input.documentId}
@@ -398,6 +408,16 @@ export const verificationRouter = router({
         canVerify: access.canVerify,
         documentId: input.documentId,
         fileName: row.file_name,
+        description: row.description,
+        canEditDescription:
+          access.uploadedBy === ctx.session.userId &&
+          row.approval_status !== "approved" &&
+          row.data_quality_state !== "rejected",
+        showExtractionBoxes:
+          (
+            await db()<{ show: boolean }[]>`
+            select show_extraction_boxes as show from public.users where id = ${ctx.session.userId}`
+          )[0]?.show ?? false,
         mimeType: row.mime_type,
         fileSizeBytes: Number(row.file_size_bytes),
         uploadedAt: row.created_at.toISOString(),

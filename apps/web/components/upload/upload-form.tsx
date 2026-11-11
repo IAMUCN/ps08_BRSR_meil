@@ -3,7 +3,7 @@
 import { AlertTriangle, CalendarRange, CheckCircle2, Loader2, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -76,12 +76,18 @@ export function UploadForm({
   targets,
   maxBytes,
   replaces,
+  onUploaded,
+  onTargetChange,
 }: {
   /** Periods that take uploads now, newest first (migration 0056). */
   periods: UploadPeriod[];
   targets: UploadTarget[];
   maxBytes: number;
   replaces?: ReplacementTarget | null;
+  /** Called after each recorded upload (the expected-submissions list refreshes). */
+  onUploaded?: () => void;
+  /** The project and period chosen on the form, for the expected-submissions list. */
+  onTargetChange?: (orgUnitId: string, periodId: string) => void;
 }) {
   const router = useRouter();
   const metricFieldId = useId();
@@ -97,6 +103,9 @@ export function UploadForm({
   const activityFixed = replaces?.reason === "ocr_failed";
   const [metricId, setMetricId] = useState(activityFixed ? replaces.metricId : "");
   const [file, setFile] = useState<File | null>(null);
+  /** Optional description (migration 0063), kept with the document. */
+  const [description, setDescription] = useState("");
+  const descriptionId = useId();
   const [metricError, setMetricError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -108,6 +117,10 @@ export function UploadForm({
   const [received, setReceived] = useState<{ fileName: string; splitHref?: string } | null>(null);
 
   const target = targets.find((t) => t.orgUnitId === orgUnitId) ?? targets[0];
+  // Tell the page which project and period are chosen (the expected-submissions list follows them).
+  useEffect(() => {
+    onTargetChange?.(target.orgUnitId, period.id);
+  }, [onTargetChange, target.orgUnitId, period.id]);
   const metric = useMemo(
     () => target.categories.flatMap((c) => c.metrics).find((m) => m.id === metricId),
     [target, metricId],
@@ -143,6 +156,7 @@ export function UploadForm({
         orgUnitId,
         fileName: chosen.name,
         acknowledgeDuplicates: acknowledge,
+        description,
       });
       setPhase("idle");
       if (!outcome.ok) {
@@ -155,7 +169,9 @@ export function UploadForm({
         return;
       }
       setFile(null);
+      setDescription("");
       setUploaded(null);
+      onUploaded?.();
       setReceived({
         fileName: chosen.name,
         splitHref: `/app/upload/split/${outcome.data.documentId}`,
@@ -170,6 +186,7 @@ export function UploadForm({
       fileName: chosen.name,
       acknowledgeDuplicates: acknowledge,
       replacesDocumentId: replaces?.documentId,
+      description,
     });
     setPhase("idle");
     if (!result.ok) {
@@ -188,7 +205,9 @@ export function UploadForm({
       return;
     }
     setFile(null);
+    setDescription("");
     setUploaded(null);
+    onUploaded?.();
     setReceived({ fileName: chosen.name });
   }
 
@@ -443,6 +462,32 @@ export function UploadForm({
           resetAttempt();
         }}
       />
+
+      <div className="space-y-2">
+        <Label htmlFor={descriptionId}>
+          Description <span className="font-normal text-muted-foreground">(optional)</span>
+        </Label>
+        <textarea
+          id={descriptionId}
+          value={description}
+          maxLength={500}
+          rows={2}
+          disabled={busy}
+          onChange={(e) => setDescription(e.target.value)}
+          aria-describedby={`${descriptionId}-hint`}
+          className="w-full rounded-sm border border-input bg-surface px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+        />
+        <p
+          id={`${descriptionId}-hint`}
+          className="flex justify-between gap-2 text-xs text-muted-foreground"
+        >
+          <span>
+            Anything that helps reviewers, e.g. &ldquo;meter 2, generator shed&rdquo; or
+            &ldquo;credit note for March&rdquo;. You can change it until the record is approved.
+          </span>
+          <span className="shrink-0">{description.length}/500</span>
+        </p>
+      </div>
 
       {received ? (
         <div

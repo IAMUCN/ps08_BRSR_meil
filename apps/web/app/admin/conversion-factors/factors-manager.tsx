@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sheet";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import type { FetchOutcome } from "@/lib/factors/source";
-import { fyLabel, fyOf, fyRange, OUTPUT_UNITS, type SourceHost } from "@/lib/factors/source-text";
+import { fyLabel, fyOf, OUTPUT_UNITS, type SourceHost } from "@/lib/factors/source-text";
 import type { FactorRow, FactorVersionRow } from "@/lib/trpc/routers/factors";
 import { ReviewPanel, type ReviewData } from "./review-panel";
 import {
@@ -58,6 +58,51 @@ function formatDate(iso: string | null) {
     month: "short",
     year: "numeric",
   });
+}
+
+const yearsLabel = (first: number, last: number | null) =>
+  `FY ${fyLabel(first)}${last !== null && last !== first ? ` – FY ${fyLabel(last)}` : ""}`;
+
+/**
+ * A version's financial years (owner's decisions, 2026-11-11). `current`: the factors table's Effective column —
+ * the current financial year, and beneath it the year(s) the value was entered for, or "Inherited from FY …"
+ * when the current year is past them. `history`: a version's own years, "FY 2024-25 – FY 2025-26".
+ */
+function YearsCell({
+  from,
+  to,
+  mode,
+}: {
+  from: string;
+  to: string | null;
+  mode: "current" | "history";
+}) {
+  const first = fyOf(from);
+  const last = to ? fyOf(to) : null;
+  const now = fyOf(new Date().toISOString().slice(0, 10));
+  if (mode === "history") return <span>{yearsLabel(first, last)}</span>;
+  // An approved version for a later year is not in use yet.
+  if (first > now) {
+    return (
+      <span>
+        {yearsLabel(first, last)}
+        <span className="block text-[11px] text-muted-foreground">
+          Starts in FY {fyLabel(first)}
+        </span>
+      </span>
+    );
+  }
+  const inherited = last !== null && now > last;
+  return (
+    <span>
+      FY {fyLabel(now)}
+      <span className="block text-[11px] text-muted-foreground">
+        {inherited
+          ? `Inherited from ${yearsLabel(first, last)}`
+          : `Entered for ${yearsLabel(first, last)}`}
+      </span>
+    </span>
+  );
 }
 
 const current = (factor: FactorRow) => factor.versions.find((v) => v.status === "active") ?? null;
@@ -131,7 +176,7 @@ export function FactorsManager({
 
   function approve(version: FactorVersionRow) {
     const note = window.prompt(
-      `Approve v${version.versionNumber}: ${version.value} ${version.outputUnit} per ${version.inputUnit}, from ${formatDate(version.effectiveFrom)}. Calculations will use it from then on. Note (optional):`,
+      `Approve v${version.versionNumber}: ${version.value} ${version.outputUnit} per ${version.inputUnit}, for FY ${fyLabel(fyOf(version.effectiveFrom))}${version.effectiveTo && fyOf(version.effectiveTo) !== fyOf(version.effectiveFrom) ? ` to FY ${fyLabel(fyOf(version.effectiveTo))}` : ""}. Calculations use it from then on, and later years inherit it until a newer version. Note (optional):`,
       "",
     );
     if (note === null) return;
@@ -237,9 +282,15 @@ export function FactorsManager({
                         : "No active version"}
                     </td>
                     <td className="px-3 py-3">
-                      {active
-                        ? `${formatDate(active.effectiveFrom)} – ${active.effectiveTo ? formatDate(active.effectiveTo) : "open"}`
-                        : "—"}
+                      {active ? (
+                        <YearsCell
+                          from={active.effectiveFrom}
+                          to={active.effectiveTo}
+                          mode="current"
+                        />
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-3 py-3">
                       <StatusBadge tone={active ? "success" : "warning"}>
@@ -302,13 +353,11 @@ export function FactorsManager({
                                   ) : null}
                                 </td>
                                 <td className="px-2 py-1.5">
-                                  {formatDate(v.effectiveFrom)} –{" "}
-                                  {v.effectiveTo ? formatDate(v.effectiveTo) : "open"}
-                                  {v.financialYear ? (
-                                    <span className="block text-[11px] text-muted-foreground">
-                                      FY {v.financialYear}
-                                    </span>
-                                  ) : null}
+                                  <YearsCell
+                                    from={v.effectiveFrom}
+                                    to={v.effectiveTo}
+                                    mode="history"
+                                  />
                                 </td>
                                 <td className="max-w-80 px-2 py-1.5">
                                   <span className="block">{v.sourceReference}</span>
@@ -511,13 +560,12 @@ type SubmitInput = {
   outputUnit: string;
   sourceReference: string;
   geography?: string;
-  effectiveFrom: string;
-  effectiveTo?: string | null;
+  fromYear: string;
+  toYear: string;
   notes?: string;
   gases?: string;
   sourceUrl?: string;
   sourcePublisher?: string;
-  financialYear?: string;
   sourceRetrievedOn?: string;
   valueOrigin?: "manual" | "fetched";
   sourceContentSha256?: string;
@@ -555,7 +603,10 @@ function FactorSheet({
   const [fetching, startFetch] = useTransition();
   const latest = factor?.versions[0];
   const thisYear = fyOf(new Date().toISOString().slice(0, 10));
-  const years = [thisYear + 1, thisYear, thisYear - 1, thisYear - 2].map(fyLabel);
+  // Changes take effect from the next financial year (owner's decision, 2026-11-11). Earlier years are listed
+  // for a first value or history; the server refuses them where a value exists already.
+  const nextYear = fyLabel(thisYear + 1);
+  const years = Array.from({ length: 11 }, (_, i) => fyLabel(thisYear + 5 - i));
   const [form, setForm] = useState({
     activityType: factor?.activityType ?? presetActivity ?? activityTypes[0]?.code ?? "",
     name: factor?.name ?? "",
@@ -566,11 +617,10 @@ function FactorSheet({
     sourceUrl: latest?.sourceUrl ?? "",
     sourcePublisher: latest?.sourcePublisher ?? "",
     sourceRetrievedOn: "",
-    financialYear: "",
+    fromYear: nextYear,
+    toYear: nextYear,
     geography: latest?.geography ?? "",
     gases: latest?.gases ?? "",
-    effectiveFrom: "",
-    effectiveTo: "",
     notes: "",
   });
   const [fetched, setFetched] = useState<Fetched | null>(null);
@@ -588,12 +638,12 @@ function FactorSheet({
     }
   })();
 
-  function chooseYear(label: string) {
-    const range = fyRange(label);
+  // The To year follows the From year unless it was set later than it (one year by default).
+  function chooseFrom(label: string) {
     setForm((prev) => ({
       ...prev,
-      financialYear: label,
-      ...(range ? { effectiveFrom: range.from, effectiveTo: range.to } : {}),
+      fromYear: label,
+      toYear: prev.toYear < label || prev.toYear === prev.fromYear ? label : prev.toYear,
     }));
   }
 
@@ -642,13 +692,12 @@ function FactorSheet({
       outputUnit: form.outputUnit,
       sourceReference: form.sourceReference,
       geography: form.geography || undefined,
-      effectiveFrom: form.effectiveFrom,
-      effectiveTo: form.effectiveTo || null,
+      fromYear: form.fromYear,
+      toYear: form.toYear,
       notes: form.notes || undefined,
       gases: form.gases || undefined,
       sourceUrl: form.sourceUrl || undefined,
       sourcePublisher: form.sourcePublisher || undefined,
-      financialYear: form.financialYear || undefined,
       sourceRetrievedOn: form.sourceRetrievedOn || undefined,
       valueOrigin: usesFetched ? "fetched" : "manual",
       sourceContentSha256: usesFetched ? fetched?.sha256 : undefined,
@@ -878,42 +927,51 @@ function FactorSheet({
             is used for regulatory reporting.
           </p>
 
-          <div className="space-y-2">
-            <Label htmlFor="factor-fy">Financial year (optional)</Label>
-            <NativeSelect
-              id="factor-fy"
-              value={form.financialYear}
-              onChange={(e) => chooseYear(e.target.value)}
-            >
-              <option value="">Not for one year</option>
-              {years.map((y) => (
-                <option key={y} value={y}>
-                  FY {y} (1 April – 31 March)
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-2">
-              <Label htmlFor="factor-from">Effective from</Label>
-              <Input
-                id="factor-from"
-                type="date"
-                value={form.effectiveFrom}
-                onChange={(e) => set("effectiveFrom")(e.target.value)}
-                required
-              />
+          <fieldset className="space-y-2">
+            <legend className="text-sm leading-5 font-medium">Effective for</legend>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label htmlFor="factor-from-year" className="text-xs text-muted-foreground">
+                  From financial year
+                </Label>
+                <NativeSelect
+                  id="factor-from-year"
+                  value={form.fromYear}
+                  onChange={(e) => chooseFrom(e.target.value)}
+                >
+                  {years.map((y) => (
+                    <option key={y} value={y}>
+                      FY {y}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="factor-to-year" className="text-xs text-muted-foreground">
+                  To financial year
+                </Label>
+                <NativeSelect
+                  id="factor-to-year"
+                  value={form.toYear}
+                  onChange={(e) => set("toYear")(e.target.value)}
+                >
+                  {years
+                    .filter((y) => y >= form.fromYear)
+                    .map((y) => (
+                      <option key={y} value={y}>
+                        FY {y}
+                      </option>
+                    ))}
+                </NativeSelect>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="factor-to">Effective to (optional)</Label>
-              <Input
-                id="factor-to"
-                type="date"
-                value={form.effectiveTo}
-                onChange={(e) => set("effectiveTo")(e.target.value)}
-              />
-            </div>
-          </div>
+            <p className="text-xs text-muted-foreground">
+              A factor is the same for a whole financial year (1 April – 31 March). Changes take
+              effect from FY {nextYear}; an earlier year can be chosen only where no value exists
+              yet. After the last year, the value is inherited by the following years until a newer
+              one starts.
+            </p>
+          </fieldset>
           <div className="space-y-2">
             <Label htmlFor="factor-geography">Geography (optional)</Label>
             <Input

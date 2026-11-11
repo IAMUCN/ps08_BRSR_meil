@@ -378,3 +378,28 @@ Built by the feature session at the owner's request; no restyle.
   server).
 - `components/upload/split-review.tsx`: Undo / Redo toolbar and shortcuts. `components/document-viewer/
   document-viewer.tsx`: opt-in `arrowKeys`, and an exported `isTyping(target)`.
+
+## Feature lane, 2026-11-11 (Upload description and expected submissions; A51, D53)
+
+- `app/app/upload/page.tsx`: the page is `max-w-5xl` and renders `components/upload/upload-workspace.tsx` (new):
+  the form beside `expected-progress.tsx` (new, a 20rem column from `lg`, stacked below on smaller screens).
+- `components/upload/upload-form.tsx` (shared): an optional Description textarea under the drop zone, and two
+  optional callbacks (`onUploaded`, `onTargetChange`).
+- `components/verification/description-editor.tsx` (new, shared folder) on `app/app/verify/[documentId]/page.tsx`;
+  one line each in `components/records/record-drawer.tsx`, `records-explorer.tsx` and `app/app/submissions/page.tsx`.
+
+## Feature lane, 2026-11-11 (factors per financial year; A52, D54)
+
+- `app/admin/conversion-factors/factors-manager.tsx`: the date fields and the optional financial-year select are
+  replaced by an "Effective for" fieldset (From FY, To FY); `YearsCell` shows a version's years and "inherited since".
+  `review-panel.tsx`: "Inherited from FY …".
+
+## Feature lane, 2026-11-11 (eye button on Verify; A53, D55)
+
+- `components/verification/verify-split.tsx`: the viewer sits in a column with the eye button and colour key under
+  it. `components/document-viewer/document-viewer.tsx`: `showRegions` prop, `Region.tone`, exported `REGION_TONE`.
+
+## Feature lane, 2026-11-11 (Carbon Analytics by project; A54)
+
+- `app/admin/carbon-analytics/recommendations.tsx`: a "Which project emits the most?" button on each suggestion
+  card and a ranked list with share bars (the top one in the error colour).

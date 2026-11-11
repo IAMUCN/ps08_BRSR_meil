@@ -819,3 +819,32 @@ with grouped suggestions and word-form matching (`lib/audit/words.ts`) that also
 of a named activity, org unit or period. The split page has Undo / Redo (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z) and ← / →
 turn its pages. Every right-hand side panel can expand to the whole window from 768px up (Esc collapses first) and
 be resized by dragging its inner edge, each kind remembering its width in the browser.
+
+## A51 — Upload: an optional description and the project's expected submissions (2026-11-11)
+
+Upload has an optional Description box (500 characters). It is shown on Verify (where the uploader can change it
+until approval), in the record panel, on My Submissions and in Submission Monitoring, and it is searched and
+exported. Beside the form, Upload lists every activity the chosen project is expected to submit for the chosen
+period, other roles' included: "N of M submitted", a tick once a document is on file, and the newest one's stage
+(a rejected record does not count). The list follows the form, refreshes after each upload and every 20 seconds
+while the tab is visible. `.grill/upload-description-progress-decisions.md`.
+
+## A52 — Conversion factors are entered for financial years (2026-11-11)
+
+The factor form asks "Effective for: From FY / To FY" (To defaults to From) instead of dates, defaulting to the next
+financial year; an earlier year is refused where the factor already has a value. The factors table's Effective
+column shows the current financial year with "Inherited from FY …" (or "Entered for FY …") beneath it; a
+version's history shows its own years; the yearly review shows "Inherited from FY …".
+`.grill/factor-financial-years-decisions.md`.
+
+## A53 — Eye button under the document on Verify Extraction (2026-11-11)
+
+"Show extracted parts" under the viewer draws every value's place on the page, green / amber / red by confidence,
+with a colour key; the choice is saved on the account and applies to every document. Boxes now load for any
+document already read by OCR, approved ones included. `.grill/extraction-boxes-toggle-decisions.md`.
+
+## A54 — "Which project emits the most?" on Carbon Analytics suggestions (2026-11-11)
+
+Each suggestion has a button that lists the units (projects, sites) its activities' approved emissions came from
+in the suggestion's financial year, largest first with tCO2e, share and record count (`analytics.byUnit`,
+`emissionsByUnit` in `lib/analytics/service.ts`; read-only, same scope rule as the page). Owner's request.

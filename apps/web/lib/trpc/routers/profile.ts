@@ -52,6 +52,31 @@ export const profileRouter = router({
       return null;
     }),
 
+  /**
+   * The eye button on Verify Extraction (migration 0065, owner's request 2026-11-11): saved on the account, so it
+   * holds for every document and device. Audited like the theme.
+   */
+  setShowExtractionBoxes: protectedProcedure
+    .input(z.object({ show: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const [row] = await tx<{ show: boolean }[]>`
+          select show_extraction_boxes as show from public.users where id = ${ctx.session.userId} for update`;
+        if (!row || row.show === input.show) return;
+        await tx`update public.users set show_extraction_boxes = ${input.show}
+                 where id = ${ctx.session.userId}`;
+        await writeAudit(tx, {
+          eventType: "user.preference_changed",
+          entityType: "user",
+          entityId: ctx.session.userId,
+          userId: ctx.session.userId,
+          oldValue: { show_extraction_boxes: row.show },
+          newValue: { show_extraction_boxes: input.show },
+        });
+      });
+      return { show: input.show };
+    }),
+
   /** Requires the current password (.grill/phase-4-admin-foundation-decisions.md). */
   changePassword: protectedProcedure
     .input(

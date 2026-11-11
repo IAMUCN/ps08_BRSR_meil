@@ -172,6 +172,8 @@ export type RecordDetail = {
   periodLabel: string;
   documentId: string | null;
   fileName: string | null;
+  /** The uploader's optional description (migration 0063). */
+  description: string | null;
   mimeType: string | null;
   submittedBy: string;
   verifiedBy: string | null;
@@ -465,6 +467,7 @@ export const recordsRouter = router({
           period_label: string;
           document_id: string | null;
           file_name: string | null;
+          description: string | null;
           mime_type: string | null;
           submitted_by: string;
           verified_by: string | null;
@@ -488,7 +491,7 @@ export const recordsRouter = router({
                case when d.document_type_id is null then null
                     else coalesce(d.document_type_source, 'ocr') end as document_type_source,
                m.name as metric_name, o.name as org_unit_name, p.label as period_label,
-               d.id as document_id, d.file_name, d.mime_type, su.display_name as submitted_by,
+               d.id as document_id, d.file_name, d.description, d.mime_type, su.display_name as submitted_by,
                vu.display_name as verified_by, r.verification_status::text,
                r.validation_status::text, r.approval_status::text, r.data_quality_state::text,
                r.activity_value_verified::float as activity_value, r.activity_unit
@@ -556,6 +559,7 @@ export const recordsRouter = router({
         periodLabel: r.period_label,
         documentId: r.document_id,
         fileName: r.file_name,
+        description: r.description,
         mimeType: r.mime_type,
         submittedBy: r.submitted_by,
         verifiedBy: r.verified_by,

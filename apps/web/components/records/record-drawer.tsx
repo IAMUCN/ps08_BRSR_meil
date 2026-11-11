@@ -94,6 +94,12 @@ export function RecordDrawer({
               ? `${detail.metricName} · ${detail.orgUnitName} · ${detail.periodLabel}`
               : (error ?? "Loading…")}
           </SheetDescription>
+          {detail?.description ? (
+            <p className="mt-1 text-sm whitespace-pre-line text-foreground">
+              <span className="font-medium">Description: </span>
+              {detail.description}
+            </p>
+          ) : null}
         </SheetHeader>
         {detail ? (
           // Sized by the panel, not the screen: one column while docked, document beside the values once

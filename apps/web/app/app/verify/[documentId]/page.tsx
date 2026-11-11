@@ -13,6 +13,7 @@ import { VerifySplit } from "@/components/verification/verify-split";
 import { requireAppSession } from "@/lib/auth/session";
 import { JOB_STATUS_LABELS, JOB_STATUS_TONES } from "@/lib/ocr/rules";
 import type { VerifyDocument } from "@/lib/trpc/routers/verification";
+import { DescriptionEditor } from "@/components/verification/description-editor";
 import { api } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Verify Extraction · EmeilSG" };
@@ -190,6 +191,11 @@ export default async function VerifyPage({ params }: PageProps<"/app/verify/[doc
             </span>
           ) : null
         }
+      />
+      <DescriptionEditor
+        documentId={doc.documentId}
+        description={doc.description}
+        canEdit={doc.canEditDescription}
       />
       <VerifySplit doc={doc} workable={workable} statePanel={<StatePanel doc={doc} />} />
     </div>

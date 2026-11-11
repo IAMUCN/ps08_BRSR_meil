@@ -2,7 +2,7 @@ import { CalendarX, FolderX, ListX } from "lucide-react";
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
-import { UploadForm } from "@/components/upload/upload-form";
+import { UploadWorkspace } from "@/components/upload/upload-workspace";
 import { requireAppSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 
@@ -54,12 +54,12 @@ export default async function UploadPage({ searchParams }: PageProps<"/app/uploa
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Upload Document"
         description="Choose what the document is evidence for, then add the file. Values are extracted automatically and you'll review them before anything is submitted."
       />
-      <UploadForm
+      <UploadWorkspace
         periods={options.periods}
         targets={options.targets}
         maxBytes={options.maxBytes}

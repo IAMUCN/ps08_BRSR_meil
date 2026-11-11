@@ -205,3 +205,53 @@ export async function analyticsOverview(sql: Sql, orgUnitId: string): Promise<An
     recommendations: recommend({ periods, rows, completeYears }),
   };
 }
+
+export type UnitEmission = {
+  orgUnitId: string;
+  name: string;
+  /** The unit's level as configured (Project, Site …). */
+  level: string;
+  tco2e: number;
+  records: number;
+  sharePct: number;
+};
+
+/**
+ * One suggestion's emissions split by the unit each record was filed under (owner's request, 2026-11-11: which
+ * project emits the most, not only which source). Approved, calculated records of the given activities in one
+ * financial year, for the chosen unit and everything beneath it; largest first.
+ */
+export async function emissionsByUnit(
+  sql: Sql,
+  orgUnitId: string,
+  metricCodes: string[],
+  financialYear: number,
+): Promise<UnitEmission[]> {
+  const rows = await sql<
+    { org_unit_id: string; name: string; level: string; tco2e: number; records: number }[]
+  >`
+    select o.id as org_unit_id, o.name, coalesce(l.label, o.unit_type::text) as level,
+           sum(${toTonnes(sql)})::float as tco2e, count(*)::int as records
+    from public.consolidation_records cr
+    join public.esg_metrics m on m.id = cr.metric_id
+    join public.reporting_periods p on p.id = cr.reporting_period_id
+    join public.org_units o on o.id = cr.source_org_unit_id
+    left join public.org_levels l on l.code = o.unit_type::text
+    where cr.org_unit_id = ${orgUnitId}
+      and m.code = any(${metricCodes}::text[])
+      and cr.approval_status = 'approved' and not cr.not_calculated
+      and ${toTonnes(sql)} is not null
+      and p.start_date >= make_date(${financialYear}, 4, 1)
+      and p.start_date < make_date(${financialYear} + 1, 4, 1)
+    group by o.id, o.name, l.label, o.unit_type
+    order by tco2e desc, o.name`;
+  const total = rows.reduce((s, r) => s + r.tco2e, 0);
+  return rows.map((r) => ({
+    orgUnitId: r.org_unit_id,
+    name: r.name,
+    level: r.level,
+    tco2e: r.tco2e,
+    records: r.records,
+    sharePct: total > 0 ? (r.tco2e / total) * 100 : 0,
+  }));
+}

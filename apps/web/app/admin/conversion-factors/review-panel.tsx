@@ -20,13 +20,15 @@ export type ReviewData = {
     activityName: string;
     factorId: string | null;
     state: "missing" | "for_this_year" | "carried_over";
+    /** The financial year an inherited value was entered for. */
+    inheritedFrom: string | null;
     drafts: number;
   }[];
 };
 
 const STATE = {
   missing: { tone: "error", label: "No value" },
-  carried_over: { tone: "warning", label: "Earlier year's value" },
+  carried_over: { tone: "warning", label: "Inherited" },
   for_this_year: { tone: "success", label: "Entered for this year" },
 } as const;
 
@@ -77,8 +79,8 @@ export function ReviewPanel({
       </div>
       <p className="text-sm" role="status">
         On 1 April of FY {review.financialYear}: <strong>{missing.length}</strong> with no value,{" "}
-        <strong>{carried.length}</strong> using an earlier year&apos;s value,{" "}
-        <strong>{done}</strong> entered for this year.
+        <strong>{carried.length}</strong> inherited from an earlier year, <strong>{done}</strong>{" "}
+        entered for this year.
       </p>
       {todo.length ? (
         // Folded by default: with dozens of activities the list would push the factor table off the screen.
@@ -100,7 +102,11 @@ export function ReviewPanel({
                   </span>
                 </span>
                 <span className="flex flex-wrap items-center gap-2">
-                  <StatusBadge tone={STATE[item.state].tone}>{STATE[item.state].label}</StatusBadge>
+                  <StatusBadge tone={STATE[item.state].tone}>
+                    {item.inheritedFrom
+                      ? `Inherited from FY ${item.inheritedFrom}`
+                      : STATE[item.state].label}
+                  </StatusBadge>
                   {item.drafts ? (
                     <StatusBadge tone="warning">{`${item.drafts} waiting for approval`}</StatusBadge>
                   ) : null}

@@ -1,13 +1,15 @@
 "use client";
 
-import { Lightbulb, Sparkles } from "lucide-react";
+import { Building2, Lightbulb, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { Recommendation } from "@/lib/analytics/recommend";
-import { wordRecommendationAction } from "./actions";
+import type { UnitEmission } from "@/lib/analytics/service";
+import { fyLabel } from "@/lib/factors/source-text";
+import { emissionsByUnitAction, wordRecommendationAction } from "./actions";
 
 // Suggestions (feature_enhancement.md 7.2; A47): chosen by fixed rules with the figures that triggered them.
 // "Explain in plain words" asks the AI service to reword one; the rules' wording is always shown too.
@@ -78,6 +80,27 @@ function RecommendationCard({
 }) {
   const [pending, startTransition] = useTransition();
   const [worded, setWorded] = useState<{ text: string; model: string } | null>(null);
+  // Which project the emissions come from (owner's request, 2026-11-11): loaded on the first click.
+  const [byUnit, setByUnit] = useState<{ financialYear: number; units: UnitEmission[] } | null>(
+    null,
+  );
+  const [showUnits, setShowUnits] = useState(false);
+  const [loadingUnits, startUnits] = useTransition();
+
+  function toggleUnits() {
+    if (showUnits) return setShowUnits(false);
+    setShowUnits(true);
+    if (byUnit) return;
+    startUnits(async () => {
+      const result = await emissionsByUnitAction({ orgUnitId, recommendationId: rec.id });
+      if (!result.ok) {
+        setShowUnits(false);
+        toast.error(result.error);
+        return;
+      }
+      setByUnit(result.data);
+    });
+  }
   const explorer =
     `/admin/data-explorer?org=${orgUnitId}&fy=${rec.evidence.financialYear}` +
     (rec.evidence.metricCodes.length === 1
@@ -125,6 +148,73 @@ function RecommendationCard({
           ))}
         </ul>
       ) : null}
+      <div className="space-y-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-expanded={showUnits}
+          aria-controls={`units-${rec.id}`}
+          onClick={toggleUnits}
+        >
+          {loadingUnits ? (
+            <Loader2 className="animate-spin" aria-hidden />
+          ) : (
+            <Building2 aria-hidden />
+          )}
+          {showUnits ? "Hide projects" : "Which project emits the most?"}
+        </Button>
+        {showUnits && byUnit ? (
+          <div id={`units-${rec.id}`} className="space-y-2 rounded-md border border-border p-3">
+            {byUnit.units.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No approved, calculated {rec.groupLabel.toLowerCase()} records in FY{" "}
+                {fyLabel(byUnit.financialYear)}.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm">
+                  <span className="font-medium">{byUnit.units[0].name}</span> emits the most{" "}
+                  {rec.groupLabel.toLowerCase()} CO2e in FY {fyLabel(byUnit.financialYear)}:{" "}
+                  <span className="font-mono">{fmt(byUnit.units[0].tco2e)} tCO2e</span> (
+                  {Math.round(byUnit.units[0].sharePct)}% of{" "}
+                  {fmt(byUnit.units.reduce((sum, u) => sum + u.tco2e, 0))} tCO2e).
+                </p>
+                <ol className="space-y-1.5">
+                  {byUnit.units.map((u, i) => (
+                    <li key={u.orgUnitId} className="text-xs">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className={i === 0 ? "font-semibold" : undefined}>
+                          {i + 1}. {u.name}{" "}
+                          <span className="font-normal text-muted-foreground">
+                            {u.level} · {u.records} record{u.records === 1 ? "" : "s"}
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-mono">
+                          {fmt(u.tco2e)} tCO2e · {Math.round(u.sharePct)}%
+                        </span>
+                      </div>
+                      <div
+                        className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-muted"
+                        aria-hidden
+                      >
+                        <div
+                          className={i === 0 ? "h-full bg-status-error" : "h-full bg-primary/60"}
+                          style={{ width: `${Math.max(2, u.sharePct)}%` }}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <p className="text-xs text-muted-foreground">
+                  Approved records of FY {fyLabel(byUnit.financialYear)}, by the unit each record
+                  was filed under.
+                </p>
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
       <details className="text-sm">
         <summary className="cursor-pointer text-primary-text">
           Evidence: {rec.evidence.periods.length} period(s)

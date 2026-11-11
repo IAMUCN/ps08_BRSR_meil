@@ -84,7 +84,7 @@ const OCR_STATE_SQL = (sql: Sql) => sql`(case
 
 /**
  * The search box (owner's page feedback, 2026-10-11): each word must appear — letter case ignored — in the
- * document's name, the bill number, the metric or its code, the category, the document type, the org unit
+ * document's name or description, the bill number, the metric or its code, the category, the document type, the org unit
  * or its code, the period, the submitter, or the record's value or unit. Words are bound as values and their %, _ and \ are taken
  * literally, so nothing typed can change the query.
  */
@@ -92,7 +92,7 @@ function textCondition(sql: Sql, text: string) {
   const words = text.split(/\s+/).filter(Boolean).slice(0, 8);
   return words.map((word) => {
     const like = `%${word.replace(/[\\%_]/g, "\\$&")}%`;
-    return sql`and (d.file_name ilike ${like} or r.bill_number ilike ${like} or dt.name ilike ${like}
+    return sql`and (d.file_name ilike ${like} or d.description ilike ${like} or r.bill_number ilike ${like} or dt.name ilike ${like}
       or m.name ilike ${like} or m.code ilike ${like}
       or cat.name ilike ${like} or o.name ilike ${like} or o.code ilike ${like} or p.label ilike ${like}
       or u.display_name ilike ${like} or r.activity_unit ilike ${like} or c.result_unit ilike ${like}
@@ -207,6 +207,8 @@ export type RecordRow = {
   recordId: string;
   documentId: string | null;
   fileName: string | null;
+  /** The uploader's optional description (migration 0063). */
+  description: string | null;
   mimeType: string | null;
   orgUnitName: string;
   periodLabel: string;
@@ -275,6 +277,7 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
       record_id: string;
       document_id: string | null;
       file_name: string | null;
+      description: string | null;
       mime_type: string | null;
       org_unit_name: string;
       period_label: string;
@@ -301,7 +304,7 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
       on_behalf_of: string | null;
     }[]
   >`
-    select r.id as record_id, d.id as document_id, d.file_name, d.mime_type, o.name as org_unit_name,
+    select r.id as record_id, d.id as document_id, d.file_name, d.description, d.mime_type, o.name as org_unit_name,
            p.label as period_label, m.name as metric_name, cat.name as category_name,
            u.display_name as submitted_by, r.created_at,
            r.verification_status::text, r.validation_status::text, r.approval_status::text,
@@ -322,6 +325,7 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
     recordId: r.record_id,
     documentId: r.document_id,
     fileName: r.file_name,
+    description: r.description,
     mimeType: r.mime_type,
     orgUnitName: r.org_unit_name,
     periodLabel: r.period_label,

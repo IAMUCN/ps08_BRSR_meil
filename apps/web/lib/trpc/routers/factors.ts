@@ -79,7 +79,14 @@ const versionInput = {
   outputUnit: z.string().trim().min(1).max(40),
   sourceReference: z.string().trim().min(3).max(500),
   geography: z.string().trim().max(120).optional(),
-  effectiveFrom: z.iso.date(),
+  /**
+   * The financial years the version is for (owner's decision, 2026-11-11; migration 0064): From and To as
+   * "2027-28"; To defaults to From (one year). After its To year a version is inherited until a newer one starts.
+   */
+  fromYear: z.string().trim().max(7).optional(),
+  toYear: z.string().trim().max(7).optional(),
+  /** Older callers: dates, read as the financial years they fall in. */
+  effectiveFrom: z.iso.date().optional(),
   effectiveTo: z.iso.date().nullish(),
   notes: z.string().trim().max(1000).optional(),
   gases: z.string().trim().max(60).optional(),
@@ -138,20 +145,37 @@ async function checkVersion(
       );
     }
   }
-  if (v.effectiveTo && v.effectiveTo <= v.effectiveFrom) {
-    throw bad("The end date must be after the start date.");
-  }
-  let financialYear: string | null = null;
-  if (v.financialYear) {
-    const range = fyRange(v.financialYear);
-    if (!range) throw bad('A financial year is written like "2025-26".');
-    if (fyOf(v.effectiveFrom) !== range.start) {
+  // Financial years, not dates (owner's decision, 2026-11-11; .grill/factor-financial-years-decisions.md).
+  const fromLabel =
+    v.fromYear ?? v.financialYear ?? (v.effectiveFrom ? fyLabel(fyOf(v.effectiveFrom)) : "");
+  const from = fyRange(fromLabel);
+  if (!from) throw bad('Choose the first financial year, written like "2027-28".');
+  const toLabel = v.toYear ?? (v.effectiveTo ? fyLabel(fyOf(v.effectiveTo)) : fromLabel);
+  const to = fyRange(toLabel);
+  if (!to) throw bad('The last financial year is written like "2027-28".');
+  if (to.start < from.start) throw bad("The last financial year cannot be before the first.");
+  // Changes take effect from the next financial year. An earlier year is allowed only where no value exists
+  // yet for any year of the range (a first entry, or history before the first value).
+  const [{ today }] = await tx<{ today: string }[]>`
+    select public.reporting_period_today()::text as today`;
+  const next = fyOf(today) + 1;
+  if (from.start < next) {
+    const [taken] = factorId
+      ? await tx<{ fy: string }[]>`
+          select financial_year as fy from public.conversion_factor_versions
+          where conversion_factor_id = ${factorId} and status in ('active', 'superseded', 'draft')
+            and effective_from <= ${to.to}::date
+          order by effective_from limit 1`
+      : [];
+    if (taken) {
       throw bad(
-        `The start date must fall in financial year ${v.financialYear} (1 April to 31 March).`,
+        `This factor already has a value for FY ${fromLabel}${toLabel !== fromLabel ? ` to FY ${toLabel}` : ""} (entered or inherited), so a change takes effect from FY ${fyLabel(next)}.`,
       );
     }
-    financialYear = v.financialYear;
   }
+  const effectiveFrom = from.from;
+  const effectiveTo = to.to;
+  const financialYear = fromLabel;
   let sourceUrl: string | null = null;
   if (v.sourceUrl) {
     const link = checkLink(v.sourceUrl);
@@ -163,6 +187,9 @@ async function checkVersion(
   }
   return {
     ...v,
+    effectiveFrom,
+    effectiveTo,
+    toYear: toLabel,
     outputUnit,
     financialYear,
     sourceUrl,
@@ -289,25 +316,26 @@ export const factorsRouter = router({
           name: string;
           factor_id: string | null;
           covering: string | null;
+          covering_to: string | null;
           covering_fy: string | null;
           drafts: number;
         }[]
       >`
-        select m.code, m.name, f.id as factor_id,
-               (select v.status::text from public.conversion_factor_versions v
-                 where v.conversion_factor_id = f.id and v.status in ('active', 'superseded')
-                   and v.effective_from <= ${range.from}::date
-                   and (v.effective_to is null or v.effective_to >= ${range.from}::date)
-                 order by v.effective_from desc, v.version_number desc limit 1) as covering,
-               (select v.financial_year from public.conversion_factor_versions v
-                 where v.conversion_factor_id = f.id and v.status in ('active', 'superseded')
-                   and v.effective_from <= ${range.from}::date
-                   and (v.effective_to is null or v.effective_to >= ${range.from}::date)
-                 order by v.effective_from desc, v.version_number desc limit 1) as covering_fy,
+        -- The version used for the year: the latest one starting on or before it, its own years or
+        -- inherited after its last year (owner's decision, 2026-11-11; the calculation engine's rule).
+        select m.code, m.name, f.id as factor_id, cv.status as covering, cv.effective_to::text as covering_to,
+               cv.financial_year as covering_fy,
                (select count(*)::int from public.conversion_factor_versions v
                  where v.conversion_factor_id = f.id and v.status = 'draft') as drafts
         from public.esg_metrics m
         left join public.conversion_factors f on f.activity_type = m.code
+        left join lateral (
+          select v.status::text as status, v.effective_to, v.financial_year
+          from public.conversion_factor_versions v
+          where v.conversion_factor_id = f.id and v.status in ('active', 'superseded')
+            and v.effective_from <= ${range.from}::date
+          order by v.effective_from desc, v.version_number desc limit 1
+        ) cv on true
         where m.deleted_at is null and m.requires_conversion_factor
         order by m.name`;
       return {
@@ -320,9 +348,11 @@ export const factorsRouter = router({
           factorId: r.factor_id,
           state: !r.covering
             ? ("missing" as const)
-            : r.covering_fy === label
+            : !r.covering_to || r.covering_to >= range.from
               ? ("for_this_year" as const)
               : ("carried_over" as const),
+          /** The year the value was entered for, when it is inherited. */
+          inheritedFrom: r.covering_to && r.covering_to < range.from ? r.covering_fy : null,
           drafts: r.drafts,
         })),
       };

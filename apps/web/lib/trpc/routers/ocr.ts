@@ -51,6 +51,8 @@ export type SubmissionRow = RecordStatus & {
   id: string;
   documentId: string | null;
   fileName: string | null;
+  /** The uploader's optional description (migration 0063). */
+  description: string | null;
   metricName: string;
   orgUnitName: string;
   periodLabel: string;
@@ -112,6 +114,7 @@ export const ocrRouter = router({
         period_label: string;
         document_id: string | null;
         file_name: string | null;
+        description: string | null;
         job_status: OcrJobStatus | null;
         error_message: string | null;
         attention: number | null;
@@ -122,7 +125,7 @@ export const ocrRouter = router({
     >`
       select r.id, r.verification_status, r.validation_status, r.approval_status,
              r.data_quality_state, r.created_at, m.name as metric_name, o.name as org_unit_name,
-             p.label as period_label, d.id as document_id, d.file_name, j.status as job_status,
+             p.label as period_label, d.id as document_id, d.file_name, d.description, j.status as job_status,
              j.error_message, fs.attention,
              (select a.reason from public.audit_logs a
                where a.event_type = 'verification.rejected' and a.entity_id = r.id
@@ -166,6 +169,7 @@ export const ocrRouter = router({
       jobStatus: r.job_status,
       documentId: r.document_id,
       fileName: r.file_name,
+      description: r.description,
       metricName: r.metric_name,
       orgUnitName: r.org_unit_name,
       periodLabel: r.period_label,

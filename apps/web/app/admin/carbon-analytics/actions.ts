@@ -35,3 +35,11 @@ export async function runAlertsAction() {
   if (result.ok) revalidatePath("/admin/carbon-analytics");
   return result;
 }
+
+/** Which projects a suggestion's emissions come from, largest first (owner's request, 2026-11-11). */
+export async function emissionsByUnitAction(input: {
+  orgUnitId: string;
+  recommendationId: string;
+}) {
+  return runAction((api) => api.analytics.byUnit(input));
+}

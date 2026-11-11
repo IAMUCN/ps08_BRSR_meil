@@ -12,13 +12,13 @@ type VersionValues = {
   outputUnit: string;
   sourceReference: string;
   geography?: string;
-  effectiveFrom: string;
-  effectiveTo?: string | null;
+  /** Financial years, "2027-28"; To defaults to From (owner's decision, 2026-11-11). */
+  fromYear: string;
+  toYear?: string;
   notes?: string;
   gases?: string;
   sourceUrl?: string;
   sourcePublisher?: string;
-  financialYear?: string;
   sourceRetrievedOn?: string;
   valueOrigin?: "manual" | "fetched";
   sourceContentSha256?: string;

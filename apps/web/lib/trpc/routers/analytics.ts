@@ -8,8 +8,10 @@ import {
   analyticsUnitIds,
   analyticsUnits,
   assertAnalyticsScope,
+  emissionsByUnit,
   type AnalyticsOverview,
   type AnalyticsUnit,
+  type UnitEmission,
 } from "@/lib/analytics/service";
 import type { ScopeCode } from "@/lib/analytics/trends";
 import { checkWording, wordingMessages } from "@/lib/analytics/wording";
@@ -82,6 +84,29 @@ export const analyticsRouter = router({
    * Rewords one suggestion through the AI service, on request. The rules chose it; the model only writes it
    * in plain words, and a reply with a figure not in the suggestion is refused (lib/analytics/wording.ts).
    */
+  /**
+   * Which units (projects, sites) a suggestion's emissions come from, largest first (owner's request,
+   * 2026-11-11). Same scope rule as the page; read-only, so not audited.
+   */
+  byUnit: adminAreaProcedure
+    .input(z.object({ orgUnitId: z.uuid(), recommendationId: z.string().min(3).max(80) }))
+    .query(async ({ ctx, input }): Promise<{ financialYear: number; units: UnitEmission[] }> => {
+      const sql = db();
+      await assertAnalyticsScope(sql, ctx.session, input.orgUnitId);
+      const { recommendations } = await analyticsOverview(sql, input.orgUnitId);
+      const rec = recommendations.find((r) => r.id === input.recommendationId);
+      if (!rec)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That suggestion no longer applies. Reload the page.",
+        });
+      const { financialYear, metricCodes } = rec.evidence;
+      return {
+        financialYear,
+        units: await emissionsByUnit(sql, input.orgUnitId, metricCodes, financialYear),
+      };
+    }),
+
   wordRecommendation: adminAreaProcedure
     .input(z.object({ orgUnitId: z.uuid(), recommendationId: z.string().min(3).max(80) }))
     .mutation(async ({ ctx, input }): Promise<{ text: string; model: string }> => {
