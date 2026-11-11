@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-11-09._
+_Last updated: 2026-11-11._
 
 ---
 
@@ -669,12 +669,41 @@ _Last updated: 2026-11-09._
   fixed refusal (a short question back is allowed). `lib/chat/orchestrate.ts` (`OUT_OF_SCOPE`), `lib/chat/tools.ts`
   (`ToolError.kind`), `tests/chat.test.ts`; `.grill/chat-analyst-decisions.md` last section. Unit 288/288,
   typecheck, lint, format. Not run: `test:chatbot`, the real model (key refused, §2).
+- **2026-11-10/11: chatbot model and monthly test data.** `lib/chat/nim.ts` also reads `OPENAI_API_KEY` /
+  `OPENAI_MODEL` / `OPENAI_BASE_URL`; `.env.local` now uses `nvidia/nemotron-3.5-lightning-30b-a3b` (GLM 5.3 flash
+  hangs, others 404/410). `test data/<Month Year>/` for April 2025 to October 2026 (66 bills a month;
+  `make_monthly_data.py`, `feed-monthly-data.mjs`, `synthetic_extraction.py`; `test data/README.md`). **Local
+  server:** April 2025 to September 2026 fed and closed (July to September through real OCR, earlier months
+  direct-load), October 2026 open and empty. **Hosted:** prepared, April 2025 to June 2026 fed; **July to September
+  2026 not finished** (the real-OCR run was killed for low memory; July has 16 uploaded + 3 read records) and **no
+  hosted month is closed yet** — rerun `feed … --extract ocr` for those three months, then `close`, only when the
+  owner asks. 17 test accounts per database (`<role>.<unit>@emeilsg.test`, passwords in `test data/_backup/`). All
+  of it is in `e763572`, pushed to `ucn` `main` (not `origin`). The hosted worker container is stopped again.
+- **Owner's page feedback of 2026-11-11, uncommitted on branch `feature-page-feedback-2026-11-11`** (from
+  `e763572`; A50, `.grill/page-feedback-2026-11-11-decisions.md`, `UI_NOTES.md`; no migration). Submission
+  Monitoring / Data Explorer filters (no Document type, Activity by scope, upload-date range, Reset filters, wider
+  Period, submitter role line), the factor review's years (current FY back; neither database had future-year rows),
+  Save schedule also sends today's reminders (Run now gone), Deadlines' who-can-submit rule and wording, Audit Trail
+  (auto-apply, linked filters, Clear filters, suggestions and word-form search), split page undo/redo and arrow
+  keys, every right-hand panel expandable to the whole window and resizable. `apps/web/tsconfig.json` restored to
+  `95545c3` (Next had added `.next-e2e` includes, committed in `e763572`). Checked: typecheck, lint (0 errors), web
+  unit 292/292 (4 new in `tests/audit-words.test.ts`), format (only the known `app/loading.tsx`, `app/page.tsx`),
+  and Edge on a dev server against the local server as a temporary Administrator at MEIL, 31/31 after one test
+  expectation was corrected (filters, role line on real September rows, badge fit, date range, panel
+  expand / Esc / drag / keyboard / remembered width / reset, Deadlines wording, Audit Trail suggestions and linked
+  filters, phone width). **Not run:** the production build, database tests, the e2e suite (`ui-phase2/4/5.mjs`
+  were updated for the removed controls but not run), the split page and Conversion Factors and Save schedule in a
+  browser (they need a Super Admin or a pending multi-bill PDF), an on-behalf upload's role line (no such record on
+  the local data). The temporary account `ui.check.admin@emeilsg.test` is deactivated on the local server.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
+| Daily reminders on Vercel (2026-11-11) | Save schedule now sends today's reminders at once, but nothing runs daily until `CRON_SECRET` (16+ random characters) is added to the Vercel project's environment variables and the app is redeployed; the panel then says "Active · runs daily at 9:00 IST". |
+| Hosted July–September 2026 test data (2026-11-11) | The real-OCR load was killed for low memory and not restarted (system rule). Say when to resume (`feed --months "July 2026,August 2026,September 2026" --extract ocr`, other apps stopped, hosted worker started), then `close` all 18 hosted months. |
+| Commit the page-feedback branch (2026-11-11) | `feature-page-feedback-2026-11-11` is uncommitted; say when to commit, and whether to push / open a pull request. |
 | NVIDIA key in `apps/web/.env.local` (2026-11-09) | NVIDIA now refuses the key itself ("Authorization failed", 403, every model); before that the three listed models answered 404 / 410 / timeout. The owner creates a new key at build.nvidia.com and puts it in `NVIDIA_NIM_API_KEY`; then probe models with the scratchpad's `nim-probe.mjs` pattern (tool call, no MEIL data) and set `NVIDIA_NIM_MODEL`. Until then the chatbot and Phase 7's AI wording do not work. |
 | Phase 6–10 build-time choices | Listed under "Built that way" in `.grill/feature-enhancement-roadmap-decisions.md` for each phase: thresholds for rising / unusual month / largest source, alert window and minimum increase, factor units and fetch limits. |
 | Phase 1 of the feature roadmap (2026-11-07) | Confirm the build-time decisions in `.grill/feature-enhancement-roadmap-decisions.md` (sessions that skip the form replace the others; the Super Admin email goes to the Super Admin whose account took over). |
@@ -712,7 +741,7 @@ _Last updated: 2026-11-09._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D53** and **A49**; the next migration is `0063`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D53** and **A51**; the next migration is `0063`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -1032,6 +1061,15 @@ _Last updated: 2026-11-09._
 - **A restore of `public` into a Supabase stack:** load the sign-in accounts first (users.id references them) and
   the `supabase_admin` default grants as `supabase_admin` (`local-server.cjs load`).
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
+- **A second `next dev` with `NEXT_DIST_DIR` outside `.next-e2e` breaks Tailwind** (it scanned a git-ignored
+  `.next-hosted` folder and produced a class that 500s every page). Keep extra dist folders under `.next-e2e/`,
+  delete it afterwards, and restore `apps/web/tsconfig.json` — Next rewrites it every time (it was committed
+  rewritten once, in `e763572`).
+- **Signing in by script when the account is signed in elsewhere:** the login form shows the takeover question;
+  click the last "Sign out there and continue" button without retyping the password (clearing the field by
+  script breaks the form's state).
+- **Side panels remember their width per page in `localStorage`** (`sheet-width:…`, 2026-11-11). A browser test
+  that measures a panel's default width must clear that key or use a fresh browser context.
 
 ## 6. Quick commands
 

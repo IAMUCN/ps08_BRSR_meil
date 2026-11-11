@@ -1,145 +1,15 @@
 "use client";
 
 import { ChevronDown, ChevronRight, Download } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
-import { Fragment, useState, type FormEvent } from "react";
+import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { csvSafeText } from "@/lib/csv";
 import type { AuditEvent } from "@/lib/trpc/routers/audit";
 
 // Audit Trail (03_APP_FLOW.md §2.2): filter by user, record, action and date range; each event expands in
 // place to its before/after values. Filters live in the URL.
 
-export type AuditFilterValues = Record<string, string | undefined>;
-
-export function AuditFilters({
-  options,
-  values,
-  compact = false,
-}: {
-  options: {
-    users: { id: string; name: string }[];
-    eventTypes: string[];
-    entityTypes: string[];
-    roles?: { code: string; name: string }[];
-    reach?: "all" | "units" | "own";
-  };
-  values: AuditFilterValues;
-  /** My Activity: search, action and dates only (the entries are all the caller's own). */
-  compact?: boolean;
-}) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [form, setForm] = useState(values);
-  const field = (key: string) => ({
-    value: form[key] ?? "",
-    onChange: (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value }),
-  });
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    const next = new URLSearchParams();
-    for (const [k, v] of Object.entries(form))
-      if (v && k !== "before_at" && k !== "before_id") next.set(k, v);
-    router.push(`${pathname}?${next.toString()}`);
-  }
-
-  const label = "flex flex-col gap-1 text-xs text-muted-foreground";
-  return (
-    <form
-      onSubmit={submit}
-      className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3"
-    >
-      {/* The search bar (Phase 4, requirement 12): action, person, reason and values. */}
-      <label className={`${label} min-w-56 flex-1`}>
-        Search
-        <Input type="search" placeholder="e.g. approved diesel, a name" {...field("q")} />
-      </label>
-      {options.reach !== "own" ? (
-        <label className={label}>
-          Show
-          <NativeSelect {...field("mine")}>
-            <option value="">
-              {options.reach === "units" ? "Everything I may see" : "Everyone"}
-            </option>
-            <option value="1">Only my activity</option>
-          </NativeSelect>
-        </label>
-      ) : null}
-      {options.roles?.length && options.reach !== "own" ? (
-        <label className={label}>
-          Role
-          <NativeSelect {...field("role")}>
-            <option value="">Any role</option>
-            {options.roles.map((r) => (
-              <option key={r.code} value={r.code}>
-                {r.name}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
-      ) : null}
-      {compact ? null : (
-        <label className={label}>
-          User
-          <NativeSelect {...field("user")}>
-            <option value="">Anyone (incl. system)</option>
-            {options.users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
-      )}
-      <label className={label}>
-        Action
-        <NativeSelect {...field("event")}>
-          <option value="">Any action</option>
-          {options.eventTypes.map((e) => (
-            <option key={e} value={e}>
-              {e}
-            </option>
-          ))}
-        </NativeSelect>
-      </label>
-      {compact ? null : (
-        <>
-          <label className={label}>
-            Record type
-            <NativeSelect {...field("entity")}>
-              <option value="">Any</option>
-              {options.entityTypes.map((e) => (
-                <option key={e} value={e}>
-                  {e}
-                </option>
-              ))}
-            </NativeSelect>
-          </label>
-          <label className={label}>
-            Record id
-            <Input
-              placeholder="uuid"
-              className="w-72 max-w-[calc(100vw-7rem)] font-mono text-xs"
-              {...field("id")}
-            />
-          </label>
-        </>
-      )}
-      <label className={label}>
-        From
-        <Input type="date" {...field("from")} />
-      </label>
-      <label className={label}>
-        To
-        <Input type="date" {...field("to")} />
-      </label>
-      <Button type="submit">Apply</Button>
-    </form>
-  );
-}
+export { AuditFilters, type AuditFilterValues } from "./audit-filters";
 
 const csvCell = (v: unknown) => {
   const text = csvSafeText(

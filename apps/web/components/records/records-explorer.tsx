@@ -1,8 +1,7 @@
 "use client";
 
 import { rowClick } from "@/components/ui/row-click";
-import { Download, Search, X } from "lucide-react";
-import Link from "next/link";
+import { Download, RotateCcw, Search, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -71,19 +70,52 @@ export function ContextFilters({
   const [text, setText] = useState(params.q ?? "");
   const applied = useRef(params.q ?? "");
   const latest = useRef<(value: string) => void>(() => {});
-  // Whatever narrows the list beyond the organization and the period, which always have a value.
-  const narrowed = ["fy", "scope", "metric", "doctype", "role", "status", "issue", "q", "ocr"].some(
-    (k) => params[k],
-  );
+  // Anything that differs from what the page shows with no filters (owner's page feedback, 2026-11-11: one
+  // Reset filters button back to the caller's own unit and the current open period).
+  const narrowed =
+    ["fy", "scope", "metric", "doctype", "role", "status", "issue", "q", "ocr", "from", "to"].some(
+      (k) => params[k],
+    ) ||
+    context.orgUnitId !== context.defaultOrgUnitId ||
+    context.periodId !== context.defaultPeriodId;
+  const scopeOf = new Map(context.metrics.map((m) => [m.code, m.scopeCode]));
   const set = (key: string, value: string) => {
     const next = new URLSearchParams();
     const merged = { ...params, org: context.orgUnitId, [key]: value };
     // A financial year replaces the single period, and vice versa.
     if (key === "fy" && value) delete merged.period;
     if (key === "period") delete merged.fy;
+    // An activity belongs to one scope: choosing it sets the scope, and a scope drops an activity outside it.
+    if (key === "metric" && value && scopeOf.get(value)) merged.scope = scopeOf.get(value)!;
+    if (key === "scope" && value && merged.metric && scopeOf.get(merged.metric) !== value)
+      delete merged.metric;
+    // A From after To would match nothing; move the other end along with it.
+    if (key === "from" && value && merged.to && merged.to < value) merged.to = value;
+    if (key === "to" && value && merged.from && merged.from > value) merged.from = value;
     for (const [k, v] of Object.entries(merged)) if (v) next.set(k, v);
     router.push(`${pathname}?${next.toString()}`);
   };
+  const reset = () => {
+    setText("");
+    applied.current = "";
+    router.push(pathname);
+  };
+  // The Activity list follows the Scope (owner's page feedback, 2026-11-11): only that scope's activities, or
+  // every activity grouped by scope when none is chosen.
+  const activityGroups = (
+    params.scope
+      ? [[params.scope, context.metrics.filter((m) => m.scopeCode === params.scope)] as const]
+      : (
+          [
+            ["SCOPE_1", "Scope 1"],
+            ["SCOPE_2", "Scope 2"],
+            ["SCOPE_3", "Scope 3"],
+            [null, "Other activities"],
+          ] as const
+        ).map(
+          ([code, label]) => [label, context.metrics.filter((m) => m.scopeCode === code)] as const,
+        )
+  ).filter(([, list]) => list.length);
   const applyText = (value: string) => {
     const wanted = value.trim();
     if (wanted === applied.current) return;
@@ -123,20 +155,7 @@ export function ContextFilters({
   );
 
   return (
-    <div className="relative">
-      {/* Laid over the gap above the bar, so showing it never moves the dropdowns. */}
-      {narrowed ? (
-        <Link
-          href={pathname}
-          onClick={() => {
-            setText("");
-            applied.current = "";
-          }}
-          className="absolute -top-[1.125rem] right-0 text-xs leading-4 font-medium text-primary-text underline underline-offset-2"
-        >
-          Clear filters
-        </Link>
-      ) : null}
+    <div>
       <div className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3">
         {search ? (
           <form
@@ -213,9 +232,39 @@ export function ContextFilters({
               context.periods.map((p) => [p.id, p.label]),
               "period",
               "",
-              "flex-[0_1_9rem]",
+              // Wide enough for a label like "September 2026" with the arrow (owner's feedback, 2026-11-11).
+              "flex-[0_0_12rem]",
             )
           : null}
+        {/* Upload date (owner's page feedback, 2026-11-11): the same day in both for one day's uploads. */}
+        <label
+          htmlFor="f-from"
+          className="flex flex-[0_0_9.5rem] flex-col gap-1 text-xs text-muted-foreground"
+        >
+          Uploaded from
+          <Input
+            id="f-from"
+            type="date"
+            value={params.from ?? ""}
+            max={params.to || undefined}
+            onChange={(e) => set("from", e.target.value)}
+            className="text-sm text-foreground"
+          />
+        </label>
+        <label
+          htmlFor="f-to"
+          className="flex flex-[0_0_9.5rem] flex-col gap-1 text-xs text-muted-foreground"
+        >
+          Uploaded to
+          <Input
+            id="f-to"
+            type="date"
+            value={params.to ?? ""}
+            min={params.from || undefined}
+            onChange={(e) => set("to", e.target.value)}
+            className="text-sm text-foreground"
+          />
+        </label>
         {select(
           "f-scope",
           "Scope",
@@ -229,22 +278,38 @@ export function ContextFilters({
           "All",
           "flex-[0_1_7.5rem]",
         )}
-        {/* Both categories on both screens (Phase 2): the activity chosen at upload, and the document
-            type OCR detected or a person chose. */}
-        {select(
-          "f-metric",
-          variant === "explorer" ? "Metric" : "Activity",
-          params.metric ?? "",
-          context.metrics.map((m) => [m.code, m.name]),
-          "metric",
-        )}
-        {select(
-          "f-doctype",
-          "Document type",
-          params.doctype ?? "",
-          context.documentTypes.map((t) => [t.code, t.name]),
-          "doctype",
-        )}
+        {/* The Document type filter was removed (owner's page feedback, 2026-11-11): every activity has
+            exactly one document type, so it repeated this one. A `doctype` in the URL still filters. */}
+        <label
+          htmlFor="f-metric"
+          className="flex flex-[1_1_12rem] flex-col gap-1 text-xs text-muted-foreground"
+        >
+          {variant === "explorer" ? "Metric" : "Activity"}
+          <NativeSelect
+            id="f-metric"
+            value={params.metric ?? ""}
+            onChange={(e) => set("metric", e.target.value)}
+          >
+            <option value="">All</option>
+            {params.scope
+              ? activityGroups.flatMap(([, list]) =>
+                  list.map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.name}
+                    </option>
+                  )),
+                )
+              : activityGroups.map(([label, list]) => (
+                  <optgroup key={label} label={label}>
+                    {list.map((m) => (
+                      <option key={m.code} value={m.code}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+          </NativeSelect>
+        </label>
         {variant === "monitoring"
           ? select(
               "f-role",
@@ -274,6 +339,12 @@ export function ContextFilters({
               "Any",
             )
           : null}
+        {narrowed ? (
+          <Button type="button" variant="outline" onClick={reset} className="h-10">
+            <RotateCcw aria-hidden />
+            Reset filters
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -312,6 +383,7 @@ function exportCsv(rows: RecordRow[], name: string) {
     "Org unit",
     "Period",
     "Submitted by",
+    "Submitter role",
     "Submitted at",
     "Verification",
     "Validation",
@@ -334,6 +406,7 @@ function exportCsv(rows: RecordRow[], name: string) {
       r.orgUnitName,
       r.periodLabel,
       r.submittedBy,
+      [r.submitterRoles, r.onBehalfOf ? `for ${r.onBehalfOf}` : null].filter(Boolean).join(" · "),
       r.submittedAt,
       r.verificationStatus,
       r.validationStatus,
@@ -440,7 +513,16 @@ export function RecordsTable({
                   <td className="px-3 py-2.5">{r.periodLabel}</td>
                   <td className="px-3 py-2.5 font-mono text-xs">
                     {variant === "monitoring" ? (
-                      <span className="font-sans text-sm">{r.submittedBy}</span>
+                      <span className="font-sans text-sm">
+                        {r.submittedBy}
+                        {r.submitterRoles || r.onBehalfOf ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {[r.submitterRoles, r.onBehalfOf ? `for ${r.onBehalfOf}` : null]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        ) : null}
+                      </span>
                     ) : (
                       valueOf(r)
                     )}

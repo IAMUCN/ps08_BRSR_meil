@@ -126,18 +126,16 @@ check(
 await shot(adminPage, "validation-queue");
 
 await go(adminPage, "/admin/submissions");
-// Each filter is a select inside its label: look the two up by their ids.
+// Each filter is a select inside its label: look them up by their ids. The Document type filter was removed
+// on the owner's page feedback of 2026-11-11 (one document type per activity); Activity is grouped by scope.
 const filters = await adminPage.evaluate(() => ({
   activity: document.querySelector("#f-metric")?.closest("label")?.firstChild?.textContent?.trim(),
-  documentType: document
-    .querySelector("#f-doctype")
-    ?.closest("label")
-    ?.firstChild?.textContent?.trim(),
-  types: document.querySelectorAll("#f-doctype option").length,
+  documentType: Boolean(document.querySelector("#f-doctype")),
+  groups: [...document.querySelectorAll("#f-metric optgroup")].map((g) => g.label),
 }));
 check(
-  "Submission Monitoring filters by Activity and Document type",
-  filters.activity === "Activity" && filters.documentType === "Document type" && filters.types > 1,
+  "Submission Monitoring filters by Activity, grouped by scope, with no Document type filter",
+  filters.activity === "Activity" && !filters.documentType && filters.groups.includes("Scope 1"),
   JSON.stringify(filters),
 );
 await shot(adminPage, "submissions");

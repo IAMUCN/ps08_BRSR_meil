@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { fyLabel, fyRange } from "@/lib/factors/source-text";
 
 // The yearly review (feature_enhancement.md 6.2, requirement 17). No SEBI or other official API publishes
 // emission factors, so each financial year a Super Admin checks every activity that takes a factor: what covers
@@ -14,6 +13,8 @@ import { fyLabel, fyRange } from "@/lib/factors/source-text";
 export type ReviewData = {
   financialYear: string;
   from: string;
+  /** Current financial year first, back to the earliest with data; never a future one. */
+  years: string[];
   items: {
     activityType: string;
     activityName: string;
@@ -37,8 +38,7 @@ export function ReviewPanel({
   onAdd: (activityType: string) => void;
 }) {
   const router = useRouter();
-  const start = fyRange(review.financialYear)?.start ?? new Date().getFullYear();
-  const years = [start + 1, start, start - 1, start - 2].map(fyLabel);
+  const years = review.years;
   const missing = review.items.filter((i) => i.state === "missing");
   const carried = review.items.filter((i) => i.state === "carried_over");
   const done = review.items.length - missing.length - carried.length;

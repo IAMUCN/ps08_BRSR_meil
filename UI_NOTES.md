@@ -360,3 +360,21 @@ and the system cursor stays. Not checked: a real phone or tablet.
   caching of `/sw.js`.
 - `app/app/help/page.tsx` (new), `components/shell/admin-nav.ts` (Help in both lists; the /app list moved here as
   `workspaceNavFor`).
+
+## Feature lane, 2026-11-11 (owner's page feedback; A50, `.grill/page-feedback-2026-11-11-decisions.md`)
+
+Built by the feature session at the owner's request; no restyle.
+- `components/ui/sheet.tsx` (shared by every side panel): Expand from 768px up to the whole window (was 1900px and a
+  large window), Esc collapses before it closes, a drag handle on the inner edge (`role="separator"`, ← / → steps,
+  double-click resets), the width remembered per page in `localStorage` (`sheet-width:<path with ids removed>`;
+  `panelKey` names a panel when a page has several kinds). Docked panels keep their docking.
+- `components/ui/status-badge.tsx`: `whitespace-nowrap shrink-0` (a badge no longer breaks onto two lines).
+- `components/records/records-explorer.tsx`: filter bar (no Document type, scope-grouped Activity, Uploaded from /
+  to, Reset filters button replacing the floating Clear filters link, a wider Period box), submitter role line.
+- `app/admin/audit-trail/audit-filters.tsx` (new, replaces the form in `audit-view.tsx`): linked, auto-applying
+  filters and the suggestion list (a combobox with `role="listbox"`).
+- `app/admin/deadlines/reminders-panel.tsx` (Run now removed, status badge), `deadlines-client.tsx` (who can
+  submit, No one to submit, Not submitted), `app/admin/conversion-factors/review-panel.tsx` (year list from the
+  server).
+- `components/upload/split-review.tsx`: Undo / Redo toolbar and shortcuts. `components/document-viewer/
+  document-viewer.tsx`: opt-in `arrowKeys`, and an exported `isTyping(target)`.

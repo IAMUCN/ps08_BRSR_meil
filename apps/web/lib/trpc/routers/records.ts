@@ -47,9 +47,13 @@ export type ContextOptions = {
   }[];
   periods: { id: string; label: string; financialYear: number }[];
   roles: { code: string; name: string }[];
-  metrics: { code: string; name: string }[];
+  /** Each activity with its top-level scope (SCOPE_1/2/3), or null for one that is not an emission. */
+  metrics: { code: string; name: string; scopeCode: string | null }[];
   /** For the Document type filter (Phase 2). */
   documentTypes: { code: string; name: string }[];
+  /** What the page shows with no filters: Reset filters appears only when the view differs from these. */
+  defaultOrgUnitId: string;
+  defaultPeriodId: string;
 };
 
 /**
@@ -78,8 +82,16 @@ async function resolveContext(
       select id, label, start_date::text from public.reporting_periods order by start_date desc`,
     sql<{ code: string; name: string }[]>`
       select code, name from public.roles where code <> 'admin' order by name`,
-    sql<{ code: string; name: string }[]>`
-      select code, name from public.esg_metrics where deleted_at is null order by name`,
+    sql<{ code: string; name: string; scope_code: string | null }[]>`
+      with recursive up as (
+        select id, id as top_id, parent_scope_id from public.scopes where parent_scope_id is null
+        union all
+        select s.id, up.top_id, s.parent_scope_id from public.scopes s join up on s.parent_scope_id = up.id)
+      select m.code, m.name, top.code as scope_code
+      from public.esg_metrics m
+      left join up on up.id = m.scope_id
+      left join public.scopes top on top.id = up.top_id
+      where m.deleted_at is null order by m.name`,
     sql<{ code: string; name: string }[]>`
       select code, name from public.document_types order by name`,
     scopedOrgUnitIds(sql, caller),
@@ -92,8 +104,8 @@ async function resolveContext(
   const orgUnits = inScope.map((o) => ({ ...o, depth: o.depth - top }));
   const node = orgUnits.find((o) => o.id === orgUnitId) ?? orgUnits[0];
   if (!node) throw new TRPCError({ code: "NOT_FOUND", message: "No organisation configured yet." });
-  const resolvedPeriod =
-    periods.find((p) => p.id === periodId)?.id ?? (await resolvePeriod(undefined)) ?? "";
+  const defaultPeriod = (await resolvePeriod(undefined)) ?? "";
+  const resolvedPeriod = periods.find((p) => p.id === periodId)?.id ?? defaultPeriod;
   return {
     orgUnitId: node.id,
     periodId: resolvedPeriod,
@@ -119,8 +131,10 @@ async function resolveContext(
       financialYear: financialYearOf(p.start_date),
     })),
     roles,
-    metrics,
+    metrics: metrics.map((m) => ({ code: m.code, name: m.name, scopeCode: m.scope_code })),
     documentTypes,
+    defaultOrgUnitId: orgUnits[0]?.id ?? node.id,
+    defaultPeriodId: defaultPeriod,
   };
 }
 
@@ -139,6 +153,9 @@ const searchInput = contextInput.extend({
   text: z.string().trim().max(100).optional(),
   /** What OCR made of the document (Phase 3). */
   ocr: z.enum(OCR_STATES).optional(),
+  /** Uploaded on or after / on or before these days, India time (owner's page feedback, 2026-11-11). */
+  uploadedFrom: z.iso.date().optional(),
+  uploadedTo: z.iso.date().optional(),
 });
 
 export type AuditEntry = {
@@ -395,6 +412,8 @@ export const recordsRouter = router({
         issue: input.issue,
         text: input.text,
         ocr: input.ocr,
+        uploadedFrom: input.uploadedFrom,
+        uploadedTo: input.uploadedTo,
       };
       const [rows, [pending]] = await Promise.all([
         searchRecords(db(), filters),

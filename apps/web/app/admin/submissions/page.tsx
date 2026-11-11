@@ -107,6 +107,8 @@ export default async function SubmissionMonitoringPage({
     issue: q.issue,
     text: q.text,
     ocr: q.ocr,
+    uploadedFrom: q.uploadedFrom,
+    uploadedTo: q.uploadedTo,
   });
   const queue = q.issue ? QUEUE[q.issue] : undefined;
   // Phase 3: OCR Monitoring's stalled-worker warning now lives here.

@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Play } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -27,15 +27,18 @@ export function RemindersPanel({
   schedule,
   log,
   canEdit,
+  dailyRunReady,
 }: {
   schedule: Schedule;
   log: ReminderSend[];
-  /** Super Admin: edit the schedule and run it now. */
+  /** Super Admin: edit the schedule (saving also sends today's reminders). */
   canEdit: boolean;
+  /** Whether something calls the daily run on this server (Vercel Cron with CRON_SECRET). */
+  dailyRunReady: boolean;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState(() => new Map(schedule.days.map((d) => [d.before, d.email])));
-  const [pending, setPending] = useState<"save" | "run" | null>(null);
+  const [pending, setPending] = useState<"save" | null>(null);
   const [shown, setShown] = useState(PAGE);
   const dirty =
     draft.size !== schedule.days.length ||
@@ -49,26 +52,29 @@ export function RemindersPanel({
       return next;
     });
 
+  // Saving also sends today's reminders at once (owner's page feedback, 2026-11-11: Run now merged into Save
+  // schedule). Each reminder is claimed before it is sent, so nothing goes out twice.
   async function save() {
     setPending("save");
-    const result = await saveScheduleAction({
+    const saved = await saveScheduleAction({
       days: [...draft].map(([before, email]) => ({ before, email })),
     });
+    if (!saved.ok) {
+      setPending(null);
+      return void toast.error(saved.error);
+    }
+    const ran = await runRemindersAction();
     setPending(null);
-    if (!result.ok) return void toast.error(result.error);
-    toast.success("Reminder schedule saved");
-    router.refresh();
-  }
-
-  async function run() {
-    setPending("run");
-    const result = await runRemindersAction();
-    setPending(null);
-    if (!result.ok) return void toast.error(result.error);
-    const s = result.data;
-    toast.success(
-      `${s.sent.inApp} in-app and ${s.sent.email} email reminder(s) sent${s.failed ? `, ${s.failed} failed` : ""}${s.skipped ? `; ${s.skipped} already sent today` : ""}.`,
-    );
+    if (!ran.ok) toast.error(`Schedule saved, but today's reminders were not sent: ${ran.error}`);
+    else {
+      const s = ran.data;
+      const sent = s.sent.inApp + s.sent.email;
+      toast.success(
+        sent || s.failed
+          ? `Schedule saved. Today: ${s.sent.inApp} in-app and ${s.sent.email} email reminder(s) sent${s.failed ? `, ${s.failed} failed` : ""}.`
+          : "Schedule saved. Nothing was due today.",
+      );
+    }
     router.refresh();
   }
 
@@ -88,21 +94,11 @@ export function RemindersPanel({
             reminder twice.
           </p>
         </div>
-        {canEdit ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pending !== null}
-            onClick={() => void run()}
-          >
-            {pending === "run" ? (
-              <Loader2 className="animate-spin" aria-hidden />
-            ) : (
-              <Play aria-hidden />
-            )}
-            Run now
-          </Button>
-        ) : null}
+        <StatusBadge tone={dailyRunReady ? "success" : "warning"}>
+          {dailyRunReady
+            ? "Active · runs daily at 9:00 IST"
+            : "Daily run not set up on this server"}
+        </StatusBadge>
       </div>
 
       <fieldset>
@@ -151,6 +147,14 @@ export function RemindersPanel({
           {pending === "save" ? <Loader2 className="animate-spin" aria-hidden /> : null}
           Save schedule
         </Button>
+      ) : null}
+      {canEdit ? (
+        <p className="text-xs text-muted-foreground">
+          Saving also sends today&apos;s reminders straight away.
+          {dailyRunReady
+            ? ""
+            : " After that nothing runs by itself here: the daily run needs CRON_SECRET on the Vercel project."}
+        </p>
       ) : null}
 
       <div className="space-y-2">

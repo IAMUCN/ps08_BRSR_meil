@@ -9,6 +9,8 @@ const one = (params: Params, key: string) => {
   return typeof value === "string" && value ? value : undefined;
 };
 const uuid = (v: string | undefined) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : undefined);
+const day = (v: string | undefined) =>
+  v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) ? v : undefined;
 const SCOPES = ["SCOPE_1", "SCOPE_2", "SCOPE_3"];
 
 export function readParams(params: Params) {
@@ -28,6 +30,8 @@ export function readParams(params: Params) {
     ocr: OCR_STATES.includes(one(params, "ocr") as never)
       ? (one(params, "ocr") as (typeof OCR_STATES)[number])
       : undefined,
+    uploadedFrom: day(one(params, "from")),
+    uploadedTo: day(one(params, "to")),
     status: STATUSES.includes(status as Status) ? (status as Status) : undefined,
     issue: ISSUES.includes(issue as Issue) ? (issue as Issue) : undefined,
     missingSubmissions: issue === "missing_submissions",

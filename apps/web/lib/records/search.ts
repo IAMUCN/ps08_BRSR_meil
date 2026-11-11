@@ -54,7 +54,12 @@ export type RecordFilters = {
   text?: string;
   /** What OCR made of the document (Phase 3). */
   ocr?: (typeof OCR_STATES)[number];
+  /** Uploaded on or after / on or before these days (YYYY-MM-DD), counted in India time. */
+  uploadedFrom?: string;
+  uploadedTo?: string;
 };
+
+const IST_DAY = (sql: Sql) => sql`(r.created_at at time zone 'Asia/Kolkata')::date`;
 
 /**
  * The OCR state of `r`'s primary document `d`, as SQL (see OcrState). `oj` is the document's OCR job and
@@ -193,7 +198,9 @@ export function recordsFrom(sql: Sql, f: RecordFilters) {
       ${f.status ? sql`and ${statusCondition(sql, f.status)}` : sql``}
       ${f.issue ? sql`and ${issueCondition(sql, f.issue)}` : sql``}
       ${f.text ? textCondition(sql, f.text) : sql``}
-      ${f.ocr ? sql`and ${OCR_STATE_SQL(sql)} = ${f.ocr}` : sql``}`;
+      ${f.ocr ? sql`and ${OCR_STATE_SQL(sql)} = ${f.ocr}` : sql``}
+      ${f.uploadedFrom ? sql`and ${IST_DAY(sql)} >= ${f.uploadedFrom}::date` : sql``}
+      ${f.uploadedTo ? sql`and ${IST_DAY(sql)} <= ${f.uploadedTo}::date` : sql``}`;
 }
 
 export type RecordRow = {
@@ -225,7 +232,39 @@ export type RecordRow = {
   /** What OCR made of the document, and why a read failed (Phase 3). */
   ocrState: OcrState;
   ocrError: string | null;
+  /** The submitter's role(s) at the record's unit today, " · "-joined; null when none is left. */
+  submitterRoles: string | null;
+  /** The activity's owning role when the submitter uploaded on its behalf ("for Project Manager"). */
+  onBehalfOf: string | null;
 };
+
+/**
+ * The submitter's role(s) today at the record's org unit or a unit above it (owner's page feedback,
+ * 2026-11-11). A record does not store the role it was uploaded under, so a role changed later shows on old rows.
+ */
+const SUBMITTER_ROLES_SQL = (sql: Sql) => sql`(
+  select string_agg(distinct ro.name, ' · ' order by ro.name)
+  from public.user_org_assignments a
+  join public.org_unit_tree up on up.ancestor_id = a.org_unit_id and up.descendant_id = r.org_unit_id
+  join public.roles ro on ro.id = a.role_id
+  where a.user_id = r.submitted_by and a.revoked_at is null)`;
+
+/**
+ * The activity's owning role, when the submitter does not hold it there but holds a role that uploads on its
+ * behalf (migration 0049): shown as "for Project Manager".
+ */
+const ON_BEHALF_SQL = (sql: Sql) => sql`(
+  select owner.name from public.roles owner
+  where owner.id = cat.owning_role_id
+    and not exists (
+      select 1 from public.user_org_assignments a
+      join public.org_unit_tree up on up.ancestor_id = a.org_unit_id and up.descendant_id = r.org_unit_id
+      where a.user_id = r.submitted_by and a.revoked_at is null and a.role_id = owner.id)
+    and exists (
+      select 1 from public.user_org_assignments a
+      join public.org_unit_tree up on up.ancestor_id = a.org_unit_id and up.descendant_id = r.org_unit_id
+      join public.roles ro on ro.id = a.role_id
+      where a.user_id = r.submitted_by and a.revoked_at is null and ro.uploads_for_role_id = owner.id))`;
 
 // ponytail: capped at 500 rows (newest first); page or narrow the filters if a period grows past that.
 export const RECORD_LIMIT = 500;
@@ -258,6 +297,8 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
       duplicate: boolean;
       ocr_state: OcrState;
       ocr_error: string | null;
+      submitter_roles: string | null;
+      on_behalf_of: string | null;
     }[]
   >`
     select r.id as record_id, d.id as document_id, d.file_name, d.mime_type, o.name as org_unit_name,
@@ -271,7 +312,9 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
            case when d.document_type_id is null then null
                 else coalesce(d.document_type_source, 'ocr') end as document_type_source,
            r.submitted_late as late, r.is_duplicate_flag as duplicate,
-           ${OCR_STATE_SQL(sql)} as ocr_state, oj.error_message as ocr_error
+           ${OCR_STATE_SQL(sql)} as ocr_state, oj.error_message as ocr_error,
+           ${SUBMITTER_ROLES_SQL(sql)} as submitter_roles,
+           ${ON_BEHALF_SQL(sql)} as on_behalf_of
     ${recordsFrom(sql, f)}
     order by r.created_at desc
     limit ${RECORD_LIMIT}`;
@@ -301,5 +344,7 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
     duplicate: r.duplicate,
     ocrState: r.ocr_state,
     ocrError: r.ocr_error,
+    submitterRoles: r.submitter_roles,
+    onBehalfOf: r.on_behalf_of,
   }));
 }

@@ -127,13 +127,15 @@ check(
       [...document.querySelectorAll("option")].some((o) => o.textContent === "Only my activity"),
   ),
 );
+// No Apply button any more (owner's page feedback, 2026-11-11): the search applies after typing stops.
 await sub.type('input[type="search"]', "report.forwarded");
-await Promise.all([
-  sub.waitForNavigation({ waitUntil: "networkidle0" }),
-  sub.evaluate(() =>
-    [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Apply").click(),
-  ),
-]);
+await sub.waitForFunction(
+  () => new URL(location.href).searchParams.get("q") === "report.forwarded",
+  {
+    timeout: 10000,
+  },
+);
+await sub.waitForNetworkIdle({ idleTime: 500 });
 check("searching filters the entries", (await text(sub)).includes("report.forwarded"));
 await shot(sub, "audit-trail");
 

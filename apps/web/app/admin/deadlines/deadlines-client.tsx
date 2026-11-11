@@ -488,32 +488,52 @@ export function DeadlinesClient({
                       </td>
 
                       {/* Assigned Owners */}
+                      {/* Who can submit, by the Upload page's rule (owner's page feedback, 2026-11-11):
+                          the responsible role first, then roles that upload on its behalf. */}
                       <td className="px-4 py-3">
-                        {task.assignedOwners.length > 0 ? (
+                        {task.assignedOwners.length + task.alsoUpload.length > 0 ? (
                           <div className="space-y-0.5">
-                            {task.assignedOwners.slice(0, 2).map((owner) => (
-                              <div
-                                key={owner.userId}
-                                className="text-xs text-foreground"
-                                title={owner.email}
-                              >
-                                {owner.displayName}{" "}
-                                <span className="text-[10px] text-muted-foreground">
-                                  ({owner.roleName})
-                                </span>
-                              </div>
-                            ))}
-                            {task.assignedOwners.length > 2 ? (
+                            {[...task.assignedOwners, ...task.alsoUpload]
+                              .slice(0, 3)
+                              .map((owner) => (
+                                <div
+                                  key={owner.userId}
+                                  className={
+                                    owner.onBehalf
+                                      ? "text-[11px] text-muted-foreground"
+                                      : "text-xs text-foreground"
+                                  }
+                                  title={owner.email}
+                                >
+                                  {owner.displayName}{" "}
+                                  <span className="text-[10px] text-muted-foreground">
+                                    ({owner.roleName}
+                                    {owner.onBehalf ? ", on behalf" : ""})
+                                  </span>
+                                </div>
+                              ))}
+                            {task.assignedOwners.length + task.alsoUpload.length > 3 ? (
                               <div className="text-[10px] text-muted-foreground">
-                                +{task.assignedOwners.length - 2} more
+                                +{task.assignedOwners.length + task.alsoUpload.length - 3} more
                               </div>
                             ) : null}
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-status-warning">
-                            <AlertTriangle className="size-3.5" aria-hidden />
-                            Unassigned
-                          </span>
+                          <div className="space-y-0.5">
+                            <span
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-status-warning"
+                              title={`No one at this unit or above holds the ${task.owningRoleName ?? "responsible"} role, or a role that uploads on its behalf.`}
+                            >
+                              <AlertTriangle className="size-3.5" aria-hidden />
+                              No one to submit
+                            </span>
+                            <Link
+                              href={`/admin/users?q=${encodeURIComponent(task.orgUnitName)}`}
+                              className="block text-[11px] font-medium text-primary-text underline underline-offset-2"
+                            >
+                              Assign {task.owningRoleName ?? "someone"}
+                            </Link>
+                          </div>
                         )}
                       </td>
 
@@ -524,6 +544,9 @@ export function DeadlinesClient({
 
                       {/* Time Remaining / Days Overdue */}
                       <td className="px-4 py-3 text-xs">
+                        {task.isCompleted ? null : (
+                          <span className="block font-medium text-foreground">Not submitted</span>
+                        )}
                         {task.isCompleted ? (
                           <span className="font-medium text-status-success">Completed</span>
                         ) : task.daysRemaining > 7 ? (

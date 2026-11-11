@@ -51,7 +51,14 @@ export default async function DeadlinesPage() {
         }
       />
 
-      <RemindersPanel schedule={schedule} log={log} canEdit={session.isAdmin} />
+      <RemindersPanel
+        schedule={schedule}
+        log={log}
+        canEdit={session.isAdmin}
+        // The daily run is Vercel Cron calling /api/cron/reminders with CRON_SECRET (vercel.json); anywhere
+        // else nothing calls it on its own, so the panel says so instead of claiming it is active.
+        dailyRunReady={!!process.env.CRON_SECRET && !!process.env.VERCEL}
+      />
 
       {data ? (
         <DeadlinesClient

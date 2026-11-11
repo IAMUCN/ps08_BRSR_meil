@@ -23,6 +23,8 @@ export default async function DataExplorerPage({
     documentTypeCode: q.documentTypeCode,
     status: q.status,
     text: q.text,
+    uploadedFrom: q.uploadedFrom,
+    uploadedTo: q.uploadedTo,
   });
 
   return (

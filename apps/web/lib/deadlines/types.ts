@@ -24,6 +24,8 @@ export interface TaskOwner {
   displayName: string;
   email: string;
   roleName: string;
+  /** Holds a role that uploads on behalf of the activity's owning role (migration 0049), not that role. */
+  onBehalf?: boolean;
 }
 
 export interface EscalationRecipient {
@@ -54,7 +56,15 @@ export interface DeadlineTask {
   escalationLevel: EscalationLevel;
   submissionStatus: "missing" | "draft" | "user_verified" | "validated" | "approved";
   isCompleted: boolean;
+  /**
+   * Who is asked to submit and gets the reminders: the holders of the activity's owning role at the unit or
+   * above, or, when there are none, the holders of a role that uploads on its behalf (same rule as Upload).
+   */
   assignedOwners: TaskOwner[];
+  /** On-behalf uploaders when responsible people exist too: shown, not reminded. */
+  alsoUpload: TaskOwner[];
+  /** The role that owns the activity (EHS for water), for "No one at this unit holds …". */
+  owningRoleName: string | null;
   escalationRecipients: EscalationRecipient[];
   lastRemindedAt: string | null;
   deepLinkPath: string;

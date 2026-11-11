@@ -241,7 +241,9 @@ export async function getDeadlineData(
     recordMap.set(`${r.org_unit_id}:${r.metric_id}:${r.reporting_period_id}`, r);
   }
 
-  // 5. Batch query assigned owners (users matching category's owning role at or above org_unit)
+  // 5. Batch query who can submit, by the Upload page's rule (owner's page feedback, 2026-11-11): holders of
+  //    the category's owning role at or above the unit, and holders of a role that uploads on its behalf
+  //    (migration 0049). Administrators can upload anything but are not counted here: they get summaries.
   const ownerRows = await sql<
     {
       org_unit_id: string;
@@ -250,6 +252,7 @@ export async function getDeadlineData(
       display_name: string;
       email: string;
       role_name: string;
+      on_behalf: boolean;
     }[]
   >`
     select distinct
@@ -258,26 +261,43 @@ export async function getDeadlineData(
       u.id as user_id,
       u.display_name,
       u.email,
-      r.name as role_name
+      r.name as role_name,
+      (r.id <> cat.owning_role_id) as on_behalf
     from public.submission_expectations e
     join public.esg_metrics m on m.id = e.metric_id
     join public.esg_categories cat on cat.id = m.category_id
-    join public.user_org_assignments a on a.role_id = cat.owning_role_id and a.revoked_at is null
+    join public.roles r on r.id = cat.owning_role_id or r.uploads_for_role_id = cat.owning_role_id
+    join public.user_org_assignments a on a.role_id = r.id and a.revoked_at is null
     join public.org_unit_tree up on up.descendant_id = e.org_unit_id and up.ancestor_id = a.org_unit_id
-    join public.roles r on r.id = a.role_id
     join public.users u on u.id = a.user_id and u.is_active and u.deleted_at is null`;
 
-  const ownerMap = new Map<string, TaskOwner[]>();
+  const ownerMap = new Map<string, { responsible: TaskOwner[]; behalf: TaskOwner[] }>();
   for (const o of ownerRows) {
     const key = `${o.org_unit_id}:${o.role_id}`;
-    const list = ownerMap.get(key) ?? [];
-    list.push({
-      userId: o.user_id,
-      displayName: o.display_name,
-      email: o.email,
-      roleName: o.role_name,
-    });
-    ownerMap.set(key, list);
+    const entry = ownerMap.get(key) ?? { responsible: [], behalf: [] };
+    const list = o.on_behalf ? entry.behalf : entry.responsible;
+    // One person holding both roles counts once, as responsible.
+    if (!list.some((p) => p.userId === o.user_id)) {
+      list.push({
+        userId: o.user_id,
+        displayName: o.display_name,
+        email: o.email,
+        roleName: o.role_name,
+        ...(o.on_behalf ? { onBehalf: true } : {}),
+      });
+    }
+    ownerMap.set(key, entry);
+  }
+  const roleNames = new Map(
+    (await sql<{ id: string; name: string }[]>`select id, name from public.roles`).map((r) => [
+      r.id,
+      r.name,
+    ]),
+  );
+  for (const entry of ownerMap.values()) {
+    entry.behalf = entry.behalf.filter(
+      (b) => !entry.responsible.some((r) => r.userId === b.userId),
+    );
   }
 
   // 6. Batch query Project Managers (L1 Escalation)
@@ -389,7 +409,10 @@ export async function getDeadlineData(
       referenceDate: refDate,
     });
 
-    const owners = ownerMap.get(`${exp.org_unit_id}:${exp.owning_role_id}`) ?? [];
+    const who = ownerMap.get(`${exp.org_unit_id}:${exp.owning_role_id}`);
+    // Reminders go to the responsible people, or to the on-behalf uploaders when there are none.
+    const owners = who?.responsible.length ? who.responsible : (who?.behalf ?? []);
+    const alsoUpload = who?.responsible.length ? who.behalf : [];
     const projectManagers = managerMap.get(exp.org_unit_id) ?? [];
 
     const escalationRecipients: EscalationRecipient[] = [...projectManagers, ...corporateAdmins];
@@ -415,6 +438,8 @@ export async function getDeadlineData(
       submissionStatus,
       isCompleted,
       assignedOwners: owners,
+      alsoUpload,
+      owningRoleName: roleNames.get(exp.owning_role_id) ?? null,
       escalationRecipients,
       lastRemindedAt: lastRemindedMap.get(exp.expectation_id) ?? null,
       deepLinkPath: `/app/upload?metricId=${exp.metric_id}&periodId=${exp.period_id}`,

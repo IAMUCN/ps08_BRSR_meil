@@ -801,3 +801,21 @@ Below 768px a bottom bar (Home, Upload, Uploads, Approvals or Activity) and Menu
 offers "Take a photo" on touch screens; Verify opens documents at 50% on phones. EmeilSG can be installed from the
 browser (manifest, icons, an offline page). A Help page in both sidebars explains the product as configured, with
 administrator sections for administrators.
+
+## A50 — Owner's page feedback of 2026-11-11: filters, reminders, Deadlines, Audit Trail, split page, panels
+
+Decisions in `.grill/page-feedback-2026-11-11-decisions.md`. Submission Monitoring and the Data Explorer lose the
+Document type filter (one document type per activity); Activity follows Scope (grouped by scope when none is
+chosen, choosing an activity sets its scope); an upload-date range (`from`, `to`, India time); a Reset filters
+button when the view differs from the default (own unit, current open period); the submitter's role(s) today under
+their name, with "for <role>" for an on-behalf upload. Conversion Factors' yearly review offers the current
+financial year back to the earliest with data, never a later one. Reminders: Run now is gone; Save schedule also
+sends today's reminders, and the panel says whether a daily run is set up on the server. Reporting Deadlines lists
+who can submit by the Upload page's rule (on-behalf roles included; they are reminded only when nobody holds the
+owning role), "No one to submit" with an Assign link instead of "Unassigned", and "Not submitted" on open tasks.
+Audit Trail: filters apply as they change, linked (Only my activity greys Role and User; a role narrows people; a
+person sets or narrows the role; Action lists what the chosen people did), Clear filters, and a rule-based search
+with grouped suggestions and word-form matching (`lib/audit/words.ts`) that also finds entries about the records
+of a named activity, org unit or period. The split page has Undo / Redo (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z) and ← / →
+turn its pages. Every right-hand side panel can expand to the whole window from 768px up (Esc collapses first) and
+be resized by dragging its inner edge, each kind remembering its width in the browser.

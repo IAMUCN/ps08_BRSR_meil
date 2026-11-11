@@ -270,11 +270,19 @@ export const factorsRouter = router({
     .input(z.object({ financialYear: z.string().max(7).optional() }).optional())
     .query(async ({ input }) => {
       const sql = db();
-      const [{ today }] = await sql<{ today: string }[]>`
-        select public.reporting_period_today()::text as today`;
-      const label = input?.financialYear ?? fyLabel(fyOf(today));
-      const range = fyRange(label);
-      if (!range) throw bad('A financial year is written like "2025-26".');
+      // The years offered run from the current financial year back to the earliest one with a factor version
+      // or a reporting period, never ahead (owner's page feedback, 2026-11-11: the list walked on to 2029-30).
+      const [{ today, earliest }] = await sql<{ today: string; earliest: string | null }[]>`
+        select public.reporting_period_today()::text as today,
+               least((select min(effective_from) from public.conversion_factor_versions),
+                     (select min(start_date) from public.reporting_periods))::text as earliest`;
+      const current = fyOf(today);
+      const first = Math.min(current, earliest ? fyOf(earliest) : current);
+      const years = Array.from({ length: current - first + 1 }, (_, i) => fyLabel(current - i));
+      const asked = input?.financialYear ? fyRange(input.financialYear) : null;
+      if (input?.financialYear && !asked) throw bad('A financial year is written like "2025-26".');
+      const label = asked && asked.start <= current ? input!.financialYear! : fyLabel(current);
+      const range = fyRange(label)!;
       const rows = await sql<
         {
           code: string;
@@ -305,6 +313,7 @@ export const factorsRouter = router({
       return {
         financialYear: label,
         from: range.from,
+        years,
         items: rows.map((r) => ({
           activityType: r.code,
           activityName: r.name,

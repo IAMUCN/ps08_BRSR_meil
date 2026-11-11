@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { financialYearLabel } from "@/lib/consolidation/aggregate";
 import type { ActiveSession } from "@/lib/auth/session";
+import { actionsForWord } from "@/lib/audit/words";
 import { db } from "@/lib/db";
 import { protectedProcedure, router } from "@/lib/trpc/init";
 
@@ -58,17 +59,31 @@ async function visibleTo(sql: Sql, session: ActiveSession) {
 }
 
 /** The search bar (requirement 12): each word must appear in the action, the person, the reason or the
- * values. Words are bound, and their %, _ and \ taken literally. */
-function searchCondition(sql: Sql, text: string) {
+ * values. Words are bound, and their %, _ and \ taken literally. Context (owner's page feedback, 2026-11-11):
+ * a word also finds the actions it names in plain words or another form ("approved" → approval.*), and the
+ * entries about a record or document whose activity, org unit or period it names. */
+function searchCondition(sql: Sql, text: string, codes: readonly string[]) {
   return text
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 8)
     .map((word) => {
       const like = `%${word.replace(/[\\%_]/g, "\\$&")}%`;
+      const actions = actionsForWord(word, codes);
       return sql`and (a.event_type ilike ${like} or u.display_name ilike ${like} or a.reason ilike ${like}
         or a.new_value::text ilike ${like} or a.old_value::text ilike ${like}
-        or a.entity_type ilike ${like})`;
+        or a.entity_type ilike ${like}
+        ${actions.length ? sql`or a.event_type = any(${actions}::text[])` : sql``}
+        or (a.entity_type = 'esg_record' and exists (
+              select 1 from public.esg_records x
+              join public.esg_metrics m on m.id = x.metric_id
+              join public.org_units o on o.id = x.org_unit_id
+              join public.reporting_periods p on p.id = x.reporting_period_id
+              where x.id = a.entity_id
+                and (m.name ilike ${like} or o.name ilike ${like} or p.label ilike ${like})))
+        or (a.entity_type = 'document' and exists (
+              select 1 from public.documents x join public.org_units o on o.id = x.org_unit_id
+              where x.id = a.entity_id and (o.name ilike ${like} or x.file_name ilike ${like}))))`;
     });
 }
 
@@ -159,32 +174,64 @@ export const auditRouter = router({
     const sql = db();
     const { all, condition } = await visibleTo(sql, ctx.session);
     const units = all ? [] : await administered(sql, ctx.session);
-    const [users, events, entities, roles] = await Promise.all([
-      // The people the caller may pick: everyone for the Super Admin; for an Administrator, the people who
-      // hold a role inside their units (and themselves); for anyone else, only themselves.
-      all
-        ? sql<{ id: string; name: string }[]>`
-            select u.id, u.display_name as name from public.users u
+    // Each person comes with the codes of the roles they hold today, so the filters can follow each other
+    // (owner's page feedback, 2026-11-11): a role narrows the people, a person sets or narrows the role.
+    const roleCodes = sql`coalesce((select array_agg(distinct ro.code order by ro.code)
+        from public.user_org_assignments x join public.roles ro on ro.id = x.role_id
+        where x.user_id = u.id and x.revoked_at is null), '{}') as role_codes`;
+    type UserRow = { id: string; name: string; role_codes: string[] };
+    const [users, events, entities, roles, pairs, activities, orgUnits, periods] =
+      await Promise.all([
+        // The people the caller may pick: everyone for the Super Admin; for an Administrator, the people who
+        // hold a role inside their units (and themselves); for anyone else, only themselves.
+        all
+          ? sql<UserRow[]>`
+            select u.id, u.display_name as name, ${roleCodes} from public.users u
             where exists (select 1 from public.audit_logs a where a.user_id = u.id)
             order by u.display_name`
-        : sql<{ id: string; name: string }[]>`
-            select u.id, u.display_name as name from public.users u
+          : sql<UserRow[]>`
+            select u.id, u.display_name as name, ${roleCodes} from public.users u
             where u.id = ${ctx.session.userId}
                or exists (select 1 from public.user_org_assignments x
                           where x.user_id = u.id and x.revoked_at is null
                             and x.org_unit_id = any(${units}::uuid[]))
             order by u.display_name`,
-      sql<{ event_type: string }[]>`
+        sql<{ event_type: string }[]>`
         select distinct a.event_type from public.audit_logs a where ${condition} order by 1`,
-      sql<{ entity_type: string }[]>`
+        sql<{ entity_type: string }[]>`
         select distinct a.entity_type from public.audit_logs a where ${condition} order by 1`,
-      sql<{ code: string; name: string }[]>`select code, name from public.roles order by name`,
-    ]);
+        sql<{ code: string; name: string }[]>`select code, name from public.roles order by name`,
+        // Which person did which action, so the Action list shows only what the chosen people did.
+        sql<{ event_type: string; user_id: string }[]>`
+        select distinct a.event_type, a.user_id from public.audit_logs a
+        where ${condition} and a.user_id is not null`,
+        // Words the search suggests: activities, the org units the caller may see, periods.
+        sql<{ name: string }[]>`
+        select name from public.esg_metrics where deleted_at is null order by name`,
+        all
+          ? sql<{ name: string }[]>`
+            select name from public.org_units where deleted_at is null order by name`
+          : sql<{ name: string }[]>`
+            select name from public.org_units
+            where deleted_at is null and id = any(${units}::uuid[]) order by name`,
+        sql<{ label: string }[]>`
+        select label from public.reporting_periods order by start_date desc`,
+      ]);
+    const byUser = new Map<string, string[]>();
+    for (const p of pairs) byUser.set(p.user_id, [...(byUser.get(p.user_id) ?? []), p.event_type]);
     return {
-      users,
+      users: users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        roleCodes: u.role_codes,
+        events: byUser.get(u.id) ?? [],
+      })),
       eventTypes: events.map((e) => e.event_type),
       entityTypes: entities.map((e) => e.entity_type),
       roles,
+      activities: activities.map((a) => a.name),
+      orgUnits: orgUnits.map((o) => o.name),
+      periods: periods.map((p) => p.label),
       /** The caller sees everyone's entries (Super Admin), only their own, or their units' too. */
       reach: all ? ("all" as const) : units.length ? ("units" as const) : ("own" as const),
     };
@@ -193,6 +240,12 @@ export const auditRouter = router({
   query: view.input(filters).query(async ({ ctx, input }) => {
     const sql = db();
     const { condition } = await visibleTo(sql, ctx.session);
+    const codes = input.q
+      ? (
+          await sql<{ event_type: string }[]>`
+            select distinct event_type from public.audit_logs`
+        ).map((r) => r.event_type)
+      : [];
     const rows = await sql<(Row & { cursor_at: string })[]>`
       select a.id, a.created_at, a.event_type, a.entity_type, a.entity_id, u.display_name as who,
              (select string_agg(distinct ro.name, ', ' order by ro.name)
@@ -214,7 +267,7 @@ export const auditRouter = router({
                                 and ro.code = ${input.roleCode})`
             : sql``
         }
-        ${input.q ? searchCondition(sql, input.q) : sql``}
+        ${input.q ? searchCondition(sql, input.q, codes) : sql``}
         ${input.userId ? sql`and a.user_id = ${input.userId}` : sql``}
         ${input.eventType ? sql`and a.event_type = ${input.eventType}` : sql``}
         ${input.entityType ? sql`and a.entity_type = ${input.entityType}` : sql``}

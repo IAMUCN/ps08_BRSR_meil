@@ -75,7 +75,12 @@ check(
   "the schedule lists 14 days before to the due day, each with a choice",
   (await sa.evaluate(() => document.querySelectorAll("section select").length)) >= 15,
 );
-check("Run now is offered", (await buttonState(sa, "Run now")) === "enabled");
+// Run now was merged into Save schedule (owner's page feedback, 2026-11-11).
+check("Run now is gone", (await buttonState(sa, "Run now")) === "absent");
+check(
+  "the panel says whether the daily run is set up here",
+  /Daily run not set up on this server|runs daily at 9:00/i.test(saText),
+);
 check("Save schedule waits for a change", (await buttonState(sa, "Save schedule")) === "disabled");
 await sa.select('select[aria-label="Reminder 10 days before"]', "in_app");
 check(

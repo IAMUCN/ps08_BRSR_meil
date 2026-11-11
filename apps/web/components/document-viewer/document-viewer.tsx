@@ -49,6 +49,14 @@ export type Region = {
 /** `destroy()` belongs to the loading task, not the document (pdfjs-dist 6). */
 type PdfLoadingTask = { promise: Promise<PdfDocument>; destroy: () => Promise<void> };
 
+/** Is the keyboard working in a field (text box, select, editable text)? Shortcuts leave those alone. */
+export function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target instanceof HTMLInputElement)
+    return !["checkbox", "radio", "button", "submit", "reset"].includes(target.type);
+  return target.isContentEditable || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
+}
+
 export function DocumentViewer({
   src,
   mimeType,
@@ -58,7 +66,13 @@ export function DocumentViewer({
   pageSizes = null,
   renderDpi = 200,
   onRegionClick,
+  arrowKeys = false,
 }: {
+  /**
+   * ← / → turn the page from anywhere on the page, except while typing in a field (owner's page feedback,
+   * 2026-11-11, the split page). Off by default: a page with several viewers would turn them all.
+   */
+  arrowKeys?: boolean;
   src: string;
   mimeType: string;
   fileName: string;
@@ -77,6 +91,19 @@ export function DocumentViewer({
   const taskRef = useRef<PdfLoadingTask | null>(null);
   const [pageCount, setPageCount] = useState(1);
   const [page, setPage] = useState(1);
+  useEffect(() => {
+    if (!arrowKeys || !isPdf) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (isTyping(event.target)) return;
+      if (event.key === "ArrowRight") setPage((p) => Math.min(pageCount, p + 1));
+      else if (event.key === "ArrowLeft") setPage((p) => Math.max(1, p - 1));
+      else return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [arrowKeys, isPdf, pageCount]);
   const narrow = useSyncExternalStore(
     subscribeNarrow,
     () => window.matchMedia(NARROW).matches,
