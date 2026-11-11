@@ -209,8 +209,8 @@ try {
         };
       });
       check(
-        `${theme}: the Ask button has its ring and reads "Ask AI"`,
-        look.ring && look.label === "Ask AI",
+        `${theme}: the Ask button has its ring and reads "Ask Tracey"`,
+        look.ring && look.label === "Ask Tracey",
       );
       const header = await sa.$("header");
       if (SHOTS) await header.screenshot({ path: join(SHOTS, `phase8-ask-${theme}.png`) });

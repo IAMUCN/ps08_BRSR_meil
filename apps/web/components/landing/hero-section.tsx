@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { HeroCapabilityCard } from "@/components/landing/capability-card";
 import { BlurFade } from "@/components/ui/blur-fade";
-import { DEMO_HREF } from "@/components/landing/links";
+import { DemoRequestButton } from "@/components/landing/demo-request";
 
 export function HeroSection() {
   return (
@@ -40,13 +40,9 @@ export function HeroSection() {
 
             <BlurFade delay={0.24} className="w-full sm:w-auto">
               <div className="mb-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-                <a
-                  href={DEMO_HREF}
-                  draggable={false}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E91029] px-7 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#d00e24] hover:shadow-md"
-                >
+                <DemoRequestButton className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E91029] px-7 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#d00e24] hover:shadow-md">
                   Request a demo <ArrowRight className="h-4 w-4" />
-                </a>
+                </DemoRequestButton>
                 <Link
                   href="#how-it-works"
                   draggable={false}

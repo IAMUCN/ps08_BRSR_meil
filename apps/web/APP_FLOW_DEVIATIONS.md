@@ -848,3 +848,9 @@ document already read by OCR, approved ones included. `.grill/extraction-boxes-t
 Each suggestion has a button that lists the units (projects, sites) its activities' approved emissions came from
 in the suggestion's financial year, largest first with tCO2e, share and record count (`analytics.byUnit`,
 `emissionsByUnit` in `lib/analytics/service.ts`; read-only, same scope rule as the page). Owner's request.
+
+## A55 — Request a demo: form, video and Demo Requests page (2026-11-11)
+
+The three "Request a demo" links on the landing page (they opened a blank email) open a form (name, email, phone);
+after it is sent the demo video plays in a window on the page. Super Admins see the requests on Admin -> Demo
+Requests and are notified in the app. `.grill/demo-requests-decisions.md`.

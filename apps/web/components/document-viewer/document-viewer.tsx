@@ -129,6 +129,116 @@ export function DocumentViewer({
   const zoomIndex = chosenZoom ?? (narrow ? NARROW_ZOOM_INDEX : DEFAULT_ZOOM_INDEX);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(isPdf ? "loading" : "ready");
   const zoom = ZOOM_STEPS[zoomIndex];
+  // Ctrl (or Cmd) + mouse wheel zooms the document, as in a PDF reader (owner's request, 2026-11-11). A trackpad
+  // pinch arrives the same way. Small trackpad steps add up to one zoom step; the page itself is never zoomed.
+  // Only the document grows: the first zoom fixes the viewer's height where it is, so the panel around it keeps
+  // its size and the document scrolls (or is dragged) inside it.
+  const tileRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const currentZoom = useRef(zoomIndex);
+  // The height fixed at the first zoom, for the document it was fixed on (another document starts unfixed).
+  const [lock, setLock] = useState<{ src: string; height: number } | null>(null);
+  const lockedHeight = lock?.src === src ? lock.height : null;
+  const srcRef = useRef(src);
+  useEffect(() => {
+    srcRef.current = src;
+  }, [src]);
+  useEffect(() => {
+    currentZoom.current = zoomIndex;
+  }, [zoomIndex]);
+  const zoomTo = useCallback((next: number) => {
+    const bounded = Math.min(ZOOM_STEPS.length - 1, Math.max(0, next));
+    if (bounded === currentZoom.current) return;
+    const tile = tileRef.current;
+    if (tile)
+      setLock((current) =>
+        current?.src === srcRef.current
+          ? current
+          : { src: srcRef.current, height: Math.round(tile.getBoundingClientRect().height) },
+      );
+    currentZoom.current = bounded;
+    setZoomIndex(bounded);
+  }, []);
+  // Drag to move around a document larger than the viewer (owner's request, 2026-11-11). A press that moves
+  // less than a few pixels stays a click (a box on the document can still be picked).
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    const area = scrollRef.current;
+    if (!area) return;
+    let start: { x: number; y: number; left: number; top: number; id: number } | null = null;
+    let moved = false;
+    const down = (event: PointerEvent) => {
+      if (event.button !== 0 || event.pointerType === "touch") return;
+      start = {
+        x: event.clientX,
+        y: event.clientY,
+        left: area.scrollLeft,
+        top: area.scrollTop,
+        id: event.pointerId,
+      };
+      moved = false;
+    };
+    const move = (event: PointerEvent) => {
+      if (!start || event.pointerId !== start.id) return;
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      if (!moved) {
+        if (Math.hypot(dx, dy) < 5) return;
+        // Nothing to move when the whole document is visible.
+        if (area.scrollWidth <= area.clientWidth && area.scrollHeight <= area.clientHeight) return;
+        moved = true;
+        area.setPointerCapture(event.pointerId);
+        setDragging(true);
+      }
+      event.preventDefault();
+      area.scrollLeft = start.left - dx;
+      area.scrollTop = start.top - dy;
+    };
+    const up = (event: PointerEvent) => {
+      if (!start || event.pointerId !== start.id) return;
+      if (moved) {
+        // The release after a drag is not a click on whatever is under the pointer.
+        const swallow = (e: MouseEvent) => {
+          e.stopPropagation();
+          e.preventDefault();
+        };
+        area.addEventListener("click", swallow, { capture: true, once: true });
+        setTimeout(() => area.removeEventListener("click", swallow, { capture: true }), 0);
+        if (area.hasPointerCapture(event.pointerId)) area.releasePointerCapture(event.pointerId);
+      }
+      start = null;
+      moved = false;
+      setDragging(false);
+    };
+    area.addEventListener("pointerdown", down);
+    area.addEventListener("pointermove", move);
+    area.addEventListener("pointerup", up);
+    area.addEventListener("pointercancel", up);
+    return () => {
+      area.removeEventListener("pointerdown", down);
+      area.removeEventListener("pointermove", move);
+      area.removeEventListener("pointerup", up);
+      area.removeEventListener("pointercancel", up);
+    };
+  }, []);
+  useEffect(() => {
+    // Anywhere on the viewer, toolbar included: the browser page itself never zooms from here.
+    const area = tileRef.current;
+    if (!area) return;
+    let pending = 0;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      // A mouse notch is about 100 pixels (or 1-3 lines); a trackpad sends many small deltas.
+      pending += event.deltaMode === 1 ? event.deltaY * 33 : event.deltaY;
+      if (Math.abs(pending) < 50) return;
+      const step = pending < 0 ? 1 : -1;
+      pending = 0;
+      zoomTo(currentZoom.current + step);
+    };
+    area.addEventListener("wheel", onWheel, { passive: false });
+    return () => area.removeEventListener("wheel", onWheel);
+  }, [zoomTo]);
   const selectedRef = useRef<HTMLButtonElement | null>(null);
   // The size of the OCR image the boxes are measured on, when the upload did not record it.
   const [measured, setMeasured] = useState<[number, number] | null>(null);
@@ -250,17 +360,21 @@ export function DocumentViewer({
 
   return (
     <div
+      ref={tileRef}
       className={cn(
         "relative flex min-h-[480px] flex-col overflow-hidden rounded-lg border bg-surface",
         className,
       )}
+      style={lockedHeight ? { height: lockedHeight, maxHeight: lockedHeight } : undefined}
     >
       {/* Focusable so a zoomed document can be scrolled from the keyboard (UI brief §17). */}
       <div
+        ref={scrollRef}
         tabIndex={0}
         role="region"
         aria-label={`Document: ${fileName}`}
-        className="flex-1 overflow-auto p-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+        data-dragging={dragging || undefined}
+        className="min-h-0 flex-1 cursor-grab overflow-auto p-4 select-none data-[dragging]:cursor-grabbing focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
       >
         {status === "loading" ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -310,8 +424,9 @@ export function DocumentViewer({
               variant="ghost"
               size="icon"
               aria-label="Zoom out"
+              title="Zoom out (Ctrl + scroll down)"
               disabled={zoomIndex === 0}
-              onClick={() => setZoomIndex(Math.max(0, zoomIndex - 1))}
+              onClick={() => zoomTo(zoomIndex - 1)}
             >
               <ZoomOut aria-hidden />
             </Button>
@@ -322,8 +437,9 @@ export function DocumentViewer({
               variant="ghost"
               size="icon"
               aria-label="Zoom in"
+              title="Zoom in (Ctrl + scroll up)"
               disabled={zoomIndex === ZOOM_STEPS.length - 1}
-              onClick={() => setZoomIndex(Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1))}
+              onClick={() => zoomTo(zoomIndex + 1)}
             >
               <ZoomIn aria-hidden />
             </Button>

@@ -722,13 +722,33 @@ _Last updated: 2026-11-11._
   coal suggestion lists BEST Mumbai e-buses, 12,088.9 tCO2e, 24 records, which the tables confirm). Section A of
   BRSR Disclosures: 9 written answers added on the LOCAL server from meil.in (24 of 26 answered; hosted has 15);
   the FY 2023-24 annual return link on meil.in is broken (404), so answers still cite FY 2022-23.
+- **All the 2026-11-11 work above on branch `feature-upload-description-progress` was committed as `38da203` and pushed
+  to `ucn` `main` (fast-forward, no pull request, CI not run; not on `origin`). Migrations `0063`-`0065` are on the
+  local server only. BRSR answers (134 written, sample ones labelled) are data on the local server, not in git.
+- **Migrations `0063`-`0065` were applied to hosted on 2026-11-11 (owner's request)** with
+  `test data/_backup/hosted-0063-0065.cjs`; read back: history at `0065`, both new columns, the year trigger, no
+  browser write grants, PNG moved to 1 Apr 2026, every version on year boundaries; 24 users, 1,009 records, 825
+  calculations unchanged; the 585 current calculations with a factor pick the same version. Earlier lines saying
+  these are local only are superseded.
+- **Request a demo (2026-11-11, owner's request), uncommitted on `feature-upload-description-progress`; migration `0066`
+  on the LOCAL server only, NOT on hosted** (D56, A55, `.grill/demo-requests-decisions.md`). Checked: Edge 7/7 on the
+  landing page signed out (no id before sending, field errors, the player after sending, phone width; YouTube loaded
+  the video in the frame), database tests 482/482 with `0066`, typecheck, lint, unit 292/292. The two test requests
+  were removed. Not run: the Demo Requests page in a browser (Super Admin login), the build, the e2e suite.
+- **2026-11-11/12: hosted is the primary again; the local server is an hourly one-way copy** (owner's decision).
+  `docs/LOCAL_DATABASE_SERVER.md` §5 has the details: hosted was first brought up to local (0066, BRSR answers,
+  Jul-Sep 2026 directly, 18 months closed); `.env.local` / `.env.production.local` point at hosted (local versions in
+  `*.localserver-backup`); hosted OCR worker running, local worker stopped; Windows task "EmeilSG hosted to local
+  sync" runs `apps/web/scripts/sync-hosted-to-local.mjs` hourly (checked: 58 tables matched; a scheduled run exit 0).
+  Local backup before the switch: `test data/_backup/local-backup-2026-11-11/`. The owner's 5 October test uploads
+  existed only on local; the two files are in `test data/_backup/your-october-uploads/` to re-upload. **The owner
+  restarts the dev server.** Never write to the local server now. Migration `0066` is on hosted.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
-| Migrations `0063`, `0064` and `0065` on hosted (2026-11-11) | Both needed before this branch's code is deployed or the dev server points at hosted again (one nullable column, additive). Say "go". |
 | Expected submissions for the demo (2026-11-11) | The Upload page's progress list is empty for most projects: only MSRTC, BEST and Olectra have expectations. Fill them in on Admin → Organization, or ask the agent to set them from the test data. |
 | Daily reminders on Vercel (2026-11-11) | Save schedule now sends today's reminders at once, but nothing runs daily until `CRON_SECRET` (16+ random characters) is added to the Vercel project's environment variables and the app is redeployed; the panel then says "Active · runs daily at 9:00 IST". |
 | Hosted July–September 2026 test data (2026-11-11) | The real-OCR load was killed for low memory and not restarted (system rule). Say when to resume (`feed --months "July 2026,August 2026,September 2026" --extract ocr`, other apps stopped, hosted worker started), then `close` all 18 hosted months. |
@@ -769,7 +789,7 @@ _Last updated: 2026-11-11._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D56** and **A55**; the next migration is `0066`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D57** and **A56**; the next migration is `0067`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on

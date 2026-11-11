@@ -20,6 +20,7 @@ export const NOTIFICATION_TYPES = {
   deadline_approaching: "Deadline approaching",
   submission_reminder: "Submission reminder",
   period_closed: "Period closed",
+  demo_request: "Demo request",
 } as const;
 
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;

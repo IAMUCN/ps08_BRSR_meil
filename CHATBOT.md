@@ -1,5 +1,8 @@
 # ESG data analyst (chatbot)
 
+The chatbot is called **Tracey** (owner's request, 2026-11-11): "Ask Tracey" in the top bar, her own mark
+(`components/brand/tracey-mark.tsx`), and she answers to the name.
+
 A read-only assistant inside TraceESG. A signed-in person asks a question in plain language ("compare this
 month's electricity with last month") and gets a short worded answer with the figures, a table and a chart.
 

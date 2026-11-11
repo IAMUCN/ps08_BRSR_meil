@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { PixelImage } from "@/registry/magicui/pixel-image";
-import { DEMO_HREF, NAV_ITEMS } from "@/components/landing/links";
+import { NAV_ITEMS } from "@/components/landing/links";
+import { DemoRequestButton } from "@/components/landing/demo-request";
 
 export function CtaFooterSection() {
   return (
@@ -26,12 +27,9 @@ export function CtaFooterSection() {
               Book a walkthrough and follow one document from upload to a BRSR-ready figure.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <a
-                href={DEMO_HREF}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#E91029] px-6 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-[#d00e24] sm:text-base"
-              >
+              <DemoRequestButton className="inline-flex items-center gap-2 rounded-lg bg-[#E91029] px-6 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-[#d00e24] sm:text-base">
                 Request a demo <ArrowRight className="h-4 w-4" />
-              </a>
+              </DemoRequestButton>
               <Link
                 href="/login"
                 className="inline-flex items-center rounded-lg border border-white/30 bg-white/10 px-6 py-3.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/20 sm:text-base"

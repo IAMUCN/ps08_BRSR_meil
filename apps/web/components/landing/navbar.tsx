@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { LogoMark } from "@/components/brand/logo-mark";
+import { LogoMark, LogoWordmark } from "@/components/brand/logo-mark";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { NavbarDock } from "@/components/landing/navbar-dock";
-import { DEMO_HREF, NAV_ITEMS } from "@/components/landing/links";
+import { NAV_ITEMS } from "@/components/landing/links";
+import { DemoRequestButton } from "@/components/landing/demo-request";
 
 export function LandingNavbar() {
   const [open, setOpen] = useState(false);
@@ -14,10 +15,8 @@ export function LandingNavbar() {
     <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="EmeilSG home">
-          <LogoMark className="h-9 w-9" />
-          <span className="text-xl leading-none font-extrabold tracking-tight text-[#0B2A5B]">
-            Emeil<span className="text-[#1E7A34]">SG</span>
-          </span>
+          <LogoMark className="h-14 w-14" />
+          <LogoWordmark className="h-9 w-auto" />
         </Link>
 
         <nav aria-label="Primary" className="hidden flex-1 items-center justify-center lg:flex">
@@ -32,13 +31,9 @@ export function LandingNavbar() {
           >
             Sign in
           </Link>
-          <a
-            href={DEMO_HREF}
-            draggable={false}
-            className="rounded-lg bg-[#E91029] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#d00e24] hover:shadow"
-          >
+          <DemoRequestButton className="rounded-lg bg-[#E91029] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#d00e24] hover:shadow">
             Request a demo
-          </a>
+          </DemoRequestButton>
           <button
             type="button"
             aria-label={open ? "Close menu" : "Open menu"}

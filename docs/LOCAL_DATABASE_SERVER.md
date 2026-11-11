@@ -87,3 +87,28 @@ Admins, the Administrators and the configuration, then move that database to thi
   email (invitations, reminders) goes through Brevo when its settings are present.
 - **Hosted** is now the reset copy. Its full previous state is in the backup folder above (database dump, sign-in
   accounts and every file).
+
+## 5. Hosted is primary again; local is an hourly copy (2026-11-11, owner's decision)
+
+- **The app uses hosted Supabase** again: `apps/web/.env.local` and `.env.production.local` have the hosted
+  database, sign-in, storage and chatbot settings (the local-server versions are saved as `*.localserver-backup`).
+  Everything else in them (Brevo, NVIDIA, Chromium …) was kept. **Restart the dev server** (`pnpm dev`).
+- **OCR:** the hosted worker `traceesg-ocr-worker-hosted` runs; the local worker `emeilsg-ocr-worker-local` is
+  stopped (the local server takes no uploads now).
+- **Before the switch** hosted was brought up to everything local had: migration `0066`, the 111 BRSR answers,
+  July-September 2026 of the test data (loaded directly, without OCR) and the 18 closed months. A full backup of the
+  local server as it was is in `test data/_backup/local-backup-2026-11-11/` (database dump of `public`, `auth`,
+  `storage`, `supabase_migrations`, and a tar of the stored files). The owner's own October test uploads (local only)
+  are saved in `test data/_backup/your-october-uploads/` to upload again on hosted.
+- **The hourly copy:** the Windows task **"EmeilSG hosted to local sync"** runs
+  `apps/web/scripts/sync-hosted-to-local.cmd` every hour. It makes the local server an exact copy of hosted, one way:
+  the `public` data, the sign-in accounts and the storage metadata are replaced in one transaction; stored files that
+  are new or changed are copied (a manifest remembers them). It refuses to write anywhere but this machine.
+  - Log: `test data/_backup/sync-hosted-to-local.log`; last result: `sync-hosted-to-local.status.json`.
+  - By hand: `node apps/web/scripts/sync-hosted-to-local.mjs` (from the repository, or `cd apps/web` first).
+  - Needs Docker Desktop and the local server running, and this machine awake; a missed hour runs when it can.
+  - **Do not write to the local server**: each copy replaces it. Use it to read, back up or fall back.
+  - First runs: 144 s (all 1,191 files), then 14 s; 58 tables matched row for row.
+- **To make local primary again**, stop the task (`Disable-ScheduledTask -TaskName "EmeilSG hosted to local sync"`),
+  copy the `*.localserver-backup` files back over `.env.local` / `.env.production.local`, start the local worker and
+  stop the hosted one.

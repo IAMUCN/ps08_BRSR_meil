@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  History,
-  Loader2,
-  MessageSquarePlus,
-  SendHorizontal,
-  Sparkles,
-  Trash2,
-  X,
-} from "lucide-react";
+import { History, Loader2, MessageSquarePlus, SendHorizontal, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -28,6 +20,7 @@ import {
   sendChatMessageAction,
 } from "@/lib/chat/actions";
 import type { ChatMessageView, ConversationSummary } from "@/lib/trpc/routers/chat";
+import { TraceyMark, TraceyName } from "@/components/brand/tracey-mark";
 
 const MAX_QUESTION = 2000;
 /** Width of the docked pane; the class lg:w-[420px] below must say the same. */
@@ -191,11 +184,11 @@ export function ChatLauncher() {
         onClick={() => toggle(!open)}
         aria-controls="chat-pane"
         aria-expanded={open}
-        title="Ask a question about your ESG data"
+        title="Ask Tracey a question about your ESG data"
         className={cn("ask-button gap-1.5 px-3", open && "bg-white/15")}
       >
-        <Sparkles aria-hidden />
-        <span className="sr-only sm:not-sr-only">Ask AI</span>
+        <TraceyMark className="size-5" />
+        <span className="sr-only sm:not-sr-only">Ask Tracey</span>
       </Button>
       {open ? null : (
         <button
@@ -205,15 +198,15 @@ export function ChatLauncher() {
           aria-expanded={false}
           className="ask-fab fixed right-4 bottom-20 z-40 max-md:hidden inline-flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform outline-none hover:scale-105 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:right-6 md:bottom-6"
         >
-          <Sparkles className="size-5" aria-hidden />
-          <span className="sr-only">Ask the ESG data analyst</span>
+          <TraceyMark className="size-8" />
+          <span className="sr-only">Ask Tracey, the ESG data analyst</span>
         </button>
       )}
 
       {open ? (
         <aside
           id="chat-pane"
-          aria-label="ESG data analyst"
+          aria-label="Tracey, the ESG data analyst"
           onKeyDown={(event) => {
             if (event.key === "Escape") toggle(false);
           }}
@@ -221,7 +214,15 @@ export function ChatLauncher() {
         >
           {/* A bar as tall as the top bar (h-14), so the two line up (owner's page feedback, 2026-10-11). */}
           <div className="flex h-14 shrink-0 items-center gap-1 bg-modal-header px-4 text-modal-header-foreground">
-            <h2 className="mr-auto font-heading text-base font-medium">ESG data analyst</h2>
+            <h2 className="mr-auto flex items-center gap-2 font-heading text-base font-medium">
+              <span className="flex size-9 items-center justify-center rounded-full bg-white/95 shadow-sm">
+                <TraceyMark className="size-7" />
+              </span>
+              <span className="leading-tight">
+                <TraceyName className="block text-base font-bold" onBar />
+                <span className="block text-xs font-normal opacity-80">ESG data analyst</span>
+              </span>
+            </h2>
             {/* Icons only (owner's page feedback, 2026-10-11); the full wording shows on hover and is
                 read out by a screen reader. */}
             <Button
@@ -258,7 +259,7 @@ export function ChatLauncher() {
               onClick={() => toggle(false)}
             >
               <X aria-hidden />
-              <span className="sr-only">Close the ESG data analyst</span>
+              <span className="sr-only">Close Tracey</span>
             </Button>
           </div>
 
@@ -309,9 +310,10 @@ export function ChatLauncher() {
                 // At the foot of the pane, next to the question box (owner's page feedback, 2026-10-11).
                 <div className="mt-auto">
                   <p className="text-sm leading-5">
-                    Ask a question about consumption, emissions, trends or data completeness for the
-                    parts of the organisation you can see. Figures come from the records; an AI
-                    model writes the wording. It cannot change anything. For example:
+                    I&apos;m Tracey. Ask me about consumption, emissions, trends or data
+                    completeness for the parts of the organisation you can see. Figures come from
+                    the records; an AI model writes the wording. It cannot change anything. For
+                    example:
                   </p>
                   <ul className="mt-3 space-y-2">
                     {EXAMPLES.map((example) => (
@@ -382,7 +384,7 @@ export function ChatLauncher() {
                 onKeyDown={onKeyDown}
                 maxLength={MAX_QUESTION}
                 rows={1}
-                placeholder="Ask about your ESG data…"
+                placeholder="Ask Tracey about your ESG data…"
                 className="max-h-40 min-h-9 flex-1 resize-none rounded-sm border border-input bg-transparent px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
               <Button

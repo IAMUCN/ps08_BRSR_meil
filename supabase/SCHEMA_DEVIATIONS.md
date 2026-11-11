@@ -758,3 +758,11 @@ coloured by confidence. Server-written (`profile.setShowExtractionBoxes`), audit
 `.grill/extraction-boxes-toggle-decisions.md`.
 
 **Undo:** `alter table public.users drop column show_extraction_boxes;`
+
+## D56 — Demo requests (migration `0066`, 2026-11-11)
+
+`demo_requests` (name, email, phone, created, contacted at / by): server-written, RLS on with no policy and no
+browser grants, listed for Super Admins. `org_settings.demo_video` holds the YouTube id of the video shown after a
+request. Owner's request; `.grill/demo-requests-decisions.md`.
+
+**Undo:** in the header of `0066_demo_requests.sql`.

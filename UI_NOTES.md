@@ -403,3 +403,60 @@ Built by the feature session at the owner's request; no restyle.
 
 - `app/admin/carbon-analytics/recommendations.tsx`: a "Which project emits the most?" button on each suggestion
   card and a ranked list with share bars (the top one in the error colour).
+
+## Feature lane, 2026-11-11 (Request a demo; A55, D56)
+
+- `components/landing/demo-request.tsx` (new): the button, the form dialog and the player. `navbar.tsx`,
+  `hero-section.tsx`, `cta-footer-section.tsx`: the `<a href={DEMO_HREF}>` links became `DemoRequestButton` with the
+  same classes; `links.ts` lost `DEMO_HREF`.
+- `app/admin/demo-requests/*` (new page), `components/shell/admin-nav.ts`: "Demo Requests" (Super Admins).
+
+## Feature lane, 2026-11-11 (Ctrl + scroll zoom)
+
+- `components/document-viewer/document-viewer.tsx` (shared by every document view): Ctrl/Cmd + mouse wheel (and a
+  trackpad pinch) over the document zooms it through the existing zoom steps; the browser page is not zoomed.
+  The zoom buttons' tooltips name the shortcut. Owner's request. Follow-up the same day: Ctrl + wheel works anywhere
+  on the viewer; the first zoom fixes the viewer's height so only the document grows inside it (several viewers had
+  no fixed height and grew with the zoom); click and drag moves around the document (a press under 5 px is still a
+  click), `cursor-grab` / `cursor-grabbing`.
+
+## Feature lane, 2026-11-11 (new logo, owner's request)
+
+- From the owner's `EmeilSG_Logo/` folder (three SVGs; copies without their embedded content-credential block are in
+  `public/brand/`: `emeilsg-icon.svg`, `emeilsg-wordmark.svg`, `emeilsg-logo.svg`).
+- `components/brand/logo-mark.tsx`: `LogoMark` now draws the fanned-documents mark; new `LogoWordmark` (the coloured
+  "EmeilSG"). Landing navbar and the sign-in header show mark + wordmark; the sidebar header shows the mark beside the
+  name (the wordmark's indigo would not read on the dark sidebar).
+- `app/icon.svg`, `app/favicon.ico` (16/32/48) and `public/icons/*` (192, 512, maskable 512 on white, Apple touch
+  180 on white) regenerated from the new mark with sharp.
+- Follow-up the same day (owner: bigger logo, the name as the wordmark): landing mark 48 px with a 36 px wordmark;
+  sign-in header 48 / 32 px; the sign-in and auth cards' small "EmeilSG" label is the wordmark (name kept for
+  screen readers); the sidebar header and the phone top bar show mark + wordmark on a white badge so the indigo and
+  red read on every theme's dark or coloured bar.
+- Page feedback the same day (sidebar): no white badge. The mark and the wordmark are two separate SVGs; in the
+  sidebar and the phone top bar the wordmark is `LogoWordmarkMono` (`components/brand/logo-wordmark-mono.tsx`,
+  generated from `public/brand/emeilsg-wordmark.svg`, `fill="currentColor"`) in the bar's own foreground colour, so
+  it matches the Special, Corporate and Dark themes. The coloured wordmark stays on the light landing and sign-in
+  pages.
+- Owner's instruction the same day: the logo and title "as they are": the sidebar and the phone top bar use the
+  original coloured wordmark beside the mark, no badge, no recolouring (`LogoWordmarkMono` removed). Known: on the
+  Corporate sidebar "meil" (indigo) does not show, and on the Special theme's crimson bars "E" and "SG" barely show.
+- Then (owner: "meil" merges with the background): the sidebar and phone top bar use `LogoWordmarkOnBar`
+  (`components/brand/logo-wordmark-on-bar.tsx`, generated from the wordmark file): the title as designed, with only
+  "meil" (indigo in the file) in the bar's text colour. "E", "SG" and the leaf stay red. Light pages keep the file
+  unchanged.
+- Then (owner: every letter of the title white): `LogoWordmarkOnBar` draws every letter and the leaf in the bar's
+  text colour: white on all sidebars and on the coloured top bars; dark on the Corporate theme's white phone top bar.
+- Then (owner: the icon looked as small as the title): the mark is larger beside the title: sidebar 48 px (gap 4 px),
+  phone top bar 44 px, landing navbar and sign-in header 56 px.
+
+## Feature lane, 2026-11-11 (the chatbot is Tracey, owner's request)
+
+- `components/brand/tracey-mark.tsx` (new): `TraceyMark`, an indigo chat bubble drawn like the EmeilSG mark (same
+  gradient, the three bars, the red tick circle), and `TraceyName` (red "T" on light backgrounds; all letters in the
+  bar's colour with `onBar`).
+- `components/chat/chat-launcher.tsx`: "Ask AI" -> "Ask Tracey" with the mark (the Sparkles icon is gone); the
+  floating button shows the mark; the panel bar shows the mark on a white circle, "Tracey" and "ESG data analyst"
+  beneath; screen-reader names, the introduction ("I'm Tracey. Ask me about …") and the question box say Tracey.
+- `lib/chat/orchestrate.ts`: the instructions start "You are Tracey, the ESG data analyst inside EmeilSG"; she
+  answers to her name. `tests/e2e/ui-phase8.mjs` expects "Ask Tracey".

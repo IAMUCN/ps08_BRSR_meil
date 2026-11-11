@@ -34,6 +34,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
 import { cn } from "cn";
+import { LogoMark } from "@/components/brand/logo-mark";
+import { LogoWordmarkOnBar } from "@/components/brand/logo-wordmark-on-bar";
 
 /** `startsGroup` draws a thin separator above the item, to set a group of related pages apart. */
 export type NavItem = { href: string; label: string; icon: NavIcon; startsGroup?: boolean };
@@ -137,7 +139,13 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
               <Menu className="size-5" strokeWidth={1.5} aria-hidden />
             )}
           </button>
-          <span className={cn("text-base font-semibold", shown("hidden xl:inline"))}>EmeilSG</span>
+          {/* The mark and the wordmark as two separate images, in the owner's colours as given (owner's
+              page feedback, 2026-11-11). */}
+          <span className={cn("flex items-center gap-1", shown("hidden xl:flex"))}>
+            <LogoMark className="size-12 shrink-0" />
+            <LogoWordmarkOnBar className="h-6 w-auto text-sidebar-foreground" />
+            <span className="sr-only">EmeilSG</span>
+          </span>
         </div>
         {/* Only the list scrolls (scrollbar hidden); the EmeilSG header above it stays put. */}
         <ul className="relative flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

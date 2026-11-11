@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ShieldCheck } from "lucide-react";
-import { LogoMark } from "@/components/brand/logo-mark";
+import { LogoMark, LogoWordmark } from "@/components/brand/logo-mark";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { ForgotPasswordForm } from "@/app/forgot-password/forgot-password-form";
@@ -56,10 +56,9 @@ export function AuthSlider({
           href="/"
           className="flex items-center gap-2 text-lg font-bold tracking-tight text-[#0B2A5B]"
         >
-          <LogoMark className="h-7 w-7" />
-          <span>
-            Emeil<span className="text-[#1E7A34]">SG</span>
-          </span>
+          <LogoMark className="h-14 w-14" />
+          <LogoWordmark className="h-8 w-auto" />
+          <span className="sr-only">EmeilSG</span>
         </Link>
         <Link
           href="/"
@@ -83,7 +82,10 @@ export function AuthSlider({
                 forgot ? "pointer-events-none opacity-0 md:translate-x-full" : "z-10 opacity-100"
               }`}
             >
-              <p className="text-sm font-semibold text-primary">EmeilSG</p>
+              <p>
+                <LogoWordmark className="h-6 w-auto" />
+                <span className="sr-only">EmeilSG</span>
+              </p>
               <h1 className="mt-1 mb-6 text-2xl font-semibold">{heading}</h1>
               {notice}
               {signIn}

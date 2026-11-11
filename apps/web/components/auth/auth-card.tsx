@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { LogoWordmark } from "@/components/brand/logo-mark";
 
 /** Centered card used by the public auth screens (03_APP_FLOW.md §2.1). */
 export function AuthCard({
@@ -17,7 +18,10 @@ export function AuthCard({
       className="flex flex-1 items-center justify-center p-6 outline-none"
     >
       <div className="w-full max-w-sm rounded-md border bg-card p-6 text-card-foreground">
-        <p className="text-sm font-semibold text-primary-text">EmeilSG</p>
+        <p>
+          <LogoWordmark className="h-6 w-auto" />
+          <span className="sr-only">EmeilSG</span>
+        </p>
         <h1 className="mt-1 text-2xl leading-8 font-semibold">{title}</h1>
         {description ? (
           <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>

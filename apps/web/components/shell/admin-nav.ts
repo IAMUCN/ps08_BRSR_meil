@@ -46,6 +46,8 @@ const ADMIN_NAV: AdminNavItem[] = [
   // Configured once, rarely touched.
   { href: "/admin/organization", label: "Organization", icon: "organization", startsGroup: true },
   { href: "/admin/users", label: "Users", icon: "users" },
+  // Landing-page demo requests (migration 0066, A55).
+  { href: "/admin/demo-requests", label: "Demo Requests", icon: "users", superOnly: true },
   { href: "/admin/roles", label: "Roles & Permissions", icon: "roles", superOnly: true },
   { href: "/admin/brsr-mapping", label: "BRSR Mapping", icon: "brsr", superOnly: true },
   // Phase 10 (requirement 21): how EmeilSG works, for everyone.

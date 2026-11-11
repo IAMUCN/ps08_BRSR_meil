@@ -1,66 +1,72 @@
 import { useId } from "react";
 
 /**
- * The EmeilSG mark: a document with lines and a bar chart, and a leaf in front of it. The same drawing as
- * the browser icon (`app/icon.svg`); keep the two in step. Decorative by default — the name beside it is the
+ * The EmeilSG mark (owner's logo, 2026-11-11: `EmeilSG_Logo/EmeilSG_fanned_icon.svg`): three fanned documents,
+ * the front one with a bar chart, and a red tick. The same drawing as `app/icon.svg` and
+ * `public/brand/emeilsg-icon.svg`; keep them in step. Decorative by default — the name beside it is the
  * accessible label.
  */
 export function LogoMark({ className }: { className?: string }) {
   // Gradient ids must be unique when the mark appears more than once on a page.
   const id = useId();
-  const leaf = `${id}-leaf`;
-  const bars = `${id}-bars`;
+  const indigo = `${id}-indigo`;
+  const red = `${id}-red`;
+  const page = "M32 14H60L72 26V74Q72 80 66 80H32Q26 80 26 74V20Q26 14 32 14Z";
+  const fold = "M60 14V22Q60 26 64 26H72Z";
+  const front = "M32 16H60L72 28V76Q72 82 66 82H32Q26 82 26 76V22Q26 16 32 16Z";
   return (
-    <svg viewBox="0 0 64 64" className={className} aria-hidden focusable="false">
+    <svg viewBox="0 0 100 100" className={className} aria-hidden focusable="false">
       <defs>
-        <linearGradient id={leaf} x1="0.2" y1="1" x2="0.9" y2="0">
-          <stop offset="0" stopColor="#1F8A3B" />
-          <stop offset="0.55" stopColor="#4CAF3D" />
-          <stop offset="1" stopColor="#9BCB3C" />
+        <linearGradient id={indigo} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#37358F" />
+          <stop offset="1" stopColor="#4B49B5" />
         </linearGradient>
-        <linearGradient id={bars} x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0" stopColor="#0B3A78" />
-          <stop offset="1" stopColor="#1F7FA6" />
+        <linearGradient id={red} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#EA102C" />
+          <stop offset="1" stopColor="#F2374D" />
         </linearGradient>
       </defs>
-      <path
-        d="M15 5h20l12 12v33a6 6 0 0 1-6 6H15a6 6 0 0 1-6-6V11a6 6 0 0 1 6-6z"
-        fill="#FFFFFF"
-        stroke="#0B3A78"
-        strokeWidth="4"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M35 5v8a4 4 0 0 0 4 4h8"
-        fill="none"
-        stroke="#0B3A78"
-        strokeWidth="3.2"
-        strokeLinejoin="round"
-      />
-      <g fill="none" stroke="#1F7FA6" strokeWidth="3.2" strokeLinecap="round">
-        <path d="M17 19h13" />
-        <path d="M17 26h17" />
-        <path d="M17 33h12" />
+      <g transform="rotate(-16 50 88)">
+        <path d={page} fill="#8E8CDA" fillOpacity=".55" />
+        <path d={fold} fill="#8E8CDA" />
       </g>
-      <g fill={`url(#${bars})`}>
-        <rect x="16" y="42" width="5" height="8" rx="0.8" />
-        <rect x="23" y="38" width="5" height="12" rx="0.8" />
-        <rect x="30" y="33" width="5" height="17" rx="0.8" />
+      <g transform="rotate(13 50 88)">
+        <path d={page} fill={`url(#${indigo})`} />
+        <path d={fold} fill="#8E8CDA" />
       </g>
+      <path d={front} fill="#37358F" fillOpacity=".16" transform="translate(3 4)" />
+      <path d={front} fill="#fff" stroke="#37358F" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M60 16V24Q60 28 64 28H72Z" fill="#8E8CDA" />
+      <rect x="34" y="62" width="8" height="12" rx="2.5" fill="#8E8CDA" />
+      <rect x="45" y="52" width="8" height="22" rx="2.5" fill={`url(#${indigo})`} />
+      <rect x="56" y="42" width="8" height="32" rx="2.5" fill={`url(#${red})`} />
       <path
-        d="M27 60c9-1 17-5 22-12 5-8 8-17 11-29-11 2-20 6-25 15-4 7-2 14 2 18-3 4-6 6-10 8z"
-        fill={`url(#${leaf})`}
-        stroke="#FFFFFF"
-        strokeWidth="2.4"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M30 58c10-5 19-15 25-31"
-        fill="none"
-        stroke="#FFFFFF"
-        strokeWidth="2.2"
+        d="M34 32H56M34 40H48"
+        stroke="#8E8CDA"
+        strokeWidth="3.5"
         strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <circle cx="72" cy="78" r="13" fill="#EA102C" />
+      <path
+        d="M65.88 78L70.47 82.59L78.88 72.65"
+        stroke="#fff"
+        strokeWidth="4.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
       />
     </svg>
   );
+}
+
+/**
+ * The EmeilSG wordmark (owner's logo, 2026-11-11: `EmeilSG_Logo/EmeilSG_title.svg`): "E" and "SG" in red,
+ * "meil" in indigo, a red leaf for the dot of the i. Width follows the height (556 x 130). The link or heading
+ * around it carries the name for screen readers.
+ */
+export function LogoWordmark({ className }: { className?: string }) {
+  // eslint-disable-next-line @next/next/no-img-element -- a small static SVG; next/image adds nothing here
+  return <img src="/brand/emeilsg-wordmark.svg" alt="" className={className} draggable={false} />;
 }

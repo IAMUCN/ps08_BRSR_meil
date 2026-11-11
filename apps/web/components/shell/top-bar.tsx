@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { signOutAction } from "@/lib/auth/actions";
 import type { ActiveSession } from "@/lib/auth/session";
 import { chatConfig } from "@/lib/chat/data";
+import { LogoMark } from "@/components/brand/logo-mark";
+import { LogoWordmarkOnBar } from "@/components/brand/logo-wordmark-on-bar";
 
 /**
  * Top bar (03_APP_FLOW.md §1). The org/period context switcher arrives with its data (Phase 16) —
@@ -29,9 +31,11 @@ export function TopBar({
       {/* Phones have no sidebar rail, so the name sits here (feature_enhancement.md 9.1). */}
       <Link
         href={profileHref.startsWith("/admin") ? "/admin" : "/app"}
-        className="mr-auto text-base font-semibold md:hidden"
+        className="mr-auto flex items-center gap-1.5 md:hidden"
+        aria-label="EmeilSG home"
       >
-        EmeilSG
+        <LogoMark className="size-11 shrink-0" />
+        <LogoWordmarkOnBar className="h-5 w-auto text-header-foreground" />
       </Link>
       <GlobalSearch />
       <ThemeToggle current={session.theme} />
