@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-11-12._
+_Last updated: 2026-11-13._
 
 ---
 
@@ -745,26 +745,62 @@ _Last updated: 2026-11-12._
   restarts the dev server.** Never write to the local server now. Migration `0066` is on hosted.
 - **Category mismatch and activity list on Verify (2026-11-12, owner's request), uncommitted on `feature-upload-description-progress`, no migration** (A56, `.grill/verify-activity-change-decisions.md`): before Confirm, Verify lists every activity the Upload page offers and flags a Category mismatch naming the likely activity (hosted has two CNG records that are electricity bills); changing it re-queues OCR for the new fields. Checked: typecheck, lint, unit 292/292, the mismatch query read-only on hosted. **Not run:** a change through the app, a browser view, the build, the e2e suite.
 - **Subsidiary → business unit → project (2026-11-12, owner's request), uncommitted on `feature-upload-description-progress`, no migration** (A57, `.grill/org-structure-decisions.md`): a business unit sits under one subsidiary and is never shared; projects sit under business units (`lib/org/rules.ts`, every add / move / parents / bulk-import path); a business unit's panel ticks its projects (`organization.setChildren`); a project still straight under a subsidiary is marked and moves to the first business unit ticked. Checked: typecheck, lint, unit 293/293 (new structure test). **Not run:** the page in a browser, the procedures against a database, the e2e suite (`feedback-2026-11.mjs` updated), the build. **Hosted tree not rearranged:** Olectra has BU Transport (no projects) and BEST, MSRTC, Seetharampur straight under it; EVEY has TGSRTC straight under it.
-- **Role-wise dashboard (2026-11-12, owner's request), branch `feature-role-wise-dashboard`, local commits only, NOT pushed** (`.grill/role-dashboard-decisions.md` holds the 13 decisions; audit and plan are in that chat/file). **Phase 0 built:** a permission-aware scope helper (`lib/auth/scope.ts`), the monitoring pages and Reports opened read-only to `monitoring.view` / `report.generate` holders (Corporate ESG), Control Tower header counts scoped to the subtree. Unit tests pass; **not run:** ESLint, build, the database isolation test (extended, needs Docker + local stack), end-to-end, any browser view. This machine had no Node or Docker, so tests ran under Bun against a partly linked `node_modules`. Next: Phase C (capture, migrations `0067`+, Auditor role, new Finance/HR permissions), then dashboard phases 1-5. `feature/esg-decision-intelligence` (teammate, 72 files) goes to `main` later and uses migration numbers `0053`-`0055` that `main` already has; its owner must renumber.
-- **Role-wise dashboard, Phase 1 (capture) written 2026-11-12 on `feature-role-wise-dashboard`, local commits only, NOT pushed,
-  UNVERIFIED against a database** (migrations `0067`-`0070`, OCR `rules-15`; checklist in `ROLE_DASHBOARD_VERIFY.md`; decisions in
-  `.grill/role-dashboard-decisions.md`): four new permissions and the read-only Auditor role (`0067`), Core KPI flag from SEBI Annexure I,
-  Finance/HR typing their own BRSR answers and Finance entering the yearly inputs incl. net worth (printed in the report), a **draft**
-  question-to-permission mapping (`0068`), CSR beneficiaries / within-India spend / compliance certificates (`0069`), and the employee
-  register (`0070`, `/app/employee-register`: totals only, file kept private). Passing here: typecheck, lint, Prettier, web unit tests
-  (319), worker unit tests (59). **Not run:** the migrations, every pgTAP test, `pnpm build`, e2e, isolation, a browser. The dashboard
-  itself: **Phase 2 (tile registry, visibility, ordering, `dashboard.tiles`, a band and grid on `/app` and `/admin`) is written, unit-tested (330) and unverified against a database**; **Phase 3 (SVG chart kit `components/charts/`, `--chart-1..6` tokens in all themes, rings on the Reporting completion tile, duplicate period/task cards removed on `/app`) is written, unit tested (342) and not seen in a browser**; **Phase 4a (the Group Overview from the owner's reference screenshot: emissions donut and trend, completion by level, hierarchy status, performance by unit; six tiles for `monitoring.view` holders) is written, unit-tested (347), builds, and its SQL is unrun and unseen in a browser**; **Phase 4b (role-keyed tiles: Your area's records, Missing in your area, Project Manager emissions, HR register, EHS certificates, Finance yearly inputs, Auditor evidence coverage, BRSR readiness, and the Super Admin's factors, people and access, activity) is written, unit-tested (354) and builds; its SQL is unrun and unseen in a browser.** Not built: an Administrator's people tile, the Finance disclosure tile, collapsible hierarchy rows. **Phase 5 (tiles follow the org picker through `dashboard.tiles({ orgUnitId })`; the pipeline cards, readiness card and two Issues rows removed from `/admin`) is written, unit-tested (356) and builds; unrun and unseen.** Left: a chatbot tile, the Deadlines engine as a source of overdue. **Phase 6 (tests) is written, not run:** `tests/e2e/role-dashboard.mjs` (API, every role, scope, narrowing, refusals, no tile failing to load; in the suite) and `tests/e2e/ui-role-dashboard.mjs` (browser, three themes, three widths, axe), plus two more unit tests (358). MACRO72 runs them, steps in `ROLE_DASHBOARD_VERIFY.md`. This machine now has Node 26 and pnpm 12.4.2 (installed 2026-11-12); no Docker.
+- **One upload for every bill (2026-11-12, owner's request), committed and pushed to `ucn` `main` (not `origin`); **migration `0067` applied to hosted 2026-11-12 (owner's go; `test data/_backup/hosted-0067.cjs`, read back: 67 migrations, table with RLS and no browser grants, 25 users / 1,203 records / 1,207 documents unchanged) and the hosted worker recreated from `rules-15`** (`traceesg-ocr-worker:latest` = `merged-upload`; the previous container is kept stopped as `traceesg-ocr-worker-hosted-rules14`, image tag `traceesg-ocr-worker:rules-14`, for rollback)** (D57, A58, `.grill/merged-upload-decisions.md`). Multi-bill PDF limit raised to 50 pages the same day. Checked: typecheck, lint, web unit 297/297, worker unit 58/58 (in the image too) and Ruff, database 482/482 with `0067`, and the real flow on the test stack through the procedures and the worker image (4 files: 6 bills, two same-kind photos told apart, periods from billing periods, whole photo kept, bills reuse the reading). **Not run:** a browser check, the build, the e2e suite.
+- **Continue with Google for registered accounts (2026-11-12, owner's request), committed and pushed to `ucn` `main` (not `origin`), no migration** (A59, `.grill/google-sign-in-decisions.md`): button on sign-in, `/auth/callback`; unregistered → "No sign-ups are allowed … solarsyncx@gmail.com". **Google is not enabled in the hosted Supabase project yet**, so the button stays hidden; the owner does the dashboard setup in the decision file. Not run: a real Google sign-in.
+- **Splitting fix `rules-16` (2026-11-12), on `ucn` `main`:** a document-wide "Page k of N" footer no longer joins bills of different periods (`worker/extraction/bundle.py`). **The hosted worker runs `rules-16` since 2026-11-12 (owner's go)**; `traceesg-ocr-worker:latest` = `rules-16`, the previous container kept stopped as `traceesg-ocr-worker-hosted-rules15` for rollback (image tag `rules-15`). No reporting period on the Upload page (also on `ucn` `main`).
+- **FY 2026-27 open on hosted (2026-11-12, owner's request; `test data/_backup/hosted-open-fy2026-27.cjs`):** April-September 2026 reopened and November 2026-March 2027 created, all open; due 30 Nov 2026 for the months already ended (October kept its 31 Jan 2027), 15 days after the month for later ones; late uploads until 31 Mar 2027 (Feb/Mar 2027: +45 days). One audit entry per period, no user, reason naming the agent. Upload options now list begun periods first (`loadUploadOptions`), so the default stays the current month: **committed on `ucn` `main`, not on `origin`, so Vercel still defaults to March 2027 until it is pushed there**.
+- **Org import template follows Subsidiary → Business Unit → Project (2026-11-12), on `ucn` `main`.**
+- **Upload by rows with typed values (2026-11-12/13, mid-evaluation jury feedback "manual entry for each
+  submission"; owner's design), uncommitted on branch `feature-row-upload` (from `ucn/main` `27f62ea`); migrations
+  `0077` (additive: typed values, drafts) and `0078` (travel, split out of `0077` on 2026-11-13) on the LOCAL test
+  database only (there both ran as the old single `0077`), NOT on hosted; OCR `rules-17` built as `traceesg-ocr-worker:rules-17`
+  (`:latest` not retagged, hosted container not replaced)** (D59, A60, `.grill/row-upload-decisions.md`,
+  `UI_NOTES.md`). The Upload page is a table of rows (bill type, period, typed value(s), unit, required evidence;
+  Several documents; Another bill in this file; drafts); rows that pair cleanly are recorded at once
+  (`bundles.autoConfirm`); Verify shows typed vs read and blocks Confirm until chosen (server too); validation flags
+  a typed value kept against the document and a typed total the bills don't add up to; travel and staff buses are
+  distance × passengers (OCR counts numbered passenger names). Checked: web unit 384/384 (11 new), database 500/500
+  (all migrations `0001`–`0077`, new `row_upload.test.sql`), worker unit 63/63 and Ruff, real OCR on a synthetic
+  group ticket in the `rules-17` image, production build, lint (0 errors), format, typecheck; end-to-end on the
+  local stack with the `rules-17` image: new `row-upload.mjs` 51/51, the full suite 21 scripts, 18 in full;
+  `phase3-ocr` then 22/22 after its version check was loosened; browser `ui-row-upload.mjs` 24/24 in Edge (desktop,
+  Verify, phone, axe, no console error). **Two failures outside this change:** `feedback-2026-11` stops at the old
+  Add ID step (as before); `phase4-forwarding-audit` "the search bar finds by action" — searching
+  `report.returned` also returns other `report.*` entries since the 2026-11-11 word-form search
+  (`lib/audit/words.ts`). The last one-line wording change on the Upload page came after the build and browser run
+  (typecheck, lint, format, unit re-run). **The owner's dev server (port 3000, hosted) fails on Upload with
+  "relation public.upload_drafts does not exist" until `0077` is on hosted** (the owner applied it on 2026-11-13)
+  After the code is deployed: `0078`, then the `rules-17` worker. Hosted's history is at `0067` (`0068`–`0076` are
+  on no hosted database), so `0077` leaves a gap in it. Your uncommitted fix to `submissions-tree-table.tsx` (Fragment instead of tbody) was
+  carried onto this branch unchanged.
+- **Second round, 2026-11-13 (same branch, uncommitted):** Manual / Automatic switch on Upload (Automatic = the
+  earlier drop-the-bills flow); evidence in the same row; with Another bill in this file the file sits on top and
+  each bill has Page from / to (migration `0079`, additive); an eye button previews a file before and after it is
+  sent. `0077` was applied to hosted by the owner on 2026-11-13. **`0079` is NOT on hosted: the dev server's
+  uploads fail until `node "test data/_backup/hosted-0079.cjs" apply`** (its check mode passed). Checked: unit 385,
+  database 503/503 on a fresh reset, `row-upload.mjs` 57/57, scenarios E and F, browser `ui-row-upload.mjs` 30/30,
+  build, lint, format, typecheck. Details: `.grill/row-upload-decisions.md`, last section.
+- **Third round, 2026-11-13 (same branch, uncommitted, no migration):** the Upload rows are a table with merged
+  cells (several files on one activity: activity cells merged, a line per file; one file with several bills: a line
+  per bill, evidence merged); every row takes several files. Browser 32/32, `row-upload.mjs` 57/57, unit 385, build.
+  **`0079` is still not on hosted** (checked again 2026-11-13).
+- **Fourth round, 2026-11-13 (same branch, uncommitted, no migration):** rows ask for the **billing period**; a bill
+  for a month of this financial year whose due date has passed, or that has closed, is filed there and marked late
+  (reverses the "closed period takes no documents" rule for typed bills); future months and earlier years are not
+  offered; last year's March is offered April–June (agent's choice, confirm). `row-upload.mjs` 67/67, browser
+  32/32, scenario E 40/40, unit 385, build. The local test database has labelled closed `E2E …` periods.
+- **Fifth round, 2026-11-13 (same branch, uncommitted, no migration):** Verify has a Reporting period picker (before
+  Confirm and when returned) with a one-click "Move to <month>" when the billing period points elsewhere; audited
+  (`record.period_changed`), late recomputed. `row-upload.mjs` 75/75, browser 33/33, unit 385, build.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
-| **For MACRO72: verify and resolve** (full stack, `D:\Non Newtonian Things`) | Everything on `feature-role-wise-dashboard` that touches a database or a browser: apply `0067`-`0070` in order on a database at `0066`, run `pnpm db:test` (the count edits to `phase2_smoke`, `role_permission_defaults`, `chat_analyst` were made by hand and never run), `test:isolation` (extended), e2e, a11y, `pnpm build`, then the browser steps in `ROLE_DASHBOARD_VERIFY.md`. Push `0069` before replacing the hosted OCR worker with the `rules-15` image. `feature/esg-decision-intelligence` uses `0053`-`0055`, which `main` has: whoever merges second renumbers. |
-| **For MACRO72 (1 of 4): certificate validity** | On a compliance certificate, "Validity (months)" is typed by the person: Verify needs exactly one required number field and a certificate rarely prints it. Decide whether to keep that, or change `activityFieldKeys` in `lib/verification/rules.ts` to allow an activity with no number (touches the verification core: test it). |
-| **For MACRO72 (2 of 4): the register is not read yet** | `employee_registers` totals are stored and approved but the dashboard and the BRSR report do not read them (A-20 headcount, A-22 turnover, P5-E3(b) women's wage share, P8-E5 smaller-towns wages). Wire them in when the dashboard phase starts; the roll-up helper is `sumTotals` in `lib/register/register.ts`. Also check a register near the host's request-body limit (Vercel 4.5 MB). |
-| **For MACRO72 (3 of 4): net worth in the report** | Net worth is now entered with the yearly inputs and printed beside turnover in the report's methodology table (`lib/reports/html.ts`; unit test passes). Verify by generating a report for a year with net worth entered, and for an older year without it (should read "Not provided"). Not yet in the Excel workbook or the A-24 CSR details answer. |
-| **For MACRO72 (4 of 4): the Finance/HR mapping is a draft** | `0068` sets which written BRSR answers HR and Finance/CSR may type. The owner has not approved the list (see the table in `.grill/role-dashboard-decisions.md` and the migration's comments). Do not apply to hosted until the owner approves; unsure items: P3-E14, P5-E9, P8-L3, P1-E7. EHS and Procurement have no typed-answer permission yet (owner to decide). |
+| Typed values on the Upload page | Confirm the build-time choices in `.grill/row-upload-decisions.md` (a travel total is summed field by field; supporting files stay on Verify; the replacement form has no typed value). `0077` is on hosted; run `node "test data/_backup/hosted-0079.cjs" apply` (additive; the dev server's uploads need it); after the deploy, `0078` and the `rules-17` worker. The test data's travel tickets print passenger-km as "Distance" — regenerate them with distance and passengers before using them for the demo. |
+| Audit Trail search (found 2026-11-13) | Since the 2026-11-11 word-form search, searching an exact action code such as `report.returned` also returns other `report.*` entries; `phase4-forwarding-audit` fails on it. Decide whether an exact code should match only itself. |
+| Decision-intelligence branch (`e333e9b`, 2026-11-12) | Its eight routers had lost their registration in `lib/trpc/root.ts` in a later merge, so Vercel's build failed (38 type errors); re-registered 2026-11-12 (build passes). Still open: its migrations reuse numbers `0053`–`0055` (pgvector/RAG, forecasts, what-if), which `main` already has, and are on no database, so the Decision Center's features that read those tables fail at run time. Ask its author, or have the feature role renumber them to `0068`+ and apply them on hosted. |
 | Expected submissions for the demo (2026-11-11) | The Upload page's progress list is empty for most projects: only MSRTC, BEST and Olectra have expectations. Fill them in on Admin → Organization, or ask the agent to set them from the test data. |
 | Daily reminders on Vercel (2026-11-11) | Save schedule now sends today's reminders at once, but nothing runs daily until `CRON_SECRET` (16+ random characters) is added to the Vercel project's environment variables and the app is redeployed; the panel then says "Active · runs daily at 9:00 IST". |
 | Hosted July–September 2026 test data (2026-11-11) | The real-OCR load was killed for low memory and not restarted (system rule). Say when to resume (`feed --months "July 2026,August 2026,September 2026" --extract ocr`, other apps stopped, hosted worker started), then `close` all 18 hosted months. |
@@ -805,7 +841,7 @@ _Last updated: 2026-11-12._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D57** and **A58**; the next migration is `0067`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D60** and **A61**; the next migration is `0080` (`0078` travel and `0079` pages are taken)), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -1134,6 +1170,10 @@ _Last updated: 2026-11-12._
   script breaks the form's state).
 - **Side panels remember their width per page in `localStorage`** (`sheet-width:…`, 2026-11-11). A browser test
   that measures a panel's default width must clear that key or use a fresh browser context.
+
+- **Vercel filled the session pooler (2026-11-12, EMAXCONNSESSION, every page failing):** a paused Vercel instance runs no timers, so the pool's idle timeout never closed its connections and they stayed held (29 of 30, idle for minutes). Fix in `lib/pooler-url.ts`: idle timeout 2 s on Vercel and `holdForIdleClose()` (`@vercel/functions` `waitUntil`, new dependency, pinned 3.10.5) on every pool use, so the instance stays awake until they close. `attachDatabasePool` does not support postgres.js. Relief without a deploy: restart the pooler / project in the Supabase dashboard.
+
+- **Server times in India time (2026-11-12):** Vercel runs on UTC, so the ~37 files that format dates without a zone showed times 5½ hours behind. `instrumentation.ts` sets `process.env.TZ` (default `Asia/Kolkata`, override `APP_TIME_ZONE`) at server start; Node switches zone on assignment. Code that formats a date should still name the zone where it can. Not yet checked on Vercel.
 
 ## 6. Quick commands
 

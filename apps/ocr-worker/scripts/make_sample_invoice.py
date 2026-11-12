@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tests.samples import (  # noqa: E402
+    air_ticket_pdf,
     csr_payment_pdf,
     diesel_invoice_pdf,
     electricity_bill_pdf,
@@ -47,7 +48,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--kind",
-        choices=("diesel", "electricity", "waste", "travel", *MODULES),
+        choices=("diesel", "electricity", "waste", "travel", "air_ticket", *MODULES),
         default="diesel",
         help="which document to write",
     )
@@ -74,6 +75,12 @@ def main() -> None:
         out = Path(args.out or f"sample_waste_certificate_{invoice}.pdf")
         out.write_bytes(waste_certificate_pdf(invoice, date))
         print(f"{out} (certificate {invoice}, {date})")
+        return
+    if args.kind == "air_ticket":
+        date = args.period or f"{datetime.now():%d-%b-%Y}"
+        out = Path(args.out or f"sample_air_ticket_{invoice}.pdf")
+        out.write_bytes(air_ticket_pdf(invoice, date))
+        print(f"{out} (PNR {invoice}, {date}, 6 passengers)")
         return
     if args.kind == "travel":
         date = args.period or f"{datetime.now():%d-%b-%Y}"

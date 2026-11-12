@@ -20,6 +20,14 @@ select ok(
   'the browser roles cannot read or write it');
 
 -- A report run to forward, on whatever unit, period and user exist locally.
+insert into auth.users (id, email)
+values ('00000000-0000-4000-8000-000000005801', 'forward_test@meil.test')
+on conflict (id) do nothing;
+
+insert into public.users (id, display_name, email)
+values ('00000000-0000-4000-8000-000000005801', 'Forward User', 'forward_test@meil.test')
+on conflict (id) do nothing;
+
 insert into public.report_runs (id, requested_by, org_unit_id, reporting_period_id, report_type, status)
 select '58585858-0000-4000-8000-000000000001', u.id, o.id, p.id, 'brsr'::public.report_type, 'completed'
 from public.users u, public.org_units o, public.reporting_periods p limit 1;

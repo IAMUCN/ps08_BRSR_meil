@@ -110,6 +110,7 @@ may run in parallel with Phases 3–5.
 | — | Feature roadmap Phase 8: four report templates (GHG also as Excel), top-bar search, Scope Table / Chart, Ask button, landing fixes (migration `0062`) | Done, **uncommitted**; `0062` on hosted (2026-11-09) | — |
 | — | Feature roadmap Phase 9: phone navigation, tap cursor, installable app | Done, **uncommitted**; no migration | — |
 | — | Feature roadmap Phase 10: Help, production database runbook, release checklist, hosted reset and the local database server | Done, **uncommitted**; hosted reset 2026-11-09 | — |
+| — | Upload by rows with typed values checked against the document; travel as distance × passengers (migration `0077`, OCR `rules-17`) | Done on branch `feature-row-upload`, **uncommitted; `0077` local only** | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -928,6 +929,17 @@ the Super Admins, the Administrators and the configuration (backup restored and 
 local Supabase stack on this machine, verified table by table (docs/LOCAL_DATABASE_SERVER.md). `RELEASE.md` holds
 the release checklist, rollback, operations and the regression run: unit 287, database 471/471, end-to-end 19 of
 20 scripts, isolation 264, accessibility 190/0/0, scale and large-file checks.
+
+**Upload by rows, typed values checked against the document (2026-11-12/13).** Decisions:
+`.grill/row-upload-decisions.md`; D59, A60. The mid-evaluation jury asked for manual entry on every submission. The
+Upload page is now a table: each row is a bill type, a reporting period, the value typed from the bill, the unit
+and the bill itself (required); a row can hold several files (pages of one bill, or separate bills with their
+total) or several bills in one file (one line each); unfinished rows are kept as a draft. OCR still reads every
+bill, and the two readings are compared: a match counts as checked; a difference must be settled on Verify, and
+keeping the typed value against the document goes to a reviewer with both values. Travel and staff buses are
+distance × passengers, and OCR counts the numbered passenger names on a ticket (migration `0077`, `rules-17`).
+Checks: web unit 384, database 500/500, worker unit 63/63, end-to-end `row-upload.mjs` 51/51 and the full suite
+(two failures outside this change, see CONTEXT.md), browser 24/24, production build. Not on hosted.
 
 Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
 docs, the phone and tablet pass.

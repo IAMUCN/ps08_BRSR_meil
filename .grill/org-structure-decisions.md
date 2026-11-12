@@ -25,6 +25,11 @@ select to a different parent, as business units fall under each subsidiary node.
 - **Bulk-import template:** help text names the rules; the "shared" example row is left out when it would be a
   business unit.
 
+- **Import template** (owner, 2026-11-12: "as per the recent hierarchy structure update the org import template"):
+  the instructions open with the structure; the examples are a subsidiary, two business units under it, a
+  project under one and a project shared by both (from a subsidiary: business units, then projects); the
+  Hierarchy sheet has an "Its parent" column per level. Checked by generating the file and reading it back.
+
 ## Decisions (made by the agent; confirm with the owner)
 
 1. **Keyed on the level codes** `subsidiary`, `business_unit`, `project` (migration 0037; a code never changes),

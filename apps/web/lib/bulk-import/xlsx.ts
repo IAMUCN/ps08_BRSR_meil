@@ -4,7 +4,13 @@
 import type { Worksheet } from "exceljs";
 import * as XLSX from "xlsx";
 import { csvSafeText } from "../csv.ts";
-import { singleParent, tidy } from "../org/rules.ts";
+import {
+  BUSINESS_UNIT_LEVEL,
+  PROJECT_LEVEL,
+  SUBSIDIARY_LEVEL,
+  singleParent,
+  tidy,
+} from "../org/rules.ts";
 
 function triggerDownload(bytes: BlobPart, filename: string) {
   const blob = new Blob([bytes], { type: "application/octet-stream" });
@@ -297,6 +303,7 @@ export async function downloadOrgUnitTemplate(
   help.columns = [{ width: 20 }, { width: 40 }, { width: 24 }, { width: 22 }, { width: 60 }];
   for (const line of [
     'Fill the "New org units" sheet, one org unit per row, starting on row 2. Keep the headings as they are.',
+    "The structure: Group → Subsidiary → Business Unit → Project (then Site, Department). Each business unit belongs to exactly one subsidiary; each project sits under a business unit (a project two business units run lists both). The Hierarchy sheet says which parent each level takes.",
     `Parent code left empty: the row is created directly under "${parent.name}" (${parent.level}), the unit chosen on screen.`,
     "Parent code filled in: pick an org unit that exists already from the cell's dropdown list, or type the Code of another row in this sheet (the list is only a suggestion, so typing is allowed). An org unit that has no code can be picked from the list too; it is listed by its name. That is how one sheet builds several levels at once; the order of the rows does not matter.",
     "A unit with more than one parent, such as a project two business units run: write every parent in the one Parent code cell, separated by commas, for example BU-A, BU-B. As many as it has. Spaces before or after a name do not matter. (The dropdown fills in one value; type a comma and the next code after it.) The unit then sits under each of them, and its figures count in full in every parent and once in the group above them. Moving or deactivating it later is done from the first parent listed.",
@@ -310,8 +317,54 @@ export async function downloadOrgUnitTemplate(
   }
   help.addRow([...ORG_UNIT_HEADERS, "What it does"]);
   heading(help, help.rowCount, ORG_UNIT_HEADERS.length + 1);
-  const [first, second] = levels;
-  if (first) {
+  const has = (code: string) => levels.some((l) => l.code === code);
+  const label = (code: string) => levels.find((l) => l.code === code)?.label ?? code;
+  if (has(BUSINESS_UNIT_LEVEL) && has(PROJECT_LEVEL)) {
+    // Subsidiary → business units → projects (owner's structure, 2026-11-12).
+    const withSubsidiary = has(SUBSIDIARY_LEVEL);
+    const bu = label(BUSINESS_UNIT_LEVEL);
+    const project = label(PROJECT_LEVEL);
+    if (withSubsidiary) {
+      help.addRow([
+        "EX-SUB",
+        `Example ${label(SUBSIDIARY_LEVEL)}`,
+        SUBSIDIARY_LEVEL,
+        "",
+        `A ${label(SUBSIDIARY_LEVEL)} directly under ${parent.name}`,
+      ]);
+    }
+    const buParent = withSubsidiary ? "EX-SUB" : "";
+    const buWhere = withSubsidiary ? "the subsidiary above" : parent.name;
+    help.addRow([
+      "EX-BU-1",
+      `Example ${bu}`,
+      BUSINESS_UNIT_LEVEL,
+      buParent,
+      `A ${bu} under ${buWhere}: one parent only`,
+    ]);
+    help.addRow([
+      "EX-BU-2",
+      `Second ${bu}`,
+      BUSINESS_UNIT_LEVEL,
+      buParent,
+      `Another ${bu} under ${buWhere}`,
+    ]);
+    help.addRow([
+      "EX-PRJ-1",
+      `Example ${project}`,
+      PROJECT_LEVEL,
+      "EX-BU-1",
+      `A ${project} under the first ${bu}`,
+    ]);
+    help.addRow([
+      "EX-PRJ-2",
+      `Shared ${project}`,
+      PROJECT_LEVEL,
+      "EX-BU-1, EX-BU-2",
+      `A ${project} under both rows above: it counts in each`,
+    ]);
+  } else if (levels[0]) {
+    const [first, second] = levels;
     help.addRow([
       "EX-A",
       `Example ${first.label}`,
@@ -353,9 +406,19 @@ export async function downloadOrgUnitTemplate(
   const ref = wb.addWorksheet("Hierarchy");
   ref.columns = [{ width: 24 }, { width: 48 }, { width: 22 }, { width: 24 }];
   ref.addRow([`Levels that can be added beneath ${parent.name}, in order`]);
-  ref.addRow(["Level (use this value)", "Level name"]);
-  heading(ref, 2, 2);
-  levels.forEach((l) => ref.addRow([l.code, l.label]));
+  ref.addRow(["Level (use this value)", "Level name", "Its parent"]);
+  heading(ref, 2, 3);
+  levels.forEach((l) =>
+    ref.addRow([
+      l.code,
+      l.label,
+      l.code === BUSINESS_UNIT_LEVEL && has(SUBSIDIARY_LEVEL)
+        ? `One ${label(SUBSIDIARY_LEVEL)} only`
+        : l.code === PROJECT_LEVEL && has(BUSINESS_UNIT_LEVEL)
+          ? `${label(BUSINESS_UNIT_LEVEL)} (one or more), or a later level such as ${label("region")}`
+          : "Any unit at an earlier level",
+    ]),
+  );
   const lastLevelRow = Math.max(3, ref.rowCount);
   ref.addRow([]);
   ref.addRow(["Org units that exist today (use the code as a Parent code)"]);

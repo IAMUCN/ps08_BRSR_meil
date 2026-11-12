@@ -10,6 +10,7 @@ import { ContributorsSection } from "@/components/landing/contributors-section";
 import { PerformanceSection } from "@/components/landing/performance-section";
 import { SecuritySection } from "@/components/landing/security-section";
 import { WhatIsBrsrSection } from "@/components/landing/what-is-brsr-section";
+import { DocumentationSection } from "@/components/landing/documentation-section";
 import { FaqSection } from "@/components/landing/faq-section";
 import { InfrastructureSection } from "@/components/landing/infrastructure-section";
 import { CtaFooterSection } from "@/components/landing/cta-footer-section";
@@ -31,6 +32,7 @@ export function LandingPage() {
           <PerformanceSection />
           <SecuritySection />
           <WhatIsBrsrSection />
+          <DocumentationSection />
           <FaqSection />
           <InfrastructureSection />
         </main>

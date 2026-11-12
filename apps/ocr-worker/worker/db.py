@@ -15,7 +15,12 @@ from psycopg.types.json import Jsonb
 
 from worker.config import STALE_PROCESSING_MINUTES
 from worker.errors import LostClaim
-from worker.extraction.fields import ExtractedField, FieldSpec, fields_needing_attention
+from worker.extraction.fields import (
+    ExtractedField,
+    FieldSpec,
+    TextLine,
+    fields_needing_attention,
+)
 
 
 @dataclass(frozen=True)
@@ -134,6 +139,39 @@ def load_context(conn: psycopg.Connection, document_id: UUID) -> JobContext:
         types,
         doc["is_bundle"],
     )
+
+
+def load_bundle_reading(
+    conn: psycopg.Connection, document_id: UUID
+) -> tuple[list[TextLine], list[list[int]]] | None:
+    """The upload's reading of this bill's pages, numbered from 1, with their page sizes — when the
+    document was cut from an upload whose reading kept its page sizes (migration 0067). None
+    otherwise: the document is read on its own."""
+    row = conn.execute(
+        """
+        select p.page_from, p.page_to, e.raw_output -> 'lines' as lines,
+               e.raw_output -> 'page_sizes' as page_sizes
+        from public.document_bundle_parts p
+        join lateral (
+          select raw_output from public.ocr_extractions
+          where document_id = p.bundle_document_id order by extracted_at desc limit 1
+        ) e on true
+        where p.created_document_id = %s
+        """,
+        (document_id,),
+    ).fetchone()
+    if not row or not row["page_sizes"] or not row["lines"]:
+        return None
+    first, last = row["page_from"], row["page_to"]
+    sizes = row["page_sizes"][first - 1 : last]
+    if len(sizes) != last - first + 1:
+        return None
+    lines = [
+        TextLine(ln["text"], ln["score"], tuple(ln["box"]), ln["page"] - first + 1)
+        for ln in row["lines"]
+        if first <= ln["page"] <= last
+    ]
+    return lines, sizes
 
 
 def load_bundle_catalog(conn: psycopg.Connection) -> dict[str, BundleType]:
@@ -320,8 +358,8 @@ def complete_bundle_job(
                 """
                 insert into public.document_bundle_parts
                   (bundle_document_id, part_number, page_from, page_to,
-                   proposed_document_type_id, proposed_metric_id)
-                values (%s, %s, %s, %s, %s, %s)
+                   proposed_document_type_id, proposed_metric_id, bill_number, billing_period)
+                values (%s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     job.document_id,
@@ -330,6 +368,8 @@ def complete_bundle_job(
                     part["page_to"],
                     part["document_type_id"],
                     part["metric_id"],
+                    part.get("bill_number"),
+                    part.get("billing_period"),
                 ),
             )
         conn.execute(
@@ -339,8 +379,8 @@ def complete_bundle_job(
             conn,
             job.document_id,
             "verification_needed",
-            "PDF ready to split",
-            f" has {len(parts)} bill{'s' if len(parts) != 1 else ''} to review before recording.",
+            "Upload ready to check",
+            f" has {len(parts)} bill{'s' if len(parts) != 1 else ''} to check before recording.",
         )
         _audit(
             conn,

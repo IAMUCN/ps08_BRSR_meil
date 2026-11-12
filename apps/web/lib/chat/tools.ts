@@ -1144,7 +1144,9 @@ export const TOOLS = {
       const method = !m.requiresCalculation
         ? "This metric is a recorded amount: the verified value is reported as it is, with no calculation."
         : formula?.op === "multiply_by_factor"
-          ? "Result = verified quantity, converted to the factor's unit, × the conversion factor in force for the record's reporting period."
+          ? formula.product
+            ? `Result = ${formula.product.join(" × ")} (passenger-km), × the conversion factor in force for the record's reporting period.`
+            : "Result = verified quantity, converted to the factor's unit, × the conversion factor in force for the record's reporting period."
           : formula?.op === "subtract"
             ? `Result = ${formula.inputs[0]} − ${formula.inputs[1]}, both verified fields of the same document.`
             : formula?.op === "percentage"

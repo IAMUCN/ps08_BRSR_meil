@@ -21,6 +21,7 @@ import {
   exceeded,
   rateLimits,
 } from "@/lib/security/rate-limit";
+import { appUrl } from "@/lib/app-url";
 import { db } from "@/lib/db";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -191,4 +192,28 @@ export async function changeTemporaryPassword(
   const result = await resolveSession(supabase);
   if (result.status !== "active") redirect("/login");
   redirect(postLoginPath(next, result.session.roleCodes));
+}
+
+/**
+ * "Continue with Google" (owner's request, 2026-11-12): only for people an admin registered. Supabase sends
+ * the person to Google and back to /auth/callback, which decides. `takeover` answers "signed in on another
+ * device" the same way the password form does.
+ */
+export async function signInWithGoogle(formData: FormData) {
+  const next = safeNextPath(String(formData.get("next") ?? "") || null);
+  const takeover = formData.get("takeover") === "confirm";
+  const callback = new URL("/auth/callback", appUrl());
+  if (next) callback.searchParams.set("next", next);
+  if (takeover) callback.searchParams.set("takeover", "1");
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: callback.toString(),
+      // Lets someone with several Google accounts pick the registered one.
+      queryParams: { prompt: "select_account" },
+    },
+  });
+  if (error || !data.url) redirect("/login?reason=google_failed");
+  redirect(data.url);
 }

@@ -260,10 +260,10 @@ check(
 );
 
 section("8. Uploads that cannot be split are refused; EHS keeps its water bill");
-const tooLong = await uploadBundle(pm, sampleBundle(Array(21).fill("diesel")), "too-long.pdf");
+const tooLong = await uploadBundle(pm, sampleBundle(Array(51).fill("diesel")), "too-long.pdf");
 check(
-  "more than 20 pages is refused with a clear message",
-  rejected(tooLong.completed, "at most 20"),
+  "more than 50 pages is refused with a clear message",
+  rejected(tooLong.completed, "at most 50"),
   tooLong.completed?.error,
 );
 const notPdf = await uploadBundle(pm, Buffer.from("this is not a pdf at all"), "x.pdf");

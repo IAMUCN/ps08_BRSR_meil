@@ -427,7 +427,7 @@ Decisions: `.grill/multi-bill-pdf-decisions.md`. Not in any implementation-plan 
 owner.
 
 - **Upload Document** opens with a choice: _One bill_ (unchanged) or _A PDF with several bills_. The second hides the
-  activity picker, accepts PDF only (up to 20 pages) and, after upload, goes to the new split page.
+  activity picker, accepts PDF only (up to 50 pages (20 until 2026-11-12)) and, after upload, goes to the new split page.
 - **`/app/upload/split/[documentId]`** is a new screen (an addition to App Flow §2.3, which has one document per
   upload). While the OCR reads the PDF it says so and refreshes itself; then it shows the PDF beside the proposed
   bills — pages, what each looks like, the activity — which the uploader can edit, leave out, remove or add to, with
@@ -877,3 +877,28 @@ group with where it sits today; ticking one adds the business unit as a parent (
 project placed before these rules (straight under a subsidiary) is marked, and its first ticked business unit
 becomes its main parent. Units already in the database are not changed by the rules. No migration.
 `.grill/org-structure-decisions.md`.
+
+## A58 — One upload for every bill (2026-11-12)
+
+The Upload page no longer asks "one bill or a PDF with several bills" or the activity: any number of PDFs and
+photos are dropped at once; no reporting period is asked there. The app reads
+every page and proposes the bills — a bill over several pages, several bills in one PDF, two bills of the same
+kind one after the other — their activity and, from each bill's billing period, its reporting period. The
+uploader checks that on the separation page, where each bill has its own period and a "Billing period doesn't
+match" warning; the submission date is shown there, on My Submissions and on Verify. "Replace a failed document"
+keeps the one-file form. `.grill/merged-upload-decisions.md`.
+
+## A59 — Continue with Google, registered accounts only (2026-11-12)
+
+The sign-in page offers "Continue with Google" (when the provider is on in Supabase Auth). Only accounts an admin
+registered get in, under the same session rules as a password sign-in; anyone else is told that sign-ups are not
+allowed and to contact the admin at solarsyncx@gmail.com. `.grill/google-sign-in-decisions.md`.
+
+## A60 — Upload by rows with typed values, checked against the document (2026-11-12)
+
+The Upload page is a table of submissions: bill type, reporting period, the value(s) typed from the bill, the unit and
+the evidence (required) per row; "Several documents" (pages of one bill, or separate bills with their total) and
+"Another bill in this file" (one sub-row per bill). Rows whose bills pair cleanly are recorded without the
+separation page; the separation page pairs bills with typed rows. Verify shows each typed value against the reading
+and requires a choice where they differ; keeping a typed value against the document is a review flag. Drafts are
+saved per person. Replacing a document keeps the one-file form. `.grill/row-upload-decisions.md`.

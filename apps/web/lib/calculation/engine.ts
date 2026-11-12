@@ -8,6 +8,7 @@ import {
   evaluate,
   formulaInputs,
   parseFormula,
+  productInputs,
   type FormulaDefinition,
 } from "./formulas.ts";
 import { normalize, type Normalized } from "./units.ts";
@@ -56,9 +57,16 @@ export async function activeFormula(sql: Sql, metricId: string): Promise<Formula
   return row ? parseFormula(row.formula_type, row.formula_definition) : null;
 }
 
-/** The field key holding a metric's activity value when its formula names one (percentage, subtract). */
-export async function activityKeyFor(sql: Sql, metricId: string): Promise<string | null> {
-  return activityInput(await activeFormula(sql, metricId));
+/**
+ * The field key holding a metric's activity value when its formula names one (percentage, subtract), or the
+ * keys multiplied into it (travel). null = the single-number convention.
+ */
+export async function activityKeyFor(
+  sql: Sql,
+  metricId: string,
+): Promise<string | string[] | null> {
+  const formula = await activeFormula(sql, metricId);
+  return productInputs(formula) ?? activityInput(formula);
 }
 
 /**
@@ -151,11 +159,27 @@ export async function runCalculation(
   // `normalized` is the activity value in the metric's terms; `base` is what the formula produced.
   let normalized: Normalized;
   let base: Normalized;
-  const inputs: { key: string; value: number }[] = [];
+  const inputs: { key: string; value: number; unit?: string }[] = [];
   if (formula.op === "multiply_by_factor") {
     const n = normalize(record.activity_value, inputUnit, record.metric_unit);
     if (!n.ok) return blocked(n.reason);
     normalized = base = n.normalized;
+    // Travel (migration 0077): the activity value is distance x passengers, set at verification. The two
+    // inputs go in the trace. A record verified before then has neither and keeps its passenger-km.
+    const keys = productInputs(formula);
+    if (keys) {
+      const rows = await tx<{ field_key: string; verified_value: string | null }[]>`
+        select f.field_key, f.verified_value from public.ocr_fields f
+        where f.ocr_extraction_id = ${record.extraction_id} and f.field_key in ${tx(keys)}`;
+      for (const k of keys) {
+        const parsed = parseNumber(rows.find((r) => r.field_key === k)?.verified_value ?? null);
+        if (parsed !== null) {
+          // The distance is in the record's unit; the passengers are a count of people.
+          inputs.push({ key: k, value: parsed, unit: k === keys[0] ? inputUnit : "count" });
+        }
+      }
+      if (inputs.length !== keys.length) inputs.length = 0;
+    }
   } else {
     // Every input is a verified field of the same document (schema §10.4 calculation_inputs).
     const keys = formulaInputs(formula);
@@ -244,7 +268,7 @@ export async function runCalculation(
   for (const input of inputs) {
     await tx`
       insert into public.calculation_inputs (calculation_id, input_key, input_value, input_unit)
-      values (${row.id}, ${input.key}, ${input.value}, ${inputUnit})`;
+      values (${row.id}, ${input.key}, ${input.value}, ${input.unit ?? inputUnit})`;
   }
   await tx`update public.esg_records set calculation_status = 'calculated' where id = ${record.id}`;
   await writeAudit(tx, {

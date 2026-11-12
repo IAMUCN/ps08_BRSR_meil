@@ -12,7 +12,7 @@ from worker.errors import UNREADABLE, PermanentError
 MAX_PAGES = 10
 # A multi-bill PDF is read in full; the web app refuses longer ones at upload (same number, in
 # apps/web/lib/documents/bundle.ts) so one upload can't tie the worker up for an hour.
-BUNDLE_MAX_PAGES = 20
+BUNDLE_MAX_PAGES = 50
 PDF_RENDER_DPI = 200
 
 

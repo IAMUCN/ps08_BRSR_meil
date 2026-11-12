@@ -53,3 +53,39 @@ export function permissionProcedure(permission: string) {
     return next();
   });
 }
+
+/** Requires carbon credit view: Super Admin, Org Admin, or a role with carbon_credit.view. */
+export const carbonViewProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (
+    !ctx.session.isAdmin &&
+    !ctx.session.isOrgAdmin &&
+    !ctx.session.permissions.includes("carbon_credit.view")
+  ) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that." });
+  }
+  return next();
+});
+
+/** Requires carbon credit manage: Super Admin, Org Admin, or a role with carbon_credit.manage. */
+export const carbonManageProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (
+    !ctx.session.isAdmin &&
+    !ctx.session.isOrgAdmin &&
+    !ctx.session.permissions.includes("carbon_credit.manage")
+  ) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that." });
+  }
+  return next();
+});
+
+/** Requires ICP manage: Super Admin, Org Admin, or a role with icp.manage. */
+export const icpManageProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (
+    !ctx.session.isAdmin &&
+    !ctx.session.isOrgAdmin &&
+    !ctx.session.permissions.includes("icp.manage")
+  ) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that." });
+  }
+  return next();
+});
