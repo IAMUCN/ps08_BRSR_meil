@@ -67,3 +67,27 @@ Written without a database or a browser; **not run**. `pnpm typecheck`, lint, Pr
 4. Check nobody else gets in: a Project Manager gets 403 on `/api/employee-register`, its template and file routes; a unit outside the user's scope returns 404 on the file route.
 5. Nothing person-level may reach the database: after an upload, `select totals from employee_registers` holds counts and sums only, and `audit_logs.new_value` holds the file name, hash and a head-count, never a person.
 6. Limits to look at: the upload goes through a Next route handler, so a host that caps request bodies (Vercel: 4.5 MB) caps the register; a very large register may need a signed-URL upload like documents. Totals recompute from the file only at upload time. The register is not yet read by the dashboard or the report.
+
+## Dashboard tiles: registry, visibility, ordering, API (Phase 2)
+
+Written without a database or a browser; **not run**. Typecheck, lint, Prettier and the unit tests (330, including 11 in
+`tests/dashboard-tiles.test.ts` for the registry, visibility, multi-role merging and ordering) pass.
+
+1. `pnpm --filter web test:isolation`: new probes `dashboard.tiles()` for every persona and two checks for the Corporate ESG + Project
+   Manager user (the tiles never cover Project Q; the approval tile is offered from the Corporate ESG role).
+2. The loaders in `lib/dashboard/loaders.ts` are plain SQL checked only by the type checker. Please run `dashboard.tiles` against a database
+   with data and compare each count with the page it links to: Documents to verify and Returned (My Submissions tabs), Pending approvals
+   (Approval Queue), Flagged for review (Validation Queue), Missing submissions (Submission Monitoring), System health (OCR Monitoring).
+   Columns relied on: `esg_records.verified_by`, `validation_results.evaluated_at`, `ocr_jobs.status`, `documents.created_at`,
+   `notifications.is_read`, `org_unit_tree`, `reporting_period_today()`, `reporting_period_late()`, `reporting_period_locked()`.
+3. In a browser, `/app` and `/admin` show a "Needs your attention" band and an "Overview" grid above the old cards:
+   - Project Manager: only Reporting period, Documents to verify, Returned, Unread notifications.
+   - Corporate ESG: also Pending approvals, Missing submissions, Reporting completion, scoped to its unit (the caption says which).
+   - Administrator with `validation.review`: also Flagged for review. Super Admin: also System health.
+   - A tile whose query fails shows "could not be loaded" instead of breaking the page (check the server log line `dashboard tile ... failed`).
+4. Ordering: make a record overdue/returned/pending and check the band order is overdue, then returned or failed, then pending.
+
+Known limits: the old cards still sit below the tiles (some duplicate them) until Phases 3-4 replace them; tiles are plain cards (no
+charts yet); "stuck" is a constant of 7 days (`STUCK_DAYS`), to become a setting; the approval count excludes the viewer's own records
+(a Super Admin's marked self-approval is not counted); tiles for factors, BRSR readiness, reports and audit activity, users and
+hierarchy, scope donut and trends, and all role-specific tiles (EHS, HR, Finance, Procurement, Auditor, Project Manager charts) are not built.

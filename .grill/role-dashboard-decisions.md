@@ -211,3 +211,14 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
   status only.
 - Not yet: the dashboard and the report do not read the registers; net worth, the within-India sub-part and the
   report's P8-E4 are still to do.
+
+## Phase 2 built (2026-11-12): registry, visibility, ordering, API (unverified against a database)
+- `lib/dashboard/tiles.ts` (pure): the tile registry (9 tiles so far), who sees what from permissions and where they are held
+  (a tile covers the units where a role holding its permission is assigned), each tile once for a multi-role user, the "Needs action"
+  band (overdue, then returned or failed, then pending; only tiles with something to do) and the overview in registry order, and a
+  concurrency limiter (three tiles load at a time because the host pool is small).
+- `lib/dashboard/loaders.ts`: one loader per tile, queries limited to the tile scope on the server, shared work cached per request and never
+  across scopes; a failing tile degrades to an error card. `dashboard.tiles` is one batched call. `validation-review` is only offered to
+  administrators because its page is theirs.
+- Shown on `/app` and `/admin` above the old content. Next: chart kit and tokens (Phase 3), role content (Phase 4), common tiles and drill-downs
+  (Phase 5), tests (Phase 6).

@@ -16,6 +16,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cn } from "cn";
 import { ContextPicker, ReadinessInfo } from "@/components/dashboard/control-tower-parts";
+import { NeedsActionBand, TileGrid } from "@/components/dashboard/tile-views";
 import { EmptyState } from "@/components/shell/empty-state";
 import { NoticeToast } from "@/components/shell/notice-toast";
 import { PageHeader } from "@/components/shell/page-header";
@@ -88,7 +89,10 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
     orgUnitId: q.orgUnitId,
     periodId: q.periodId,
   });
-  const trends = await caller.records.kpiTrends({ orgUnitId: context.orgUnitId });
+  const [trends, tiles] = await Promise.all([
+    caller.records.kpiTrends({ orgUnitId: context.orgUnitId }),
+    caller.dashboard.tiles({ periodId: context.periodId || undefined }),
+  ]);
   const ctx = `org=${context.orgUnitId}&period=${context.periodId}`;
   const notice = typeof raw.notice === "string" ? raw.notice : undefined;
 
@@ -242,6 +246,11 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
           </div>
         ))}
       </dl>
+
+      {/* Role-wise dashboard (Phase 2): the tiles this person's permissions earn. The cards below are the
+          earlier Control Tower and are replaced as the next phases land. */}
+      <NeedsActionBand tiles={tiles.band} />
+      <TileGrid tiles={tiles.grid} />
 
       <section
         aria-label="Completion pipeline"

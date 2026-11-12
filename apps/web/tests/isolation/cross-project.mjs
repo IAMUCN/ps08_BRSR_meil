@@ -291,6 +291,7 @@ try {
     await p("bundles.review(PDF of Q)", () => c.bundles.review({ documentId: QBUNDLE }));
     await p("bundles.discard(PDF of Q)", () => c.bundles.discard({ documentId: QBUNDLE }));
     await p("ocr.submissions()", () => c.ocr.submissions({}));
+    await p("dashboard.tiles()", () => c.dashboard.tiles());
     await p("ocr.jobs()", () => c.ocr.jobs({}));
     await p("notifications.list()", () => c.notifications.list({}));
     await p("notifications.markRead(B's notification)", async () => {
@@ -609,6 +610,18 @@ try {
       units.some((u) => u.id === prjX.id) && !units.some((u) => u.id === QUNIT) ? "PASS" : "FAIL",
       "analytics.units() lists Project X and not Project Q",
       `${units.length} unit(s)`,
+    );
+    const tiles = await c.dashboard.tiles();
+    const named = JSON.stringify(tiles);
+    note(
+      !named.includes("IDOR Project Q") && !named.includes(QUNIT) ? "PASS" : "FAIL",
+      "dashboard.tiles() never covers Project Q, where the role holding the permissions is not assigned",
+      `${tiles.band.length + tiles.grid.length} tile(s)`,
+    );
+    note(
+      tiles.band.concat(tiles.grid).some((t) => t.id === "approval-queue") ? "PASS" : "FAIL",
+      "dashboard.tiles() offers the approval tile, from the Corporate ESG role at Project X",
+      "",
     );
     // Read only: the actions on those pages stay an administrator's, even inside Project X.
     await expectRefused("records.remindMissing(own project)", () =>

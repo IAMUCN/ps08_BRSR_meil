@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { NoticeToast } from "@/components/shell/notice-toast";
+import { NeedsActionBand, TileGrid } from "@/components/dashboard/tile-views";
 import { requireAppSession } from "@/lib/auth/session";
 import { submissionTab } from "@/lib/ocr/rules";
 import { formatTotal } from "@/lib/scope/display";
@@ -42,8 +43,9 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
     );
   }
 
-  const [openPeriods, submissions, myTotals] = await Promise.all([
+  const [openPeriods, tiles, submissions, myTotals] = await Promise.all([
     caller.dashboard.openPeriods(),
+    caller.dashboard.tiles(),
     caller.ocr.submissions(),
     // Phases 10–12: this user's own project totals for every configured scope — never an
     // organisation-wide figure, and never a hard-coded list of scopes.
@@ -77,6 +79,11 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
           ) : null
         }
       />
+
+      {/* Role-wise dashboard (Phase 2): the tiles this person's permissions earn. The cards below are the
+          earlier dashboard and are replaced as the next phases land. */}
+      <NeedsActionBand tiles={tiles.band} />
+      <TileGrid tiles={tiles.grid} />
 
       <section aria-labelledby="period-heading" className="rounded-md border bg-card p-4">
         <div className="flex items-center gap-2">
