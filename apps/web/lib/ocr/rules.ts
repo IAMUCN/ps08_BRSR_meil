@@ -107,7 +107,8 @@ export function attentionLabel(count: number): string {
 }
 
 export type SubmissionItem = {
-  id: string;
+  id?: string;
+  recordId?: string;
   bundleDocumentId?: string | null;
   bundleFileName?: string | null;
   bundleDescription?: string | null;
@@ -116,7 +117,7 @@ export type SubmissionItem = {
   orgUnitName: string;
   periodLabel: string;
   metricName: string;
-  fileName: string | null;
+  fileName?: string | null;
   pageFrom?: number | null;
   pageTo?: number | null;
 };

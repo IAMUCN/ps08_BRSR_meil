@@ -175,6 +175,8 @@ export function recordsFrom(sql: Sql, f: RecordFilters) {
     join public.esg_categories cat on cat.id = m.category_id
     left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
     left join public.documents d on d.id = erd.document_id and d.deleted_at is null
+    left join public.documents bd on bd.id = d.bundle_document_id and bd.deleted_at is null
+    left join public.document_bundle_parts bp on bp.created_document_id = d.id
     left join public.document_types dt on dt.id = d.document_type_id
     -- At most one row each, so counts over this FROM never double (dashboard totals share it).
     left join lateral (
@@ -238,6 +240,12 @@ export type RecordRow = {
   submitterRoles: string | null;
   /** The activity's owning role when the submitter uploaded on its behalf ("for Project Manager"). */
   onBehalfOf: string | null;
+  bundleDocumentId?: string | null;
+  bundleFileName?: string | null;
+  bundleDescription?: string | null;
+  bundleTotalParts?: number | null;
+  pageFrom?: number | null;
+  pageTo?: number | null;
 };
 
 /**
@@ -302,11 +310,17 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
       ocr_error: string | null;
       submitter_roles: string | null;
       on_behalf_of: string | null;
+      bundle_document_id: string | null;
+      bundle_file_name: string | null;
+      bundle_description: string | null;
+      page_from: number | null;
+      page_to: number | null;
+      bundle_total_parts: number | null;
     }[]
   >`
     select r.id as record_id, d.id as document_id, d.file_name, d.description, d.mime_type, o.name as org_unit_name,
            p.label as period_label, m.name as metric_name, cat.name as category_name,
-           u.display_name as submitted_by, r.created_at,
+           u.display_name as submitted_by, coalesce(bd.created_at, r.created_at) as created_at,
            r.verification_status::text, r.validation_status::text, r.approval_status::text,
            r.data_quality_state::text,
            r.activity_value_verified::float as activity_value, r.activity_unit,
@@ -317,9 +331,15 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
            r.submitted_late as late, r.is_duplicate_flag as duplicate,
            ${OCR_STATE_SQL(sql)} as ocr_state, oj.error_message as ocr_error,
            ${SUBMITTER_ROLES_SQL(sql)} as submitter_roles,
-           ${ON_BEHALF_SQL(sql)} as on_behalf_of
+           ${ON_BEHALF_SQL(sql)} as on_behalf_of,
+           bd.id as bundle_document_id,
+           bd.file_name as bundle_file_name,
+           bd.description as bundle_description,
+           bp.page_from,
+           bp.page_to,
+           (select count(*)::int from public.document_bundle_parts p2 where p2.bundle_document_id = bd.id and p2.status = 'created') as bundle_total_parts
     ${recordsFrom(sql, f)}
-    order by r.created_at desc
+    order by coalesce(bd.created_at, r.created_at) desc, bp.page_from asc nulls last, r.created_at desc
     limit ${RECORD_LIMIT}`;
   return rows.map((r) => ({
     recordId: r.record_id,
@@ -350,5 +370,11 @@ export async function searchRecords(sql: Sql, f: RecordFilters): Promise<RecordR
     ocrError: r.ocr_error,
     submitterRoles: r.submitter_roles,
     onBehalfOf: r.on_behalf_of,
+    bundleDocumentId: r.bundle_document_id ?? null,
+    bundleFileName: r.bundle_file_name ?? null,
+    bundleDescription: r.bundle_description ?? null,
+    bundleTotalParts: r.bundle_total_parts ?? null,
+    pageFrom: r.page_from ?? null,
+    pageTo: r.page_to ?? null,
   }));
 }
