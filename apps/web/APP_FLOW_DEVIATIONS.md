@@ -887,3 +887,9 @@ kind one after the other — their activity and, from each bill's billing period
 uploader checks that on the separation page, where each bill has its own period and a "Billing period doesn't
 match" warning; the submission date is shown there, on My Submissions and on Verify. "Replace a failed document"
 keeps the one-file form. `.grill/merged-upload-decisions.md`.
+
+## A59 — Continue with Google, registered accounts only (2026-11-12)
+
+The sign-in page offers "Continue with Google" (when the provider is on in Supabase Auth). Only accounts an admin
+registered get in, under the same session rules as a password sign-in; anyone else is told that sign-ups are not
+allowed and to contact the admin at solarsyncx@gmail.com. `.grill/google-sign-in-decisions.md`.
