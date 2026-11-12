@@ -567,8 +567,7 @@ export const carbonCreditsRouter = router({
 
       const filter = input.periodFilter ?? input.reportingPeriodId;
       const isUuid = Boolean(
-        filter &&
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filter),
+        filter && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filter),
       );
       const uuidFilter = isUuid && filter ? filter : null;
       const isFy25 = filter === "FY_2025_26";
