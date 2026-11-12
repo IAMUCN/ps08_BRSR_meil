@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/shell/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { requireAdminAreaSession } from "@/lib/auth/session";
+import { requireMonitoringSession } from "@/lib/auth/session";
+import { DEFAULT_ALERT_SETTINGS } from "@/lib/analytics/alerts";
+import { canAdminister } from "@/lib/auth/workspace";
 import { NOTABLE_PCT, monthsLabel, SCOPES, type Comparison } from "@/lib/analytics/trends";
 import { api } from "@/lib/trpc/server";
 import { AlertsPanel } from "./alerts-panel";
@@ -47,7 +49,7 @@ export default async function CarbonAnalyticsPage({
   searchParams: Promise<{ org?: string | string[] }>;
 }) {
   const [session, caller, params] = await Promise.all([
-    requireAdminAreaSession(),
+    requireMonitoringSession(),
     api(),
     searchParams,
   ]);
@@ -67,10 +69,13 @@ export default async function CarbonAnalyticsPage({
     );
   }
 
+  // The thresholds are read through an Administrator's procedure; a read-only viewer sees the defaults'
+  // wording only, and the settings form is a Super Admin's anyway.
+  const canAct = canAdminister(session);
   const [overview, alerts, settings] = await Promise.all([
     caller.analytics.overview({ orgUnitId }),
     caller.analytics.alerts({ orgUnitId }),
-    caller.analytics.alertSettings(),
+    canAct ? caller.analytics.alertSettings() : Promise.resolve(DEFAULT_ALERT_SETTINGS),
   ]);
   const { years, activities } = overview.trends;
 
@@ -232,7 +237,12 @@ export default async function CarbonAnalyticsPage({
         aiAvailable={overview.aiAvailable}
       />
 
-      <AlertsPanel alerts={alerts} settings={settings} isSuperAdmin={session.isAdmin} />
+      <AlertsPanel
+        alerts={alerts}
+        settings={settings}
+        isSuperAdmin={session.isAdmin}
+        canAcknowledge={canAct}
+      />
     </div>
   );
 }

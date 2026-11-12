@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ContextFilters, RecordsTable } from "@/components/records/records-explorer";
 import { PageHeader } from "@/components/shell/page-header";
-import { requireAdminAreaSession } from "@/lib/auth/session";
+import { requireMonitoringSession } from "@/lib/auth/session";
 import { readParams, stringParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
 
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "ESG Data Explorer · EmeilSG" };
 export default async function DataExplorerPage({
   searchParams,
 }: PageProps<"/admin/data-explorer">) {
-  const [, caller, raw] = await Promise.all([requireAdminAreaSession(), api(), searchParams]);
+  const [, caller, raw] = await Promise.all([requireMonitoringSession(), api(), searchParams]);
   const q = readParams(raw);
   const { context, rows, truncated } = await caller.records.search({
     orgUnitId: q.orgUnitId,

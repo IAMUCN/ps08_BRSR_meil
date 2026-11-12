@@ -460,3 +460,17 @@ Built by the feature session at the owner's request; no restyle.
   beneath; screen-reader names, the introduction ("I'm Tracey. Ask me about …") and the question box say Tracey.
 - `lib/chat/orchestrate.ts`: the instructions start "You are Tracey, the ESG data analyst inside EmeilSG"; she
   answers to her name. `tests/e2e/ui-phase8.mjs` expects "Ask Tracey".
+
+## 2026-11-12 — Role-wise dashboard, Phase 0: pages opened to Corporate ESG (feature session)
+
+Built by the feature session at the owner's request (`.grill/role-dashboard-decisions.md`); no look-and-feel change.
+
+- `app/admin/layout.tsx`: admits anyone with a page under `/admin` and offers `workspaceNavFor(session)`; the
+  profile link goes to `/app/profile` for people who are not administrators.
+- `components/shell/admin-nav.ts`: `workspaceNavFor` adds Scope 1/2/3, Data Explorer, Submission Monitoring,
+  Carbon Analytics (for `monitoring.view`) and Reports (for `report.generate`).
+- Read-only versions of those pages: the Remind button, Organization links, Acknowledge, and the Evidence Bundle
+  buttons are hidden unless the viewer is a Super Admin or Administrator; the record drawer hides corrections,
+  OCR retry and "View audit history" from `detail.viewer`.
+- **Not viewed in a browser.** Check the Corporate ESG sidebar, and the drawer and Carbon Analytics page without
+  their action buttons.

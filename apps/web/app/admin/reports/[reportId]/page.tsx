@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { PageHeader } from "@/components/shell/page-header";
-import { requireAdminAreaSession } from "@/lib/auth/session";
+import { requireReportsSession } from "@/lib/auth/session";
 import { api, orNotFound } from "@/lib/trpc/server";
 import { ReportForwarding } from "@/components/reports/report-forwarding";
 import { TEMPLATE_INFO } from "@/lib/reports/templates";
@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Report · EmeilSG" };
 // 03_APP_FLOW.md §2.2 Report Detail / Drill-down: the stored report with live links into its data trail.
 export default async function ReportDetailPage({ params }: PageProps<"/admin/reports/[reportId]">) {
   const [session, caller, { reportId }] = await Promise.all([
-    requireAdminAreaSession(),
+    requireReportsSession(),
     api(),
     params,
   ]);

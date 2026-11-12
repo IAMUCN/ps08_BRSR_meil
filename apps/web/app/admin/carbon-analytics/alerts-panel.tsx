@@ -26,10 +26,13 @@ export function AlertsPanel({
   alerts,
   settings,
   isSuperAdmin,
+  canAcknowledge,
 }: {
   alerts: EmissionAlert[];
   settings: AlertSettings;
   isSuperAdmin: boolean;
+  /** Super Admin or Administrator; a read-only viewer (Corporate ESG) sees the alerts as they stand. */
+  canAcknowledge: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -86,7 +89,7 @@ export function AlertsPanel({
       ) : (
         <ul className="space-y-2">
           {alerts.map((a) => (
-            <AlertItem key={a.id} alert={a} />
+            <AlertItem key={a.id} alert={a} canAcknowledge={canAcknowledge} />
           ))}
         </ul>
       )}
@@ -96,7 +99,7 @@ export function AlertsPanel({
   );
 }
 
-function AlertItem({ alert }: { alert: EmissionAlert }) {
+function AlertItem({ alert, canAcknowledge }: { alert: EmissionAlert; canAcknowledge: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState("");
@@ -157,7 +160,7 @@ function AlertItem({ alert }: { alert: EmissionAlert }) {
             : ""}
           : {alert.acknowledgedNote}
         </p>
-      ) : open ? (
+      ) : !canAcknowledge ? null : open ? (
         <form onSubmit={acknowledge} className="flex flex-wrap items-end gap-2">
           <div className="min-w-64 flex-1 space-y-1">
             <Label htmlFor={`ack-${alert.id}`}>What was found, or what will be done</Label>

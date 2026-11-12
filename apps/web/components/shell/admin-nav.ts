@@ -1,4 +1,5 @@
 import type { NavItem } from "@/components/shell/sidebar";
+import { canMonitor, canUseReports } from "../../lib/auth/workspace.ts";
 
 // The /admin sidebar (built pages only, .grill/phase-4-admin-foundation-decisions.md). A Super Admin sees
 // all of it; an Administrator sees the pages that are about their own org units — group-wide configuration
@@ -92,6 +93,24 @@ export function workspaceNavFor(session: {
   // A1: the Approvals item appears only for approvers (Corporate ESG/Sustainability).
   if (session.permissions.includes("approval.decide"))
     nav.push({ href: "/app/approvals", label: "Approvals", icon: "approvals" });
+  // Role-wise dashboard: the read-only monitoring pages and Reports open to the permissions that earn them.
+  if (canMonitor(session)) {
+    nav.push(
+      { href: "/admin/scope-1", label: "Scope 1", icon: "scope1", startsGroup: true },
+      { href: "/admin/scope-2", label: "Scope 2", icon: "scope2" },
+      { href: "/admin/scope-3", label: "Scope 3", icon: "scope3" },
+      { href: "/admin/data-explorer", label: "Data Explorer", icon: "explorer" },
+      { href: "/admin/submissions", label: "Submission Monitoring", icon: "submissions" },
+      { href: "/admin/carbon-analytics", label: "Carbon Analytics", icon: "analytics" },
+    );
+  }
+  if (canUseReports(session))
+    nav.push({
+      href: "/admin/reports",
+      label: "Reports",
+      icon: "reports",
+      startsGroup: !canMonitor(session),
+    });
   // A20: bulk-import items appear only for whichever role(s) an Admin has granted the permission to.
   if (session.permissions.includes("user.bulk_import"))
     nav.push({ href: "/app/users/bulk-import", label: "Add Employees", icon: "users" });

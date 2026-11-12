@@ -214,7 +214,10 @@ export const reportForwardingRouter = router({
         return await db().begin(async (tx) => {
           const report = await reportLabel(tx, input.reportRunId);
           // Out of scope and missing read the same (§4.4).
-          if (!report || !(await inOrgScope(tx, ctx.session, report.org_unit_id))) {
+          if (
+            !report ||
+            !(await inOrgScope(tx, ctx.session, report.org_unit_id, "report.generate"))
+          ) {
             throw new TRPCError({ code: "NOT_FOUND", message: "That report isn't available." });
           }
           if (report.status !== "completed") {
@@ -361,7 +364,7 @@ export const reportForwardingRouter = router({
       const visible =
         report &&
         ((ctx.session.permissions.includes("report.generate") &&
-          (await inOrgScope(sql, ctx.session, report.org_unit_id))) ||
+          (await inOrgScope(sql, ctx.session, report.org_unit_id, "report.generate"))) ||
           rows.some((r) => receives(administered, r.to_org_unit_id)));
       if (!visible)
         throw new TRPCError({ code: "NOT_FOUND", message: "That report isn't available." });

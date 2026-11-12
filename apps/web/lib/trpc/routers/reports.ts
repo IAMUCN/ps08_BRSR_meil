@@ -137,7 +137,7 @@ export const reportsRouter = router({
     .query(async ({ ctx, input }): Promise<EvidenceFile[]> => {
       const { from, to } = financialYearRange(input.financialYear);
       // Evidence of the caller's own org units only; every unit for a Super Admin.
-      const scope = await scopedOrgUnitIds(db(), ctx.session);
+      const scope = await scopedOrgUnitIds(db(), ctx.session, "report.generate");
       const rows = await db()<
         {
           document_id: string;
@@ -196,7 +196,7 @@ export const reportsRouter = router({
       sql<{ id: string; label: string; start_date: string; end_date: string; status: string }[]>`
         select id, label, start_date::text, end_date::text, status::text from public.reporting_periods
         order by start_date desc`,
-      scopedOrgUnitIds(sql, ctx.session),
+      scopedOrgUnitIds(sql, ctx.session, "report.generate"),
     ]);
     // Only the units the caller may report on, indented from their own top unit.
     const inScope = allOrgUnits.filter((o) => scope === null || scope.includes(o.id));
@@ -290,7 +290,7 @@ export const reportsRouter = router({
 
   list: generateProcedure.query(async ({ ctx }): Promise<ReportRunRow[]> => {
     await expireStaleRuns();
-    const scope = await scopedOrgUnitIds(db(), ctx.session);
+    const scope = await scopedOrgUnitIds(db(), ctx.session, "report.generate");
     const rows = await db()<
       {
         id: string;
@@ -336,7 +336,7 @@ export const reportsRouter = router({
   get: generateProcedure
     .input(z.object({ id: z.uuid() }))
     .query(async ({ ctx, input }): Promise<ReportRunRow & { snapshot: Snapshot | null }> => {
-      const scope = await scopedOrgUnitIds(db(), ctx.session);
+      const scope = await scopedOrgUnitIds(db(), ctx.session, "report.generate");
       const runs = await db()<
         {
           id: string;
@@ -399,7 +399,7 @@ export const reportsRouter = router({
         recalculatedSince: boolean;
       }> => {
         const sql = db();
-        const scope = await scopedOrgUnitIds(sql, ctx.session);
+        const scope = await scopedOrgUnitIds(sql, ctx.session, "report.generate");
         const [record] = await sql<{ current: string | null }[]>`
           select (select id from public.calculations where esg_record_id = r.id and is_current) as current
           from public.esg_records r where r.id = ${input.recordId}
@@ -430,7 +430,7 @@ export const reportsRouter = router({
       }),
     )
     .query(async ({ ctx, input }): Promise<BundlePreview> => {
-      await assertOrgScope(db(), ctx.session, input.orgUnitId);
+      await assertOrgScope(db(), ctx.session, input.orgUnitId, "report.generate");
       return getBundlePreview(input);
     }),
 });

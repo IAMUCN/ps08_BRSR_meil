@@ -6,7 +6,8 @@ import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
-import { requireAdminAreaSession } from "@/lib/auth/session";
+import { requireReportsSession } from "@/lib/auth/session";
+import { canAdminister } from "@/lib/auth/workspace";
 import { financialYearLabel } from "@/lib/consolidation/aggregate";
 import { api } from "@/lib/trpc/server";
 import { ReportForm, type ReportPreset } from "./report-form";
@@ -26,7 +27,7 @@ export default async function ReportsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const [session, caller, params] = await Promise.all([
-    requireAdminAreaSession(),
+    requireReportsSession(),
     api(),
     searchParams,
   ]);
@@ -74,12 +75,14 @@ export default async function ReportsPage({
                 Past reports
               </Link>
             </Button>
-            <Button asChild variant="default">
-              <Link href="/admin/reports/bundle">
-                <Archive aria-hidden />
-                Evidence Bundle
-              </Link>
-            </Button>
+            {canAdminister(session) ? (
+              <Button asChild variant="default">
+                <Link href="/admin/reports/bundle">
+                  <Archive aria-hidden />
+                  Evidence Bundle
+                </Link>
+              </Button>
+            ) : null}
             {inputsYear !== null ? (
               <Button asChild variant="outline">
                 <Link href={`/admin/reports/evidence?year=${inputsYear}`}>
