@@ -407,6 +407,62 @@ export function generateDecarbonizationSuggestions(
     });
   }
 
+  // 9. BUSINESS_TRAVEL_SPIKE / Corporate Travel & Scope 3 Surge -> Sustainable Travel Policy
+  const scope3Growth = features.scope3_growth ?? null;
+  if (
+    triggeredRules.has("RULE_TRAVEL_GROWTH") ||
+    triggeredRules.has("RULE_SCOPE3_SURGE") ||
+    (scope3Growth !== null && scope3Growth > 0.15) ||
+    (features.previous_scope3_emissions !== undefined &&
+      features.previous_scope3_emissions !== null &&
+      scope3 > features.previous_scope3_emissions * 1.15)
+  ) {
+    const rule =
+      triggeredRules.get("RULE_TRAVEL_GROWTH") ?? triggeredRules.get("RULE_SCOPE3_SURGE");
+    const targetTravelCut = scope3 * 0.25; // 25% reduction through virtual reviews, rail preference, and flight caps
+    const tco2eSaved = Number(targetTravelCut.toFixed(2));
+    const pctReduction =
+      totalEmissions > 0 ? Number(((tco2eSaved / totalEmissions) * 100).toFixed(2)) : 0;
+
+    suggestions.push({
+      id: "REC-TRAVEL-POLICY-09",
+      title: "Corporate Sustainable Travel Policy & Digital Collaboration Mandate",
+      summary:
+        "Introduce a comprehensive corporate travel regulation policy: mandate virtual reviews for intra-state operations, enforce rail preference for regional corridors under 500 km, restrict domestic business class flights, and implement internal carbon budgeting.",
+      category: "FLEET_AND_FUELS",
+      priority:
+        (scope3Growth !== null && scope3Growth > 0.25) || features.scope3_contribution > 0.5
+          ? "CRITICAL"
+          : "HIGH",
+      triggeredByRuleCode:
+        rule?.ruleCode ??
+        (scope3Growth !== null && scope3Growth > 0.15
+          ? "TRAVEL_SCOPE3_SURGE"
+          : "SCOPE3_GROWTH_SURGE"),
+      targetFeature: scope3Growth !== null ? "scope3_growth" : "scope3_emissions",
+      observedValue: scope3Growth !== null ? scope3Growth : features.scope3_emissions,
+      thresholdValue: rule ? rule.thresholdValue : 0.15,
+      potentialEmissionSavingsTco2e: tco2eSaved,
+      potentialPercentageReduction: pctReduction,
+      investmentTier: "NO_COST", // OpEx-saving policy, zero CapEx required
+      estimatedPaybackYears: 0.1, // Immediate payback through reduced travel bookings
+      carbonAdjustedPaybackYears: 0.1,
+      paybackHorizon: "IMMEDIATE",
+      actionSteps: [
+        "Enforce a 'Virtual First' policy for internal administrative, quarterly review, and routine project coordination meetings.",
+        "Mandate train travel (Vande Bharat / Express rail) over domestic air travel for inter-city journeys under 500 km (e.g., Hyderabad-Bengaluru, Hyderabad-Chennai).",
+        "Restrict corporate flight bookings to economy class across all domestic sectors, avoiding high-emission premium seating.",
+        "Implement an Internal Carbon Price (ICP) surcharge (₹2,500/tCO2e) allocated directly onto department business travel budgets.",
+        "Partner with electric fleet operators (e.g. EV airport taxis and site transit) to cut ground transportation carbon intensity.",
+      ],
+      technicalPrerequisites: [
+        "Enterprise video conferencing and digital site inspection software across all project clusters.",
+        "Integration of carbon footprint calculator into the corporate Travel & Expense (T&E) booking portal.",
+      ],
+      regulatoryDisclaimer: STANDARD_SUGGESTION_DISCLAIMER,
+    });
+  }
+
   // Aggregations
   const totalPotentialReductionTco2e = Number(
     suggestions.reduce((sum, s) => sum + s.potentialEmissionSavingsTco2e, 0).toFixed(2),

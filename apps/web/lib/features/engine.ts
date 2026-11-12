@@ -53,6 +53,8 @@ export type EsgFeatureSet = {
   scope1_emissions: number;
   scope2_emissions: number;
   scope3_emissions: number;
+  previous_scope3_emissions?: number | null;
+  scope3_growth?: number | null;
   total_emissions: number;
   previous_total_emissions: number | null;
   emissions_growth: number | null;
@@ -290,6 +292,9 @@ export function computeEsgFeatures(options: {
   const prevTotalEmissions = previousPeriodFeatures?.total_emissions ?? null;
   const emissionsGrowth = calculateGrowthRate(totalEmissions, prevTotalEmissions);
 
+  const prevScope3 = previousPeriodFeatures?.scope3_emissions ?? null;
+  const scope3Growth = calculateGrowthRate(scope3Tco2e, prevScope3);
+
   const scope1Share = calculateRatio(scope1Tco2e, totalEmissions);
   const scope2Share = calculateRatio(scope2Tco2e, totalEmissions);
   const scope3Share = calculateRatio(scope3Tco2e, totalEmissions);
@@ -387,6 +392,8 @@ export function computeEsgFeatures(options: {
     scope1_emissions: Number(scope1Tco2e.toFixed(4)),
     scope2_emissions: Number(scope2Tco2e.toFixed(4)),
     scope3_emissions: Number(scope3Tco2e.toFixed(4)),
+    previous_scope3_emissions: prevScope3,
+    scope3_growth: scope3Growth,
     total_emissions: totalEmissions,
     previous_total_emissions: prevTotalEmissions,
     emissions_growth: emissionsGrowth,
