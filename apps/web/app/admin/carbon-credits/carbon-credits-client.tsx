@@ -449,7 +449,7 @@ export function CarbonCreditsClient({
             onClick={() => setActiveTab("quotation")}
           >
             <ShoppingCart className="size-4" />
-            Carbon Offset Quotation
+            Credits to Purchase
           </Button>
         </div>
 
@@ -808,7 +808,7 @@ export function CarbonCreditsClient({
                   onClick={() => setActiveTab("quotation")}
                 >
                   <ShoppingCart className="size-3.5 mr-1.5" />
-                  Get Quotation to Offset {reconciliation.net.total.toLocaleString()} tCO₂e
+                  Calculate Credits to Offset {reconciliation.net.total.toLocaleString()} tCO₂e
                 </Button>
               </div>
             </Card>

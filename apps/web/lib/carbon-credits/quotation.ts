@@ -1,23 +1,14 @@
 /**
- * Carbon Quotation & Offset Procurement Estimator Engine
- * Calculates offset shortfall from live gross/net emissions, estimates procurement costs
- * across major registries (Verra, CarbonTradeLabs, Gold Standard, CCTS India, I-REC),
- * and generates formal SEBI BRSR Core RFQ procurement specifications.
+ * Carbon Equivalent & Credit Purchase Estimator Engine
+ * Calculates the exact carbon credits required to purchase based strictly on
+ * operational emissions data (1 Carbon Credit = 1 tCO2e carbon equivalent).
  */
 
-export type QuotationProvider = {
-  id: string;
-  name: string;
-  registryType: "VERRA_VCS" | "GOLD_STANDARD" | "CCTS_INDIA" | "CARBONTRADELABS" | "I_REC";
-  category: string;
-  indicativePriceInr: number;
-  priceRangeInr: { min: number; max: number };
-  indicativePriceUsd: number;
-  priceRangeUsd: { min: number; max: number };
-  status: string;
-  recommendedVintage: string;
-  directRegistryUrl: string;
-  description: string;
+export type ScopeEmissions = {
+  scope1: number;
+  scope2: number;
+  scope3: number;
+  total: number;
 };
 
 export type OffsetShortfall = {
@@ -28,127 +19,47 @@ export type OffsetShortfall = {
   hasEmissions: boolean;
 };
 
-export type QuotationResult = {
-  provider: QuotationProvider;
-  targetVolumeTco2e: number;
-  unitPriceInr: number;
-  unitPriceUsd: number;
-  estimatedTotalInr: number;
-  estimatedTotalUsd: number;
-  minTotalInr: number;
-  maxTotalInr: number;
-  minTotalUsd: number;
-  maxTotalUsd: number;
-  remainingNetEmissionsTco2e: number;
-  offsetPercentage: number;
-  sebiBrsrEligibility: boolean;
-};
-
-export type RfqSpecification = {
-  rfqNumber: string;
-  createdAt: string;
-  orgUnitName: string;
-  orgUnitCode: string;
-  reportingPeriod: string;
-  targetVolumeTco2e: number;
+export type CreditProcurementPlan = {
+  targetCreditsToBuy: number;
   scopeBreakdown: {
     scope1: number;
     scope2: number;
     scope3: number;
   };
-  preferredRegistries: string[];
-  vintageWindow: string;
-  additionalityClause: string;
-  antiDoubleCountingClause: string;
-  estimatedBudgetInr: string;
-  estimatedBudgetUsd: string;
+  currentGrossEmissionsTco2e: number;
+  currentOffsetsRetiredTco2e: number;
+  currentNetEmissionsTco2e: number;
+  projectedNetEmissionsTco2e: number;
+  offsetPercentage: number;
+  isNetZeroAchieved: boolean;
 };
 
-export const QUOTATION_PROVIDERS: QuotationProvider[] = [
-  {
-    id: "verra_vcs",
-    name: "Verra VCS (Verified Carbon Standard)",
-    registryType: "VERRA_VCS",
-    category: "Nature-based (REDD+, Afforestation) & Tech Removal",
-    indicativePriceInr: 920,
-    priceRangeInr: { min: 750, max: 1250 },
-    indicativePriceUsd: 11.0,
-    priceRangeUsd: { min: 9.0, max: 15.0 },
-    status: "Global Benchmark Voluntary Registry",
-    recommendedVintage: "2022–2025 (SEBI Core audit requires vintage ≤ 3 years)",
-    directRegistryUrl: "https://registry.verra.org/app/search/VCS",
-    description:
-      "World's leading voluntary greenhouse gas crediting program for verified carbon units (VCUs).",
-  },
-  {
-    id: "carbontradelabs",
-    name: "CarbonTradeLabs / CTX Spot Exchange",
-    registryType: "CARBONTRADELABS",
-    category: "Spot Electronic Exchange Traded Voluntary Offsets & Biochar",
-    indicativePriceInr: 880,
-    priceRangeInr: { min: 680, max: 1300 },
-    indicativePriceUsd: 10.5,
-    priceRangeUsd: { min: 8.0, max: 15.5 },
-    status: "Instant Spot Settlement Exchange",
-    recommendedVintage: "2022–2025",
-    directRegistryUrl: "https://carbontradelabs.com/",
-    description:
-      "Live digital spot marketplace for wholesale carbon credit trades and direct electronic registry settlement.",
-  },
-  {
-    id: "gold_standard",
-    name: "Gold Standard for the Global Goals (GS-VER)",
-    registryType: "GOLD_STANDARD",
-    category: "Clean Cooking, Safe Water & High-SDG Community Forestry",
-    indicativePriceInr: 1520,
-    priceRangeInr: { min: 1250, max: 2100 },
-    indicativePriceUsd: 18.0,
-    priceRangeUsd: { min: 15.0, max: 25.0 },
-    status: "Premium High-Integrity Standard",
-    recommendedVintage: "2022–2025",
-    directRegistryUrl: "https://registry.goldstandard.org/credit-blocks",
-    description:
-      "WWF-endorsed international standard ensuring quantified Sustainable Development Goal (SDG) co-benefits.",
-  },
-  {
-    id: "ccts_india",
-    name: "Indian Carbon Credit Trading Scheme (BEE / CCTS)",
-    registryType: "CCTS_INDIA",
-    category: "Domestic Indian Compliance Carbon Credit Certificates (CCCs)",
-    indicativePriceInr: 1850,
-    priceRangeInr: { min: 1500, max: 2400 },
-    indicativePriceUsd: 22.0,
-    priceRangeUsd: { min: 18.0, max: 28.5 },
-    status: "Indian Statutory Market Scheme",
-    recommendedVintage: "2023–2025 (Energy Conservation Act compliance)",
-    directRegistryUrl: "https://indiancarbonmarket.gov.in/",
-    description:
-      "Administered by Bureau of Energy Efficiency (BEE) and Grid-India under the Ministry of Power for obligated and voluntary Indian buyers.",
-  },
-  {
-    id: "i_rec",
-    name: "I-REC Standard / BEE ESCerts (Renewable Attribute)",
-    registryType: "I_REC",
-    category: "Scope 2 Indirect Electricity Renewable Certificates",
-    indicativePriceInr: 280,
-    priceRangeInr: { min: 180, max: 420 },
-    indicativePriceUsd: 3.3,
-    priceRangeUsd: { min: 2.1, max: 5.0 },
-    status: "Scope 2 Renewable Attribute Standard",
-    recommendedVintage: "2024–2025",
-    directRegistryUrl: "https://www.irec.net/",
-    description:
-      "International tracking standard for contractual renewable electricity claims to neutralize Scope 2 emissions under GHG Protocol Scope 2 Guidance.",
-  },
-];
+export type ProcurementBrief = {
+  planId: string;
+  createdAt: string;
+  orgUnitName: string;
+  orgUnitCode: string;
+  reportingPeriod: string;
+  grossEmissionsTco2e: number;
+  existingOffsetsTco2e: number;
+  unmitigatedNetEmissionsTco2e: number;
+  creditsToPurchase: number;
+  scopeAllocation: {
+    scope1: number;
+    scope2: number;
+    scope3: number;
+  };
+  postProcurementResidualTco2e: number;
+  complianceStandard: string;
+};
 
 /**
- * Calculates remaining offset shortfall (unmitigated emissions to buy)
- * across Scope 1, Scope 2, Scope 3, and Total.
+ * Calculates remaining carbon credit deficit across Scope 1, Scope 2, Scope 3, and Total.
+ * 1 Carbon Credit = 1 tCO2e.
  */
 export function calculateOffsetShortfall(
-  gross: { scope1: number; scope2: number; scope3: number; total: number },
-  offsets: { scope1: number; scope2: number; scope3: number; total: number },
+  gross: ScopeEmissions,
+  offsets: ScopeEmissions,
 ): OffsetShortfall {
   const scope1 = Math.max(0, gross.scope1 - offsets.scope1);
   const scope2 = Math.max(0, gross.scope2 - offsets.scope2);
@@ -164,110 +75,105 @@ export function calculateOffsetShortfall(
 }
 
 /**
- * Calculates carbon credit procurement quotation for a given target volume
- * against a designated provider/registry.
+ * Calculates credit procurement plan allocating target credits across scopes
+ * and calculating projected post-offset residual emissions.
  */
-export function calculateQuotation(
-  targetVolumeTco2e: number,
-  provider: QuotationProvider,
-  currentNetEmissionsTco2e: number,
-): QuotationResult {
-  const safeVolume = Math.max(0, targetVolumeTco2e);
-  const estimatedTotalInr = Math.round(safeVolume * provider.indicativePriceInr);
-  const estimatedTotalUsd = Math.round(safeVolume * provider.indicativePriceUsd);
-  const minTotalInr = Math.round(safeVolume * provider.priceRangeInr.min);
-  const maxTotalInr = Math.round(safeVolume * provider.priceRangeInr.max);
-  const minTotalUsd = Math.round(safeVolume * provider.priceRangeUsd.min);
-  const maxTotalUsd = Math.round(safeVolume * provider.priceRangeUsd.max);
+export function calculateCreditProcurementPlan(
+  targetCreditsToBuy: number,
+  gross: ScopeEmissions,
+  offsets: ScopeEmissions,
+  scopeFilter: "ALL" | "SCOPE_1" | "SCOPE_2" | "SCOPE_3" = "ALL",
+): CreditProcurementPlan {
+  const shortfall = calculateOffsetShortfall(gross, offsets);
+  const safeCredits = Math.max(0, targetCreditsToBuy);
 
-  const remainingNetEmissionsTco2e = Math.max(0, currentNetEmissionsTco2e - safeVolume);
+  let scope1Allocated = 0;
+  let scope2Allocated = 0;
+  let scope3Allocated = 0;
+
+  if (scopeFilter === "SCOPE_1") {
+    scope1Allocated = Math.min(safeCredits, shortfall.scope1);
+  } else if (scopeFilter === "SCOPE_2") {
+    scope2Allocated = Math.min(safeCredits, shortfall.scope2);
+  } else if (scopeFilter === "SCOPE_3") {
+    scope3Allocated = Math.min(safeCredits, shortfall.scope3);
+  } else {
+    // Allocate proportionally across scopes based on actual shortfall
+    const totalShortfall = shortfall.total;
+    if (totalShortfall > 0) {
+      scope1Allocated = Math.round((shortfall.scope1 / totalShortfall) * safeCredits);
+      scope2Allocated = Math.round((shortfall.scope2 / totalShortfall) * safeCredits);
+      scope3Allocated = safeCredits - scope1Allocated - scope2Allocated;
+    } else {
+      scope1Allocated = Math.round(safeCredits / 3);
+      scope2Allocated = Math.round(safeCredits / 3);
+      scope3Allocated = safeCredits - scope1Allocated - scope2Allocated;
+    }
+  }
+
+  const projectedNetEmissions = Math.max(0, shortfall.total - safeCredits);
   const offsetPercentage =
-    currentNetEmissionsTco2e > 0
-      ? Math.min(100, Number(((safeVolume / currentNetEmissionsTco2e) * 100).toFixed(1)))
+    shortfall.total > 0
+      ? Math.min(100, Number(((safeCredits / shortfall.total) * 100).toFixed(1)))
       : 100;
 
   return {
-    provider,
-    targetVolumeTco2e: safeVolume,
-    unitPriceInr: provider.indicativePriceInr,
-    unitPriceUsd: provider.indicativePriceUsd,
-    estimatedTotalInr,
-    estimatedTotalUsd,
-    minTotalInr,
-    maxTotalInr,
-    minTotalUsd,
-    maxTotalUsd,
-    remainingNetEmissionsTco2e,
+    targetCreditsToBuy: safeCredits,
+    scopeBreakdown: {
+      scope1: scope1Allocated,
+      scope2: scope2Allocated,
+      scope3: scope3Allocated,
+    },
+    currentGrossEmissionsTco2e: gross.total,
+    currentOffsetsRetiredTco2e: offsets.total,
+    currentNetEmissionsTco2e: shortfall.total,
+    projectedNetEmissionsTco2e: projectedNetEmissions,
     offsetPercentage,
-    sebiBrsrEligibility: true,
+    isNetZeroAchieved: projectedNetEmissions === 0,
   };
 }
 
-export function formatInrLakhs(amountInr: number): string {
-  if (amountInr >= 10000000) {
-    return `₹${(amountInr / 10000000).toFixed(2)} Cr`;
-  }
-  if (amountInr >= 100000) {
-    return `₹${(amountInr / 100000).toFixed(2)} Lakhs`;
-  }
-  return `₹${amountInr.toLocaleString("en-IN")}`;
-}
-
-export function formatUsdThousands(amountUsd: number): string {
-  if (amountUsd >= 1000000) {
-    return `$${(amountUsd / 1000000).toFixed(2)}M`;
-  }
-  if (amountUsd >= 1000) {
-    return `$${(amountUsd / 1000).toFixed(1)}k`;
-  }
-  return `$${amountUsd.toLocaleString()}`;
-}
-
-export function generateRfqDocument(rfq: RfqSpecification): string {
+export function generateProcurementBriefDocument(brief: ProcurementBrief): string {
   return `================================================================================
-REQUEST FOR QUOTATION (RFQ) - CARBON CREDIT OFFSET PROCUREMENT
-Reference ID: ${rfq.rfqNumber}
-Date Generated: ${rfq.createdAt}
-Issuing Entity: ${rfq.orgUnitName} (${rfq.orgUnitCode})
-Reporting Cycle: ${rfq.reportingPeriod}
-Compliance Framework: SEBI BRSR Core Principle 6 / GHG Protocol Standard
+CARBON CREDIT PROCUREMENT PLAN & EMISSION OFFSET SPECIFICATION
+Plan ID: ${brief.planId}
+Date Generated: ${brief.createdAt}
+Organization Unit: ${brief.orgUnitName} (${brief.orgUnitCode})
+Reporting Period: ${brief.reportingPeriod}
+Conversion Basis: 1 Carbon Credit = 1 tCO2e (Metric Tonne CO2 Equivalent)
+Standard: ${brief.complianceStandard}
 ================================================================================
 
-1. PROCUREMENT SPECIFICATION & TARGET VOLUMES
+1. OPERATIONAL EMISSIONS DATA (PLATFORM RECORDS)
 --------------------------------------------------------------------------------
-Total Target Volume:           ${rfq.targetVolumeTco2e.toLocaleString()} tCO2e
-- Scope 1 Direct Emissions:    ${rfq.scopeBreakdown.scope1.toLocaleString()} tCO2e
-- Scope 2 Electricity Offsets: ${rfq.scopeBreakdown.scope2.toLocaleString()} tCO2e (RECs / I-RECs accepted)
-- Scope 3 Value Chain Offsets: ${rfq.scopeBreakdown.scope3.toLocaleString()} tCO2e
-
-2. APPROVED REGISTRIES & CERTIFICATION BODIES
+Gross Operational Emissions:   ${brief.grossEmissionsTco2e.toLocaleString()} tCO2e
+Existing Retired Credits:      ${brief.existingOffsetsTco2e.toLocaleString()} Credits (tCO2e)
 --------------------------------------------------------------------------------
-Accepted Programs:
-${rfq.preferredRegistries.map((r) => `  * ${r}`).join("\n")}
+Net Unmitigated Shortfall:     ${brief.unmitigatedNetEmissionsTco2e.toLocaleString()} tCO2e
 
-Acceptable Vintages:           ${rfq.vintageWindow}
-Third-Party Assurance:         Mandatory accredited Designated Operational Entity
-                               (DOE) verification report (e.g. TÜV, DNV, Bureau Veritas).
-
-3. CONTRACTUAL COMPLIANCE & WARRANTY REQUIREMENTS
+2. REQUIRED CARBON CREDITS TO PURCHASE
 --------------------------------------------------------------------------------
-1. ANTI-DOUBLE-COUNTING & SURRENDER WARRANTY:
-   ${rfq.antiDoubleCountingClause}
+Total Credits to Purchase:     ${brief.creditsToPurchase.toLocaleString()} Carbon Credits
+- Scope 1 (Direct Fuel/Fleet): ${brief.scopeAllocation.scope1.toLocaleString()} Credits
+- Scope 2 (Electricity Grid):  ${brief.scopeAllocation.scope2.toLocaleString()} Credits (RECs / I-RECs)
+- Scope 3 (Value Chain):       ${brief.scopeAllocation.scope3.toLocaleString()} Credits
 
-2. SERIAL NUMBER DISCLOSURE:
-   Full serial number ranges (SerialNumberStart to SerialNumberEnd) must be
-   delivered with registry-issued cancellation/retirement confirmation letters
-   citing "${rfq.orgUnitName}" as the sole beneficiary.
-
-3. ADDITIONALITY & PERMANENCE:
-   ${rfq.additionalityClause}
-
-4. ESTIMATED BUDGETARY ALLOCATION
+3. PROJECTED POST-OFFSET CARBON POSITION
 --------------------------------------------------------------------------------
-Budgetary Estimate (INR):      ${rfq.estimatedBudgetInr}
-Budgetary Estimate (USD):      ${rfq.estimatedBudgetUsd}
+Baseline Gross Emissions:      ${brief.grossEmissionsTco2e.toLocaleString()} tCO2e
+Total Applied Offsets:         ${(brief.existingOffsetsTco2e + brief.creditsToPurchase).toLocaleString()} tCO2e
+Projected Net Emissions:       ${brief.postProcurementResidualTco2e.toLocaleString()} tCO2e
+Net Zero Status:               ${brief.postProcurementResidualTco2e === 0 ? "100% Carbon Neutral Achieved" : "Partial Offset Coverage"}
+
+4. AUDIT & SEBI BRSR PRINCIPLE 6 REQUIREMENTS
+--------------------------------------------------------------------------------
+* Every purchased credit must be issued under an accredited registry standard
+  (e.g., Verra VCS, Gold Standard, CCTS India, or I-REC).
+* Cancellation/retirement letters must name "${brief.orgUnitName}" as beneficiary.
+* Serial number ranges (start to end) must be entered into the TraceESG ledger
+  to guarantee anti-double-counting audit verification.
 
 ================================================================================
-Generated via TraceESG Carbon Intelligence · Automated Procurement Specification
+TraceESG Carbon Intelligence · Data-Driven Carbon Credit Procurement Specification
 ================================================================================`;
 }
