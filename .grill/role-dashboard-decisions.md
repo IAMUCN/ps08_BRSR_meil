@@ -169,3 +169,21 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
   the original file kept as private evidence? Recommended: counts only (data minimisation).
 - Employee register: how it passes the approval flow, who may upload it, per-period snapshot, retention, and
   what an Auditor sees.
+
+## Employee register: decided (2026-11-12)
+- **Counts only, no person-level rows in the database.** HR uploads the register (Excel); the server computes the
+  totals once (headcount by employee/worker, permanent/other, gender, differently-abled; leavers; opening and
+  closing headcount; wages by gender and by place-of-employment class) and saves only those, with the original
+  file kept as private evidence (hash-checked like every document). A person verifies the computed totals
+  before they count; they then go through the normal validation and approval flow.
+- **Super Admin and HR can open the uploaded register when they need it** (by permission, not role name, so a
+  Super Admin can grant or withdraw it), inside their org scope.
+- **That view says which people in the register have an EmeilSG account and which do not**, matched on employee
+  ID against `users.employee_id`, worked out when the view is opened from the file and never stored. Defaults
+  (not yet confirmed): it shows employee ID, name if the register has one, and account status (none / active /
+  deactivated); it does not show wages, gender or disability; it counts "N of M have an account". It does not
+  invite anyone.
+- Not given access unless the owner says so: Administrators, Corporate ESG, Auditor (an Auditor would get the
+  aggregates and the verified totals, with the file only if a permission is granted).
+- Defaults proposed for the rest (not yet confirmed): one register per org unit per financial year, "as at"
+  31 March, with leavers during the year; a unit's figure is the sum of its children's registers.
