@@ -552,7 +552,9 @@ export function RecordsTable({
             variant="outline"
             size="sm"
             disabled={rows.length === 0}
-            onClick={() => exportCsv(rows, variant === "monitoring" ? "submissions" : "esg-records")}
+            onClick={() =>
+              exportCsv(rows, variant === "monitoring" ? "submissions" : "esg-records")
+            }
           >
             <Download aria-hidden />
             Export CSV
@@ -998,7 +1000,9 @@ export function RecordsTable({
                       </td>
                       <td className="px-3 py-2.5">
                         {r.metricName}
-                        <span className="block text-xs text-muted-foreground">{r.categoryName}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {r.categoryName}
+                        </span>
                       </td>
                       <td className="px-3 py-2.5">{r.orgUnitName}</td>
                       <td className="px-3 py-2.5">{r.periodLabel}</td>

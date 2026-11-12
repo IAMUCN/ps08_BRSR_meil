@@ -167,10 +167,16 @@ export function groupSubmissions<T extends SubmissionItem>(
         bundleMap.set(row.bundleDocumentId, group);
         groups.push(group);
       } else {
-        if (group.orgUnitName !== row.orgUnitName && !group.orgUnitName.includes("Multiple sites")) {
+        if (
+          group.orgUnitName !== row.orgUnitName &&
+          !group.orgUnitName.includes("Multiple sites")
+        ) {
           group.orgUnitName = "Multiple sites";
         }
-        if (group.periodLabel !== row.periodLabel && !group.periodLabel.includes("Multiple periods")) {
+        if (
+          group.periodLabel !== row.periodLabel &&
+          !group.periodLabel.includes("Multiple periods")
+        ) {
           group.periodLabel = "Multiple periods";
         }
       }
@@ -181,4 +187,3 @@ export function groupSubmissions<T extends SubmissionItem>(
   }
   return groups;
 }
-

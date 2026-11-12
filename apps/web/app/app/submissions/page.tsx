@@ -8,11 +8,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireAppSession } from "@/lib/auth/session";
-import {
-  SUBMISSION_TABS,
-  isSubmissionTab,
-  submissionTab,
-} from "@/lib/ocr/rules";
+import { SUBMISSION_TABS, isSubmissionTab, submissionTab } from "@/lib/ocr/rules";
 import { api } from "@/lib/trpc/server";
 import { SubmissionsTreeTable } from "./submissions-tree-table";
 
