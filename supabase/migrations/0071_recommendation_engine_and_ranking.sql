@@ -1,4 +1,4 @@
--- Migration 0051: Recommendation Engine & Weighted Ranking System
+-- Migration 0071: Recommendation Engine & Weighted Ranking System
 -- Implements transparent Score = 0.35*I + 0.25*U + 0.20*F + 0.20*D ranking without invented financial savings.
 
 create table if not exists public.recommendations_reports (

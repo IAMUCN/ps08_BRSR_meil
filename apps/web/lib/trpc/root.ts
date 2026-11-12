@@ -31,6 +31,14 @@ import { analyticsRouter } from "@/lib/trpc/routers/analytics";
 import { searchRouter } from "@/lib/trpc/routers/search";
 import { helpRouter } from "@/lib/trpc/routers/help";
 import { demoRequestsRouter } from "@/lib/trpc/routers/demo-requests";
+import { rulesRouter } from "@/lib/trpc/routers/rules";
+import { risksRouter } from "@/lib/trpc/routers/risks";
+import { suggestionsRouter } from "@/lib/trpc/routers/suggestions";
+import { recommendationsRouter } from "@/lib/trpc/routers/recommendations";
+import { featuresRouter } from "@/lib/trpc/routers/features";
+import { predictiveRouter } from "@/lib/trpc/routers/predictive";
+import { ragRouter } from "@/lib/trpc/routers/rag";
+import { aiGatewayRouter } from "@/lib/trpc/routers/ai-gateway";
 
 export const appRouter = router({
   session: router({
@@ -68,6 +76,14 @@ export const appRouter = router({
   search: searchRouter,
   help: helpRouter,
   demoRequests: demoRequestsRouter,
+  rules: rulesRouter,
+  risks: risksRouter,
+  suggestions: suggestionsRouter,
+  recommendations: recommendationsRouter,
+  features: featuresRouter,
+  predictive: predictiveRouter,
+  rag: ragRouter,
+  aiGateway: aiGatewayRouter,
 });
 
 export type AppRouter = typeof appRouter;

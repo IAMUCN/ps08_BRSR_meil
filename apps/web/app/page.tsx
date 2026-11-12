@@ -23,4 +23,3 @@ export default async function RootPage() {
   // Anonymous or inactive users see the landing page
   return <LandingPage />;
 }
-

@@ -1,4 +1,4 @@
--- Migration 0052: AI Security & Privacy Architecture (Milestone 1)
+-- Migration 0072: AI Security & Privacy Architecture (Milestone 1)
 -- Enforces:
 -- 1. Approved-provider processing & data classification permissions.
 -- 2. Emergency Kill Switch to cut off external AI providers.

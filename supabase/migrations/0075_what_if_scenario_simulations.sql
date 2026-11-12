@@ -1,4 +1,4 @@
--- Migration 0055: What-If Scenario Simulations & Multi-Vector Decarbonization Modeling
+-- Migration 0075: What-If Scenario Simulations & Multi-Vector Decarbonization Modeling
 -- Milestone 5: Renewable energy transition, fuel switching, water/waste circularity, and ICP financial impact.
 
 create table if not exists public.what_if_scenario_simulations (

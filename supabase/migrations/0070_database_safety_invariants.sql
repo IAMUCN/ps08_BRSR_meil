@@ -1,4 +1,4 @@
--- Migration 0050: Database Safety Invariants & AI Table Guardrails
+-- Migration 0070: Database Safety Invariants & AI Table Guardrails
 -- Enforces database safety rules:
 -- 1. Read: authorized only via RLS.
 -- 2. Insert/Update: Existing tables only via existing approved workflows; AI tables controlled.

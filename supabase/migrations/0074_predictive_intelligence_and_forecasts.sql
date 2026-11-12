@@ -1,4 +1,4 @@
--- Migration 0054: Predictive Intelligence, Consumption Forecasts & GBDT Model Snapshots
+-- Migration 0074: Predictive Intelligence, Consumption Forecasts & GBDT Model Snapshots
 -- Milestone 4: Time-series forecasting, Gradient Boosting evaluations, and pre-submission anomaly tracking.
 
 create table if not exists public.predictive_forecast_snapshots (

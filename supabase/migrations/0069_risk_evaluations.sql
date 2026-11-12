@@ -1,4 +1,4 @@
--- Migration 0049: Risk Engine Evaluations & Audit Reports
+-- Migration 0069: Risk Engine Evaluations & Audit Reports
 -- Reuses existing validation anomalies, duplicate checks, BRSR readiness, and submission monitoring.
 
 create table if not exists public.risk_evaluation_reports (

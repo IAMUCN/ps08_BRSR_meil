@@ -1,4 +1,4 @@
--- Migration 0053: pgvector setup and RAG Knowledge Base (Milestone 2)
+-- Migration 0073: pgvector setup and RAG Knowledge Base (Milestone 2)
 -- Enables:
 -- 1. pgvector extension for high-performance vector similarity search (cosine distance).
 -- 2. rag_knowledge_chunks table for hybrid search across verified records, evidence documents, and BRSR indicators.

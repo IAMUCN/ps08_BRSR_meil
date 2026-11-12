@@ -1,4 +1,4 @@
--- Migration 0047: Configurable, Versioned Decision Rules Engine & Audit Evaluations
+-- Migration 0067: Configurable, Versioned Decision Rules Engine & Audit Evaluations
 -- Detects growth thresholds, intensity spikes, and data quality gaps without establishing regulatory non-compliance.
 
 -- 1. Decision Rules Configuration Table (Versioned)
