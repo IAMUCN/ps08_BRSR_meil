@@ -164,13 +164,21 @@ export function CarbonCreditsClient({
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [registryFilter, setRegistryFilter] = useState<string>("ALL");
 
+  const activePeriodLabel =
+    selectedPeriod === "FY_2025_26"
+      ? "FY 2025-26 (Apr 2025 – Mar 2026)"
+      : selectedPeriod === "FY_2026_27"
+        ? "FY 2026-27 (Apr 2026 – Sep 2026)"
+        : (options.periods.find((p) => p.id === selectedPeriod)?.label ??
+          "All-Time Cumulative (Apr 2025 – Present)");
+
   useEffect(() => {
     if (initialOrgUnitId && initialOrgUnitId !== selectedOrgUnit) {
       setSelectedOrgUnit(initialOrgUnitId);
       startTransition(async () => {
         const res = await getReconciliationAction({
           orgUnitId: initialOrgUnitId,
-          reportingPeriodId: selectedPeriod,
+          periodFilter: selectedPeriod,
         });
         if (res.ok) setReconciliation(res.data);
       });
@@ -472,7 +480,7 @@ export function CarbonCreditsClient({
           <Label className="ml-2 text-xs font-semibold uppercase text-muted-foreground">
             Period:
           </Label>
-          <div className="w-48">
+          <div className="w-56">
             <NativeSelect
               value={selectedPeriod ?? ""}
               onChange={(e) => {
@@ -481,18 +489,22 @@ export function CarbonCreditsClient({
                 startTransition(async () => {
                   const res = await getReconciliationAction({
                     orgUnitId: selectedOrgUnit,
-                    reportingPeriodId: p,
+                    periodFilter: p,
                   });
                   if (res.ok) setReconciliation(res.data);
                 });
               }}
             >
-              <option value="">All Historical Periods</option>
-              {options.periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
+              <option value="">All-Time Cumulative (Apr 2025 – Present)</option>
+              <option value="FY_2025_26">Full FY 2025-26 (Apr 2025 – Mar 2026)</option>
+              <option value="FY_2026_27">FY 2026-27 YTD (Apr 2026 – Sep 2026)</option>
+              <optgroup label="Monthly Reporting Periods">
+                {options.periods.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </optgroup>
             </NativeSelect>
           </div>
         </div>
@@ -1208,7 +1220,7 @@ export function CarbonCreditsClient({
         <CarbonQuotationPanel
           orgUnitName={options.orgUnits.find((u) => u.id === selectedOrgUnit)?.name ?? "MEIL"}
           orgUnitCode={options.orgUnits.find((u) => u.id === selectedOrgUnit)?.code ?? ""}
-          periodLabel={options.periods.find((p) => p.id === selectedPeriod)?.label ?? "FY 2025-26"}
+          periodLabel={activePeriodLabel}
           reconciliation={reconciliation}
           currentShadowPrice={summary.currentShadowPrice}
           onInitiateMint={(prefill) => {

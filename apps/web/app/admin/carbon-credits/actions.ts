@@ -46,6 +46,7 @@ export async function transferCreditAction(input: {
 export async function getReconciliationAction(input: {
   orgUnitId: string;
   reportingPeriodId?: string;
+  periodFilter?: string;
 }) {
   return runAction((api) => api.carbonCredits.reconciliation(input));
 }
