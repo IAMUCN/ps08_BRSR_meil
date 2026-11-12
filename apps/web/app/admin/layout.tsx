@@ -17,6 +17,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/deadlines", label: "Reporting Deadlines", icon: "deadlines" },
   { href: "/admin/ocr-monitoring", label: "OCR Monitoring", icon: "ocr" },
   { href: "/admin/validation-queue", label: "Validation Queue", icon: "validation" },
+  { href: "/admin/decision-rules", label: "Decision Center", icon: "validation" },
   { href: "/admin/approval-queue", label: "Approval Queue", icon: "approvals" },
   { href: "/admin/conversion-factors", label: "Conversion Factors", icon: "factors" },
   { href: "/admin/brsr-mapping", label: "BRSR Mapping", icon: "brsr" },

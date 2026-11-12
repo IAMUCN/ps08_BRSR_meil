@@ -25,6 +25,14 @@ import { simulatorRouter } from "@/lib/trpc/routers/simulator";
 import { deadlinesRouter } from "@/lib/trpc/routers/deadlines";
 import { usersRouter } from "@/lib/trpc/routers/users";
 import { carbonCreditsRouter } from "@/lib/trpc/routers/carbonCredits";
+import { featuresRouter } from "@/lib/trpc/routers/features";
+import { rulesRouter } from "@/lib/trpc/routers/rules";
+import { suggestionsRouter } from "@/lib/trpc/routers/suggestions";
+import { risksRouter } from "@/lib/trpc/routers/risks";
+import { recommendationsRouter } from "@/lib/trpc/routers/recommendations";
+import { aiGatewayRouter } from "@/lib/trpc/routers/ai-gateway";
+import { ragRouter } from "@/lib/trpc/routers/rag";
+import { predictiveRouter } from "@/lib/trpc/routers/predictive";
 
 export const appRouter = router({
   session: router({
@@ -56,6 +64,14 @@ export const appRouter = router({
   audit: auditRouter,
   chat: chatRouter,
   carbonCredits: carbonCreditsRouter,
+  features: featuresRouter,
+  rules: rulesRouter,
+  suggestions: suggestionsRouter,
+  risks: risksRouter,
+  recommendations: recommendationsRouter,
+  aiGateway: aiGatewayRouter,
+  rag: ragRouter,
+  predictive: predictiveRouter,
 });
 
 export type AppRouter = typeof appRouter;
