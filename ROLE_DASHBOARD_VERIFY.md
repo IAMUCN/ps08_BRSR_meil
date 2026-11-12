@@ -194,3 +194,23 @@ Written without a database or a browser; **not run, not seen**. Typecheck, ESLin
 4. Not built: a chatbot tile (the Ask panel opens from the top bar and needs a client action; a link-only tile would be a placeholder), the Deadlines engine
    as the third source of "overdue" (the band counts missing submissions after the due date and a period past due only), a unit picker on `/app` for Corporate
    ESG (their tiles use their whole scope).
+
+## How to run the dashboard's tests (Phase 6): for MACRO72, on the full stack
+
+Written on a machine with no database, no Docker and no browser: **none of these scripts has been run.** Unit tests (358) pass here.
+
+1. Everything before this section first: migrations `0067`-`0070` on a database at `0066`, `pnpm db:test`, `pnpm --filter web test:isolation`.
+2. **API, every role** - `pnpm --filter web test:e2e role-dashboard` (also in the full suite). Signs in the E2E Admin (Super Admin), Project Manager, HR, EHS
+   and Corporate ESG and checks: who sees which tiles; every tile has a title, an in-app link, a scope caption and a summary; **no tile falls back to
+   "could not be loaded"** (a wrong column in a loader's SQL shows up here, so read a failure's tile id and fix that loader); the scope caption names only
+   the person's own units; choosing a unit narrows and never widens; the "Needs action" band is ordered; signed out, a malformed unit id and an unknown
+   unit get nothing.
+3. **Browser, every role, three themes, three widths** - with the app running on `E2E_APP_URL`: `node tests/e2e/ui-role-dashboard.mjs` (set
+   `E2E_SCREENSHOTS=<folder>` to save a full-page picture per role and theme). Checks: no sideways scroll at 1440, 820 and 390 px, no tile failed to load,
+   headings and charts named, every chart has "View as table", a chart mark takes keyboard focus and shows its tooltip, axe finds nothing serious in any
+   theme, no console or page error, and the `/admin` unit picker narrows the tiles. The e2e suite needs the data it checks for tooltips (approved
+   emissions); without data that one check is skipped.
+4. **By hand, once** (a picture is the one thing the scripts cannot judge): open `dashboard-*.png` or the pages in Special, Corporate and Dark and look at
+   the donut, rings and bars side by side; the chart colours are tested for contrast and distinctness but nobody has looked at them.
+5. Also run `pnpm --filter web test:a11y` (it already covers `/app` and `/admin`) and `pnpm build`.
+6. Known not covered: the Deadlines engine as a third source of "overdue", a chatbot tile, the Administrator's people-and-access tile.

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   arrange,
@@ -278,4 +279,22 @@ test("narrowTiles: units-based tiles follow the choice, system tiles and own-rec
   const outside = narrowTiles(visibleTiles(TILES, corporateEsg), ["projA"]).map((t) => t.id);
   assert.ok(!outside.includes("approval-queue"));
   assert.ok(outside.includes("period"));
+});
+
+test("every registered tile has a loader and every loader has a registered tile", () => {
+  // loaders.ts is server-only and cannot be imported here, so its table of loaders is read as text.
+  const source = readFileSync(new URL("../lib/dashboard/loaders.ts", import.meta.url), "utf8");
+  const table = source.slice(
+    source.indexOf("export const LOADERS"),
+    source.indexOf("/** One tile's data."),
+  );
+  const loaders = [...table.matchAll(/^ {2}"?([a-z][a-z-]*)"?: /gm)].map((m) => m[1]).sort();
+  assert.deepEqual(loaders, TILES.map((t) => t.id).sort());
+});
+
+test("tile ids are unique and every rank is distinct enough to order by", () => {
+  const idList = TILES.map((t) => t.id);
+  assert.equal(new Set(idList).size, idList.length);
+  const ranked = TILES.map((t) => `${t.size ?? "kpi"}:${t.rank}`);
+  assert.equal(new Set(ranked).size, ranked.length, "two tiles of the same size share a rank");
 });

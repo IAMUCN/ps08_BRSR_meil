@@ -30,6 +30,7 @@ const ALL = [
   "phase6-factors",
   "phase7-analytics",
   "phase8-templates-search",
+  "role-dashboard",
   "release-checks",
 ];
 const chosen = process.argv.slice(2).length ? process.argv.slice(2) : ALL;

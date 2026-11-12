@@ -267,3 +267,9 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
   tested). Tiles marked `global` (system health, factors, people and access, reports and audit activity) and own-record tiles do not narrow.
 - Removed on `/admin`: pipeline cards, BRSR Readiness card, two Issues rows, all of which a tile now carries. The owner asked for the duplicates to go.
 - Left for the owner: a chatbot tile, the Deadlines engine as a source of "overdue", and a picker on `/app`.
+
+## Phase 6 built (2026-11-13): tests (written, not run; no database or browser on this machine)
+- Unit (run, pass): every registered tile has a loader and the reverse (read from the loaders' source), ids and ranks are unique, plus the earlier visibility,
+  multi-role, narrowing, ordering, chart-geometry, chart-token and overview tests (358 in all).
+- `tests/e2e/role-dashboard.mjs` (API, in the suite) and `tests/e2e/ui-role-dashboard.mjs` (browser, run on its own) as described in
+  ROLE_DASHBOARD_VERIFY.md. Not run.
