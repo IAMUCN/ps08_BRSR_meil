@@ -27,6 +27,8 @@ import {
   type Verdict,
 } from "./checks.ts";
 import { activityKeyFor } from "../calculation/engine.ts";
+import { productOf } from "../calculation/formulas.ts";
+import { declarationProblems } from "../declarations/load.ts";
 import { activityFieldKeys } from "../verification/rules.ts";
 
 // The validation engine (06_IMPLEMENTATION_PLAN.md Phase 8). Called inside the Confirm transaction
@@ -89,10 +91,17 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
     where r.id = ${recordId}`;
 
   const fields = await tx<
-    { key: string; label: string; data_type: string; required: boolean; value: string | null }[]
+    {
+      key: string;
+      label: string;
+      data_type: string;
+      required: boolean;
+      value: string | null;
+      extracted: string | null;
+    }[]
   >`
     select req.field_key as key, req.field_label as label, req.data_type::text as data_type,
-           req.is_required as required, f.verified_value as value
+           req.is_required as required, f.verified_value as value, f.extracted_value as extracted
     from public.metric_field_requirements req
     left join public.ocr_fields f
       on f.field_key = req.field_key and f.ocr_extraction_id = ${record.extraction_id}
@@ -105,13 +114,25 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
   );
   const valueOf = (key: string | undefined): string | null => {
     if (!key) return null;
-    if (key === "activity_value") return activity.ok ? valueOf(activity.valueKey) : null;
+    if (key === "activity_value") {
+      if (!activity.ok) return null;
+      // Travel: the activity value is distance x passengers (migration 0077).
+      if (activity.productKeys) {
+        const product = productOf(activity.productKeys.map((k) => parseNumber(valueOf(k))));
+        return product === null ? null : String(product);
+      }
+      return valueOf(activity.valueKey);
+    }
     return fields.find((f) => f.key === key)?.value ?? null;
   };
   const labelOf = (key: string | undefined) =>
+    (key === "activity_value" && activity.ok && activity.productKeys
+      ? "Passenger-km"
+      : undefined) ??
     fields.find(
       (f) => f.key === (key === "activity_value" && activity.ok ? activity.valueKey : key),
-    )?.label ?? "Value";
+    )?.label ??
+    "Value";
   const where = `${record.org_unit_name} in ${record.period_label}`;
   const results: Evaluated[] = [];
   const builtIn = (ruleType: RuleType, verdict: Verdict) =>
@@ -157,6 +178,32 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
       manualException: record.extraction_source === "manual_exception",
     }),
   );
+
+  // --- Typed at upload against the document (migration 0077) ------------------------------------------
+  // A bill whose typed value disagrees with what was confirmed goes to a reviewer, with both values named.
+  const typed = await declarationProblems(
+    tx,
+    record.id,
+    fields.map((f) => ({
+      key: f.key,
+      label: f.label,
+      dataType: f.data_type,
+      extracted: f.extracted,
+      value: f.value,
+    })),
+    activity.ok ? activity.unitKey : null,
+  );
+  if (typed.declared) {
+    builtIn(
+      "evidence",
+      typed.problems.length
+        ? { ok: false, forceFlag: true, message: typed.problems.join(" ") }
+        : {
+            ok: true,
+            message: typed.waiting ?? "The values typed at upload agree with the confirmed values.",
+          },
+    );
+  }
 
   // --- The document's kind (Phase 3): OCR thinks it is another activity's document ------------------
   const mismatch = await activityMismatch(tx, record.mismatch_code, record.metric_id);

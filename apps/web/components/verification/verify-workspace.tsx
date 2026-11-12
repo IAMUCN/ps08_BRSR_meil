@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { cn } from "cn";
 import { ValidationResult } from "@/components/validation/validation-result";
 import { ActivityPicker } from "@/components/verification/activity-picker";
+import { PeriodPicker } from "@/components/verification/period-picker";
 import { FieldRow } from "@/components/verification/field-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -105,7 +106,8 @@ export function VerifyWorkspace({
   const returned = doc.state === "returned";
   // A returned record reopens with its prior confirmed values (03_APP_FLOW.md §4.8 step 3).
   const initialValue = (f: VerifyDocument["fields"][number]) =>
-    (returned ? f.verifiedValue : null) ?? f.extractedValue ?? "";
+    // A value OCR did not find starts as the one typed at upload (migration 0077), for the person to check.
+    (returned ? f.verifiedValue : null) ?? f.extractedValue ?? f.typed?.value ?? "";
   const [entries, setEntries] = useState<Record<string, FieldEntry>>(() =>
     Object.fromEntries(
       doc.fields.map((f) => [f.id, { value: initialValue(f), acknowledged: false }]),
@@ -232,7 +234,8 @@ export function VerifyWorkspace({
               // With a picker below, the activity is shown (and changed) there.
               ...(doc.activityOptions.length ? [] : [["ESG activity", doc.metricName ?? "—"]]),
               ["Project / site", doc.orgUnitName],
-              ["Reporting period", doc.periodLabel],
+              // With a picker below, the period is shown (and changed) there.
+              ...(doc.periodOptions.length ? [] : [["Reporting period", doc.periodLabel]]),
               ["Uploaded by", doc.uploadedByName],
               ["Submitted on", submittedLabel(doc.uploadedAt)],
             ].map(([term, value]) => (
@@ -244,6 +247,10 @@ export function VerifyWorkspace({
           </dl>
 
           <ActivityPicker doc={doc} disabled={pending} />
+          {doc.periodOptions.length ? (
+            // Keyed by the month: after a move the picker starts again from the record's new month.
+            <PeriodPicker key={doc.periodId} doc={doc} disabled={pending} />
+          ) : null}
 
           {/* Master Approach §12: no document type, no verification. */}
           {doc.documentTypeId && doc.documentTypeName ? (
@@ -308,6 +315,8 @@ export function VerifyWorkspace({
         ) : null}
 
         {doc.recordId ? <EvidenceFiles recordId={doc.recordId} /> : null}
+
+        {doc.typedTotal ? <TypedTotal total={doc.typedTotal} /> : null}
 
         <div className="flex items-center justify-between gap-3 border-b px-4 py-2 text-xs leading-4 text-muted-foreground">
           <span>
@@ -512,6 +521,55 @@ export function VerifyWorkspace({
           reported.
         </p>
       </ConfirmDialog>
+    </div>
+  );
+}
+
+/** This bill is one of several whose total was typed at upload: the bills and the totals so far. */
+function TypedTotal({ total }: { total: NonNullable<VerifyDocument["typedTotal"]> }) {
+  const mismatch = total.fields.some((f) => f.status === "mismatch");
+  return (
+    <div
+      className={cn(
+        "space-y-2 border-b p-4 text-sm leading-5",
+        mismatch ? "bg-status-error/5" : "bg-muted/40",
+      )}
+    >
+      <p className="font-semibold">
+        One of {total.bills.length} bills whose total you typed at upload
+      </p>
+      <ul className="space-y-1">
+        {total.fields.map((f) => (
+          <li key={f.label}>
+            {f.label}: typed{" "}
+            <span className="font-mono">
+              {f.typed}
+              {f.unit ? ` ${f.unit}` : ""}
+            </span>
+            {f.status === "waiting"
+              ? " — checked once every bill has been read."
+              : f.status === "match"
+                ? " — the bills add up to it."
+                : ` — the bills add up to ${f.sum === null ? "a total that can't be compared" : f.sum.toLocaleString("en-IN", { maximumFractionDigits: 6 })}${f.unit ? ` ${f.unit}` : ""}. Check each bill; a difference left is flagged for review.`}
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-muted-foreground">
+        Bills:{" "}
+        {total.bills.map((b, i) => (
+          <span key={b.documentId ?? i}>
+            {i > 0 ? ", " : ""}
+            {b.isThis || !b.documentId ? (
+              <span className="font-medium text-foreground">{b.fileName ?? "this bill"}</span>
+            ) : (
+              <Link href={`/app/verify/${b.documentId}`} className="underline">
+                {b.fileName}
+              </Link>
+            )}
+            {b.verified ? " (confirmed)" : ""}
+          </span>
+        ))}
+      </p>
     </div>
   );
 }

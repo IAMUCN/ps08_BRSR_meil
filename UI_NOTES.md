@@ -515,3 +515,21 @@ Built by the feature session at the owner's request; no restyle.
   console error; screenshots looked at. **Not run:** the production build, the accessibility suite, the public
   wording against `COMPLIANCE_AUDIT_2026-10-12.md` (the claims made are the ones the README and audits already
   state: own OCR worker, private storage, server-side checks).
+
+## feature, 2026-11-12/13 (Upload by rows; built by the feature lane at the owner's request, A60)
+
+- `components/upload/row-upload.tsx` (new) replaces the drop zone on the Upload page; `upload-workspace.tsx` shows it
+  with the expected-submissions list below it (the one-file form stays for "Replace a failed document");
+  `app/app/upload/page.tsx` widens to `max-w-7xl` and passes the draft. Rows are cards with a responsive grid
+  (four columns at `lg`, two at `sm`, stacked on phones) and visible small labels on every input.
+- `components/upload/split-review.tsx`: "Typed on the Upload page as" per bill, value boxes for a bill nobody typed,
+  and a "Typed but not matched to a bill" list with "Not in this upload".
+- `components/verification/field-row.tsx`: a typed-value note under a field (match / not read / mismatch with
+  "Use the document's value" and "Keep my value"); `verify-workspace.tsx`: a panel for a bill of a typed total.
+- Status colours use the status tokens on tinted surfaces with `text-foreground` (rule above).
+- Checked: format, lint, typecheck, unit, production build, the procedures end to end. See CONTEXT.md for the
+  browser check.
+- Second round (2026-11-13): a Manual / Automatic switch (a radio group) at the top of Upload; the row's evidence
+  is its last column; with Another bill in this file the evidence block sits above the bills and each bill line has
+  Page from / to; an eye button on each attached file and on each recorded bill opens a preview dialog
+  (`DocumentViewer`). Checked in Edge at 1440 and 390 px with axe (`ui-row-upload.mjs` 30/30).

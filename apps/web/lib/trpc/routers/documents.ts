@@ -5,6 +5,7 @@ import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import type { ActiveSession } from "@/lib/auth/session";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
+import { entryFieldsOf, unitChoices, type EntryField } from "@/lib/declarations/compare";
 import { uploadTargets } from "@/lib/documents/rules";
 import { loadLevels } from "@/lib/org/levels";
 import { loadOrgNodes } from "@/lib/org/nodes";
@@ -49,6 +50,12 @@ export type UploadMetric = {
   name: string;
   unit: string;
   acceptedMimeTypes: string[];
+  /** The values a row on the Upload page asks for (migration 0077): the required number fields. */
+  entryFields: EntryField[];
+  /** The field key the unit is typed under, or null (counts, percentages). */
+  unitKey: string | null;
+  /** The units offered for it, the metric's own first. */
+  units: string[];
 };
 export type UploadCategory = { id: string; name: string; metrics: UploadMetric[] };
 export type UploadTarget = {
@@ -73,9 +80,28 @@ export type UploadPeriod = {
   late: boolean;
 };
 
+/**
+ * A month a bill may be typed for on the Upload page (owner's request, 2026-11-13): the person picks the bill's
+ * billing period and the record is filed in that reporting period, even after its due date or once it has closed —
+ * marked late. Only months of the current financial year that have begun, and last year's March from April to June.
+ */
+export type BillingMonth = {
+  id: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  dueOn: string;
+  /** Its due date has passed: a bill typed for it now is late. */
+  late: boolean;
+  /** It no longer takes uploads in the ordinary way (closed, or past its late window). */
+  closed: boolean;
+};
+
 export type UploadOptions = {
   /** Begun periods newest first (the first is the default choice), then periods still to come. */
   periods: UploadPeriod[];
+  /** The billing months the Upload rows offer, newest first. */
+  billingMonths: BillingMonth[];
   targets: UploadTarget[];
   maxBytes: number;
 };
@@ -138,6 +164,7 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
     lastUploadDay: r.last_upload_day,
     late: r.late,
   }));
+  const billingMonths = await loadBillingMonths(sql);
   const levels = await loadLevels(sql);
 
   const nodeRows = await loadOrgNodes(sql);
@@ -189,6 +216,36 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
     where m.deleted_at is null
     order by c.name, m.name`;
 
+  // What a row types for each activity: its required numbers and a unit from its allowed units.
+  const requirementRows = await sql<
+    { metric_id: string; key: string; label: string; data_type: string; required: boolean }[]
+  >`
+    select metric_id, field_key as key, field_label as label, data_type::text as data_type,
+           is_required as required
+    from public.metric_field_requirements order by metric_id, field_label`;
+  const unitRules = await sql<{ metric_id: string; units: string[] | null }[]>`
+    select metric_id, array(select jsonb_array_elements_text(rule_definition -> 'units')) as units
+    from public.validation_rules
+    where is_active and metric_id is not null and rule_definition ->> 'check' = 'allowed_units'`;
+  const entryOf = (metricId: string, metricUnit: string) => {
+    const own = requirementRows.filter((r) => r.metric_id === metricId);
+    const unitKey = own.find((r) => r.data_type === "unit")?.key ?? null;
+    return {
+      entryFields: entryFieldsOf(
+        own.map((r) => ({
+          key: r.key,
+          label: r.label,
+          dataType: r.data_type,
+          required: r.required,
+        })),
+      ),
+      unitKey,
+      units: unitKey
+        ? unitChoices(unitRules.find((u) => u.metric_id === metricId)?.units ?? [], metricUnit)
+        : [],
+    };
+  };
+
   const categoriesById = new Map<string, UploadCategory & { owningRoleId: string | null }>();
   for (const row of metricRows) {
     const category = categoriesById.get(row.category_id) ?? {
@@ -202,6 +259,7 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
       name: row.name,
       unit: row.unit,
       acceptedMimeTypes: row.accepted ?? DEFAULT_ACCEPTED_MIME_TYPES,
+      ...entryOf(row.id, row.unit),
     });
     categoriesById.set(row.category_id, category);
   }
@@ -228,7 +286,60 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  return { periods, targets, maxBytes: MAX_UPLOAD_BYTES };
+  return { periods, billingMonths, targets, maxBytes: MAX_UPLOAD_BYTES };
+}
+
+/**
+ * The months of the current financial year (April to March, India time) that have begun, open or closed, and
+ * — the March exception — last year's March while the new year is in its first quarter, because March bills
+ * arrive after the year ends. Months still to come and earlier years are not offered.
+ */
+export async function loadBillingMonths(sql: Sql): Promise<BillingMonth[]> {
+  const rows = await sql<
+    {
+      id: string;
+      label: string;
+      start_date: string;
+      end_date: string;
+      due_on: string;
+      late: boolean;
+      closed: boolean;
+    }[]
+  >`
+    with today as (select public.reporting_period_today() as d),
+    fy as (
+      select make_date(extract(year from d)::int - case when extract(month from d) < 4 then 1 else 0 end, 4, 1)
+             as start, d from today
+    )
+    select rp.id, rp.label, rp.start_date::text, rp.end_date::text,
+           coalesce(rp.submission_closes_on, rp.end_date)::text as due_on,
+           public.reporting_period_late(rp) as late,
+           (rp.status <> 'open' or public.reporting_period_locked(rp)) as closed
+    from public.reporting_periods rp, fy
+    where rp.status in ('open', 'closed')
+      and rp.start_date <= fy.d
+      and (rp.start_date >= fy.start
+           or (rp.start_date >= (fy.start - interval '1 month')::date
+               and rp.end_date < fy.start
+               and fy.d < (fy.start + interval '3 months')::date))
+    order by rp.start_date desc`;
+  return rows.map((r) => ({
+    id: r.id,
+    label: r.label,
+    startDate: r.start_date,
+    endDate: r.end_date,
+    dueOn: r.due_on,
+    late: r.late,
+    closed: r.closed,
+  }));
+}
+
+/** Whether a period may hold a bill typed on the Upload page: one that takes uploads, or a billing month. */
+export function takesTypedBill(options: UploadOptions, periodId: string): boolean {
+  return (
+    options.periods.some((p) => p.id === periodId) ||
+    options.billingMonths.some((m) => m.id === periodId)
+  );
 }
 
 /** Resolves the target node + metric for this user, or throws a non-revealing error. */
@@ -665,7 +776,7 @@ export const documentsRouter = router({
       const options = await loadUploadOptions(sql, ctx.session.userId);
       if (
         !options.targets.some((t) => t.orgUnitId === input.orgUnitId) ||
-        !options.periods.some((p) => p.id === input.periodId)
+        !takesTypedBill(options, input.periodId)
       ) {
         throw new TRPCError({
           code: "NOT_FOUND",

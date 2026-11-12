@@ -893,3 +893,12 @@ keeps the one-file form. `.grill/merged-upload-decisions.md`.
 The sign-in page offers "Continue with Google" (when the provider is on in Supabase Auth). Only accounts an admin
 registered get in, under the same session rules as a password sign-in; anyone else is told that sign-ups are not
 allowed and to contact the admin at solarsyncx@gmail.com. `.grill/google-sign-in-decisions.md`.
+
+## A60 — Upload by rows with typed values, checked against the document (2026-11-12)
+
+The Upload page is a table of submissions: bill type, reporting period, the value(s) typed from the bill, the unit and
+the evidence (required) per row; "Several documents" (pages of one bill, or separate bills with their total) and
+"Another bill in this file" (one sub-row per bill). Rows whose bills pair cleanly are recorded without the
+separation page; the separation page pairs bills with typed rows. Verify shows each typed value against the reading
+and requires a choice where they differ; keeping a typed value against the document is a review flag. Drafts are
+saved per person. Replacing a document keeps the one-file form. `.grill/row-upload-decisions.md`.

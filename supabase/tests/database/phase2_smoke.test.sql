@@ -29,7 +29,9 @@ select tables_are('public', array[
   -- Decision Intelligence & AI Security (D58, migrations 0068-0076)
   'decision_rules', 'decision_rule_evaluations', 'decarbonization_suggestions', 'decarbonization_roadmaps',
   'risk_evaluation_reports', 'recommendations_reports', 'ai_providers', 'ai_security_policies',
-  'rag_knowledge_chunks', 'predictive_forecast_snapshots', 'what_if_scenario_simulations'
+  'rag_knowledge_chunks', 'predictive_forecast_snapshots', 'what_if_scenario_simulations',
+  -- Upload by rows, typed values checked against the document (D59, migration 0077)
+  'upload_declarations', 'upload_drafts'
 ], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(

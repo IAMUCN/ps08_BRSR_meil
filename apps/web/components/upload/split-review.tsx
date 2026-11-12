@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { entryProblem } from "@/lib/declarations/compare";
 import { billingFits, checkBundleParts, pagesLabel, submittedLabel } from "@/lib/documents/bundle";
-import type { BundlePartView, ReviewPeriod } from "@/lib/trpc/routers/bundles";
+import type { BundlePartView, ReviewDeclaration, ReviewPeriod } from "@/lib/trpc/routers/bundles";
 import type { UploadCategory } from "@/lib/trpc/routers/documents";
 
 // Review of an upload's proposed split (.grill/multi-bill-pdf-decisions.md, .grill/merged-upload-decisions.md):
@@ -33,6 +34,10 @@ type Row = {
   /** What OCR read on the bill; null for a bill added or changed here. */
   billingPeriod: string | null;
   billNumber: string | null;
+  /** The typed row (position) this bill is, or null: its values are typed here (migration 0077). */
+  declaration: number | null;
+  /** Values typed here for a bill no row was typed for. */
+  values: Record<string, string>;
 };
 
 type Duplicate = { bill: number; metricName: string; existingRecords: number; periodLabel: string };
@@ -48,6 +53,7 @@ export function SplitReview({
   defaultPeriodId,
   submittedAt,
   sources,
+  declarations = [],
 }: {
   documentId: string;
   fileName: string;
@@ -59,6 +65,8 @@ export function SplitReview({
   defaultPeriodId: string | null;
   submittedAt: string;
   sources: { fileName: string; pageFrom: number; pageTo: number }[];
+  /** The rows typed for this upload on the Upload page; empty for an older upload. */
+  declarations?: ReviewDeclaration[];
 }) {
   const router = useRouter();
   const idPrefix = useId();
@@ -86,9 +94,18 @@ export function SplitReview({
         periodId: p.proposedPeriodId ?? defaultPeriodId ?? "",
         billingPeriod: p.billingPeriod,
         billNumber: p.billNumber,
+        declaration: p.proposedDeclaration,
+        values: {},
       };
     }),
   }));
+  const typedUpload = declarations.length > 0;
+  const metricById = useMemo(
+    () => new Map(categories.flatMap((c) => c.metrics).map((m) => [m.id, m])),
+    [categories],
+  );
+  // Typed rows the person says are not in this upload (they stay in the audit trail).
+  const [dropped, setDropped] = useState<number[]>([]);
   const periodById = useMemo(() => new Map(periods.map((p) => [p.id, p])), [periods]);
   const rows = history.rows;
   // Undo / redo (owner's page feedback, 2026-11-11): every change to the split is one step, except that
@@ -158,9 +175,39 @@ export function SplitReview({
   );
   const keptCount = rows.filter((r) => !r.skip).length;
   const periodProblem = rows.findIndex((r) => !r.skip && !periodById.has(r.periodId));
+  const typedProblem = typedUpload ? checkTyped() : null;
   const shownProblem =
     problem ??
-    (periodProblem >= 0 ? `Bill ${periodProblem + 1}: choose its reporting period.` : null);
+    (periodProblem >= 0 ? `Bill ${periodProblem + 1}: choose its reporting period.` : null) ??
+    typedProblem;
+
+  /** The server's rules for a typed upload (bundles.confirm planBills), for a message before Confirm. */
+  function checkTyped(): string | null {
+    const used = new Map<number, number>();
+    for (const [index, row] of rows.entries()) {
+      if (row.skip) continue;
+      if (row.declaration) {
+        used.set(row.declaration, (used.get(row.declaration) ?? 0) + 1);
+        const d = declarations.find((x) => x.position === row.declaration);
+        if (d && d.mode !== "total" && used.get(row.declaration)! > 1) {
+          return `Row ${row.declaration} was typed for one bill; two bills point to it. Type the values of the other.`;
+        }
+        continue;
+      }
+      const metric = metricById.get(row.metricId);
+      if (!metric) continue; // the split check names it
+      const typed = entryProblem(metric.entryFields, row.values);
+      if (typed) return `Bill ${index + 1}: ${typed}`;
+      if (metric.unitKey && !row.values[metric.unitKey])
+        return `Bill ${index + 1}: choose the unit.`;
+    }
+    const missing = declarations.find(
+      (d) => !used.has(d.position) && !dropped.includes(d.position),
+    );
+    return missing
+      ? `Row ${missing.position} that you typed (${missing.metricName}, ${missing.summary}) isn't matched to a bill. Choose its bill, or tick "Not in this upload".`
+      : null;
+  }
 
   function update(key: string, change: Partial<Row>) {
     const field = Object.keys(change).join(",");
@@ -190,6 +237,8 @@ export function SplitReview({
         periodId: defaultPeriodId ?? "",
         billingPeriod: null,
         billNumber: null,
+        declaration: null,
+        values: {},
       },
     ]);
     setDuplicates(null);
@@ -207,7 +256,13 @@ export function SplitReview({
         metricId: r.metricId || null,
         skip: r.skip,
         reportingPeriodId: r.periodId || undefined,
+        ...(typedUpload
+          ? r.declaration
+            ? { declaration: r.declaration }
+            : { declaration: null, values: r.values }
+          : {}),
       })),
+      dropDeclarations: dropped,
     });
     setBusy(false);
     if (!result.ok) {
@@ -379,6 +434,17 @@ export function SplitReview({
                   <PeriodNote row={row} period={periodById.get(row.periodId)} />
                 </div>
 
+                {typedUpload && !row.skip ? (
+                  <TypedChoice
+                    id={id}
+                    row={row}
+                    declarations={declarations}
+                    metric={metricById.get(row.metricId)}
+                    disabled={busy}
+                    onChange={(change) => update(row.key, change)}
+                  />
+                ) : null}
+
                 {row.notAllowed ? (
                   <p className="text-sm leading-5 text-status-warning">
                     This looks like an activity your role can&apos;t record for this project, so it
@@ -422,6 +488,18 @@ export function SplitReview({
           <Plus aria-hidden />
           Add a bill
         </Button>
+
+        {typedUpload ? (
+          <UnmatchedRows
+            declarations={declarations}
+            used={new Set(rows.filter((r) => !r.skip && r.declaration).map((r) => r.declaration!))}
+            dropped={dropped}
+            disabled={busy}
+            onDrop={(position, drop) =>
+              setDropped((all) => (drop ? [...all, position] : all.filter((p) => p !== position)))
+            }
+          />
+        ) : null}
 
         {shownProblem ? (
           <p role="alert" className="text-sm leading-5 text-status-error">
@@ -518,4 +596,140 @@ function range(from: number, to: number): number[] {
   return Number.isInteger(from) && Number.isInteger(to) && to >= from
     ? Array.from({ length: to - from + 1 }, (_, i) => from + i)
     : [];
+}
+
+/** Which typed row a bill is, or its values typed here (migration 0077). */
+function TypedChoice({
+  id,
+  row,
+  declarations,
+  metric,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  row: Row;
+  declarations: ReviewDeclaration[];
+  metric: UploadCategory["metrics"][number] | undefined;
+  disabled: boolean;
+  onChange: (change: Partial<Row>) => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-md border border-dashed border-border p-3">
+      <div className="space-y-1">
+        <Label htmlFor={`${id}-typed`}>Typed on the Upload page as</Label>
+        <NativeSelect
+          id={`${id}-typed`}
+          value={row.declaration ?? ""}
+          disabled={disabled}
+          onChange={(e) => {
+            const position = e.target.value ? Number(e.target.value) : null;
+            const d = declarations.find((x) => x.position === position);
+            // Choosing a typed row takes its bill type and period; they can still be changed above.
+            onChange(
+              d
+                ? { declaration: d.position, metricId: d.metricId, periodId: d.reportingPeriodId }
+                : { declaration: null },
+            );
+          }}
+        >
+          <option value="">Not typed — I&apos;ll type its value here</option>
+          {declarations.map((d) => (
+            <option key={d.position} value={d.position}>
+              Row {d.position}: {d.metricName} — {d.summary} ({d.periodLabel})
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
+      {row.declaration === null ? (
+        metric ? (
+          <div className="grid gap-2 sm:grid-cols-3">
+            {metric.entryFields.map((f) => (
+              <div key={f.key} className="space-y-1">
+                <Label htmlFor={`${id}-v-${f.key}`} className="text-xs">
+                  {f.label}
+                </Label>
+                <Input
+                  id={`${id}-v-${f.key}`}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={row.values[f.key] ?? ""}
+                  disabled={disabled}
+                  onChange={(e) => onChange({ values: { ...row.values, [f.key]: e.target.value } })}
+                />
+              </div>
+            ))}
+            {metric.unitKey ? (
+              <div className="space-y-1">
+                <Label htmlFor={`${id}-v-unit`} className="text-xs">
+                  Unit
+                </Label>
+                <NativeSelect
+                  id={`${id}-v-unit`}
+                  value={row.values[metric.unitKey] ?? ""}
+                  disabled={disabled}
+                  onChange={(e) =>
+                    onChange({ values: { ...row.values, [metric.unitKey!]: e.target.value } })
+                  }
+                >
+                  <option value="">Choose…</option>
+                  {metric.units.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">Choose the activity to type its value.</p>
+        )
+      ) : null}
+    </div>
+  );
+}
+
+/** Typed rows no bill points to: the person ticks each one that is not in this upload. */
+function UnmatchedRows({
+  declarations,
+  used,
+  dropped,
+  disabled,
+  onDrop,
+}: {
+  declarations: ReviewDeclaration[];
+  used: Set<number>;
+  dropped: number[];
+  disabled: boolean;
+  onDrop: (position: number, drop: boolean) => void;
+}) {
+  const unmatched = declarations.filter((d) => !used.has(d.position));
+  if (unmatched.length === 0) return null;
+  return (
+    <div className="space-y-2 rounded-md border border-status-warning/50 bg-status-warning/10 p-4 text-sm">
+      <p className="font-semibold">Typed but not matched to a bill</p>
+      <ul className="space-y-1">
+        {unmatched.map((d) => (
+          <li key={d.position}>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-[var(--primary)]"
+                checked={dropped.includes(d.position)}
+                disabled={disabled}
+                onChange={(e) => onDrop(d.position, e.target.checked)}
+              />
+              <span>
+                Row {d.position}: {d.metricName} — {d.summary} ({d.periodLabel}).{" "}
+                <span className="text-muted-foreground">
+                  Not in this upload (it stays in the record of what was typed).
+                </span>
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }

@@ -99,7 +99,7 @@ check(
   ),
 );
 
-/** Upload one ticket for a mode, type the distance the ticket does not print, and return its calculation. */
+/** Upload one ticket for a mode, type the distance and passengers the ticket does not print, and return its calculation. */
 async function journey(metric, n) {
   const bytes = sample("travel", {
     reference: `F-${RUN}-${n}`.toUpperCase(),
@@ -111,8 +111,9 @@ async function journey(metric, n) {
   if (!documentId) return { error: completed?.error ?? "upload refused" };
   await runWorker();
   const confirmed = await confirm(finance, documentId, {
-    overrides: { quantity: "1000", unit: "km" },
-    acknowledge: ["quantity", "unit", "invoice_number", "billing_period"],
+    // Distance x passengers (migration 0077): 500 km for 2 people is 1,000 passenger-km.
+    overrides: { distance: "500", passengers: "2", unit: "km" },
+    acknowledge: ["distance", "passengers", "unit", "invoice_number", "billing_period"],
   });
   const record = await recordOf(documentId);
   return { confirmed, record, calc: record ? await currentCalculation(record.id) : null };

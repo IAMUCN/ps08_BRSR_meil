@@ -2,7 +2,7 @@
 
 import { ChevronDown, ExternalLink, Eye, FileStack, FileText, FolderTree } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -249,7 +249,9 @@ export function SubmissionsTreeTable({ rows, tabLabel }: SubmissionsTreeTablePro
                 const distinctActivities = activitySummary(group.records);
 
                 return (
-                  <tbody key={`bundle-group-${group.bundleDocumentId}`} className="contents">
+                  // Rows of one group, not a <tbody>: a <tbody> inside the table's <tbody> is invalid HTML and
+                  // React reports it as a hydration error.
+                  <Fragment key={`bundle-group-${group.bundleDocumentId}`}>
                     {/* Tree Parent: Main Combined PDF Row */}
                     <tr
                       onClick={() => toggleBundle(group.bundleDocumentId)}
@@ -467,7 +469,7 @@ export function SubmissionsTreeTable({ rows, tabLabel }: SubmissionsTreeTablePro
                           </SubmissionRow>
                         );
                       })}
-                  </tbody>
+                  </Fragment>
                 );
               })
             )}

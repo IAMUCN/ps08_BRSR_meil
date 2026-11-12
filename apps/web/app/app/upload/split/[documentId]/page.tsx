@@ -102,6 +102,7 @@ export default async function SplitPage({ params }: PageProps<"/app/upload/split
         defaultPeriodId={review.defaultPeriodId}
         submittedAt={review.submittedAt}
         sources={review.sources}
+        declarations={review.declarations}
       />
     </div>
   );

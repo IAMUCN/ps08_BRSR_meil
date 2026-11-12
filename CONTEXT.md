@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-11-11._
+_Last updated: 2026-11-13._
 
 ---
 
@@ -750,12 +750,56 @@ _Last updated: 2026-11-11._
 - **Splitting fix `rules-16` (2026-11-12), on `ucn` `main`:** a document-wide "Page k of N" footer no longer joins bills of different periods (`worker/extraction/bundle.py`). **The hosted worker runs `rules-16` since 2026-11-12 (owner's go)**; `traceesg-ocr-worker:latest` = `rules-16`, the previous container kept stopped as `traceesg-ocr-worker-hosted-rules15` for rollback (image tag `rules-15`). No reporting period on the Upload page (also on `ucn` `main`).
 - **FY 2026-27 open on hosted (2026-11-12, owner's request; `test data/_backup/hosted-open-fy2026-27.cjs`):** April-September 2026 reopened and November 2026-March 2027 created, all open; due 30 Nov 2026 for the months already ended (October kept its 31 Jan 2027), 15 days after the month for later ones; late uploads until 31 Mar 2027 (Feb/Mar 2027: +45 days). One audit entry per period, no user, reason naming the agent. Upload options now list begun periods first (`loadUploadOptions`), so the default stays the current month: **committed on `ucn` `main`, not on `origin`, so Vercel still defaults to March 2027 until it is pushed there**.
 - **Org import template follows Subsidiary → Business Unit → Project (2026-11-12), on `ucn` `main`.**
+- **Upload by rows with typed values (2026-11-12/13, mid-evaluation jury feedback "manual entry for each
+  submission"; owner's design), uncommitted on branch `feature-row-upload` (from `ucn/main` `27f62ea`); migrations
+  `0077` (additive: typed values, drafts) and `0078` (travel, split out of `0077` on 2026-11-13) on the LOCAL test
+  database only (there both ran as the old single `0077`), NOT on hosted; OCR `rules-17` built as `traceesg-ocr-worker:rules-17`
+  (`:latest` not retagged, hosted container not replaced)** (D59, A60, `.grill/row-upload-decisions.md`,
+  `UI_NOTES.md`). The Upload page is a table of rows (bill type, period, typed value(s), unit, required evidence;
+  Several documents; Another bill in this file; drafts); rows that pair cleanly are recorded at once
+  (`bundles.autoConfirm`); Verify shows typed vs read and blocks Confirm until chosen (server too); validation flags
+  a typed value kept against the document and a typed total the bills don't add up to; travel and staff buses are
+  distance × passengers (OCR counts numbered passenger names). Checked: web unit 384/384 (11 new), database 500/500
+  (all migrations `0001`–`0077`, new `row_upload.test.sql`), worker unit 63/63 and Ruff, real OCR on a synthetic
+  group ticket in the `rules-17` image, production build, lint (0 errors), format, typecheck; end-to-end on the
+  local stack with the `rules-17` image: new `row-upload.mjs` 51/51, the full suite 21 scripts, 18 in full;
+  `phase3-ocr` then 22/22 after its version check was loosened; browser `ui-row-upload.mjs` 24/24 in Edge (desktop,
+  Verify, phone, axe, no console error). **Two failures outside this change:** `feedback-2026-11` stops at the old
+  Add ID step (as before); `phase4-forwarding-audit` "the search bar finds by action" — searching
+  `report.returned` also returns other `report.*` entries since the 2026-11-11 word-form search
+  (`lib/audit/words.ts`). The last one-line wording change on the Upload page came after the build and browser run
+  (typecheck, lint, format, unit re-run). **The owner's dev server (port 3000, hosted) fails on Upload with
+  "relation public.upload_drafts does not exist" until `0077` is on hosted** (the owner applied it on 2026-11-13)
+  After the code is deployed: `0078`, then the `rules-17` worker. Hosted's history is at `0067` (`0068`–`0076` are
+  on no hosted database), so `0077` leaves a gap in it. Your uncommitted fix to `submissions-tree-table.tsx` (Fragment instead of tbody) was
+  carried onto this branch unchanged.
+- **Second round, 2026-11-13 (same branch, uncommitted):** Manual / Automatic switch on Upload (Automatic = the
+  earlier drop-the-bills flow); evidence in the same row; with Another bill in this file the file sits on top and
+  each bill has Page from / to (migration `0079`, additive); an eye button previews a file before and after it is
+  sent. `0077` was applied to hosted by the owner on 2026-11-13. **`0079` is NOT on hosted: the dev server's
+  uploads fail until `node "test data/_backup/hosted-0079.cjs" apply`** (its check mode passed). Checked: unit 385,
+  database 503/503 on a fresh reset, `row-upload.mjs` 57/57, scenarios E and F, browser `ui-row-upload.mjs` 30/30,
+  build, lint, format, typecheck. Details: `.grill/row-upload-decisions.md`, last section.
+- **Third round, 2026-11-13 (same branch, uncommitted, no migration):** the Upload rows are a table with merged
+  cells (several files on one activity: activity cells merged, a line per file; one file with several bills: a line
+  per bill, evidence merged); every row takes several files. Browser 32/32, `row-upload.mjs` 57/57, unit 385, build.
+  **`0079` is still not on hosted** (checked again 2026-11-13).
+- **Fourth round, 2026-11-13 (same branch, uncommitted, no migration):** rows ask for the **billing period**; a bill
+  for a month of this financial year whose due date has passed, or that has closed, is filed there and marked late
+  (reverses the "closed period takes no documents" rule for typed bills); future months and earlier years are not
+  offered; last year's March is offered April–June (agent's choice, confirm). `row-upload.mjs` 67/67, browser
+  32/32, scenario E 40/40, unit 385, build. The local test database has labelled closed `E2E …` periods.
+- **Fifth round, 2026-11-13 (same branch, uncommitted, no migration):** Verify has a Reporting period picker (before
+  Confirm and when returned) with a one-click "Move to <month>" when the billing period points elsewhere; audited
+  (`record.period_changed`), late recomputed. `row-upload.mjs` 75/75, browser 33/33, unit 385, build.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
+| Typed values on the Upload page | Confirm the build-time choices in `.grill/row-upload-decisions.md` (a travel total is summed field by field; supporting files stay on Verify; the replacement form has no typed value). `0077` is on hosted; run `node "test data/_backup/hosted-0079.cjs" apply` (additive; the dev server's uploads need it); after the deploy, `0078` and the `rules-17` worker. The test data's travel tickets print passenger-km as "Distance" — regenerate them with distance and passengers before using them for the demo. |
+| Audit Trail search (found 2026-11-13) | Since the 2026-11-11 word-form search, searching an exact action code such as `report.returned` also returns other `report.*` entries; `phase4-forwarding-audit` fails on it. Decide whether an exact code should match only itself. |
 | Decision-intelligence branch (`e333e9b`, 2026-11-12) | Its eight routers had lost their registration in `lib/trpc/root.ts` in a later merge, so Vercel's build failed (38 type errors); re-registered 2026-11-12 (build passes). Still open: its migrations reuse numbers `0053`–`0055` (pgvector/RAG, forecasts, what-if), which `main` already has, and are on no database, so the Decision Center's features that read those tables fail at run time. Ask its author, or have the feature role renumber them to `0068`+ and apply them on hosted. |
 | Expected submissions for the demo (2026-11-11) | The Upload page's progress list is empty for most projects: only MSRTC, BEST and Olectra have expectations. Fill them in on Admin → Organization, or ask the agent to set them from the test data. |
 | Daily reminders on Vercel (2026-11-11) | Save schedule now sends today's reminders at once, but nothing runs daily until `CRON_SECRET` (16+ random characters) is added to the Vercel project's environment variables and the app is redeployed; the panel then says "Active · runs daily at 9:00 IST". |
@@ -797,7 +841,7 @@ _Last updated: 2026-11-11._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D58** and **A60**; the next migration is `0068`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D60** and **A61**; the next migration is `0080` (`0078` travel and `0079` pages are taken)), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on

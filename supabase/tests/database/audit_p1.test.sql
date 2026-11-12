@@ -55,10 +55,12 @@ select is(
       and exists (select 1 from public.document_type_metric_mappings x where x.metric_id = m.id)
       and exists (select 1 from public.validation_rules v
                    where v.metric_id = m.id and v.rule_definition->>'check' = 'allowed_units')
+      -- Travel asks for the distance and the passengers instead of one passenger-km number (0077).
       and (select count(*) from public.metric_field_requirements r
-            where r.metric_id = m.id and r.is_required) = 4),
+            where r.metric_id = m.id and r.is_required)
+          = case when m.code like 'BUSINESS_TRAVEL_%' then 5 else 4 end),
   18,
-  'each new activity has a scope, a formula, an evidence type, a units rule and its four required fields');
+  'each new activity has a scope, a formula, an evidence type, a units rule and its required fields');
 select is(
   (select count(*)::int from public.scopes child
      join public.scopes parent on parent.id = child.parent_scope_id

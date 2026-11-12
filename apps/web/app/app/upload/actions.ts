@@ -45,6 +45,13 @@ export async function completeBundleUploadAction(input: {
   sources: { id: string; fileName: string; mimeType: string }[];
   acknowledgeDuplicates: boolean;
   description?: string;
+  /** The row(s) typed for this upload (migration 0077). */
+  declarations?: {
+    metricId: string;
+    reportingPeriodId: string;
+    mode: "bill" | "pages_of_one" | "total";
+    values: Record<string, string>;
+  }[];
 }) {
   return runAction((api) => api.bundles.completeUpload(input));
 }
@@ -58,9 +65,29 @@ export async function confirmBundleAction(input: {
     metricId: string | null;
     skip: boolean;
     reportingPeriodId?: string;
+    declaration?: number | null;
+    values?: Record<string, string>;
   }[];
+  dropDeclarations?: number[];
 }) {
   return runAction((api) => api.bundles.confirm(input));
+}
+
+/** A typed upload that has been read: recorded at once when its bills pair cleanly with its rows. */
+export async function autoConfirmBundleAction(input: { documentId: string }) {
+  return runAction((api) => api.bundles.autoConfirm(input));
+}
+
+export async function rowStatusAction(input: { documentIds: string[] }) {
+  return runAction((api) => api.bundles.rowStatus(input));
+}
+
+export async function saveUploadDraftAction(input: { rows: Record<string, unknown>[] }) {
+  return runAction((api) => api.bundles.saveDraft(input));
+}
+
+export async function clearUploadDraftAction() {
+  return runAction((api) => api.bundles.clearDraft());
 }
 
 export async function discardBundleAction(input: { documentId: string }) {

@@ -787,3 +787,15 @@ Adds operational decision intelligence and audit infrastructure:
 
 All 11 tables have RLS enabled, strict tenant isolation by `org_unit_id`, and zero direct browser write permissions.
 
+
+## D59 — Typed values with each upload, drafts (migration `0077`), travel as distance × passengers (migration `0078`), 2026-11-12
+
+`upload_declarations` keeps what a person typed for each row of the Upload page (bill type, reporting period,
+mode `bill` / `pages_of_one` / `total`, the values by field key), apart from the OCR fields so a reading or a
+correction never overwrites it; a trigger refuses any change or delete. `esg_records.upload_declaration_id` points a
+record at its row (several records share one for a typed total). `upload_drafts` holds one unfinished Upload table
+per person. Both tables have RLS and no browser grants. Travel by air, rail and road and staff buses ask for
+`distance` and `passengers` instead of one passenger-km `quantity`; formula version 2 (`direct_multiply` with
+`inputs: [distance, passengers]`) replaces version 1, which is superseded, not deleted. `.grill/row-upload-decisions.md`.
+Migration `0079` (2026-11-13) adds `page_from` / `page_to` to `upload_declarations` (both or neither, the last not
+before the first), covered by the same no-change trigger: the pages of a bill typed for a file of several.
