@@ -105,3 +105,79 @@ export function workerStallMinutes(oldestPendingSince: Date | null, now: Date): 
 export function attentionLabel(count: number): string {
   return count === 1 ? "1 field needs attention" : `${count} fields need attention`;
 }
+
+export type SubmissionItem = {
+  id: string;
+  bundleDocumentId?: string | null;
+  bundleFileName?: string | null;
+  bundleDescription?: string | null;
+  bundleTotalParts?: number | null;
+  submittedAt: string;
+  orgUnitName: string;
+  periodLabel: string;
+  metricName: string;
+  fileName: string | null;
+  pageFrom?: number | null;
+  pageTo?: number | null;
+};
+
+export type SubmissionGroup<T extends SubmissionItem = SubmissionItem> =
+  | {
+      type: "bundle";
+      bundleDocumentId: string;
+      bundleFileName: string;
+      bundleDescription: string | null;
+      bundleTotalParts: number | null;
+      submittedAt: string;
+      orgUnitName: string;
+      periodLabel: string;
+      records: T[];
+    }
+  | {
+      type: "single";
+      record: T;
+    };
+
+/**
+ * Groups submissions into multi-bill PDF tree nodes (bundles) and standalone single items.
+ * Consecutive or related records from the same bundle document are grouped under their parent PDF.
+ */
+export function groupSubmissions<T extends SubmissionItem>(
+  rows: readonly T[],
+): SubmissionGroup<T>[] {
+  const groups: SubmissionGroup<T>[] = [];
+  const bundleMap = new Map<string, Extract<SubmissionGroup<T>, { type: "bundle" }>>();
+
+  for (const row of rows) {
+    if (row.bundleDocumentId) {
+      let group = bundleMap.get(row.bundleDocumentId);
+      if (!group) {
+        group = {
+          type: "bundle",
+          bundleDocumentId: row.bundleDocumentId,
+          bundleFileName: row.bundleFileName || "Multi-bill PDF",
+          bundleDescription: row.bundleDescription ?? null,
+          bundleTotalParts: row.bundleTotalParts ?? null,
+          submittedAt: row.submittedAt,
+          orgUnitName: row.orgUnitName,
+          periodLabel: row.periodLabel,
+          records: [],
+        };
+        bundleMap.set(row.bundleDocumentId, group);
+        groups.push(group);
+      } else {
+        if (group.orgUnitName !== row.orgUnitName && !group.orgUnitName.includes("Multiple sites")) {
+          group.orgUnitName = "Multiple sites";
+        }
+        if (group.periodLabel !== row.periodLabel && !group.periodLabel.includes("Multiple periods")) {
+          group.periodLabel = "Multiple periods";
+        }
+      }
+      group.records.push(row);
+    } else {
+      groups.push({ type: "single", record: row });
+    }
+  }
+  return groups;
+}
+

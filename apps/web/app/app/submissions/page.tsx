@@ -10,13 +10,11 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { requireAppSession } from "@/lib/auth/session";
 import {
   SUBMISSION_TABS,
-  attentionLabel,
   isSubmissionTab,
-  submissionBadge,
   submissionTab,
 } from "@/lib/ocr/rules";
 import { api } from "@/lib/trpc/server";
-import { SubmissionRow } from "./submission-row";
+import { SubmissionsTreeTable } from "./submissions-tree-table";
 
 export const metadata: Metadata = { title: "My Submissions · EmeilSG" };
 
@@ -161,106 +159,7 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
         </ul>
       </nav>
 
-      <div className="overflow-x-auto rounded-md border border-table-border">
-        <table className="w-full border-collapse text-sm">
-          <caption className="sr-only">{tabLabel} submissions</caption>
-          <thead className="bg-table-header text-table-header-foreground">
-            <tr>
-              {["Document", "ESG activity", "Project / site", "Period", "Submitted", "Status"].map(
-                (heading) => (
-                  <th
-                    key={heading}
-                    scope="col"
-                    className="px-3 py-3 text-left text-[11px] leading-[14px] font-medium tracking-wide uppercase"
-                  >
-                    {heading}
-                  </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {visible.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="bg-table-row px-3 py-8 text-center text-muted-foreground"
-                >
-                  Nothing under {tabLabel} right now.
-                </td>
-              </tr>
-            ) : (
-              visible.map((row) => {
-                const badge = submissionBadge(row);
-                const detail = row.rejectedReason
-                  ? row.rejectedReason
-                  : row.returnReason
-                    ? row.returnReason
-                    : row.validationStatus === "flagged"
-                      ? "Awaiting Admin review."
-                      : row.errorMessage
-                        ? row.errorMessage
-                        : row.verificationStatus === "ocr_completed" && row.attention > 0
-                          ? attentionLabel(row.attention)
-                          : null;
-                return (
-                  <SubmissionRow
-                    key={row.id}
-                    href={row.documentId ? `/app/verify/${row.documentId}` : null}
-                  >
-                    <td className="px-3 py-3 font-medium">
-                      {row.documentId ? (
-                        <Link
-                          href={`/app/verify/${row.documentId}`}
-                          className="text-primary-text underline-offset-4 hover:underline"
-                        >
-                          {row.fileName}
-                        </Link>
-                      ) : (
-                        <span className="text-muted-foreground">No document</span>
-                      )}
-                      {row.description ? (
-                        <span
-                          className="mt-0.5 block max-w-72 truncate text-xs font-normal text-foreground"
-                          title={row.description}
-                        >
-                          {row.description}
-                        </span>
-                      ) : null}
-                      {row.manualException ? (
-                        <span className="mt-1 block text-[11px] leading-4 tracking-wide text-muted-foreground uppercase">
-                          Manual exception
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-3">{row.metricName}</td>
-                    <td className="px-3 py-3">{row.orgUnitName}</td>
-                    <td className="px-3 py-3">{row.periodLabel}</td>
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      {formatDateTime(row.submittedAt)}
-                    </td>
-                    <td className="px-3 py-3">
-                      <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
-                      {detail ? (
-                        <p
-                          className={cn(
-                            "mt-1 max-w-xs text-xs leading-4",
-                            row.errorMessage && !row.rejectedReason
-                              ? "text-status-error"
-                              : "text-muted-foreground",
-                          )}
-                        >
-                          {detail}
-                        </p>
-                      ) : null}
-                    </td>
-                  </SubmissionRow>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      <SubmissionsTreeTable rows={visible} tabLabel={tabLabel} />
     </div>
   );
 }
