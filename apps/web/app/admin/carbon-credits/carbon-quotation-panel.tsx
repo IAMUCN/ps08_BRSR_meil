@@ -109,9 +109,18 @@ export function CarbonQuotationPanel({
   };
 
   const procurementBrief = useMemo<ProcurementBrief>(() => {
-    const planId = `PLAN-${orgUnitCode || "CORP"}-${new Date().getFullYear()}-${Math.floor(
-      1000 + Math.random() * 9000,
-    )}`;
+    // Generate deterministic identifier to prevent SSR/client hydration mismatch
+    const cleanCode = (orgUnitCode || "CORP").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const seedStr = `${cleanCode}-${periodLabel}-${targetCredits}`;
+    let hash = 0;
+    for (let i = 0; i < seedStr.length; i++) {
+      hash = (Math.imul(31, hash) + seedStr.charCodeAt(i)) | 0;
+    }
+    const seedNumber = Math.abs(hash % 9000) + 1000;
+    const yearMatch = periodLabel.match(/\d{4}/);
+    const planYear = yearMatch ? yearMatch[0] : "2026";
+    const planId = `PLAN-${cleanCode}-${planYear}-${seedNumber}`;
+
     return {
       planId,
       createdAt: new Date().toLocaleDateString("en-IN", {
