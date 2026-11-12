@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   Award,
   CheckCircle2,
@@ -40,7 +40,7 @@ import {
   transferCreditAction,
 } from "./actions";
 
-type Props = {
+export type CarbonCreditsClientProps = {
   options: {
     orgUnits: { id: string; name: string; code: string; unitType: string }[];
     periods: {
@@ -110,6 +110,8 @@ type Props = {
     sourceRational: string;
     isActive: boolean;
   }>;
+  initialOrgUnitId?: string;
+  onOrgChange?: (id: string) => void;
 };
 
 export function CarbonCreditsClient({
@@ -118,7 +120,9 @@ export function CarbonCreditsClient({
   initialBatches,
   initialReconciliation,
   initialIcpPrices,
-}: Props) {
+  initialOrgUnitId,
+  onOrgChange,
+}: CarbonCreditsClientProps) {
   const [activeTab, setActiveTab] = useState<"inventory" | "reconciliation" | "icp">("inventory");
   const [summary, setSummary] = useState(initialSummary);
   const [batches, setBatches] = useState(initialBatches);
@@ -126,11 +130,26 @@ export function CarbonCreditsClient({
   const [isPending, startTransition] = useTransition();
 
   // Filters
-  const [selectedOrgUnit, setSelectedOrgUnit] = useState(options.orgUnits[0]?.id ?? "");
+  const [selectedOrgUnit, setSelectedOrgUnit] = useState(
+    initialOrgUnitId ?? options.orgUnits[0]?.id ?? "",
+  );
   const [selectedPeriod, setSelectedPeriod] = useState<string | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [registryFilter, setRegistryFilter] = useState<string>("ALL");
+
+  useEffect(() => {
+    if (initialOrgUnitId && initialOrgUnitId !== selectedOrgUnit) {
+      setSelectedOrgUnit(initialOrgUnitId);
+      startTransition(async () => {
+        const res = await getReconciliationAction({
+          orgUnitId: initialOrgUnitId,
+          reportingPeriodId: selectedPeriod,
+        });
+        if (res.ok) setReconciliation(res.data);
+      });
+    }
+  }, [initialOrgUnitId, selectedPeriod, selectedOrgUnit]);
 
   // Modals
   const [isMintOpen, setIsMintOpen] = useState(false);
@@ -599,10 +618,12 @@ export function CarbonCreditsClient({
                 <NativeSelect
                   value={selectedOrgUnit}
                   onChange={(e) => {
-                    setSelectedOrgUnit(e.target.value);
+                    const newId = e.target.value;
+                    setSelectedOrgUnit(newId);
+                    onOrgChange?.(newId);
                     startTransition(async () => {
                       const res = await getReconciliationAction({
-                        orgUnitId: e.target.value,
+                        orgUnitId: newId,
                         reportingPeriodId: selectedPeriod,
                       });
                       if (res.ok) setReconciliation(res.data);

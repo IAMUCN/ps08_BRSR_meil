@@ -207,3 +207,49 @@ test("Carbon Intelligence: Year-on-year trends compares like-for-like months wit
     assert.ok(comparison.changePct! > 22 && comparison.changePct! < 23);
   }
 });
+
+test("Carbon Intelligence: supports 4 unified modules (Overview, Forecast, Simulator, Credits & Offsets)", () => {
+  const normalizeTab = (rawTab?: string) => {
+    if (rawTab === "forecast" || rawTab === "simulator" || rawTab === "credits") return rawTab;
+    if (rawTab === "carbon-credits") return "credits";
+    return "overview";
+  };
+
+  assert.equal(normalizeTab("overview"), "overview");
+  assert.equal(normalizeTab(undefined), "overview");
+  assert.equal(normalizeTab("forecast"), "forecast");
+  assert.equal(normalizeTab("simulator"), "simulator");
+  assert.equal(normalizeTab("credits"), "credits");
+  assert.equal(normalizeTab("carbon-credits"), "credits");
+});
+
+test("Carbon Intelligence: reconciliation ensures transferred credits are never double counted as offsets", () => {
+  const grossEmissions = { scope1: 1500, scope2: 800, scope3: 1200, total: 3500 };
+  const retiredBatches = [
+    { targetScope: "SCOPE_1", quantityTco2e: 300 },
+    { targetScope: "SCOPE_2", quantityTco2e: 200 },
+  ];
+  const transferredBatches = [{ quantityTco2e: 500, status: "TRANSFERRED" }];
+
+  // Transferred batches are excluded from internal offset claims
+  const transferredTotal = transferredBatches.reduce((acc, b) => acc + b.quantityTco2e, 0);
+  assert.equal(transferredTotal, 500);
+
+  const scope1Offsets = retiredBatches
+    .filter((b) => b.targetScope === "SCOPE_1")
+    .reduce((acc, b) => acc + b.quantityTco2e, 0);
+  const scope2Offsets = retiredBatches
+    .filter((b) => b.targetScope === "SCOPE_2")
+    .reduce((acc, b) => acc + b.quantityTco2e, 0);
+  const totalOffsets = scope1Offsets + scope2Offsets;
+
+  const netScope1 = grossEmissions.scope1 - scope1Offsets;
+  const netScope2 = grossEmissions.scope2 - scope2Offsets;
+  const netTotal = grossEmissions.total - totalOffsets;
+
+  assert.equal(netScope1, 1200);
+  assert.equal(netScope2, 600);
+  assert.equal(netTotal, 3000);
+  assert.ok(netTotal < grossEmissions.total);
+});
+

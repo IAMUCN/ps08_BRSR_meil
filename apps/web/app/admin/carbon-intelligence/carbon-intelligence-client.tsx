@@ -1,12 +1,18 @@
 "use client";
 
-import { BarChart3, Sliders, TrendingUp } from "lucide-react";
+import { BarChart3, Coins, Sliders, TrendingUp } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { AlertSettings } from "@/lib/analytics/alerts";
 import type { AnalyticsOverview } from "@/lib/analytics/service";
 import type { EmissionAlert } from "@/lib/trpc/routers/analytics";
+import type { CarbonLink } from "@/lib/trpc/routers/carbon-links";
+import {
+  CarbonCreditsClient,
+  type CarbonCreditsClientProps,
+} from "../carbon-credits/carbon-credits-client";
+import { CreditLinksPanel } from "../carbon-credits/credit-links-panel";
 import { ForecastClient, type ForecastOptions } from "../forecast/forecast-client";
 import { SimulatorClient, type SimulatorOptions } from "../simulator/simulator-client";
 import { OverviewTab } from "./overview-tab";
@@ -18,6 +24,8 @@ export type OrgUnitOption = {
   depth: number;
 };
 
+export type CarbonIntelligenceTab = "overview" | "forecast" | "simulator" | "credits";
+
 export type CarbonIntelligenceClientProps = {
   units: OrgUnitOption[];
   initialOrgUnitId: string;
@@ -28,7 +36,15 @@ export type CarbonIntelligenceClientProps = {
   aiAvailable: boolean;
   forecastOptions: ForecastOptions;
   simulatorOptions: SimulatorOptions;
-  initialTab?: "overview" | "forecast" | "simulator";
+  creditsData: {
+    options: CarbonCreditsClientProps["options"];
+    summary: CarbonCreditsClientProps["initialSummary"];
+    batches: CarbonCreditsClientProps["initialBatches"];
+    reconciliation: CarbonCreditsClientProps["initialReconciliation"];
+    icpPrices: CarbonCreditsClientProps["initialIcpPrices"];
+    links: CarbonLink[];
+  };
+  initialTab?: CarbonIntelligenceTab;
 };
 
 export function CarbonIntelligenceClient({
@@ -41,6 +57,7 @@ export function CarbonIntelligenceClient({
   aiAvailable,
   forecastOptions,
   simulatorOptions,
+  creditsData,
   initialTab = "overview",
 }: CarbonIntelligenceClientProps) {
   const router = useRouter();
@@ -48,9 +65,15 @@ export function CarbonIntelligenceClient({
 
   // Active tab state derived directly from URL
   const paramTab = searchParams.get("tab");
-  const activeTab: "overview" | "forecast" | "simulator" =
-    paramTab === "forecast" || paramTab === "simulator" || paramTab === "overview"
-      ? paramTab
+  const activeTab: CarbonIntelligenceTab =
+    paramTab === "forecast" ||
+    paramTab === "simulator" ||
+    paramTab === "overview" ||
+    paramTab === "credits" ||
+    paramTab === "carbon-credits"
+      ? paramTab === "carbon-credits"
+        ? "credits"
+        : paramTab
       : initialTab;
 
   // Active org unit state derived directly from URL
@@ -59,7 +82,7 @@ export function CarbonIntelligenceClient({
 
   // Navigate to updated query string
   const updateUrl = useCallback(
-    (newTab: "overview" | "forecast" | "simulator", newOrg: string) => {
+    (newTab: CarbonIntelligenceTab, newOrg: string) => {
       const params = new URLSearchParams();
       params.set("tab", newTab);
       params.set("org", newOrg);
@@ -68,7 +91,7 @@ export function CarbonIntelligenceClient({
     [router],
   );
 
-  const handleTabChange = (tab: "overview" | "forecast" | "simulator") => {
+  const handleTabChange = (tab: CarbonIntelligenceTab) => {
     updateUrl(tab, orgUnitId);
   };
 
@@ -120,6 +143,19 @@ export function CarbonIntelligenceClient({
             <Sliders className="size-3.5 text-blue-500" aria-hidden />
             <span>Reduction Simulator</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange("credits")}
+            className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all ${
+              activeTab === "credits"
+                ? "bg-card text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Coins className="size-3.5 text-emerald-500" aria-hidden />
+            <span>Carbon Credits & Offsets</span>
+          </button>
         </div>
 
         {/* Shared Organization Unit Selector */}
@@ -170,6 +206,21 @@ export function CarbonIntelligenceClient({
           initialOrgUnitId={orgUnitId}
           onOrgChange={handleOrgChange}
         />
+      )}
+
+      {activeTab === "credits" && (
+        <div className="space-y-6">
+          <CreditLinksPanel links={creditsData.links} canEdit={isSuperAdmin} />
+          <CarbonCreditsClient
+            options={creditsData.options}
+            initialSummary={creditsData.summary}
+            initialBatches={creditsData.batches}
+            initialReconciliation={creditsData.reconciliation}
+            initialIcpPrices={creditsData.icpPrices}
+            initialOrgUnitId={orgUnitId}
+            onOrgChange={handleOrgChange}
+          />
+        </div>
       )}
     </div>
   );
