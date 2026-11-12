@@ -33,7 +33,7 @@ const ROLES = [
 
 export function ContributorsSection() {
   return (
-    <section id="roles" className="bg-slate-50/70 px-4 py-20 sm:px-6 lg:px-8">
+    <section id="roles" className="bg-slate-50/70 px-3 sm:px-6 lg:px-8 py-14 sm:py-20">
       <div className="mx-auto max-w-7xl">
         <SectionHeading eyebrow="Roles and access" title="Each team sees only what it owns">
           Access follows role and organizational scope, so a project user never sees another

@@ -226,7 +226,7 @@ export function VerifyWorkspace({
   }
 
   return (
-    <div className="flex max-h-[calc(100vh-10rem)] min-h-[480px] flex-col rounded-lg border bg-card">
+    <div className="flex min-h-[480px] flex-col rounded-lg border bg-card xl:max-h-[calc(100vh-10rem)]">
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="space-y-4 border-b p-4">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">

@@ -37,7 +37,7 @@ const ITEMS = [
 
 export function SecuritySection() {
   return (
-    <section id="security" className="bg-white px-4 py-20 sm:px-6 lg:px-8">
+    <section id="security" className="bg-white px-3 sm:px-6 lg:px-8 py-14 sm:py-20">
       <div className="mx-auto max-w-7xl">
         <SectionHeading eyebrow="Security and control" title="Controls an auditor can inspect" />
         <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">

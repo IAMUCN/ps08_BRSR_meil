@@ -89,7 +89,7 @@ export function VerifySplit({
           src={`/api/documents/${doc.documentId}/file`}
           mimeType={doc.mimeType}
           fileName={doc.fileName}
-          className="max-h-[calc(100vh-10rem)]"
+          className="h-[340px] sm:h-[460px] xl:h-auto xl:max-h-[calc(100vh-10rem)]"
           regions={regions}
           showRegions={showBoxes}
           pageSizes={sources?.pageSizes ?? null}

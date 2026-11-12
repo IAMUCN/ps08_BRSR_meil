@@ -30,11 +30,29 @@ export function InfrastructureSection() {
   const cardsContainerRef = useRef<HTMLDivElement>(null);
   const activeIndexRef = useRef(0);
   const lastScrollTime = useRef(0);
+  const touchStartX = useRef<number | null>(null);
 
   // Keep ref synchronized with state for native wheel listener
   useEffect(() => {
     activeIndexRef.current = activeIndex;
   }, [activeIndex]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 35) {
+      if (diff > 0 && activeIndex < categories.length - 1) {
+        setActiveIndex((i) => i + 1);
+      } else if (diff < 0 && activeIndex > 0) {
+        setActiveIndex((i) => i - 1);
+      }
+    }
+    touchStartX.current = null;
+  };
 
   // Hijack wheel events ONLY inside the cards container range
   useEffect(() => {
@@ -77,14 +95,14 @@ export function InfrastructureSection() {
   }, []);
 
   return (
-    <section id="infrastructure" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+    <section id="infrastructure" className="py-14 sm:py-20 px-3 sm:px-6 lg:px-8 bg-white">
       <div className="max-w-7xl mx-auto">
         {/* Section Heading */}
-        <div className="text-center mb-14">
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-950 tracking-tight">
+        <div className="text-center mb-10 sm:mb-14">
+          <h2 className="font-display text-2xl sm:text-4xl font-bold text-slate-950 tracking-tight">
             Built for a More Sustainable Infrastructure Future
           </h2>
-          <p className="text-base sm:text-lg text-slate-600 mt-2 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-sm sm:text-lg text-slate-600 mt-2 max-w-3xl mx-auto leading-relaxed">
             From dams and highways to power, manufacturing and energy systems — EmeilSG supports
             MEIL&apos;s diverse portfolio with a unified ESG data platform.
           </p>
@@ -93,7 +111,9 @@ export function InfrastructureSection() {
         {/* 5 Infrastructure Cards in Expanding Flexbox Accordion with decreased spacing */}
         <div
           ref={cardsContainerRef}
-          className="infrastructure-cards-container flex items-stretch gap-1.5 sm:gap-2 h-[400px] sm:h-[460px] max-w-6xl mx-auto w-full"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          className="infrastructure-cards-container flex items-stretch gap-1.5 sm:gap-2 h-[340px] sm:h-[460px] max-w-6xl mx-auto w-full"
           style={{
             ["--card-text-bottom" as string]: "28px",
           }}

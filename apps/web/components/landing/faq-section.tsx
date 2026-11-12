@@ -22,7 +22,7 @@ const FAQS = [
 
 export function FaqSection() {
   return (
-    <section className="bg-white px-4 py-20 sm:px-6 lg:px-8">
+    <section className="bg-white px-3 sm:px-6 lg:px-8 py-14 sm:py-20">
       <div className="mx-auto max-w-3xl">
         <SectionHeading eyebrow="Questions" title="What reviewers usually ask" />
         <div className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">

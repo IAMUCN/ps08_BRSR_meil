@@ -33,10 +33,21 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
   themeColor: "#37358f",
   // The content may sit under a phone's notch and home bar; the bottom navigation pads itself for it.
   viewportFit: "cover",
 };
+
+/**
+ * Mobile detection script runs synchronously before first paint.
+ * If opened on a mobile device (phone UA, touch with physical screen min < 768px, or mobile phone),
+ * it adds "is-mobile-device" to <html> and enforces the mobile viewport meta tag even if the mobile
+ * browser had "Desktop site" requested/cached.
+ */
+const MOBILE_BOOT_SCRIPT = `(function(){try{var t=navigator.maxTouchPoints>0,w=window.screen.width,h=window.screen.height,m=Math.min(w,h),u=/Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent);if((t&&m<768)||u){document.documentElement.classList.add("is-mobile-device");var v=document.querySelector('meta[name="viewport"]');if(v){v.setAttribute("content","width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover")}}}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -52,6 +63,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: MOBILE_BOOT_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">
         <a

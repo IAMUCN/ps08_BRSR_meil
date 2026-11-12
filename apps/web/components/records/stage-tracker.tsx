@@ -28,13 +28,13 @@ export function StageTracker({
               key={step.label}
               aria-current={step.state === "current" ? "step" : undefined}
               className={cn(
-                "flex items-center gap-1",
+                "flex items-center gap-1 shrink-0 whitespace-nowrap",
                 step.state === "todo" && "text-muted-foreground",
                 step.state === "current" && "font-semibold text-foreground",
                 step.state === "stopped" && "font-semibold text-status-error",
               )}
             >
-              <Icon className="size-3.5" aria-hidden />
+              <Icon className="size-3.5 shrink-0" aria-hidden />
               {step.label}
               <span className="sr-only">
                 {step.state === "done"

@@ -29,7 +29,7 @@ const STEPS = [
 
 export function ProcessStepsSection() {
   return (
-    <section id="how-it-works" className="bg-slate-50/70 px-4 py-20 sm:px-6 lg:px-8">
+    <section id="how-it-works" className="bg-slate-50/70 px-3 sm:px-6 lg:px-8 py-14 sm:py-20">
       <div className="mx-auto max-w-7xl">
         <SectionHeading eyebrow="How it works" title="From document to disclosure in six steps">
           No manual ESG forms. Every stage is recorded, so the number can always be explained.

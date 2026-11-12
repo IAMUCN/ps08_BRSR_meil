@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const session = await requireAdminWorkspaceSession();
 
   return (
-    <div className="flex min-h-screen flex-1">
+    <div className="flex min-h-screen max-w-full flex-1 overflow-x-clip">
       <ThemeSync theme={session.theme} />
       <SessionKeeper />
       <Sidebar items={workspaceNavFor(session)} label="Admin navigation" />
@@ -29,6 +29,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           {children}
         </main>
       </div>
+      {session.permissions.includes("chat.use") && chatConfig() ? <ChatLauncher /> : null}
     </div>
   );
 }

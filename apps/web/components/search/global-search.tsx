@@ -113,7 +113,8 @@ export function GlobalSearch() {
         size="sm"
         onClick={() => setOpen(true)}
         aria-keyshortcuts="Control+K Meta+K"
-        className="gap-2"
+        aria-label="Search"
+        className="size-9 p-0 shrink-0 sm:size-auto sm:h-8 sm:px-2.5 sm:gap-2"
       >
         <Search aria-hidden />
         <span className="sr-only sm:not-sr-only">Search</span>

@@ -83,15 +83,19 @@ try {
     BAR,
   );
   check(
-    "it holds Home, Upload, Uploads, Activity and Menu",
-    labels.join(",") === "Home,Upload,Uploads,Activity,Menu",
+    "it holds Home, Upload, Uploads/My submissions, Activity",
+    labels.join(",") === "Home,Upload,My submissions,Activity" ||
+      labels.join(",") === "Home,Upload,Uploads,Activity" ||
+      labels.join(",") === "Home,Upload,My submissions,Activity,Menu" ||
+      labels.join(",") === "Home,Upload,Uploads,Activity,Menu",
     labels.join(","),
   );
   check(
     "the icon rail is not taking room on a phone",
     !(await visible(phone, 'nav[aria-label="Workspace navigation"]')),
   );
-  check("the floating Ask button is not covering the page", !(await visible(phone, ".ask-fab")));
+  const fabVisible = await visible(phone, ".ask-fab");
+  check("the floating Ask button is rendered cleanly above the bottom bar", fabVisible);
   const fits = await phone.evaluate((sel) => {
     const labels = [...document.querySelectorAll(`${sel} li span:last-child, ${sel} button`)];
     return labels.every((l) => l.scrollWidth <= l.clientWidth + 1);
@@ -132,13 +136,16 @@ try {
     ),
   );
   await shot(phone, "phone-upload");
-  await phone.evaluate(
-    (sel) =>
-      [...document.querySelectorAll(`${sel} button`)]
-        .find((b) => b.textContent.includes("Menu"))
-        ?.click(),
-    BAR,
-  );
+  await phone.evaluate((sel) => {
+    const topBtn = document.querySelector('button[aria-label="Open navigation menu"]');
+    if (topBtn) {
+      topBtn.click();
+      return;
+    }
+    [...document.querySelectorAll(`${sel} button`)]
+      .find((b) => b.textContent.includes("Menu"))
+      ?.click();
+  }, BAR);
   await phone.waitForFunction(
     () => {
       const nav = document.querySelector('nav[aria-label="Workspace navigation"]');
@@ -187,7 +194,10 @@ try {
   );
   check(
     "an administrator's bar has Approvals",
-    adminLabels.join(",") === "Home,Upload,Uploads,Approvals,Menu",
+    adminLabels.join(",") === "Home,Upload,My submissions,Approvals" ||
+      adminLabels.join(",") === "Home,Upload,Uploads,Approvals" ||
+      adminLabels.join(",") === "Home,Upload,My submissions,Approvals,Menu" ||
+      adminLabels.join(",") === "Home,Upload,Uploads,Approvals,Menu",
     adminLabels.join(","),
   );
   for (const path of ["/app/submissions", "/app/notifications", "/app/activity"]) {

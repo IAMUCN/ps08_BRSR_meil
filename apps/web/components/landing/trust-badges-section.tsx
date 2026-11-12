@@ -13,13 +13,13 @@ export function TrustBadgesSection() {
   return (
     <section
       aria-label="Principles"
-      className="border-y border-slate-200/70 bg-slate-50/70 px-4 py-10 sm:px-6 lg:px-8"
+      className="border-y border-slate-200/70 bg-slate-50/70 px-4 py-8 sm:py-10 sm:px-6 lg:px-8"
     >
-      <ul className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+      <ul className="mx-auto grid max-w-7xl grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:gap-6">
         {BADGES.map(({ icon: Icon, title, text }, i) => (
           <li key={title}>
             <BlurFade inView delay={i * 0.06} className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#313490] shadow-xs ring-1 ring-slate-200">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#313490] shadow-2xs ring-1 ring-slate-200">
                 <Icon className="h-[18px] w-[18px]" />
               </span>
               <span>

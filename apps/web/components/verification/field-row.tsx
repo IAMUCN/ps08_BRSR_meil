@@ -79,18 +79,35 @@ export function FieldRow({
         selected && "ring-2 ring-primary/50 ring-inset",
       )}
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="w-36 shrink-0 text-sm leading-5 text-muted-foreground">
-          {field.label}
-          {field.required ? (
-            <span className="text-status-error" aria-label="required">
-              {" "}
-              *
+      <div className="flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-1.5">
+        <div className="flex items-center justify-between gap-2 sm:w-36 sm:shrink-0">
+          <span className="text-sm leading-5 font-medium sm:font-normal text-muted-foreground">
+            {field.label}
+            {field.required ? (
+              <span className="text-status-error" aria-label="required">
+                {" "}
+                *
+              </span>
+            ) : null}
+          </span>
+          {/* Mobile-only confidence badge in header row */}
+          <span className="flex items-center gap-1.5 text-xs tabular-nums sm:hidden">
+            <span
+              className={cn(
+                "size-2 shrink-0 rounded-full",
+                missing ? "bg-muted-foreground" : flagged ? "bg-status-warning" : "bg-status-success",
+              )}
+              aria-hidden
+            />
+            <span className="text-muted-foreground">
+              {missing || field.confidence === null
+                ? "No OCR value"
+                : `${Math.round(field.confidence)}%`}
             </span>
-          ) : null}
-        </span>
+          </span>
+        </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 w-full">
           {editing ? (
             <Input
               ref={inputRef}
@@ -120,7 +137,7 @@ export function FieldRow({
                 setEditing(true);
               }}
               className={cn(
-                "group flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm leading-5 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default disabled:hover:bg-transparent",
+                "group flex w-full items-center gap-2 rounded-sm border sm:border-transparent px-2.5 py-1.5 text-left text-sm leading-5 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default disabled:hover:bg-transparent",
                 monospace && "font-mono",
               )}
               aria-label={`${field.label}: ${entry.value || "empty"}. ${confidenceLabel(field, threshold)}. Press Enter to edit.`}
@@ -135,7 +152,7 @@ export function FieldRow({
               </span>
               {!disabled ? (
                 <Pencil
-                  className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+                  className="size-3.5 shrink-0 text-muted-foreground opacity-70 group-hover:opacity-100 group-focus-visible:opacity-100"
                   aria-hidden
                 />
               ) : null}
@@ -143,7 +160,8 @@ export function FieldRow({
           )}
         </div>
 
-        <span className="flex w-28 shrink-0 items-center justify-end gap-1.5 text-xs tabular-nums">
+        {/* Desktop-only confidence badge */}
+        <span className="hidden sm:flex sm:w-28 sm:shrink-0 items-center justify-end gap-1.5 text-xs tabular-nums">
           <span
             className={cn(
               "size-2 shrink-0 rounded-full",
@@ -160,7 +178,7 @@ export function FieldRow({
         </span>
       </div>
 
-      <div className="mt-1 flex flex-wrap items-center gap-2 pl-[9.75rem]">
+      <div className="mt-1 flex flex-wrap items-center gap-2 pl-0 sm:pl-[9.75rem]">
         {error ? (
           <p role="alert" className="text-xs leading-4 text-status-error">
             {error}

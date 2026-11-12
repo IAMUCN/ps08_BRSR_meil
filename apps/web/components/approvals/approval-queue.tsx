@@ -229,7 +229,7 @@ export function ApprovalQueue({
                         src={`/api/documents/${selected.documentId}/file`}
                         mimeType={selected.mimeType}
                         fileName={selected.fileName ?? "document"}
-                        className="h-[560px] @4xl:h-[calc(100vh-9rem)]"
+                        className="h-[320px] sm:h-[480px] @4xl:h-[calc(100vh-9rem)]"
                       />
                     ) : (
                       <p className="text-sm text-muted-foreground">

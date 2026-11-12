@@ -6,7 +6,7 @@ import { DemoRequestButton } from "@/components/landing/demo-request";
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-white pb-20 pt-14 lg:pb-28 lg:pt-20">
+    <section className="relative overflow-hidden bg-white pb-14 pt-8 sm:pb-20 sm:pt-14 lg:pb-28 lg:pt-20">
       <div
         aria-hidden
         className="absolute inset-0 -z-10 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:22px_22px] [mask-image:radial-gradient(ellipse_at_top_right,black,transparent_70%)]"
@@ -14,7 +14,7 @@ export function HeroSection() {
       <div className="pointer-events-none absolute -top-32 right-0 -z-10 h-[480px] w-[480px] rounded-full bg-[#313490]/[0.06] blur-3xl" />
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid items-center gap-14 lg:grid-cols-12 lg:gap-8">
+        <div className="grid items-center gap-10 lg:grid-cols-12 lg:gap-8">
           <div className="flex flex-col items-start lg:col-span-7">
             <BlurFade>
               <span className="mb-5 inline-flex items-center gap-2 rounded-2xl border border-[#313490]/15 bg-[#313490]/[0.06] px-3.5 py-1.5 sm:rounded-full text-[11px] font-semibold uppercase tracking-[0.08em] text-[#313490] sm:text-xs sm:tracking-[0.14em]">
@@ -24,7 +24,7 @@ export function HeroSection() {
             </BlurFade>
 
             <BlurFade delay={0.08}>
-              <h1 className="font-display mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-slate-900 sm:text-5xl lg:text-[52px] xl:text-[64px]">
+              <h1 className="font-display mb-6 text-3xl sm:text-5xl lg:text-[52px] xl:text-[64px] font-bold leading-[1.15] sm:leading-[1.1] tracking-tight text-slate-900">
                 From Real Documents
                 <br />
                 to Real Impact.
@@ -71,7 +71,7 @@ export function HeroSection() {
 
           <BlurFade
             delay={0.2}
-            className="relative flex justify-center lg:col-span-5 lg:justify-end lg:self-start"
+            className="relative flex justify-center lg:col-span-5 lg:justify-end lg:self-start w-full overflow-hidden sm:overflow-visible"
           >
             <HeroCapabilityCard />
           </BlurFade>

@@ -92,7 +92,7 @@ function TrendChart() {
 
 export function PerformanceSection() {
   return (
-    <section id="reporting" className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50/70">
+    <section id="reporting" className="py-14 sm:py-20 px-3 sm:px-6 lg:px-8 bg-slate-50/70">
       <div className="max-w-7xl mx-auto">
         <SectionHeading eyebrow="Control tower" title="Reporting readiness at a glance">
           Consolidated emissions and readiness across your organization hierarchy. Sample data
@@ -100,9 +100,9 @@ export function PerformanceSection() {
         </SectionHeading>
 
         {/* 3 Dashboard Metric Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
           {/* Card 1: Emissions Trend */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm flex flex-col justify-between h-[340px]">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-[320px] sm:h-[340px]">
             <div>
               <h3 className="text-base font-bold text-slate-900">
                 Emissions Trend <span className="font-normal text-slate-500">(sample)</span>
@@ -113,7 +113,7 @@ export function PerformanceSection() {
           </div>
 
           {/* Card 2: Scope Composition */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm flex flex-col justify-between h-[340px]">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-slate-200/90 shadow-2xs flex flex-col justify-between min-h-[320px] sm:h-[340px]">
             <div>
               <h3 className="text-base font-bold text-slate-900">
                 Scope Composition{" "}
@@ -144,7 +144,7 @@ export function PerformanceSection() {
           </div>
 
           {/* Card 3: BRSR Readiness */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm flex flex-col justify-between items-center h-[340px]">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-slate-200/90 shadow-2xs flex flex-col justify-between items-center min-h-[320px] sm:h-[340px]">
             <div className="w-full text-left">
               <h3 className="text-base font-bold text-slate-900">
                 BRSR Readiness <span className="font-normal text-slate-500">(sample)</span>

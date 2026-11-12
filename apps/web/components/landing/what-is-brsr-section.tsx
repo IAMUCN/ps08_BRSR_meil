@@ -25,7 +25,7 @@ const PILLARS = [
 
 export function WhatIsBrsrSection() {
   return (
-    <section id="brsr" className="bg-slate-50/70 px-4 py-20 sm:px-6 lg:px-8">
+    <section id="brsr" className="bg-slate-50/70 px-3 sm:px-6 lg:px-8 py-14 sm:py-20">
       <div className="mx-auto max-w-5xl">
         <SectionHeading eyebrow="Aligned to BRSR" title="Built around SEBI's BRSR framework">
           BRSR is a mapping layer in EmeilSG, not hard-coded questions. When reporting requirements
