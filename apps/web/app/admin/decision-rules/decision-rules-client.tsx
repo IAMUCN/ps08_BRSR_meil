@@ -695,9 +695,11 @@ export default function DecisionRulesClient({ initialRules, orgUnits, periods }:
                       <div>
                         <span className="text-muted-foreground">Version Audit:</span>
                         <div className="text-muted-foreground">
-                          {rule.updatedAt || rule.createdAt
-                            ? new Date(rule.updatedAt || rule.createdAt).toLocaleDateString()
-                            : "Active"}
+                          {rule.updatedAt
+                            ? new Date(rule.updatedAt).toLocaleDateString()
+                            : rule.createdAt
+                              ? new Date(rule.createdAt).toLocaleDateString()
+                              : "Active"}
                         </div>
                       </div>
                     </div>
