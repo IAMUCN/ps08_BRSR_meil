@@ -156,6 +156,8 @@ export type TileData = {
   /** Said on the tile so nobody wonders why two tiles show different units. */
   scopeLabel: string;
   figures?: { label: string; value: number | null; unit?: string }[];
+  /** A small picture of the figures, drawn by components/charts. The summary says the same in words. */
+  chart?: { kind: "radials"; items: { label: string; value: number | null }[] };
 };
 
 /**

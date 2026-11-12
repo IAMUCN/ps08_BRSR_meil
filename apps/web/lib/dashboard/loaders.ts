@@ -362,6 +362,7 @@ export const LOADERS: Record<string, (ctx: LoaderContext) => Promise<Result>> = 
         .join(" · "),
       href: `/admin/submissions?period=${ctx.periodId}`,
       figures: steps.map(([label, f]) => ({ label, value: pct(f), unit: "%" })),
+      chart: { kind: "radials", items: steps.map(([label, f]) => ({ label, value: pct(f) })) },
     };
   },
 };

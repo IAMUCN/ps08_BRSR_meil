@@ -91,3 +91,24 @@ Known limits: the old cards still sit below the tiles (some duplicate them) unti
 charts yet); "stuck" is a constant of 7 days (`STUCK_DAYS`), to become a setting; the approval count excludes the viewer's own records
 (a Super Admin's marked self-approval is not counted); tiles for factors, BRSR readiness, reports and audit activity, users and
 hierarchy, scope donut and trends, and all role-specific tiles (EHS, HR, Finance, Procurement, Auditor, Project Manager charts) are not built.
+
+## Chart kit and duplicate cards removed (Phase 3)
+
+Written without a database or a browser; **not seen on a screen**. Typecheck, ESLint, Prettier and the unit tests (342, 12 new in
+`tests/chart-geometry.test.ts` and `tests/chart-tokens.test.ts`) pass.
+
+1. `/app` (Project Manager): the old "Current reporting period" card and the two task cards are gone; the Reporting period, Documents to
+   verify and Returned tiles carry them. Check the tiles show the same counts as My Submissions' tabs, and that "Your project's emissions"
+   and "Your assignments" still show below. The period tile names the first open period and "N more open"; the old card listed all of them.
+2. `/admin`: nothing was removed. The Issues list and pipeline cards follow the org/period picker; the Pending approvals, Missing submissions
+   and Reporting completion tiles do not yet, so removing the rows would lose the picker. Phase 4 makes the tiles follow the picker, then the
+   duplicate rows go.
+3. Reporting completion tile (Corporate ESG, Administrators, Super Admin) now draws four rings (Submission, Evidence, Validation, Approval).
+   Check each ring against the number printed in its middle and the sentence above, in all three themes; a step with nothing to measure shows
+   "—" and an empty ring, never 0 % or 100 %.
+4. The chart kit itself (`components/charts/`: `DonutChart`, `RadialChart`, `LineChart`, `BarChart` (stacked when given several series),
+   `BarList`) is used by no page yet except the rings. Phase 4 uses it. Please look at it once on a scratch page or in Storybook-like use:
+   tooltips on hover and on keyboard focus, a mark with `href` is a real link, "View as table" lists the same figures, an empty chart says so,
+   and `--chart-1..6` are readable in Special, Corporate and Dark.
+5. Colours: `--chart-1..6` in `app/globals.css` (all three themes), tested for 3:1 against the card and the page and for not being mistakable
+   for each other (`tests/chart-tokens.test.ts`). A person has not looked at them side by side.

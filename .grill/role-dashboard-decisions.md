@@ -222,3 +222,17 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
   administrators because its page is theirs.
 - Shown on `/app` and `/admin` above the old content. Next: chart kit and tokens (Phase 3), role content (Phase 4), common tiles and drill-downs
   (Phase 5), tests (Phase 6).
+
+## Phase 3 built (2026-11-12): chart kit and tokens (unverified in a browser)
+- The reference screenshot never arrived; built from the description (own SVG, no library, KPI row + band + grid kept). Replace the look if
+  the screenshot shows something else.
+- `lib/charts/geometry.ts` (pure, 9 tests): polar/arc paths, donut layout, nice ticks, scales, line paths that break at a missing value,
+  stacked layout, Indian number grouping.
+- `components/charts/`: `DonutChart`, `RadialChart`, `LineChart`, `BarChart` (stacked with several series), `BarList`. Each chart: a title,
+  a legend that also prints values, a tooltip on hover and focus, marks that are real `<a>` links when given an `href`, a "View as table"
+  fold with the same figures, and an empty message instead of a chart of zeros. A missing value is a gap, never zero; a percentage with
+  nothing to measure is "—".
+- Tokens `--chart-1..6` per theme (`app/globals.css`), checked by `tests/chart-tokens.test.ts` (3:1 on card and page, pairwise distinct).
+- First use: the Reporting completion tile draws four rings. The other tiles stay plain cards until Phase 4 gives them their role content.
+- Duplicates: removed on `/app` (period and the two task cards). On `/admin` kept, because the Issues list and pipeline follow the
+  org/period picker and the tiles do not yet; Phase 4 makes the tiles follow it and then removes the rows.

@@ -474,3 +474,9 @@ Built by the feature session at the owner's request (`.grill/role-dashboard-deci
   OCR retry and "View audit history" from `detail.viewer`.
 - **Not viewed in a browser.** Check the Corporate ESG sidebar, and the drawer and Carbon Analytics page without
   their action buttons.
+
+## Role-wise dashboard, Phase 3 (2026-11-12, feature lane at the owner's request)
+- New `components/charts/*` (SVG chart kit) and `--chart-1..6` tokens in all three themes in `app/globals.css`; `tile-views.tsx` draws the
+  Reporting completion rings; `app/app/page.tsx` lost the period and task cards the tiles replace. **Not viewed in a browser.** The
+  axe/accessibility suite has not run on them: marks are links or focusable groups with labels, charts have a text table, nothing relies on
+  colour alone.

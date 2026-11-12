@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { cn } from "cn";
+import { RadialChart } from "@/components/charts/radial";
 import { URGENCY_LABEL, type TileData } from "@/lib/dashboard/tiles";
 
-// The role-wise dashboard's tiles (Phase 2). Plain cards for now: the chart kit and role-specific layouts come
-// in the next phases, and the existing dashboard content stays below until they replace it.
+// The role-wise dashboard's tiles. Most are plain cards; a tile may carry a small chart from components/charts
+// (Reporting completion does). Role-specific layouts come in Phase 4.
 
 const TONE: Record<TileData["urgency"], string> = {
   0: "text-status-error",
@@ -33,6 +34,16 @@ function Tile({ tile, showUrgency }: { tile: TileData; showUrgency: boolean }) {
           </p>
         ) : null}
         <p className="mt-1 text-sm leading-5 text-muted-foreground">{tile.summary}</p>
+        {tile.chart?.kind === "radials" ? (
+          <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {tile.chart.items.map((item, i) => (
+              <li key={item.label} className="flex flex-col items-center gap-1">
+                <RadialChart value={item.value} label={item.label} index={i} />
+                <span className="text-xs leading-4 text-muted-foreground">{item.label}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {tile.scopeLabel ? (
           <p className="mt-2 text-xs leading-4 text-muted-foreground">Scope: {tile.scopeLabel}</p>
         ) : null}
