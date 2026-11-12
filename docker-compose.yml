@@ -1,0 +1,10 @@
+# TraceESG OCR background processing worker
+services:
+  ocr-worker:
+    build:
+      context: ./apps/ocr-worker
+      dockerfile: Dockerfile
+    container_name: traceesg-ocr-worker
+    restart: unless-stopped
+    env_file:
+      - ./apps/ocr-worker/.env

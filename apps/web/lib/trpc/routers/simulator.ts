@@ -2,7 +2,16 @@ import "server-only";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getSimulatorBaseline } from "@/lib/simulator/service";
+import {
+  buildMultiVectorPathwayComparison,
+  simulateMultiVectorScenario,
+} from "@/lib/simulator/engine";
+import {
+  getMultiVectorBaseline,
+  getSimulatorBaseline,
+  listSavedScenarios,
+  saveScenarioSimulation,
+} from "@/lib/simulator/service";
 import { protectedProcedure, router } from "@/lib/trpc/init";
 
 export const simulatorRouter = router({
@@ -12,7 +21,6 @@ export const simulatorRouter = router({
   options: protectedProcedure.query(async ({ ctx }) => {
     const sql = db();
 
-    // 1. Resolve org units based on admin status or user assignments
     let orgUnits: Array<{ id: string; name: string; code: string; depth: number }> = [];
 
     if (ctx.session.isAdmin) {
@@ -42,7 +50,6 @@ export const simulatorRouter = router({
         select distinct id, name, code, depth from assigned order by depth, name`;
     }
 
-    // 2. Fetch available periods
     const periods = await sql<
       { id: string; label: string; start_date: string; end_date: string; status: string }[]
     >`
@@ -67,7 +74,7 @@ export const simulatorRouter = router({
   }),
 
   /**
-   * Loads emissions baseline for an authorized organization unit and period.
+   * Loads category-level emissions baseline for backwards compatibility.
    */
   baseline: protectedProcedure
     .input(
@@ -79,7 +86,6 @@ export const simulatorRouter = router({
     .query(async ({ ctx, input }) => {
       const sql = db();
 
-      // Authorization check for non-admins
       if (!ctx.session.isAdmin) {
         const [allowed] = await sql<{ ok: boolean }[]>`
           select exists (
@@ -99,5 +105,208 @@ export const simulatorRouter = router({
       }
 
       return getSimulatorBaseline(sql, input);
+    }),
+
+  /**
+   * Loads comprehensive multi-vector baseline (Electricity, Renewables, Fuel, Water, Waste, GHG Scopes, ICP).
+   */
+  multiVectorBaseline: protectedProcedure
+    .input(
+      z.object({
+        orgUnitId: z.string().uuid(),
+        periodId: z.string().uuid(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const sql = db();
+
+      if (!ctx.session.isAdmin) {
+        const [allowed] = await sql<{ ok: boolean }[]>`
+          select exists (
+            select 1 from public.org_unit_tree t
+            join public.user_org_assignments a on a.org_unit_id = t.ancestor_id
+            where a.user_id = ${ctx.session.userId}
+              and a.revoked_at is null
+              and t.descendant_id = ${input.orgUnitId}
+          ) as ok`;
+
+        if (!allowed?.ok) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You are not authorized to view simulation data for this organization unit.",
+          });
+        }
+      }
+
+      return getMultiVectorBaseline(sql, input);
+    }),
+
+  /**
+   * Runs multi-vector simulation (renewables, fuel switch, water, waste, and financial ICP).
+   */
+  simulate: protectedProcedure
+    .input(
+      z.object({
+        orgUnitId: z.string().uuid(),
+        periodId: z.string().uuid(),
+        scenarioName: z.string().optional(),
+        targetRenewableSharePct: z.number().min(0).max(100).optional(),
+        fuelSwitchPct: z.number().min(0).max(100).optional(),
+        targetCleanFuel: z.enum(["GRID_ELECTRICITY", "EV", "BIOMASS", "SOLAR_BATTERY"]).optional(),
+        waterRecycledPct: z.number().min(0).max(100).optional(),
+        wasteDivertedPct: z.number().min(0).max(100).optional(),
+        capexAmount: z.number().min(0).optional(),
+        discountRatePercent: z.number().min(0).max(30).optional(),
+        shadowPriceOverride: z.number().min(0).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const sql = db();
+
+      if (!ctx.session.isAdmin) {
+        const [allowed] = await sql<{ ok: boolean }[]>`
+          select exists (
+            select 1 from public.org_unit_tree t
+            join public.user_org_assignments a on a.org_unit_id = t.ancestor_id
+            where a.user_id = ${ctx.session.userId}
+              and a.revoked_at is null
+              and t.descendant_id = ${input.orgUnitId}
+          ) as ok`;
+
+        if (!allowed?.ok) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You are not authorized to run simulations for this organization unit.",
+          });
+        }
+      }
+
+      const baseline = await getMultiVectorBaseline(sql, {
+        orgUnitId: input.orgUnitId,
+        periodId: input.periodId,
+      });
+
+      return simulateMultiVectorScenario(baseline, input);
+    }),
+
+  /**
+   * Compares 4 standard decarbonization pathways: Baseline, Conservative, Moderate,
+   * Ambitious, and optional custom parameters.
+   */
+  comparePathways: protectedProcedure
+    .input(
+      z.object({
+        orgUnitId: z.string().uuid(),
+        periodId: z.string().uuid(),
+        customInput: z
+          .object({
+            scenarioName: z.string().optional(),
+            targetRenewableSharePct: z.number().min(0).max(100).optional(),
+            fuelSwitchPct: z.number().min(0).max(100).optional(),
+            waterRecycledPct: z.number().min(0).max(100).optional(),
+            wasteDivertedPct: z.number().min(0).max(100).optional(),
+            capexAmount: z.number().min(0).optional(),
+          })
+          .optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const sql = db();
+
+      if (!ctx.session.isAdmin) {
+        const [allowed] = await sql<{ ok: boolean }[]>`
+          select exists (
+            select 1 from public.org_unit_tree t
+            join public.user_org_assignments a on a.org_unit_id = t.ancestor_id
+            where a.user_id = ${ctx.session.userId}
+              and a.revoked_at is null
+              and t.descendant_id = ${input.orgUnitId}
+          ) as ok`;
+
+        if (!allowed?.ok) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You are not authorized to view simulation data for this organization unit.",
+          });
+        }
+      }
+
+      const baseline = await getMultiVectorBaseline(sql, {
+        orgUnitId: input.orgUnitId,
+        periodId: input.periodId,
+      });
+
+      return buildMultiVectorPathwayComparison(baseline, input.customInput);
+    }),
+
+  /**
+   * Saves a simulated scenario snapshot to the database.
+   */
+  saveScenario: protectedProcedure
+    .input(
+      z.object({
+        orgUnitId: z.string().uuid(),
+        reportingPeriodId: z.string().uuid(),
+        scenarioName: z.string().min(1),
+        scenarioType: z.enum([
+          "RENEWABLE_ENERGY",
+          "EMISSIONS_REDUCTION",
+          "WATER_CONSERVATION",
+          "WASTE_CIRCULARITY",
+          "BLENDED_PATHWAY",
+          "CUSTOM_CATEGORY",
+        ]),
+        parameters: z.record(z.string(), z.unknown()),
+        simulationResult: z.any(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const sql = db();
+
+      const scenarioId = await saveScenarioSimulation(sql, {
+        orgUnitId: input.orgUnitId,
+        reportingPeriodId: input.reportingPeriodId,
+        scenarioName: input.scenarioName,
+        scenarioType: input.scenarioType,
+        parameters: input.parameters,
+        simulationResult: input.simulationResult,
+        userId: ctx.session.userId,
+      });
+
+      return { id: scenarioId, success: true };
+    }),
+
+  /**
+   * Retrieves saved scenario simulations for an organization unit and reporting period.
+   */
+  listSavedScenarios: protectedProcedure
+    .input(
+      z.object({
+        orgUnitId: z.string().uuid(),
+        reportingPeriodId: z.string().uuid(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const sql = db();
+
+      if (!ctx.session.isAdmin) {
+        const [allowed] = await sql<{ ok: boolean }[]>`
+          select exists (
+            select 1 from public.org_unit_tree t
+            join public.user_org_assignments a on a.org_unit_id = t.ancestor_id
+            where a.user_id = ${ctx.session.userId}
+              and a.revoked_at is null
+              and t.descendant_id = ${input.orgUnitId}
+          ) as ok`;
+
+        if (!allowed?.ok) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You are not authorized to view saved scenarios for this organization unit.",
+          });
+        }
+      }
+
+      return listSavedScenarios(sql, input);
     }),
 });
