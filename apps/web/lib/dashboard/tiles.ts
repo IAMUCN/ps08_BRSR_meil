@@ -27,7 +27,12 @@ export type Requirement =
    * Held through an assignment. `adminArea` also asks for an administrator, for tiles that link to pages only
    * administrators may open.
    */
-  | { kind: "permission"; permission: string; adminArea?: boolean };
+  | { kind: "permission"; permission: string; adminArea?: boolean }
+  /**
+   * Held as an assignment of one of these roles (by code), for tiles about the work a role owns. A Super Admin
+   * does not get these (they are not a functional role's work); an assignment of the role is what counts.
+   */
+  | { kind: "role"; roles: string[] };
 
 export type TileDef = {
   id: string;
@@ -111,6 +116,87 @@ export const TILES: TileDef[] = [
     rank: 140,
     size: "wide",
   },
+  {
+    id: "my-area",
+    title: "Your area's records",
+    requires: {
+      kind: "role",
+      roles: ["project_manager", "ehs", "hr", "finance_csr", "procurement"],
+    },
+    rank: 105,
+    size: "wide",
+  },
+  {
+    id: "my-missing",
+    title: "Missing in your area",
+    requires: {
+      kind: "role",
+      roles: ["project_manager", "ehs", "hr", "finance_csr", "procurement"],
+    },
+    rank: 45,
+  },
+  {
+    id: "unit-emissions",
+    title: "Emissions of your units",
+    requires: { kind: "role", roles: ["project_manager"] },
+    rank: 106,
+    size: "wide",
+  },
+  {
+    id: "register-status",
+    title: "Employee register",
+    requires: { kind: "permission", permission: "employee_register.view" },
+    rank: 66,
+  },
+  {
+    id: "certificates",
+    title: "Compliance certificates",
+    requires: { kind: "role", roles: ["ehs"] },
+    rank: 67,
+  },
+  {
+    id: "financial-inputs",
+    title: "Yearly financial inputs",
+    requires: { kind: "permission", permission: "financial_inputs.manage" },
+    rank: 68,
+  },
+  {
+    id: "evidence-coverage",
+    title: "Evidence coverage",
+    requires: { kind: "permission", permission: "evidence.read" },
+    rank: 107,
+    size: "wide",
+  },
+  {
+    id: "brsr-readiness",
+    title: "BRSR readiness",
+    requires: { kind: "permission", permission: "monitoring.view" },
+    rank: 150,
+    size: "wide",
+  },
+  {
+    id: "factors",
+    title: "Conversion factors",
+    requires: { kind: "super_admin" },
+    rank: 70,
+  },
+  {
+    id: "users-access",
+    title: "People and access",
+    requires: { kind: "super_admin" },
+    rank: 75,
+  },
+  {
+    id: "activity",
+    title: "Reports and audit activity",
+    requires: { kind: "super_admin" },
+    rank: 80,
+  },
+];
+
+/** Every role code a tile names, for one lookup of where the person is assigned each. */
+export const TILE_ROLES = [
+  ...new Set(TILES.flatMap((t) => (t.requires.kind === "role" ? t.requires.roles : []))),
 ];
 
 /** Every permission a tile names, for one lookup of where the person holds each. */
@@ -125,9 +211,14 @@ export const TILE_PERMISSIONS = [
 /** One assignment whose role holds a permission. */
 export type Grant = { permission: string; orgUnitId: string; atGroup: boolean };
 
+/** One assignment of a role a tile names. */
+export type RoleGrant = { role: string; orgUnitId: string };
+
 export type Facts = {
   isAdmin: boolean;
   isOrgAdmin: boolean;
+  /** Per role code, the units it covers (assigned units and everything beneath). */
+  roleHeld: Record<string, string[]>;
   /** Non-admins only: per permission, the units it covers (assigned units and everything beneath). */
   held: Record<string, { units: string[]; atGroup: boolean }>;
 };
@@ -140,20 +231,31 @@ export function buildFacts(input: {
   isAdmin: boolean;
   isOrgAdmin: boolean;
   grants: Grant[];
+  roleGrants?: RoleGrant[];
   subtree: Record<string, string[]>;
 }): Facts {
   const held: Facts["held"] = {};
+  const roleHeld: Facts["roleHeld"] = {};
+  for (const g of input.roleGrants ?? []) {
+    const covered = input.subtree[g.orgUnitId] ?? [g.orgUnitId];
+    roleHeld[g.role] = [...new Set([...(roleHeld[g.role] ?? []), ...covered])];
+  }
   for (const g of input.grants) {
     const entry = (held[g.permission] ??= { units: [], atGroup: false });
     entry.atGroup ||= g.atGroup;
     const covered = input.subtree[g.orgUnitId] ?? [g.orgUnitId];
     entry.units = [...new Set([...entry.units, ...covered])];
   }
-  return { isAdmin: input.isAdmin, isOrgAdmin: input.isOrgAdmin, held };
+  return { isAdmin: input.isAdmin, isOrgAdmin: input.isOrgAdmin, held, roleHeld };
 }
 
 /** What a tile's data covers. */
-export type TileScope = { kind: "self" } | { kind: "all" } | { kind: "units"; units: string[] };
+export type TileScope =
+  | { kind: "self" }
+  | { kind: "all" }
+  | { kind: "units"; units: string[] }
+  /** Role tiles: for each role the person holds that the tile names, the units where it is held. */
+  | { kind: "roles"; grants: { role: string; units: string[] }[] };
 
 export type ResolvedTile = TileDef & { scope: TileScope };
 
@@ -177,6 +279,12 @@ function scopeFor(requires: Requirement, facts: Facts): TileScope | null {
       return { kind: "self" };
     case "super_admin":
       return facts.isAdmin ? { kind: "all" } : null;
+    case "role": {
+      const grants = requires.roles
+        .map((role) => ({ role, units: facts.roleHeld[role] ?? [] }))
+        .filter((g) => g.units.length > 0);
+      return grants.length > 0 ? { kind: "roles", grants } : null;
+    }
     case "permission": {
       if (requires.adminArea && !facts.isAdmin && !facts.isOrgAdmin) return null;
       if (facts.isAdmin) return { kind: "all" };
@@ -247,7 +355,25 @@ export type TileChart =
       }[];
     }
   /** A short list of label and number pairs (units by level). */
-  | { kind: "stats"; items: { label: string; value: number }[] };
+  | { kind: "stats"; items: { label: string; value: number }[] }
+  /** A short list of lines, optionally tinted (certificates, missing items). */
+  | {
+      kind: "list";
+      rows: { label: string; detail?: string; tone?: "error" | "warning" }[];
+      more: number;
+    }
+  /** Records of an area by state, as a donut with the same figures as text. */
+  | { kind: "area"; slices: { key: string; label: string; value: number }[] }
+  /** BRSR readiness per top unit with the parts it is made of. */
+  | {
+      kind: "readiness";
+      units: {
+        id: string;
+        name: string;
+        value: number | null;
+        parts: { label: string; value: number | null }[];
+      }[];
+    };
 
 /**
  * Splits the data into the "Needs action" band (something overdue, returned or pending, with a count above

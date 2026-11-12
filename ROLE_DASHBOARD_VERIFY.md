@@ -139,3 +139,38 @@ theirs holds the permission: **Total emissions** and **Organisation** (figure ca
    are not shown); the Project Manager, EHS, HR, Finance, Procurement and Auditor role content; the Super Admin extras (factors, BRSR
    readiness, reports and audit activity, users and hierarchy).
 5. On `/admin` the Issues list and the four pipeline cards still sit below the tiles: they follow the org/period picker and the tiles do not.
+
+## Role-specific tiles and Super Admin extras (Phase 4b)
+
+Written without a database or a browser; **the SQL has not been run and nothing has been seen on a screen**. Typecheck, ESLint, Prettier,
+the production build and the unit tests (354) pass. No migration.
+
+New visibility rule: a tile may be keyed on a role code (an assignment of that role), not only on a permission. A Super Admin does not get
+these (they are a functional role's own work); each role's tile covers only the units where that role is assigned.
+
+| Tile | Who | What it shows |
+|---|---|---|
+| Your area's records | Project Manager, EHS, HR, Finance/CSR, Procurement | Donut of the records in the categories the role owns, by My Submissions state, with the figures as text |
+| Missing in your area | same | Expected submissions of those categories not yet filed, top 5 as a list (a Procurement "vendor evidence pending" reading is the "To verify" slice) |
+| Emissions of your units | Project Manager | The scope donut and trend for the units where they are assigned (no links: they cannot open the scope pages) |
+| Employee register | `employee_register.view` (HR, Super Admin) | Registers of the period's financial year by status, and the approved headcount |
+| Compliance certificates | EHS | Certificates expired in the last 90 days or expiring within 60, from the verified `valid_to` field |
+| Yearly financial inputs | `financial_inputs.manage` (Finance, Super Admin) | Which of turnover, PPP rate, net worth and output are provided for the financial year |
+| Evidence coverage | `evidence.read` (Auditor) | Evidence, validation and approval rings; read-only |
+| BRSR readiness | `monitoring.view` | Readiness per top unit with its parts; an internal indicator |
+| Conversion factors | Super Admin | Factors covering today, with no version covering today, drafts awaiting approval |
+| People and access | Super Admin | Active people, invitations waiting and expired unused |
+| Reports and audit activity | Super Admin | Reports generated and failed (30 days), audit events (7 days) |
+
+1. Run `dashboard.tiles` for a user of each role and compare: the donut with My Submissions for the same units and period (the tab rule is the same,
+   but the population is every record of the role's categories in its units, not only the person's own); the missing list with Submission Monitoring's
+   missing view; the certificate list with the Verify field values; factor counts with Conversion Factors; invitation counts with Users.
+2. Columns relied on: `esg_categories.owning_role_id`, `roles.code`, `ocr_extractions.extracted_at`, `ocr_fields.field_key/verified_value`,
+   `employee_registers.status/totals/financial_year`, `org_settings.value` under `brsr_report_inputs`, `conversion_factor_versions.status/effective_from/effective_to`,
+   `user_invitations.consumed_at/revoked_at/expires_at`, `report_runs.status/requested_at`, `audit_logs.created_at`.
+3. Check `cross-project.mjs`: the mixed user (Corporate ESG at Project X, Project Manager at Project Q) now gets the Project Manager tiles for Q and none of the
+   permission tiles for Q (the check was updated for that).
+4. Certificates: the verified `valid_to` text is read as 2026-03-31, 31/03/2026, 31-03-2026 or 31.03.2026; anything else shows no state. A renewal is a new
+   certificate, so an old one is not matched to its successor: expired ones older than 90 days are not shown. Please confirm that reading with EHS.
+5. Not built: an Administrator's people-and-access tile (the Super Admin one counts everyone); the Finance disclosure-answers tile; the hierarchy
+   configuration tile; collapsible hierarchy rows; the removal of the old `/admin` cards.

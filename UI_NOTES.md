@@ -485,3 +485,7 @@ Built by the feature session at the owner's request (`.grill/role-dashboard-deci
 - `components/dashboard/tile-views.tsx` now has a figures row ("Overview") and an "Analysis" section of wide cards, each with a heading, a
   "View all" link and a sentence saying what the picture shows; `components/dashboard/tile-charts.tsx` draws rings, the scope donut and trend,
   the hierarchy list and the per-unit bars with the chart kit. **Not viewed in a browser**; not run through axe.
+
+## Role-wise dashboard, Phase 4b (2026-11-13, feature lane at the owner's request)
+- `components/dashboard/tile-charts.tsx` gained the records-by-state donut, a short list (certificates, missing items, yearly inputs) and the readiness
+  rings. **Not viewed in a browser**; not run through axe.

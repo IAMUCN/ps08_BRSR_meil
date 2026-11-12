@@ -248,3 +248,16 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
   0 % or 100 %. Emissions are approved records in kgCO2e or tCO2e, in tonnes; other units are not added in.
 - `lib/dashboard/overview.ts` (pure, 5 tests) shapes the SQL rows; `loaders.ts` holds the queries; `components/dashboard/tile-charts.tsx` draws them.
 - Still to do in Phase 4: the other roles' content (Project Manager, EHS, HR, Finance, Procurement, Auditor) and the Super Admin extras.
+
+## Phase 4b built (2026-11-13): role-specific tiles and Super Admin extras (unverified against a database or in a browser)
+- A tile can be keyed on a role code (an assignment of that role) as well as a permission, for the work a role owns; the same tile id is shown once
+  to someone with several of the roles, each role's units kept apart. Super Admin and Administrator do not get the functional roles' tiles unless
+  assigned the role (decision above).
+- Functional roles (Project Manager, EHS, HR, Finance/CSR, Procurement) get "Your area's records" and "Missing in your area"; Project Manager also
+  gets the emissions of their units; HR the employee register; EHS compliance certificates; Finance the yearly financial inputs (through
+  `financial_inputs.manage`); the Auditor evidence coverage (through `evidence.read`, with the Group Overview tiles it already gets through
+  `monitoring.view`); everyone with `monitoring.view` BRSR readiness; the Super Admin factors, people and access, and reports and audit activity.
+- Procurement's "vendor evidence pending" is the "To verify" part of its records donut (no new data), as decided.
+- Certificates: expired within 90 days or expiring within 60 days (the owner's window) are listed; older expired ones are history.
+- Not done: Administrator's people-and-access tile, Finance disclosure answers tile, hierarchy configuration tile (Super Admin only), collapsible
+  hierarchy rows, removing the old `/admin` cards, EHS and Procurement typed-answer permissions (the owner has not decided).

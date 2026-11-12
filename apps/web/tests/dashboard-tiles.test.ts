@@ -40,9 +40,78 @@ test("everyone gets the personal tiles and nothing else without a permission", (
   assert.deepEqual(ids(projectManager), ["period", "my-tasks", "returned", "notifications"]);
 });
 
-test("a Super Admin sees every tile", () => {
-  assert.equal(ids(superAdmin).length, TILES.length);
+test("a Super Admin sees every tile except a functional role's own work", () => {
+  const roleTiles = TILES.filter((t) => t.requires.kind === "role").map((t) => t.id);
+  assert.ok(roleTiles.length > 0);
+  assert.deepEqual(
+    TILES.map((t) => t.id).filter((id) => !roleTiles.includes(id)),
+    ids(superAdmin),
+  );
   assert.ok(ids(superAdmin).includes("system-health"));
+  assert.ok(ids(superAdmin).includes("factors"));
+  assert.ok(ids(superAdmin).includes("users-access"));
+});
+
+test("role tiles: a functional role sees its area, covering only the units where it is assigned", () => {
+  const hr = buildFacts({
+    isAdmin: false,
+    isOrgAdmin: false,
+    grants: [],
+    roleGrants: [{ role: "hr", orgUnitId: "subS" }],
+    subtree,
+  });
+  assert.ok(ids(hr).includes("my-area"));
+  assert.ok(ids(hr).includes("my-missing"));
+  assert.ok(!ids(hr).includes("certificates"), "certificates belong to EHS");
+  assert.ok(
+    !ids(hr).includes("unit-emissions"),
+    "emissions of your units belong to the Project Manager",
+  );
+  const area = visibleTiles(TILES, hr).find((t) => t.id === "my-area");
+  assert.deepEqual(area?.scope, {
+    kind: "roles",
+    grants: [{ role: "hr", units: ["subS", "projS"] }],
+  });
+});
+
+test("role tiles: two roles at two units keep their own units apart", () => {
+  const both = buildFacts({
+    isAdmin: false,
+    isOrgAdmin: false,
+    grants: [],
+    roleGrants: [
+      { role: "hr", orgUnitId: "subS" },
+      { role: "ehs", orgUnitId: "projA" },
+    ],
+    subtree,
+  });
+  const area = visibleTiles(TILES, both).find((t) => t.id === "my-area");
+  assert.deepEqual(area?.scope, {
+    kind: "roles",
+    // In the order the tile names its roles.
+    grants: [
+      { role: "ehs", units: ["projA"] },
+      { role: "hr", units: ["subS", "projS"] },
+    ],
+  });
+  assert.equal(ids(both).filter((id) => id === "my-area").length, 1);
+});
+
+test("an Auditor sees evidence coverage through evidence.read, and nothing it cannot open", () => {
+  const auditor = buildFacts({
+    isAdmin: false,
+    isOrgAdmin: false,
+    grants: [
+      { permission: "evidence.read", orgUnitId: "subS", atGroup: false },
+      { permission: "monitoring.view", orgUnitId: "subS", atGroup: false },
+    ],
+    subtree,
+  });
+  const got = ids(auditor);
+  assert.ok(got.includes("evidence-coverage"));
+  assert.ok(got.includes("brsr-readiness"));
+  assert.ok(!got.includes("approval-queue"));
+  assert.ok(!got.includes("factors"));
 });
 
 test("Corporate ESG sees approvals and monitoring, not system health, and not the admin-only review tile", () => {

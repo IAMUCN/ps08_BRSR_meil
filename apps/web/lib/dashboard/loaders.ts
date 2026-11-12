@@ -2,18 +2,24 @@ import "server-only";
 import { fraction, type Fraction } from "@/lib/dashboard/kpis";
 import { summary } from "@/lib/dashboard/summary";
 import {
+  areaCounts,
+  certificateState,
   emissionFigures,
+  fyStartYear,
   hierarchyRows,
   levelRings,
   percent,
   type EmissionRow,
   type UnitRow,
 } from "./overview";
+import { sumTotals, type RegisterTotals } from "@/lib/register/register";
+import { REPORT_INPUTS_KEY, type FyInputs } from "@/lib/reports/inputs";
 import type { db } from "@/lib/db";
 import { submissionTab, type RecordStatus } from "@/lib/ocr/rules";
 import {
   buildFacts,
   TILE_PERMISSIONS,
+  TILE_ROLES,
   type Facts,
   type ResolvedTile,
   type TileData,
@@ -43,7 +49,15 @@ export async function loadFacts(sql: Sql, viewer: Viewer): Promise<Facts> {
     join public.permissions p on p.id = rp.permission_id and p.code = any(${TILE_PERMISSIONS}::text[])
     join public.org_units o on o.id = uoa.org_unit_id and o.deleted_at is null
     where uoa.user_id = ${viewer.userId} and uoa.revoked_at is null`;
-  const assigned = [...new Set(grants.map((g) => g.org_unit_id))];
+  const roleGrants = await sql<{ role: string; org_unit_id: string }[]>`
+    select ro.code as role, uoa.org_unit_id::text as org_unit_id
+    from public.user_org_assignments uoa
+    join public.roles ro on ro.id = uoa.role_id and ro.code = any(${TILE_ROLES}::text[])
+    join public.org_units o on o.id = uoa.org_unit_id and o.deleted_at is null
+    where uoa.user_id = ${viewer.userId} and uoa.revoked_at is null`;
+  const assigned = [
+    ...new Set([...grants.map((g) => g.org_unit_id), ...roleGrants.map((g) => g.org_unit_id)]),
+  ];
   const tree = assigned.length
     ? await sql<{ ancestor_id: string; descendant_id: string }[]>`
         select ancestor_id, descendant_id from public.org_unit_tree
@@ -58,6 +72,7 @@ export async function loadFacts(sql: Sql, viewer: Viewer): Promise<Facts> {
       orgUnitId: g.org_unit_id,
       atGroup: g.at_group,
     })),
+    roleGrants: roleGrants.map((g) => ({ role: g.role, orgUnitId: g.org_unit_id })),
     subtree,
   });
 }
@@ -74,25 +89,38 @@ export type LoaderContext = {
 type Result = Omit<TileData, "id" | "title" | "scopeLabel">;
 
 /** Shared work is cached per request, but never across tiles with different scopes. */
-const scopeKey = (scope: TileScope) =>
-  scope.kind === "units" ? `units:${[...scope.units].sort().join(",")}` : scope.kind;
+/** The units a scope covers; null for the whole group and for a person's own records. */
+const unitsOf = (scope: TileScope): string[] | null =>
+  scope.kind === "units"
+    ? scope.units
+    : scope.kind === "roles"
+      ? [...new Set(scope.grants.flatMap((g) => g.units))]
+      : null;
+
+const scopeKey = (scope: TileScope) => {
+  const units = unitsOf(scope);
+  return units ? `units:${[...units].sort().join(",")}` : scope.kind;
+};
 
 /** `r.org_unit_id` limited to the tile's units; everything for the whole group. */
-const inUnits = (sql: Sql, scope: TileScope) =>
-  scope.kind === "units" ? sql`r.org_unit_id = any(${scope.units}::uuid[])` : sql`true`;
+const inUnits = (sql: Sql, scope: TileScope) => {
+  const units = unitsOf(scope);
+  return units ? sql`r.org_unit_id = any(${units}::uuid[])` : sql`true`;
+};
 
 /** The top units of a scope (units with no other unit of the scope above them), with their names. */
 async function roots(ctx: LoaderContext): Promise<{ id: string; name: string }[]> {
   const { sql, scope } = ctx;
+  const units = unitsOf(scope);
   return ctx.memo(`roots:${scopeKey(scope)}`, async () =>
-    scope.kind === "units"
+    units
       ? sql<{ id: string; name: string }[]>`
           select o.id, o.name from public.org_units o
-          where o.id = any(${scope.units}::uuid[]) and o.deleted_at is null
+          where o.id = any(${units}::uuid[]) and o.deleted_at is null
             and not exists (
               select 1 from public.org_unit_tree t
               where t.descendant_id = o.id and t.ancestor_id <> o.id
-                and t.ancestor_id = any(${scope.units}::uuid[]))
+                and t.ancestor_id = any(${units}::uuid[]))
           order by o.name`
       : sql<{ id: string; name: string }[]>`
           select id, name from public.org_units
@@ -229,7 +257,7 @@ const unitRows = (ctx: LoaderContext) =>
       left join public.org_unit_tree t on t.ancestor_id = u.id
       left join exp on exp.org_unit_id = t.descendant_id
       where u.deleted_at is null
-        and ${scope.kind === "units" ? sql`u.id = any(${scope.units}::uuid[])` : sql`true`}
+        and ${unitsOf(scope) ? sql`u.id = any(${unitsOf(scope)}::uuid[])` : sql`true`}
       group by u.id, u.name, u.parent_id, u.unit_type, l.label, l.sort_order`;
   });
 
@@ -240,6 +268,86 @@ const linkQuery = (ctx: LoaderContext, rootIds: string[]) =>
   [ctx.periodId ? `period=${ctx.periodId}` : "", rootIds.length === 1 ? `org=${rootIds[0]}` : ""]
     .filter(Boolean)
     .join("&");
+
+/**
+ * The scope donut and trend. `links` is false for roles that cannot open the scope pages (a Project Manager),
+ * whose slices are then plain text.
+ */
+async function emissionsOverview(ctx: LoaderContext, links: boolean): Promise<Result> {
+  const rows = await emissionRows(ctx);
+  const f = emissionFigures(rows, ctx.periodId);
+  const q = linkQuery(
+    ctx,
+    (await roots(ctx)).map((r) => r.id),
+  );
+  const scopeHref = (n: number) => `/admin/scope-${n}${q ? `?${q}` : ""}`;
+  return {
+    urgency: 3,
+    count: null,
+    summary:
+      f.total > 0
+        ? `${round1(f.total)} tCO2e approved${f.periodLabel ? ` in ${f.periodLabel}` : ""}: ${f.slices
+            .map((s) => `${s.label} ${round1(s.value)}`)
+            .join(", ")}.`
+        : "No approved emissions yet in this period.",
+    href: links ? `/admin/scope-1${q ? `?${q}` : ""}` : "/app/submissions",
+    chart: {
+      kind: "emissions",
+      unit: "tCO2e",
+      total: round1(f.total),
+      periodLabel: f.periodLabel ?? "",
+      slices: f.slices.map((s, i) => ({
+        ...s,
+        value: round1(s.value),
+        href: links ? scopeHref(i + 1) : undefined,
+      })),
+      trend: f.trend,
+    },
+  };
+}
+
+/** The day the period starts (or today when there is no period): its financial year is the one a tile is about. */
+const fyOf = (ctx: LoaderContext) =>
+  ctx.memo(`fy:${ctx.periodId}`, async () => {
+    const [row] = await ctx.sql<{ day: string }[]>`
+      select coalesce((select start_date from public.reporting_periods where id = ${ctx.periodId}),
+                      public.reporting_period_today())::text as day`;
+    return fyStartYear(row.day);
+  });
+
+const fyLabel = (fy: number) => `${fy}-${String((fy + 1) % 100).padStart(2, "0")}`;
+
+type AreaGrant = { role: string; units: string[] };
+const areaGrants = (ctx: LoaderContext): AreaGrant[] =>
+  ctx.scope.kind === "roles" ? ctx.scope.grants : [];
+
+/** Expected submissions in the categories the person's roles own, not yet filed for the period. */
+const missingInArea = (ctx: LoaderContext) =>
+  ctx.memo(`missing-area:${JSON.stringify(areaGrants(ctx))}:${ctx.periodId}`, async () => {
+    const periodId = ctx.periodId;
+    if (!periodId) return [];
+    const seen = new Map<string, { unit: string; activity: string }>();
+    for (const g of areaGrants(ctx)) {
+      const rows = await ctx.sql<
+        { unit_id: string; unit: string; metric_id: string; activity: string }[]
+      >`
+        select o.id::text as unit_id, o.name as unit, m.id::text as metric_id, m.name as activity
+        from public.submission_expectations e
+        join public.esg_metrics m on m.id = e.metric_id and m.deleted_at is null
+        join public.esg_categories c on c.id = m.category_id
+        join public.roles ro on ro.id = c.owning_role_id and ro.code = ${g.role}
+        join public.reporting_periods p on p.id = ${periodId} and p.period_type::text = m.frequency::text
+        join public.org_units o on o.id = e.org_unit_id and o.deleted_at is null
+        where e.org_unit_id = any(${g.units}::uuid[])
+          and not exists (select 1 from public.esg_records r
+                           where r.org_unit_id = e.org_unit_id and r.metric_id = e.metric_id
+                             and r.reporting_period_id = ${periodId} and r.data_quality_state <> 'rejected')
+        order by o.name, m.name`;
+      for (const r of rows)
+        seen.set(`${r.unit_id}|${r.metric_id}`, { unit: r.unit, activity: r.activity });
+    }
+    return [...seen.values()];
+  });
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const pct = (f: Fraction) => (f.value === null ? null : Math.round(f.value));
@@ -474,32 +582,9 @@ export const LOADERS: Record<string, (ctx: LoaderContext) => Promise<Result>> = 
     };
   },
 
-  "emissions-overview": async (ctx) => {
-    const rows = await emissionRows(ctx);
-    const f = emissionFigures(rows, ctx.periodId);
-    const ids = (await roots(ctx)).map((r) => r.id);
-    const q = linkQuery(ctx, ids);
-    const scopeHref = (n: number) => `/admin/scope-${n}${q ? `?${q}` : ""}`;
-    return {
-      urgency: 3,
-      count: null,
-      summary:
-        f.total > 0
-          ? `${round1(f.total)} tCO2e approved${f.periodLabel ? ` in ${f.periodLabel}` : ""}: ${f.slices
-              .map((s) => `${s.label} ${round1(s.value)}`)
-              .join(", ")}.`
-          : "No approved emissions yet in this period.",
-      href: `/admin/scope-1${q ? `?${q}` : ""}`,
-      chart: {
-        kind: "emissions",
-        unit: "tCO2e",
-        total: round1(f.total),
-        periodLabel: f.periodLabel ?? "",
-        slices: f.slices.map((s, i) => ({ ...s, value: round1(s.value), href: scopeHref(i + 1) })),
-        trend: f.trend,
-      },
-    };
-  },
+  "emissions-overview": (ctx) => emissionsOverview(ctx, true),
+
+  "unit-emissions": (ctx) => emissionsOverview(ctx, false),
 
   "completion-by-level": async (ctx) => {
     if (!ctx.periodId) {
@@ -607,6 +692,359 @@ export const LOADERS: Record<string, (ctx: LoaderContext) => Promise<Result>> = 
           emissions: round1(tonnes.get(c.id) ?? 0),
           href: `/admin/submissions?org=${c.id}&period=${periodId}`,
         })),
+      },
+    };
+  },
+  "my-area": async (ctx) => {
+    const periodId = ctx.periodId;
+    if (!periodId) {
+      return {
+        urgency: 3,
+        count: null,
+        summary: "No reporting period to measure.",
+        href: "/app/submissions",
+      };
+    }
+    const tabs: string[] = [];
+    for (const g of areaGrants(ctx)) {
+      // The same population and tab rule as My Submissions, for the categories this role owns.
+      const rows = await ctx.sql<OwnRecord[]>`
+        select r.verification_status, r.validation_status, r.approval_status, r.data_quality_state,
+               j.status as job_status
+        from public.esg_records r
+        join public.esg_metrics m on m.id = r.metric_id
+        join public.esg_categories c on c.id = m.category_id
+        join public.roles ro on ro.id = c.owning_role_id and ro.code = ${g.role}
+        left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
+        left join public.documents d on d.id = erd.document_id and d.deleted_at is null
+        left join public.ocr_jobs j on j.document_id = d.id
+        where r.org_unit_id = any(${g.units}::uuid[]) and r.reporting_period_id = ${periodId}`;
+      for (const r of rows) {
+        tabs.push(
+          submissionTab({
+            verificationStatus: r.verification_status,
+            validationStatus: r.validation_status,
+            approvalStatus: r.approval_status,
+            dataQualityState: r.data_quality_state,
+            jobStatus: r.job_status,
+          }),
+        );
+      }
+    }
+    const slices = areaCounts(tabs);
+    const total = slices.reduce((a, x) => a + x.value, 0);
+    return {
+      urgency: 3,
+      count: null,
+      summary:
+        total > 0
+          ? `${plural(total, "record", "records")} this period: ${slices
+              .filter((x) => x.value > 0)
+              .map((x) => `${x.value} ${x.label.toLowerCase()}`)
+              .join(", ")}.`
+          : "No records in your area yet this period.",
+      href: "/app/submissions",
+      chart: { kind: "area", slices },
+    };
+  },
+
+  "my-missing": async (ctx) => {
+    if (!ctx.periodId) {
+      return {
+        urgency: 3,
+        count: 0,
+        summary: "No reporting period to measure.",
+        href: "/app/upload",
+      };
+    }
+    const rows = await missingInArea(ctx);
+    const late = (await openPeriods(ctx)).some((p) => p.late);
+    return {
+      urgency: rows.length === 0 ? 3 : late ? 0 : 2,
+      count: rows.length,
+      summary:
+        rows.length > 0
+          ? `expected ${rows.length === 1 ? "submission is" : "submissions are"} still missing${late ? ", and the period is past due" : ""}.`
+          : "Every expected submission in your area has been filed.",
+      href: "/app/upload",
+      chart:
+        rows.length > 0
+          ? {
+              kind: "list",
+              rows: rows.slice(0, 5).map((r) => ({ label: r.activity, detail: r.unit })),
+              more: Math.max(0, rows.length - 5),
+            }
+          : undefined,
+    };
+  },
+
+  "register-status": async (ctx) => {
+    const fy = await fyOf(ctx);
+    const rows = await ctx.sql<{ status: string; totals: RegisterTotals }[]>`
+      select r.status, r.totals
+      from public.employee_registers r
+      join public.org_units o on o.id = r.org_unit_id and o.deleted_at is null
+      where r.financial_year = ${fy} and r.status <> 'superseded' and ${inUnits(ctx.sql, ctx.scope)}`;
+    const n = (status: string) => rows.filter((r) => r.status === status).length;
+    const approved = rows.filter((r) => r.status === "approved");
+    const waiting = n("pending_verification") + n("verified");
+    const people =
+      approved.length > 0
+        ? sumTotals(
+            approved.map((r) => r.totals),
+            fy,
+          ).people
+        : 0;
+    return {
+      urgency: n("returned") > 0 ? 1 : waiting > 0 ? 2 : 3,
+      count: n("returned") + waiting,
+      summary:
+        rows.length === 0
+          ? `No employee register uploaded for FY ${fyLabel(fy)}.`
+          : `FY ${fyLabel(fy)}: ${approved.length} approved${approved.length > 0 ? ` (${people} people)` : ""}; registers waiting or returned need action.`,
+      href: "/app/employee-register",
+      chart: {
+        kind: "stats",
+        items: [
+          { label: "Approved", value: n("approved") },
+          { label: "Verified, awaiting approval", value: n("verified") },
+          { label: "Waiting for verification", value: n("pending_verification") },
+          { label: "Returned", value: n("returned") },
+        ],
+      },
+    };
+  },
+
+  certificates: async (ctx) => {
+    const units = unitsOf(ctx.scope) ?? [];
+    const rows = units.length
+      ? await ctx.sql<
+          { unit: string; number: string | null; valid_to: string | null; today: string }[]
+        >`
+          select o.name as unit, n.verified_value as number, f.verified_value as valid_to,
+                 public.reporting_period_today()::text as today
+          from public.esg_records r
+          join public.esg_metrics m on m.id = r.metric_id and m.code = 'COMPLIANCE_CERTIFICATE'
+          join public.org_units o on o.id = r.org_unit_id and o.deleted_at is null
+          join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
+          join lateral (select e.id from public.ocr_extractions e
+                         where e.document_id = erd.document_id
+                         order by e.extracted_at desc limit 1) ex on true
+          join public.ocr_fields f on f.ocr_extraction_id = ex.id and f.field_key = 'valid_to'
+          left join public.ocr_fields n on n.ocr_extraction_id = ex.id and n.field_key = 'certificate_number'
+          where r.verification_status = 'user_verified' and r.data_quality_state <> 'rejected'
+            and r.org_unit_id = any(${units}::uuid[])`
+      : [];
+    // ponytail: a renewal is a new certificate, so an old expired one is not matched to its successor; only
+    // certificates that expired in the last 90 days are shown, older ones are treated as history.
+    const states = rows
+      .map((r) => ({ r, s: certificateState(r.valid_to, r.today) }))
+      .filter(({ s }) => s.state === "expiring" || (s.state === "expired" && (s.days ?? 0) >= -90))
+      .sort((a, b) => (a.s.days ?? 0) - (b.s.days ?? 0));
+    const expired = states.filter(({ s }) => s.state === "expired").length;
+    const expiring = states.length - expired;
+    return {
+      urgency: expired > 0 ? 1 : expiring > 0 ? 2 : 3,
+      count: states.length,
+      summary:
+        rows.length === 0
+          ? "No compliance certificates on record yet."
+          : states.length === 0
+            ? "No certificate expires within 60 days."
+            : `${expired} expired in the last 90 days, ${expiring} expiring within 60 days.`,
+      href: "/app/submissions",
+      chart:
+        states.length > 0
+          ? {
+              kind: "list",
+              rows: states.slice(0, 5).map(({ r, s }) => ({
+                label: `${r.unit}${r.number ? ` · ${r.number}` : ""}`,
+                detail:
+                  s.state === "expired"
+                    ? `Expired ${Math.abs(s.days ?? 0)} days ago`
+                    : s.days === 0
+                      ? "Expires today"
+                      : `Expires in ${s.days} days`,
+                tone: s.state === "expired" ? "error" : "warning",
+              })),
+              more: Math.max(0, states.length - 5),
+            }
+          : undefined,
+    };
+  },
+
+  "financial-inputs": async (ctx) => {
+    const fy = await fyOf(ctx);
+    const [row] = await ctx.sql<{ value: Record<string, FyInputs> | null }[]>`
+      select value from public.org_settings where key = ${REPORT_INPUTS_KEY}`;
+    const inputs = row?.value?.[String(fy)];
+    const items = [
+      ["Turnover", inputs?.turnoverCr],
+      ["PPP conversion rate", inputs?.pppRate],
+      ["Net worth", inputs?.netWorthCr],
+      ["Physical output", inputs?.physicalOutput],
+    ] as const;
+    const missing = items.filter(([, v]) => v === null || v === undefined).length;
+    return {
+      urgency: missing > 0 ? 2 : 3,
+      count: missing,
+      summary:
+        missing > 0
+          ? `of the four yearly inputs are not provided for FY ${fyLabel(fy)}.`
+          : `All four yearly inputs are provided for FY ${fyLabel(fy)}.`,
+      href: "/admin/disclosures",
+      chart: {
+        kind: "list",
+        rows: items.map(([label, v]) => ({
+          label,
+          detail: v === null || v === undefined ? "Not provided" : "Provided",
+          tone: v === null || v === undefined ? "warning" : undefined,
+        })),
+        more: 0,
+      },
+    };
+  },
+
+  "evidence-coverage": async (ctx) => {
+    if (!ctx.periodId) {
+      return {
+        urgency: 3,
+        count: null,
+        summary: "No reporting period to measure.",
+        href: "/admin/submissions",
+      };
+    }
+    const list = await summaries(ctx);
+    const step = (key: "evidence" | "validation" | "approval") =>
+      addFractions(list.map((s) => s.pipeline[key]));
+    const steps = [
+      ["Evidence coverage", step("evidence")],
+      ["Validation completion", step("validation")],
+      ["Approval completion", step("approval")],
+    ] as const;
+    return {
+      urgency: 3,
+      count: null,
+      summary: `${steps.map(([label, f]) => `${label} ${f.value === null ? "—" : `${pct(f)} %`}`).join(" · ")}. Read-only view for assurance.`,
+      href: `/admin/submissions?period=${ctx.periodId}`,
+      chart: { kind: "radials", items: steps.map(([label, f]) => ({ label, value: pct(f) })) },
+    };
+  },
+
+  "brsr-readiness": async (ctx) => {
+    if (!ctx.periodId) {
+      return {
+        urgency: 3,
+        count: null,
+        summary: "No reporting period to measure.",
+        href: "/admin/brsr-mapping",
+      };
+    }
+    const [top, list] = await Promise.all([roots(ctx), summaries(ctx)]);
+    const units = top.map((r, i) => ({
+      id: r.id,
+      name: r.name,
+      value: list[i].readiness.value === null ? null : Math.round(list[i].readiness.value),
+      parts: list[i].readiness.components.map((c) => ({
+        label: c.label,
+        value: c.value === null ? null : Math.round(c.value),
+      })),
+    }));
+    return {
+      urgency: 3,
+      count: null,
+      summary:
+        units.length === 0
+          ? "Nothing to measure yet."
+          : `${units.map((u) => `${u.name} ${u.value === null ? "—" : `${u.value} %`}`).join(" · ")}. An internal indicator, not an official score.`,
+      href: `/admin/brsr-mapping?tab=readiness&period=${ctx.periodId}`,
+      chart: units.length > 0 ? { kind: "readiness", units } : undefined,
+    };
+  },
+
+  factors: async (ctx) => {
+    const [row] = await ctx.sql<{ covered: number; lapsed: number; drafts: number }[]>`
+      with today as (select public.reporting_period_today() as d),
+      covering as (
+        select distinct v.conversion_factor_id as id
+        from public.conversion_factor_versions v, today
+        where v.status = 'active' and v.effective_from <= today.d
+          and (v.effective_to is null or v.effective_to > today.d))
+      select (select count(*) from covering)::int as covered,
+             (select count(*) from public.conversion_factors f
+               where exists (select 1 from public.conversion_factor_versions v
+                              where v.conversion_factor_id = f.id and v.status in ('active', 'superseded'))
+                 and f.id not in (select id from covering))::int as lapsed,
+             (select count(*) from public.conversion_factor_versions where status = 'draft')::int as drafts`;
+    const open = row.lapsed + row.drafts;
+    return {
+      urgency: row.lapsed > 0 ? 1 : row.drafts > 0 ? 2 : 3,
+      count: open,
+      summary:
+        open > 0
+          ? `${plural(row.lapsed, "factor has", "factors have")} no version covering today, ${plural(row.drafts, "draft waits", "drafts wait")} for approval.`
+          : "Every factor has a version covering today and nothing waits for approval.",
+      href: "/admin/conversion-factors",
+      chart: {
+        kind: "stats",
+        items: [
+          { label: "Covering today", value: row.covered },
+          { label: "No version covering today", value: row.lapsed },
+          { label: "Drafts awaiting approval", value: row.drafts },
+        ],
+      },
+    };
+  },
+
+  "users-access": async (ctx) => {
+    const [row] = await ctx.sql<{ active: number; waiting: number; expired: number }[]>`
+      select (select count(*) from public.users where is_active and deleted_at is null)::int as active,
+             (select count(*) from public.user_invitations
+               where consumed_at is null and revoked_at is null and expires_at > now())::int as waiting,
+             (select count(*) from public.user_invitations
+               where consumed_at is null and revoked_at is null and expires_at <= now())::int as expired`;
+    return {
+      urgency: row.expired > 0 ? 2 : 3,
+      count: row.expired,
+      summary:
+        row.expired > 0
+          ? "invitation links expired without being used; resend them from Users."
+          : "No invitation has expired unused.",
+      href: "/admin/users",
+      chart: {
+        kind: "stats",
+        items: [
+          { label: "Active people", value: row.active },
+          { label: "Invitations waiting", value: row.waiting },
+          { label: "Invitations expired unused", value: row.expired },
+        ],
+      },
+    };
+  },
+
+  activity: async (ctx) => {
+    const [row] = await ctx.sql<{ ready: number; failed: number; events: number }[]>`
+      select (select count(*) from public.report_runs
+               where status = 'completed' and requested_at > now() - interval '30 days')::int as ready,
+             (select count(*) from public.report_runs
+               where status = 'failed' and requested_at > now() - interval '30 days')::int as failed,
+             (select count(*) from public.audit_logs
+               where created_at > now() - interval '7 days')::int as events`;
+    return {
+      urgency: row.failed > 0 ? 1 : 3,
+      count: row.failed,
+      summary:
+        row.failed > 0
+          ? "reports failed in the last 30 days; see Reports for the reason."
+          : "No report failed in the last 30 days.",
+      href: "/admin/reports",
+      chart: {
+        kind: "stats",
+        items: [
+          { label: "Reports generated (30 days)", value: row.ready },
+          { label: "Reports failed (30 days)", value: row.failed },
+          { label: "Audit events (7 days)", value: row.events },
+        ],
       },
     };
   },

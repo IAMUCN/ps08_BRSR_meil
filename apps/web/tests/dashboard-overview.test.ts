@@ -115,3 +115,58 @@ test("emissionFigures: the selected period split by scope, a trend of the latest
   assert.deepEqual(emissionFigures(rows, "p2", 1).trend.categories, ["P2"]);
   assert.equal(emissionFigures([], null).total, 0);
 });
+
+import {
+  areaCounts,
+  certificateState,
+  fyStartYear,
+  parseCertificateDate,
+} from "../lib/dashboard/overview.ts";
+
+test("fyStartYear: April to March", () => {
+  assert.equal(fyStartYear("2026-04-01"), 2026);
+  assert.equal(fyStartYear("2026-03-31"), 2025);
+  assert.equal(fyStartYear("2026-11-12"), 2026);
+});
+
+test("parseCertificateDate: common printed forms, impossible dates refused", () => {
+  assert.equal(parseCertificateDate("2026-03-31"), "2026-03-31");
+  assert.equal(parseCertificateDate("31/03/2026"), "2026-03-31");
+  assert.equal(parseCertificateDate("1-4-2026"), "2026-04-01");
+  assert.equal(parseCertificateDate("31.03.2026"), "2026-03-31");
+  assert.equal(parseCertificateDate("31/02/2026"), null);
+  assert.equal(parseCertificateDate("March 2026"), null);
+  assert.equal(parseCertificateDate(null), null);
+  assert.equal(parseCertificateDate(""), null);
+});
+
+test("certificateState: expired, expiring within the window, valid, unreadable", () => {
+  const today = "2026-11-12";
+  assert.deepEqual(certificateState("2026-11-11", today), { state: "expired", days: -1 });
+  assert.deepEqual(certificateState("2026-11-12", today), { state: "expiring", days: 0 });
+  assert.deepEqual(certificateState("2027-01-11", today), { state: "expiring", days: 60 });
+  assert.deepEqual(certificateState("2027-01-12", today), { state: "valid", days: 61 });
+  assert.deepEqual(certificateState("soon", today), { state: "unreadable", days: null });
+  assert.equal(certificateState("2027-01-12", today, 90).state, "expiring");
+});
+
+test("areaCounts: tabs grouped for the donut, rejected left out, every group present", () => {
+  const got = areaCounts([
+    "approved",
+    "approved",
+    "processing",
+    "validated",
+    "rejected",
+    "returned",
+  ]);
+  assert.deepEqual(
+    got.map((g) => [g.key, g.value]),
+    [
+      ["approved", 2],
+      ["pending_approval", 0],
+      ["needs_verification", 0],
+      ["returned", 1],
+      ["in_progress", 2],
+    ],
+  );
+});

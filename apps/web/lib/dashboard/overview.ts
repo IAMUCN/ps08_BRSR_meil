@@ -145,3 +145,75 @@ export function emissionFigures(rows: EmissionRow[], periodId: string | null, co
     trend: { categories: trend.map((p) => p.label), values: trend.map((p) => p.tonnes) },
   };
 }
+
+// --- Role content (Phase 4b) ------------------------------------------------------------------------------
+
+/** First year of the Indian financial year (April to March) an ISO date falls in: 2026-02-10 is FY 2025. */
+export function fyStartYear(iso: string): number {
+  const [y, m] = iso.split("-").map(Number);
+  return m >= 4 ? y : y - 1;
+}
+
+/** A date as printed on a certificate (2026-03-31, 31/03/2026, 31-03-2026, 31.03.2026) as ISO, or null when it cannot be read. */
+export function parseCertificateDate(text: string | null): string | null {
+  const t = (text ?? "").trim();
+  const iso = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const dmy = t.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  const [y, m, d] = iso
+    ? [+iso[1], +iso[2], +iso[3]]
+    : dmy
+      ? [+dmy[3], +dmy[2], +dmy[1]]
+      : [0, 0, 0];
+  const at = new Date(Date.UTC(y, m - 1, d));
+  // Reject 31 February and the like: the date must survive the round trip.
+  if (!y || at.getUTCFullYear() !== y || at.getUTCMonth() !== m - 1 || at.getUTCDate() !== d)
+    return null;
+  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+export type CertificateState = {
+  state: "expired" | "expiring" | "valid" | "unreadable";
+  /** Days from today to the last valid day; negative once expired. */
+  days: number | null;
+};
+
+/** Where a certificate stands today. `windowDays` is how far ahead "expiring" looks (60 by the owner's decision). */
+export function certificateState(
+  validTo: string | null,
+  today: string,
+  windowDays = 60,
+): CertificateState {
+  const end = parseCertificateDate(validTo);
+  if (!end) return { state: "unreadable", days: null };
+  const days = Math.round(
+    (Date.parse(`${end}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000,
+  );
+  return { state: days < 0 ? "expired" : days <= windowDays ? "expiring" : "valid", days };
+}
+
+export const AREA_STATES = [
+  { key: "approved", label: "Approved" },
+  { key: "pending_approval", label: "Pending approval" },
+  { key: "needs_verification", label: "To verify" },
+  { key: "returned", label: "Returned" },
+  { key: "in_progress", label: "In progress" },
+] as const;
+
+/** My Submissions tabs grouped for a donut; rejected records are left out. */
+export function areaCounts(tabs: string[]) {
+  const group = (tab: string) =>
+    tab === "approved" ||
+    tab === "pending_approval" ||
+    tab === "needs_verification" ||
+    tab === "returned"
+      ? tab
+      : tab === "rejected"
+        ? null
+        : "in_progress";
+  const counts = new Map<string, number>(AREA_STATES.map((s) => [s.key, 0]));
+  for (const tab of tabs) {
+    const g = group(tab);
+    if (g) counts.set(g, (counts.get(g) ?? 0) + 1);
+  }
+  return AREA_STATES.map((s) => ({ key: s.key, label: s.label, value: counts.get(s.key) ?? 0 }));
+}

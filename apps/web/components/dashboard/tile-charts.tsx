@@ -141,6 +141,77 @@ export function TileChartView({ chart }: { chart: TileChart }) {
         </ul>
       );
 
+    case "area":
+      return (
+        <div className="mx-auto mt-3 max-w-xs">
+          <DonutChart
+            title="Records by state"
+            slices={chart.slices}
+            centreLabel="records"
+            empty="No records in your area yet."
+          />
+        </div>
+      );
+
+    case "list":
+      return (
+        <div className="mt-2">
+          <ul className="divide-y text-sm leading-5">
+            {chart.rows.map((row, i) => (
+              <li
+                key={`${row.label}-${i}`}
+                className="flex items-baseline justify-between gap-3 py-1.5"
+              >
+                <span className="min-w-0 truncate">{row.label}</span>
+                {row.detail ? (
+                  <span
+                    className={cn(
+                      "shrink-0 text-xs",
+                      row.tone === "error" && "text-status-error",
+                      row.tone === "warning" && "text-status-warning",
+                      !row.tone && "text-muted-foreground",
+                    )}
+                  >
+                    {row.detail}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {chart.more > 0 ? (
+            <p className="mt-1 text-xs leading-4 text-muted-foreground">
+              {chart.more} more not shown.
+            </p>
+          ) : null}
+        </div>
+      );
+
+    case "readiness":
+      return (
+        <ul className="mt-3 space-y-4">
+          {chart.units.map((u, i) => (
+            <li key={u.id} className="flex flex-wrap items-center gap-4">
+              <div className="w-24 shrink-0">
+                <RadialChart value={u.value} label={`${u.name} readiness`} index={i} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm leading-5 font-medium">{u.name}</p>
+                <dl className="mt-1 space-y-0.5 text-xs leading-4">
+                  {u.parts.map((part) => (
+                    <div key={part.label} className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">{part.label}</dt>
+                      <dd className="font-mono tabular-nums">
+                        {part.value === null ? "—" : `${part.value} %`}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            </li>
+          ))}
+        </ul>
+      );
+
     case "stats":
       return chart.items.length === 0 ? null : (
         <dl className="mt-2 space-y-0.5 text-xs leading-4">

@@ -612,10 +612,19 @@ try {
       `${units.length} unit(s)`,
     );
     const tiles = await c.dashboard.tiles();
-    const named = JSON.stringify(tiles);
+    const all = tiles.band.concat(tiles.grid);
+    // Role tiles (the Project Manager's own work) rightly cover Project Q, where that role is assigned; every
+    // tile that depends on a permission must not.
+    const ROLE_TILES = ["my-area", "my-missing", "unit-emissions", "certificates"];
+    const named = JSON.stringify(all.filter((t) => !ROLE_TILES.includes(t.id)));
+    note(
+      all.some((t) => ROLE_TILES.includes(t.id)) ? "PASS" : "FAIL",
+      "dashboard.tiles() offers the Project Manager's own-work tiles, from the role assigned at Project Q",
+      "",
+    );
     note(
       !named.includes("IDOR Project Q") && !named.includes(QUNIT) ? "PASS" : "FAIL",
-      "dashboard.tiles() never covers Project Q, where the role holding the permissions is not assigned",
+      "dashboard.tiles() never covers Project Q through a permission tile, where the role holding the permissions is not assigned",
       `${tiles.band.length + tiles.grid.length} tile(s)`,
     );
     note(
