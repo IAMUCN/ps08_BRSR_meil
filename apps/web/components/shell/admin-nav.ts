@@ -52,6 +52,8 @@ const ADMIN_NAV: AdminNavItem[] = [
   // Configured once, rarely touched.
   { href: "/admin/organization", label: "Organization", icon: "organization", startsGroup: true },
   { href: "/admin/users", label: "Users", icon: "users" },
+  // The workforce register HR uploads (migration 0070); the Super Admin holds the permission.
+  { href: "/app/employee-register", label: "Employee Register", icon: "users", superOnly: true },
   // Landing-page demo requests (migration 0066, A55).
   { href: "/admin/demo-requests", label: "Demo Requests", icon: "users", superOnly: true },
   { href: "/admin/roles", label: "Roles & Permissions", icon: "roles", superOnly: true },
@@ -121,6 +123,13 @@ export function workspaceNavFor(session: {
       icon: "reports",
       startsGroup: !canMonitor(session),
     });
+  // HR uploads the workforce register; approvers and the Super Admin see and decide (migration 0070).
+  if (
+    ["employee_register.manage", "employee_register.view", "approval.decide"].some((p) =>
+      session.permissions.includes(p),
+    )
+  )
+    nav.push({ href: "/app/employee-register", label: "Employee Register", icon: "users" });
   // Finance and HR type their own part of the BRSR answers (migration 0067).
   if (canEditDisclosures(session) || canEnterFinancialInputs(session))
     nav.push({

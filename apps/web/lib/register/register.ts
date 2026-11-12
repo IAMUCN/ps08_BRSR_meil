@@ -20,6 +20,8 @@ export const EMPLOYMENTS: Employment[] = ["permanent", "other"];
 
 export type RegisterRow = {
   employeeId: string;
+  /** Only for the account-status view, read from the file each time; never saved with the totals. */
+  name: string | null;
   gender: Gender;
   category: Category;
   employment: Employment;
@@ -260,6 +262,7 @@ export function readRegisterRows(sheet: Record<string, string>[]): ReadResult {
 
     rows.push({
       employeeId,
+      name: cell(raw, "name").trim() || null,
       gender,
       category,
       employment,

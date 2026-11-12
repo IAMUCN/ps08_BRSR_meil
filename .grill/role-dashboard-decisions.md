@@ -197,3 +197,17 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
   number, issuing authority, valid from, valid until, validity in months. Validity in months is the one
   required number field Verify needs and is typed by the person. Mapped to P6-E13 as not applicable.
 - Employee register, net worth printing in the report, and the report's within-India sub-part are still to do.
+
+## Employee register built (2026-11-12, migration 0070; unverified against a database)
+- Counts only, as decided: `employee_registers` holds totals (headcount by employee/worker, permanent/other,
+  gender, differently abled; permanent opening, closing and leavers; wages by gender and in smaller towns); the
+  file is in the private `registers` bucket. Totals are as at 31 March; turnover is leavers over the average of
+  opening and closing headcount, recomputed from summed counts.
+- Flow: HR uploads (a file with any unusable row is refused whole, with row numbers), HR confirms the totals, an
+  approver who is neither the uploader nor the confirmer approves or returns (enforced in the procedure and by a
+  database constraint). One live register per unit and year; an approved one must be returned before a new upload.
+- Permissions: `employee_register.manage` and `.view` for the Super Admin and HR; approving uses `approval.decide`.
+  Opening the file or the account-status view is audited. The account-status view shows ID, name and account
+  status only.
+- Not yet: the dashboard and the report do not read the registers; net worth, the within-India sub-part and the
+  report's P8-E4 are still to do.

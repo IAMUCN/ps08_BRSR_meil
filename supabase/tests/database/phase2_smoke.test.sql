@@ -24,7 +24,7 @@ select tables_are('public', array[
   'org_levels', 'chat_conversations', 'chat_messages', 'org_unit_parents',
   'carbon_credits', 'carbon_credit_transactions', 'internal_carbon_prices', 'capex_carbon_evaluations',
   'user_invitations', 'user_sessions', 'report_forwards', 'reminder_sends',
-  'carbon_credit_links', 'emission_alerts', 'emission_alert_sends', 'demo_requests'
+  'carbon_credit_links', 'emission_alerts', 'emission_alert_sends', 'demo_requests', 'employee_registers'
 ], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(
@@ -61,9 +61,9 @@ select ok(not has_column_privilege('authenticated', 'public.user_display_names',
 ------------------------------------------------------------------------------------------------
 
 select is((select count(*)::int from public.roles where is_system_role), 9, '9 system roles (0067 adds the Assurance Reviewer)');
-select is((select count(*)::int from public.permissions), 24, '24 permissions (0067 adds four)');
+select is((select count(*)::int from public.permissions), 26, '26 permissions (0067 adds four, 0070 two)');
 select is((select count(*)::int from public.role_permissions rp join public.roles r on r.id = rp.role_id
-           where r.code = 'admin'), 24, 'admin holds every permission');
+           where r.code = 'admin'), 26, 'admin holds every permission');
 select set_eq(
   $$select p.code from public.role_permissions rp join public.roles r on r.id = rp.role_id
     join public.permissions p on p.id = rp.permission_id where r.code = 'corporate_esg'$$,

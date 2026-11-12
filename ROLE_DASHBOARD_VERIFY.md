@@ -53,3 +53,17 @@ Written without a database; **not run**. Worker unit tests (59, including 8 new 
 2. **Order matters:** push the migration to hosted first, then rebuild the worker image (`docker build -t traceesg-ocr-worker apps/ocr-worker`, check `EXTRACTOR_VERSION` is `rules-15`) and recreate the hosted worker container. A worker newer than the database fails every job.
 3. Upload a CSR payment record with a "Number of beneficiaries" line and a procurement statement with a "Procured from within India" line: both should appear as optional fields on Verify. Upload a consent order: the type should classify (or be pickable) and Valid until should be read.
 4. Known limits: **Validity (months)** is typed by the person (Verify needs exactly one required number field, and a certificate rarely prints it); no part-of-whole rule for within-India spend (the existing rule fails when the field is empty); the report still prints only the MSME share under P8-E4; certificates are not in the BRSR report.
+
+## Employee register (migration 0070, `/app/employee-register`)
+
+Written without a database or a browser; **not run**. `pnpm typecheck`, lint, Prettier and the unit tests (318, including 8 for the register's reading and totals) pass.
+
+1. Apply **0070** after 0069, then `pnpm db:test` (new `employee_registers.test.sql`, 9 assertions; `phase2_smoke` and `role_permission_defaults` now expect 26 permissions and the new table).
+2. In a browser as **HR** assigned at a unit:
+   - sidebar shows **Employee Register**; download the template; fill a few rows (include a duplicate ID and a bad gender) -> upload is refused with the row numbers and nothing is saved;
+   - a clean file -> totals appear, status "Waiting for HR to confirm"; Confirm; then as **an approver who is not the uploader or confirmer** (Corporate ESG at the same unit) Approve or Return (a note of 10+ characters);
+   - uploading again for the same unit and year while one is pending replaces it; while **approved** it is refused until an approver returns it.
+3. **Who has an account** (HR / Super Admin): matches the file's employee IDs to `users.employee_id`; shows ID, name, account status only (no gender, disability or wages). **Open the file** downloads it. Both write an audit entry (`employee_register.opened`, `.file_downloaded`).
+4. Check nobody else gets in: a Project Manager gets 403 on `/api/employee-register`, its template and file routes; a unit outside the user's scope returns 404 on the file route.
+5. Nothing person-level may reach the database: after an upload, `select totals from employee_registers` holds counts and sums only, and `audit_logs.new_value` holds the file name, hash and a head-count, never a person.
+6. Limits to look at: the upload goes through a Next route handler, so a host that caps request bodies (Vercel: 4.5 MB) caps the register; a very large register may need a signed-URL upload like documents. Totals recompute from the file only at upload time. The register is not yet read by the dashboard or the report.

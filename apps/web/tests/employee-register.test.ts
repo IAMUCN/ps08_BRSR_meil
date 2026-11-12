@@ -15,6 +15,7 @@ import {
 // The employee register's totals (.grill/role-dashboard-decisions.md). One worked year, by hand.
 
 const row = (over: Partial<RegisterRow> & { employeeId: string }): RegisterRow => ({
+  name: null,
   gender: "male",
   category: "employee",
   employment: "permanent",
