@@ -44,7 +44,8 @@ const problemTypes = (row: QueueRow) => [
 
 export function ValidationQueueTable({ rows }: { rows: QueueRow[] }) {
   const router = useRouter();
-  const [category, setCategory] = useState<RuleType | "">("");
+  // A rule category, or one of the two marks reviewers look for together (Phase 2).
+  const [category, setCategory] = useState<RuleType | "" | "late" | "duplicate">("");
   const [status, setStatus] = useState<"flagged" | "failed" | "">("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [decision, setDecision] = useState<"accept" | "return" | null>(null);
@@ -54,7 +55,13 @@ export function ValidationQueueTable({ rows }: { rows: QueueRow[] }) {
     () =>
       rows.filter(
         (r) =>
-          (!status || r.status === status) && (!category || problemTypes(r).includes(category)),
+          (!status || r.status === status) &&
+          (!category ||
+            (category === "late"
+              ? r.late
+              : category === "duplicate"
+                ? r.duplicate
+                : problemTypes(r).includes(category))),
       ),
     [rows, status, category],
   );
@@ -98,9 +105,11 @@ export function ValidationQueueTable({ rows }: { rows: QueueRow[] }) {
             id="vq-category"
             className="w-48"
             value={category}
-            onChange={(e) => setCategory(e.target.value as RuleType | "")}
+            onChange={(e) => setCategory(e.target.value as RuleType | "" | "late" | "duplicate")}
           >
             <option value="">All categories</option>
+            <option value="late">Late submissions</option>
+            <option value="duplicate">Possible duplicates</option>
             {RULE_TYPES.map((t) => (
               <option key={t.key} value={t.key}>
                 {t.label}
@@ -182,6 +191,16 @@ export function ValidationQueueTable({ rows }: { rows: QueueRow[] }) {
                     {row.manualException ? (
                       <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
                         Manual exception
+                      </span>
+                    ) : null}
+                    {row.late ? (
+                      <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                        Late
+                      </span>
+                    ) : null}
+                    {row.duplicate ? (
+                      <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                        Possible duplicate
                       </span>
                     ) : null}
                   </td>

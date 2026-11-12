@@ -3,12 +3,14 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { submitForApproval } from "@/lib/approvals/workflow";
 import { writeAudit } from "@/lib/audit";
+import { scopedOrgUnitIds } from "@/lib/auth/scope";
 import { db } from "@/lib/db";
 import type { Outcome, RuleType } from "@/lib/validation/checks";
 import { permissionProcedure, router } from "@/lib/trpc/init";
 
 // Admin Validation Queue (03_APP_FLOW.md §2.2): records that failed validation or were flagged.
-// Decisions: .grill/phase-8-validation-engine-decisions.md. `validation.review` is Admin-held (migration 0009).
+// Decisions: .grill/phase-8-validation-engine-decisions.md. `validation.review` is Admin-held (migration 0009);
+// were it given to another role, its holder reviews only inside their own org scope.
 
 const review = permissionProcedure("validation.review");
 export const REVIEW_REASON_MIN = 10;
@@ -30,13 +32,16 @@ export type QueueRow = {
   status: "flagged" | "failed";
   manualException: boolean;
   duplicate: boolean;
+  /** Uploaded after its period's due date (migration 0056). */
+  late: boolean;
   results: QueueResult[];
 };
 
 export const validationRouter = router({
   /** Flagged and failed records with their latest validation run, newest first. */
-  queue: review.query(async (): Promise<QueueRow[]> => {
+  queue: review.query(async ({ ctx }): Promise<QueueRow[]> => {
     const sql = db();
+    const scope = await scopedOrgUnitIds(sql, ctx.session);
     const rows = await sql<
       {
         record_id: string;
@@ -53,6 +58,7 @@ export const validationRouter = router({
         status: "flagged" | "failed";
         manual_exception: boolean;
         duplicate: boolean;
+        late: boolean;
         results: QueueResult[] | null;
       }[]
     >`
@@ -61,7 +67,7 @@ export const validationRouter = router({
              u.display_name as submitted_by, v.verified_at,
              r.activity_value_verified::float as activity_value, r.activity_unit,
              r.validation_status::text as status, coalesce(v.is_manual_exception, false) as manual_exception,
-             r.is_duplicate_flag as duplicate,
+             r.is_duplicate_flag as duplicate, r.submitted_late as late,
              (select json_agg(json_build_object(
                         'ruleType', vr.rule_type, 'outcome', vr.result, 'message', vr.message)
                       order by vr.rule_type, vr.result desc)
@@ -81,6 +87,7 @@ export const validationRouter = router({
         where esg_record_id = r.id order by verified_at desc limit 1
       ) v on true
       where r.validation_status in ('flagged', 'failed') and r.data_quality_state <> 'rejected'
+        and (${scope}::uuid[] is null or r.org_unit_id = any(${scope}::uuid[]))
       order by v.verified_at desc nulls last
       limit 500`;
     return rows.map((r) => ({
@@ -98,6 +105,7 @@ export const validationRouter = router({
       status: r.status,
       manualException: r.manual_exception,
       duplicate: r.duplicate,
+      late: r.late,
       results: r.results ?? [],
     }));
   }),
@@ -115,6 +123,7 @@ export const validationRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const scope = await scopedOrgUnitIds(db(), ctx.session);
       await db().begin(async (tx) => {
         const [record] = await tx<
           {
@@ -132,6 +141,7 @@ export const validationRouter = router({
           left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
           left join public.documents d on d.id = erd.document_id
           where r.id = ${input.recordId}
+            and (${scope}::uuid[] is null or r.org_unit_id = any(${scope}::uuid[]))
           for update of r`;
         if (!record) {
           throw new TRPCError({ code: "NOT_FOUND", message: "That record no longer exists." });

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionContext } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { downloadName } from "@/lib/documents/download-name";
 import { evidenceBucket } from "@/lib/storage/evidence";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { documentAccess } from "@/lib/verification/access";
@@ -28,10 +29,24 @@ export async function GET(
   if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const [row] = await db()<
-    { storage_path: string; mime_type: string; file_name: string; file_hash: string }[]
+    {
+      storage_path: string;
+      mime_type: string;
+      file_name: string;
+      file_hash: string;
+      metric_name: string | null;
+      bill_number: string | null;
+      period_label: string | null;
+    }[]
   >`
-    select storage_path, mime_type, file_name, file_hash from public.documents
-    where id = ${documentId} and deleted_at is null`;
+    select d.storage_path, d.mime_type, d.file_name, d.file_hash,
+           m.name as metric_name, r.bill_number, p.label as period_label
+    from public.documents d
+    left join public.esg_record_documents erd on erd.document_id = d.id and erd.is_primary
+    left join public.esg_records r on r.id = erd.esg_record_id
+    left join public.esg_metrics m on m.id = r.metric_id
+    left join public.reporting_periods p on p.id = r.reporting_period_id
+    where d.id = ${documentId} and d.deleted_at is null`;
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { data, error } = await createSupabaseAdminClient()
@@ -58,7 +73,15 @@ export async function GET(
     headers: {
       "Content-Type": row.mime_type,
       "Content-Length": String(bytes.byteLength),
-      "Content-Disposition": `inline; filename="${row.file_name.replace(/["\\]/g, "")}"`,
+      // Phase 2: a readable name from the record (activity, bill number, period); storage stays by id.
+      // Non-ASCII characters are replaced so the header stays valid.
+      "Content-Disposition": `inline; filename="${downloadName({
+        fileName: row.file_name,
+        mimeType: row.mime_type,
+        metricName: row.metric_name,
+        billNumber: row.bill_number,
+        periodLabel: row.period_label,
+      }).replace(/[^\x20-\x7e]/g, "_")}"`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
       // Opened directly, the file renders inert: no scripts, no same-origin access.

@@ -1,17 +1,19 @@
+import { AlertTriangle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContextFilters, ISSUE_LABELS, RecordsTable } from "@/components/records/records-explorer";
+import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { PageHeader } from "@/components/shell/page-header";
-import { requireAdminSession } from "@/lib/auth/session";
+import { workerStallMinutes } from "@/lib/ocr/rules";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { readParams, stringParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
 
 import { RemindButton } from "./remind-button";
-export const metadata: Metadata = { title: "Submission Monitoring · TraceESG" };
+export const metadata: Metadata = { title: "Submission Monitoring · EmeilSG" };
 
 // Where each issue is acted on (the Control Tower lands here with the exact slice it counted).
 const QUEUE: Record<string, { href: string; label: string }> = {
-  low_confidence: { href: "/admin/ocr-monitoring", label: "OCR Monitoring" },
   validation_failed: { href: "/admin/validation-queue", label: "the Validation Queue" },
   anomaly: { href: "/admin/validation-queue", label: "the Validation Queue" },
   pending_approval: { href: "/admin/approval-queue", label: "the Approval Queue" },
@@ -22,7 +24,7 @@ const QUEUE: Record<string, { href: string; label: string }> = {
 export default async function SubmissionMonitoringPage({
   searchParams,
 }: PageProps<"/admin/submissions">) {
-  const [, caller, raw] = await Promise.all([requireAdminSession(), api(), searchParams]);
+  const [, caller, raw] = await Promise.all([requireAdminAreaSession(), api(), searchParams]);
   const q = readParams(raw);
   const params = stringParams(raw);
 
@@ -94,23 +96,53 @@ export default async function SubmissionMonitoringPage({
     );
   }
 
-  const { context, rows, truncated } = await caller.records.search({
+  const { context, rows, truncated, oldestPendingSince } = await caller.records.search({
     orgUnitId: q.orgUnitId,
     periodId: q.periodId,
     scopeCode: q.scopeCode,
+    metricCode: q.metricCode,
+    documentTypeCode: q.documentTypeCode,
     roleCode: q.roleCode,
     status: q.status,
     issue: q.issue,
+    text: q.text,
+    ocr: q.ocr,
+    uploadedFrom: q.uploadedFrom,
+    uploadedTo: q.uploadedTo,
   });
   const queue = q.issue ? QUEUE[q.issue] : undefined;
+  // Phase 3: OCR Monitoring's stalled-worker warning now lives here.
+  const stalled = workerStallMinutes(
+    oldestPendingSince ? new Date(oldestPendingSince) : null,
+    new Date(),
+  );
 
   return (
     <div className="max-w-7xl space-y-4">
       <PageHeader
         title="Submission Monitoring"
-        description="Every submission across the organization and where it is in the pipeline. Open a record for its evidence, validation, calculation and audit trail."
+        description="Every submission across the organization, what OCR made of it and where it is in the pipeline. Open a record for its evidence, OCR, validation, calculation and audit trail."
       />
-      <ContextFilters context={context} params={params} variant="monitoring" />
+      <AutoRefresh active={rows.some((r) => r.ocrState === "reading")} />
+      {stalled !== null ? (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-md border border-status-error/40 bg-status-error/10 p-4"
+        >
+          <AlertTriangle
+            className="mt-0.5 size-5 shrink-0 text-status-error"
+            strokeWidth={1.5}
+            aria-hidden
+          />
+          <p className="text-sm leading-5">
+            <span className="font-semibold">
+              The OCR worker has not picked up a document for {stalled} minutes.
+            </span>{" "}
+            Uploads wait until it runs again; check that the worker is running.
+          </p>
+        </div>
+      ) : null}
+      <ContextFilters context={context} params={params} variant="monitoring" search />
       {q.issue ? (
         <p className="rounded-md border border-status-warning/40 bg-status-warning/5 px-4 py-2 text-sm">
           Showing <span className="font-medium">{ISSUE_LABELS[q.issue]}</span>

@@ -21,6 +21,15 @@ function handler(request: Request) {
     req: request,
     router: appRouter,
     createContext: createTRPCContext,
+    // Answers carry a signed-in person's data: never stored by a browser or anything in between, and — as
+    // JSON that is never a page — allowed to load nothing and be framed by nobody. (next.config.ts leaves
+    // /api without the site-wide policy so a route can set its own.)
+    responseMeta: () => ({
+      headers: new Headers([
+        ["cache-control", "private, no-store"],
+        ["content-security-policy", "default-src 'none'; frame-ancestors 'none'"],
+      ]),
+    }),
   });
 }
 

@@ -6,18 +6,20 @@ import { Button } from "@/components/ui/button";
 import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { CarbonCreditsClient } from "./carbon-credits-client";
+import { CreditLinksPanel } from "./credit-links-panel";
 
-export const metadata: Metadata = { title: "Carbon Markets & Offsets · TraceESG" };
+export const metadata: Metadata = { title: "Carbon Markets & Offsets · EmeilSG" };
 
 export default async function CarbonCreditsPage() {
   await requireAdminSession();
   const caller = await api();
 
-  const [options, summary, batches, icpPrices] = await Promise.all([
+  const [options, summary, batches, icpPrices, links] = await Promise.all([
     caller.carbonCredits.options(),
     caller.carbonCredits.summary(),
     caller.carbonCredits.list(),
     caller.carbonCredits.icpList(),
+    caller.carbonLinks.list(),
   ]);
 
   const defaultOrgUnitId = options.orgUnits[0]?.id ?? "";
@@ -69,6 +71,8 @@ export default async function CarbonCreditsPage() {
           </div>
         }
       />
+
+      <CreditLinksPanel links={links} canEdit />
 
       <CarbonCreditsClient
         options={options}

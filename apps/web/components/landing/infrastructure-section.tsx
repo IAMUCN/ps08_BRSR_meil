@@ -85,7 +85,7 @@ export function InfrastructureSection() {
             Built for a More Sustainable Infrastructure Future
           </h2>
           <p className="text-base sm:text-lg text-slate-600 mt-2 max-w-3xl mx-auto leading-relaxed">
-            From dams and highways to power, manufacturing and energy systems — TraceESG supports
+            From dams and highways to power, manufacturing and energy systems — EmeilSG supports
             MEIL&apos;s diverse portfolio with a unified ESG data platform.
           </p>
         </div>
@@ -150,11 +150,16 @@ export function InfrastructureSection() {
             <button
               key={idx}
               onClick={() => setActiveIndex(idx)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                activeIndex === idx ? "w-6 bg-[#313490]" : "w-2 bg-slate-300"
-              }`}
+              className="group grid h-6 min-w-6 place-items-center"
               aria-label={`Select ${cat.name}`}
-            />
+              aria-current={activeIndex === idx ? "true" : undefined}
+            >
+              <span
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  activeIndex === idx ? "w-6 bg-[#313490]" : "w-2 bg-slate-300"
+                }`}
+              />
+            </button>
           ))}
         </div>
       </div>

@@ -52,7 +52,7 @@ export function ProblemSection() {
             className="rounded-2xl border border-[#313490]/20 bg-[#313490]/[0.03] p-7 shadow-sm"
           >
             <h3 className="mb-5 text-sm font-semibold uppercase tracking-wider text-[#313490]">
-              With TraceESG
+              With EmeilSG
             </h3>
             <ul className="space-y-4">
               {WITH_TRACE.map((t) => (

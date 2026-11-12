@@ -4,12 +4,14 @@ import { Loader2, Search, UserPlus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmployeeBulkImport } from "@/components/bulk-import/employee-bulk-import";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Sheet,
   SheetContent,
@@ -21,15 +23,19 @@ import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { isFrozen, levelLabel, type OrgLevel } from "@/lib/org/rules";
 import { bulkImportUsersAction } from "@/lib/bulk-import/actions";
 import type { OrgUnitRow } from "@/lib/trpc/routers/organization";
-import type { UserRow, UserStatus } from "@/lib/trpc/routers/users";
+import type { InvitationInfo, UserRow, UserStatus } from "@/lib/trpc/routers/users";
+import { sortUsers, type UserSort } from "@/lib/users/sort";
 import {
   addAssignmentAction,
   deactivateUserAction,
+  setEmployeeIdAction,
+  updateInvitedUserAction,
   deleteUserAction,
   inviteUserAction,
   reactivateUserAction,
   resendInviteAction,
   revokeAssignmentAction,
+  revokeInviteAction,
 } from "./actions";
 
 type RoleOption = { id: string; code: string; name: string };
@@ -40,6 +46,27 @@ const STATUS: Record<UserStatus, { tone: StatusTone; label: string }> = {
   invited: { tone: "warning", label: "Invited" },
   deactivated: { tone: "locked", label: "Deactivated" },
 };
+
+/** Where an invited account's link stands, in a few words. */
+function invitationNote(invitation: InvitationInfo): string {
+  switch (invitation.state) {
+    case "pending":
+      return invitation.expiresAt
+        ? `Link valid until ${new Date(invitation.expiresAt).toLocaleString(undefined, {
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`
+        : "Link sent";
+    case "expired":
+      return "Link expired";
+    case "revoked":
+      return "Link revoked";
+    case "none":
+      return "No link sent yet";
+  }
+}
 
 function useRun(onDone: () => void) {
   const [pending, startTransition] = useTransition();
@@ -56,6 +83,157 @@ function useRun(onDone: () => void) {
     });
   }
   return { pending, run };
+}
+
+/** For someone with no employee ID, offered only to those who may manage them. The server checks both. */
+function AddEmployeeId({ user, onDone }: { user: UserRow; onDone: () => void }) {
+  const [pending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    startTransition(async () => {
+      const result = await setEmployeeIdAction({ userId: user.id, employeeId: value });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      toast.success(`Employee ID saved for ${user.displayName}`);
+      setOpen(false);
+      onDone();
+    });
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={`Add an employee ID for ${user.displayName}`}
+        >
+          Add ID
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-3">
+        <form onSubmit={onSubmit} className="space-y-2">
+          <Label htmlFor={`employee-id-${user.id}`}>Employee ID for {user.displayName}</Label>
+          <Input
+            id={`employee-id-${user.id}`}
+            value={value}
+            maxLength={50}
+            required
+            aria-invalid={error ? true : undefined}
+            className={cn("font-mono", error && "border-status-error")}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setError(null);
+            }}
+          />
+          <p
+            className={cn(
+              "text-xs leading-4",
+              error ? "font-medium text-status-error" : "text-muted-foreground",
+            )}
+          >
+            {error ?? "It can't be changed here once saved."}
+          </p>
+          <Button type="submit" size="sm" disabled={pending}>
+            {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+            Save
+          </Button>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Name and email of someone still invited. The server refuses anyone else. */
+function InvitedDetails({ user, onDone }: { user: UserRow; onDone: () => void }) {
+  const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const [displayName, setDisplayName] = useState(user.displayName);
+  const [email, setEmail] = useState(user.email);
+  const emailChanged = email.trim().toLowerCase() !== user.email.toLowerCase();
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    startTransition(async () => {
+      const result = await updateInvitedUserAction({ userId: user.id, displayName, email });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      if (result.data.emailChanged && !result.data.emailSent) {
+        toast.error(
+          `Saved, but the email was not sent: ${result.data.emailError}. Choose Resend invitation.`,
+        );
+      } else {
+        toast.success(
+          result.data.emailChanged ? `New invitation link emailed to ${email}` : "Name saved",
+        );
+      }
+      setEditing(false);
+      onDone();
+    });
+  }
+
+  if (!editing) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+        Edit name and email
+      </Button>
+    );
+  }
+  return (
+    <form onSubmit={onSubmit} className="space-y-3 rounded-md border p-3">
+      <div className="space-y-2">
+        <Label htmlFor="invited-name">Name</Label>
+        <Input
+          id="invited-name"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="invited-email">Email</Label>
+        <Input
+          id="invited-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+      </div>
+      {emailChanged ? (
+        <p className="text-sm text-muted-foreground">
+          The earlier link stops working and a new one goes to this address.
+        </p>
+      ) : null}
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={pending}>
+          {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+          Save
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={pending}
+          onClick={() => {
+            setDisplayName(user.displayName);
+            setEmail(user.email);
+            setEditing(false);
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
 }
 
 /** Role + scope picker. The Admin role is locked to the root (.grill/phase-4-admin-foundation-decisions.md). */
@@ -80,7 +258,7 @@ function RoleScopeFields({
 }) {
   const root = nodes.find((n) => n.parentId === null);
   const isAdminRole = roles.find((r) => r.id === roleId)?.code === "admin";
-  const assignable = nodes.filter((n) => !isFrozen(n.id, nodes));
+  const assignable = nodes.filter((n) => n.inScope && !isFrozen(n.id, nodes));
 
   return (
     <>
@@ -123,7 +301,7 @@ function RoleScopeFields({
         </NativeSelect>
         {isAdminRole ? (
           <p id={`${idPrefix}-org-hint`} className="text-xs leading-4 text-muted-foreground">
-            The Admin role is organization-wide, so it is assigned at the root.
+            The Super Admin role is organization-wide, so it is assigned at the root.
           </p>
         ) : null}
       </div>
@@ -138,6 +316,7 @@ export function UsersManager({
   nodes,
   levels,
   bulkImportOptions,
+  initialQuery = "",
 }: {
   currentUserId: string;
   users: UserRow[];
@@ -156,10 +335,15 @@ export function UsersManager({
     }[];
     withoutCode: string[];
   };
+  /** From the address (?q=), when the top-bar search links here. */
+  initialQuery?: string;
 }) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
+  const [sort, setSort] = useState<UserSort>("role");
+  const [idFilter, setIdFilter] = useState<"" | "missing">("");
+  const withoutId = users.filter((u) => !u.employeeId).length;
   const [inviteOpen, setInviteOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [managedId, setManagedId] = useState<string | null>(null);
@@ -174,15 +358,17 @@ export function UsersManager({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return users.filter(
+    const matching = users.filter(
       (u) =>
         (statusFilter === "" || u.status === statusFilter) &&
+        (idFilter === "" || !u.employeeId) &&
         (q === "" ||
           u.displayName.toLowerCase().includes(q) ||
           u.email.toLowerCase().includes(q) ||
           u.assignments.some((a) => `${a.roleName} ${a.orgUnitName}`.toLowerCase().includes(q))),
     );
-  }, [users, query, statusFilter]);
+    return sortUsers(matching, sort);
+  }, [users, query, statusFilter, idFilter, sort]);
 
   const managed = users.find((u) => u.id === managedId) ?? null;
 
@@ -198,7 +384,7 @@ export function UsersManager({
             />
             <Input
               id="user-search"
-              className="w-72 pl-8"
+              className="w-72 max-w-[calc(100vw-7rem)] pl-8"
               placeholder="Name, email, role or node"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -217,6 +403,30 @@ export function UsersManager({
             <option value="active">Active</option>
             <option value="invited">Invited</option>
             <option value="deactivated">Deactivated</option>
+          </NativeSelect>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="id-filter">Employee ID</Label>
+          <NativeSelect
+            id="id-filter"
+            className="w-52"
+            value={idFilter}
+            onChange={(e) => setIdFilter(e.target.value as "" | "missing")}
+          >
+            <option value="">All</option>
+            <option value="missing">No employee ID ({withoutId})</option>
+          </NativeSelect>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="user-sort">Sort by</Label>
+          <NativeSelect
+            id="user-sort"
+            className="w-44"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as UserSort)}
+          >
+            <option value="role">Role</option>
+            <option value="name">Name (A to Z)</option>
           </NativeSelect>
         </div>
         <Button variant="outline" className="ml-auto" onClick={() => show("bulk")}>
@@ -287,13 +497,27 @@ export function UsersManager({
                 >
                   <td className="px-3 py-3 font-medium">{user.displayName}</td>
                   <td className="px-3 py-3 font-mono text-xs">
-                    {user.employeeId ?? <span className="text-muted-foreground">—</span>}
+                    {user.employeeId ? (
+                      user.employeeId
+                    ) : user.manageable ? (
+                      <AddEmployeeId user={user} onDone={() => router.refresh()} />
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-3 font-mono text-xs">{user.email}</td>
                   <td className="px-3 py-3">
                     <StatusBadge tone={STATUS[user.status].tone}>
                       {STATUS[user.status].label}
                     </StatusBadge>
+                    {user.invitation ? (
+                      <span
+                        className="mt-1 block text-xs text-muted-foreground"
+                        suppressHydrationWarning
+                      >
+                        {invitationNote(user.invitation)}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3">
                     {user.assignments.length === 0 ? (
@@ -309,7 +533,17 @@ export function UsersManager({
                     )}
                   </td>
                   <td className="px-3 py-3 text-right">
-                    <Button variant="ghost" size="sm" onClick={() => show({ user: user.id })}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={user.id === currentUserId}
+                      title={
+                        user.id === currentUserId
+                          ? "You can't manage your own account. Another Admin can."
+                          : undefined
+                      }
+                      onClick={() => show({ user: user.id })}
+                    >
                       Manage
                     </Button>
                   </td>
@@ -333,6 +567,14 @@ export function UsersManager({
           key={managed.id}
           user={managed}
           currentUserId={currentUserId}
+          otherActiveAdmins={
+            users.filter(
+              (u) =>
+                u.id !== managed.id &&
+                u.status !== "deactivated" &&
+                u.assignments.some((a) => a.roleCode === "admin"),
+            ).length
+          }
           roles={roles}
           nodes={nodes}
           levels={levels}
@@ -369,8 +611,13 @@ function InviteSheet({
     event.preventDefault();
     run(
       () => inviteUserAction({ email, displayName, roleId, orgUnitId }),
-      "Invitation sent",
-      () => {
+      "Account created",
+      (data) => {
+        if (data.emailSent) toast.success(`Invitation link emailed to ${email}`);
+        else
+          toast.error(
+            `The email was not sent: ${data.emailError}. Open the user and choose Resend invitation.`,
+          );
         setEmail("");
         setDisplayName("");
         setRoleId("");
@@ -386,8 +633,8 @@ function InviteSheet({
         <SheetHeader>
           <SheetTitle>Invite user</SheetTitle>
           <SheetDescription>
-            They receive an email to set their own password (12+ characters, upper/lowercase, a
-            number and a special character).
+            They receive an email with a link to choose their own password. The link works once and
+            for a limited time; no password is sent.
           </SheetDescription>
         </SheetHeader>
         <form onSubmit={onSubmit} className="space-y-4 px-4">
@@ -433,6 +680,7 @@ function InviteSheet({
 function ManageSheet({
   user,
   currentUserId,
+  otherActiveAdmins,
   roles,
   nodes,
   levels,
@@ -441,6 +689,8 @@ function ManageSheet({
 }: {
   user: UserRow;
   currentUserId: string;
+  /** Other active Admins, so the dialog can say why the last or own Admin access cannot be revoked. */
+  otherActiveAdmins: number;
   roles: RoleOption[];
   nodes: OrgUnitRow[];
   levels: OrgLevel[];
@@ -453,6 +703,7 @@ function ManageSheet({
   const [revokeId, setRevokeId] = useState<string | null>(null);
   const [statusOpen, setStatusOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [revokeInviteOpen, setRevokeInviteOpen] = useState(false);
   const isSelf = user.id === currentUserId;
   const revoking = user.assignments.find((a) => a.id === revokeId);
   const deactivating = user.status !== "deactivated";
@@ -466,21 +717,48 @@ function ManageSheet({
         </SheetHeader>
 
         <div className="space-y-6 overflow-y-auto px-4 pb-6">
-          <div className="flex items-center gap-3">
-            <StatusBadge tone={STATUS[user.status].tone}>{STATUS[user.status].label}</StatusBadge>
-            {user.status === "invited" ? (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pending}
-                onClick={() =>
-                  run(() => resendInviteAction({ userId: user.id }), "Invitation re-sent")
-                }
-              >
-                Resend invite
-              </Button>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <StatusBadge tone={STATUS[user.status].tone}>{STATUS[user.status].label}</StatusBadge>
+              {user.invitation && user.manageable ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() =>
+                      run(
+                        () => resendInviteAction({ userId: user.id }),
+                        "New invitation link emailed",
+                      )
+                    }
+                  >
+                    Resend invitation
+                  </Button>
+                  {user.invitation.state === "pending" ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => setRevokeInviteOpen(true)}
+                    >
+                      Revoke link
+                    </Button>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+            {user.invitation ? (
+              <p className="text-sm text-muted-foreground" suppressHydrationWarning>
+                {invitationNote(user.invitation)}. They have not chosen a password yet. A new
+                invitation replaces the earlier link.
+              </p>
             ) : null}
           </div>
+
+          {user.invitation && user.manageable ? (
+            <InvitedDetails key={`${user.displayName}|${user.email}`} user={user} onDone={onDone} />
+          ) : null}
 
           <section aria-labelledby="assignments-heading" className="space-y-3">
             <h3 id="assignments-heading" className="text-base leading-6 font-semibold">
@@ -492,60 +770,82 @@ function ManageSheet({
               </p>
             ) : (
               <ul className="divide-y rounded-md border">
-                {user.assignments.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
-                  >
-                    <span>
-                      <span className="font-medium">{a.roleName}</span> · {a.orgUnitName}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => setRevokeId(a.id)}
+                {user.assignments.map((a) => {
+                  // The same rules the server enforces (no self-edits; lib/users/rules.ts checkAdminRemoval).
+                  const blocked = isSelf
+                    ? "You can't change your own roles. Ask another Admin."
+                    : a.roleCode === "admin" && otherActiveAdmins < 1
+                      ? "At least one active Admin is required."
+                      : !a.removable
+                        ? "Outside what you administer."
+                        : null;
+                  return (
+                    <li
+                      key={a.id}
+                      className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
                     >
-                      Revoke
-                    </Button>
-                  </li>
-                ))}
+                      <span>
+                        <span className="font-medium">{a.roleName}</span> · {a.orgUnitName}
+                        {blocked ? (
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {blocked}
+                          </span>
+                        ) : null}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={pending || blocked !== null}
+                        title={blocked ?? undefined}
+                        onClick={() => setRevokeId(a.id)}
+                      >
+                        Revoke
+                      </Button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
-            <form
-              className="space-y-3 rounded-md border p-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                run(
-                  () => addAssignmentAction({ userId: user.id, roleId, orgUnitId }),
-                  "Assignment added",
-                  () => {
-                    setRoleId("");
-                    setOrgUnitId("");
-                  },
-                );
-              }}
-            >
-              <p className="text-sm font-medium">Add assignment</p>
-              <RoleScopeFields
-                levels={levels}
-                idPrefix="assign"
-                roles={roles}
-                nodes={nodes}
-                roleId={roleId}
-                orgUnitId={orgUnitId}
-                onRole={setRoleId}
-                onOrg={setOrgUnitId}
-              />
-              <Button
-                type="submit"
-                variant="outline"
-                className="w-full"
-                disabled={pending || !roleId || !orgUnitId}
+            {isSelf ? (
+              <p className="text-sm text-muted-foreground">
+                You can&apos;t change your own roles. Ask another Admin to add or remove one.
+              </p>
+            ) : (
+              <form
+                className="space-y-3 rounded-md border p-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  run(
+                    () => addAssignmentAction({ userId: user.id, roleId, orgUnitId }),
+                    "Assignment added",
+                    () => {
+                      setRoleId("");
+                      setOrgUnitId("");
+                    },
+                  );
+                }}
               >
-                Add assignment
-              </Button>
-            </form>
+                <p className="text-sm font-medium">Add assignment</p>
+                <RoleScopeFields
+                  levels={levels}
+                  idPrefix="assign"
+                  roles={roles}
+                  nodes={nodes}
+                  roleId={roleId}
+                  orgUnitId={orgUnitId}
+                  onRole={setRoleId}
+                  onOrg={setOrgUnitId}
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="w-full"
+                  disabled={pending || !roleId || !orgUnitId}
+                >
+                  Add assignment
+                </Button>
+              </form>
+            )}
           </section>
 
           <section aria-labelledby="account-heading" className="space-y-2">
@@ -555,6 +855,11 @@ function ManageSheet({
             {isSelf ? (
               <p className="text-sm text-muted-foreground">
                 You can&apos;t deactivate your own account.
+              </p>
+            ) : !user.manageable ? (
+              <p className="text-sm text-muted-foreground">
+                This person also holds a role outside what you administer, so the account itself
+                isn&apos;t yours to change. You can still remove the roles inside your own scope.
               </p>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -596,6 +901,27 @@ function ManageSheet({
           <p>
             {user.displayName} will lose the {revoking?.roleName} role at {revoking?.orgUnitName}.
             Their past submissions remain in the record.
+          </p>
+        </ConfirmDialog>
+
+        <ConfirmDialog
+          open={revokeInviteOpen}
+          onOpenChange={setRevokeInviteOpen}
+          title="Revoke the invitation link?"
+          confirmLabel="Revoke link"
+          destructive
+          pending={pending}
+          onConfirm={() =>
+            run(
+              () => revokeInviteAction({ userId: user.id }),
+              "Invitation link revoked",
+              () => setRevokeInviteOpen(false),
+            )
+          }
+        >
+          <p>
+            The link already emailed to {user.displayName} stops working at once. The account and
+            its roles stay; send a new invitation when they should be able to set it up.
           </p>
         </ConfirmDialog>
 
@@ -643,8 +969,9 @@ function ManageSheet({
         >
           <p>
             This permanently removes their account and sign-in access — this can&apos;t be undone.
-            Only works if they have no data on record (submissions, approvals and similar); if they
-            do, deactivate them instead.
+            Their notifications and chat history go with it. It only works if the records do not
+            name them (submissions, uploads, verifications, approvals, reports or configuration
+            changes); if they do, deactivate them instead.
           </p>
         </ConfirmDialog>
       </SheetContent>

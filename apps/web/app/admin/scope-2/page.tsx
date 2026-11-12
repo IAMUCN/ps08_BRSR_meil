@@ -3,16 +3,16 @@ import type { Metadata } from "next";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
 import { ScopeDashboard } from "@/components/scope/scope-dashboard";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { recordTraceAction } from "@/lib/scope/actions";
 
-export const metadata: Metadata = { title: "Scope 2 · TraceESG" };
+export const metadata: Metadata = { title: "Scope 2 · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Scope 2 Dashboard — the Phase 10 component with a different scope code, which is
 // what the plan asks this phase to prove (Rule 14: reuse, don't duplicate).
 export default async function ScopeTwoPage({ searchParams }: PageProps<"/admin/scope-2">) {
-  const [, caller, params] = await Promise.all([requireAdminSession(), api(), searchParams]);
+  const [, caller, params] = await Promise.all([requireAdminAreaSession(), api(), searchParams]);
   const orgUnitId = typeof params.org === "string" ? params.org : undefined;
   const periodId = typeof params.period === "string" ? params.period : undefined;
   const view = await caller.scope.getTotal({ scopeCode: "SCOPE_2", orgUnitId, periodId });
@@ -32,6 +32,7 @@ export default async function ScopeTwoPage({ searchParams }: PageProps<"/admin/s
         />
       ) : (
         <EmptyState
+          nested
           icon={Zap}
           title="Nothing to total yet"
           message="Scope 2 figures appear once a reporting period exists and electricity records have been calculated."

@@ -1,18 +1,19 @@
 import { Archive, FileText, FolderOpen, History } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ReportsToVerify } from "@/components/reports/report-forwarding";
 import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { financialYearLabel } from "@/lib/consolidation/aggregate";
 import { api } from "@/lib/trpc/server";
 import { ReportForm, type ReportPreset } from "./report-form";
 import { ReportInputsForm } from "./report-inputs-form";
 import { RunsTable } from "./runs-table";
 
-export const metadata: Metadata = { title: "Reports · TraceESG" };
+export const metadata: Metadata = { title: "Reports · EmeilSG" };
 
 /** How many runs the Reports page itself lists; the rest are on Past Reports. */
 const RECENT = 5;
@@ -24,7 +25,11 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [, caller, params] = await Promise.all([requireAdminSession(), api(), searchParams]);
+  const [session, caller, params] = await Promise.all([
+    requireAdminAreaSession(),
+    api(),
+    searchParams,
+  ]);
   // A selection in the address (the chatbot's "open the report page" link); the form checks each value.
   const param = (name: string) => (typeof params[name] === "string" ? params[name] : undefined);
   const preset: ReportPreset = {
@@ -34,14 +39,21 @@ export default async function ReportsPage({
     from: param("from"),
     to: param("to"),
   };
-  const [options, runs] = await Promise.all([caller.reports.options(), caller.reports.list()]);
+  const [options, runs, toVerify] = await Promise.all([
+    caller.reports.options(),
+    caller.reports.list(),
+    caller.reportForwarding.inbox(),
+  ]);
   const inputsYear = options.defaultFinancialYear ?? options.financialYears[0]?.startYear ?? null;
+  // The yearly inputs and the written disclosures are group-wide configuration: Super Admin only.
   const inputs =
-    inputsYear === null ? null : await caller.reports.inputs({ financialYear: inputsYear });
+    inputsYear === null || !session.isAdmin
+      ? null
+      : await caller.reports.inputs({ financialYear: inputsYear });
   const running = runs.some((r) => r.status === "pending" || r.status === "generating");
   // The written part of the report: how much of it is still unanswered for that year.
   const written =
-    inputsYear === null
+    inputsYear === null || !session.isAdmin
       ? []
       : (await caller.brsr.disclosures({ financialYear: inputsYear }))
           .flatMap((s) => s.indicators)
@@ -79,6 +91,7 @@ export default async function ReportsPage({
           </div>
         }
       />
+      <ReportsToVerify items={toVerify} />
       <ReportForm key={JSON.stringify(preset)} options={options} preset={preset} />
       {inputsYear !== null && unanswered > 0 ? (
         <p
@@ -90,7 +103,7 @@ export default async function ReportsPage({
           reported&rdquo;.{" "}
           <Link
             href={`/admin/disclosures?year=${inputsYear}`}
-            className="font-medium text-primary-text underline-offset-4 hover:underline"
+            className="font-medium text-foreground underline underline-offset-4"
           >
             Answer them on BRSR Disclosures
           </Link>
@@ -106,6 +119,7 @@ export default async function ReportsPage({
 
       {runs.length === 0 ? (
         <EmptyState
+          nested
           icon={FileText}
           title="No reports generated yet"
           message="Choose a scope and a period, financial year or custom period above."

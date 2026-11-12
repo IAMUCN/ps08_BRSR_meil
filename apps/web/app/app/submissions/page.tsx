@@ -18,7 +18,7 @@ import {
 import { api } from "@/lib/trpc/server";
 import { SubmissionRow } from "./submission-row";
 
-export const metadata: Metadata = { title: "My Submissions · TraceESG" };
+export const metadata: Metadata = { title: "My Submissions · EmeilSG" };
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-IN", {
@@ -219,6 +219,14 @@ export default async function MySubmissionsPage({ searchParams }: PageProps<"/ap
                       ) : (
                         <span className="text-muted-foreground">No document</span>
                       )}
+                      {row.description ? (
+                        <span
+                          className="mt-0.5 block max-w-72 truncate text-xs font-normal text-foreground"
+                          title={row.description}
+                        >
+                          {row.description}
+                        </span>
+                      ) : null}
                       {row.manualException ? (
                         <span className="mt-1 block text-[11px] leading-4 tracking-wide text-muted-foreground uppercase">
                           Manual exception

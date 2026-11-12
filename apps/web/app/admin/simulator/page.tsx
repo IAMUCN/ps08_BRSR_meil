@@ -7,7 +7,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { SimulatorClient } from "./simulator-client";
 
-export const metadata: Metadata = { title: "Carbon Reduction Simulator · TraceESG" };
+export const metadata: Metadata = { title: "Carbon Reduction Simulator · EmeilSG" };
 
 export default async function CarbonReductionSimulatorPage({
   searchParams,

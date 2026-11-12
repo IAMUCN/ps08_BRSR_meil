@@ -8,12 +8,13 @@ import {
   Link2,
   Loader2,
   Plus,
-  X,
+  Pencil,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
+import { OrgTreeSelect } from "@/components/org/org-tree-select";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { OrgUnitBulkImport } from "@/components/bulk-import/org-unit-bulk-import";
@@ -37,13 +38,19 @@ import {
   checkMove,
   isFrozen,
   levelLabel,
+  canBeChildOf,
+  BUSINESS_UNIT_LEVEL,
+  misplaced,
+  PROJECT_LEVEL,
+  rootOf,
   ROOT_LEVEL,
+  singleParent,
+  SUBSIDIARY_LEVEL,
   type OrgLevel,
   type OrgUnitType,
 } from "@/lib/org/rules";
 import type { OrgDeleteCheck, OrgExpectation, OrgUnitRow } from "@/lib/trpc/routers/organization";
 import {
-  addOrgUnitParentAction,
   createOrgUnitAction,
   deleteOrgUnitAction,
   orgExpectationsAction,
@@ -51,10 +58,14 @@ import {
   moveOrgUnitAction,
   orgUnitDeleteCheckAction,
   orgUnitImpactAction,
-  removeOrgUnitParentAction,
+  setOrgUnitChildrenAction,
+  setOrgUnitParentsAction,
   setOrgUnitStatusAction,
   updateOrgUnitAction,
 } from "./actions";
+
+/** The room a docked side panel takes at 1900px and wider (components/ui/sheet.tsx). */
+const DOCKED_ROOM = "min-[1900px]:pr-[clamp(20rem,calc(100vw-98.5rem),40rem)]";
 
 type Impact = { descendants: number; activeAssignments: number; inProgressRecords: number };
 
@@ -86,6 +97,22 @@ export function OrgManager({
     }
     return map;
   }, [nodes]);
+
+  // Every unit above the selected one, through all its parents: a collapsed one shows a small marker.
+  const aboveSelected = useMemo(() => {
+    const seen = new Set<string>();
+    const walk = (id: string | undefined) => {
+      const unit = nodes.find((n) => n.id === id);
+      for (const parent of unit ? [unit.parentId, ...unit.alsoUnder] : []) {
+        if (parent && !seen.has(parent)) {
+          seen.add(parent);
+          walk(parent);
+        }
+      }
+    };
+    walk(selected?.id);
+    return seen;
+  }, [nodes, selected?.id]);
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // Which add form the side panel shows; closed until one of the two buttons is pressed.
@@ -122,8 +149,8 @@ export function OrgManager({
     ).catch(() => toast.error("Couldn't create the spreadsheet — try again."));
   }
 
-  // Which drawing of the selected unit is meant: a shared unit is drawn under each parent, and only the one
-  // that was clicked, or jumped to from the Shared list, is highlighted. Null (a fresh page): all of them.
+  // Which drawing of the selected unit is meant: a shared unit is drawn under each parent. Every drawing is
+  // highlighted, the one clicked or jumped to fully and the others lightly. Null (a fresh page): all fully.
   const [place, setPlace] = useState<{ id: string; under: string | null } | null>(null);
   const rowId = (id: string, under: string | null) => `org-row-${under ?? "top"}-${id}`;
 
@@ -167,16 +194,22 @@ export function OrgManager({
     // feedback, 2026-10-11), and says which parent this row is.
     const shared = node.alsoUnder.length > 0 && under !== null;
     const here = under?.id ?? null;
+    const isSelected = selected?.id === node.id;
     const current =
-      selected?.id === node.id &&
+      isSelected &&
       (place === null || place.id !== node.id || place.under === null || place.under === here);
+    const otherCopy = isSelected && !current;
     return (
       <li key={node.id} className={depth > 0 ? BRANCH : undefined}>
         <div
           id={rowId(node.id, here)}
           className={cn(
             "flex h-9 scroll-my-10 items-center gap-1 rounded-sm pr-2 pl-1",
-            current ? "bg-table-row-hover" : "hover:bg-muted",
+            current
+              ? "bg-table-row-hover"
+              : otherCopy
+                ? "bg-table-row-hover/50 ring-1 ring-primary-text/30 ring-inset"
+                : "hover:bg-muted",
           )}
         >
           {children.length > 0 ? (
@@ -221,6 +254,12 @@ export function OrgManager({
               {levelLabel(levels, node.unitType)}
             </span>
           </button>
+          {!open && aboveSelected.has(node.id) ? (
+            <span
+              className="size-1.5 shrink-0 rounded-full bg-primary-text"
+              title="The selected unit is inside"
+            />
+          ) : null}
           {shared ? (
             <SharedPlaces
               name={node.name}
@@ -242,7 +281,9 @@ export function OrgManager({
 
   return (
     <>
-      <div className="mb-6">
+      {/* While the add panel is docked (1900px and up) the heading and its buttons make room for it too, so
+          Add from a spreadsheet and Export hierarchy stay in reach beside the open panel. */}
+      <div className={cn("mb-6", adding && DOCKED_ROOM)}>
         <h1 className="text-[32px] leading-10 font-semibold">Organization</h1>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-4">
           <p className="max-w-2xl text-sm leading-5 text-muted-foreground">
@@ -252,11 +293,21 @@ export function OrgManager({
           </p>
           {selected ? (
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => setAdding("one")}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!selected.ownable}
+                onClick={() => setAdding("one")}
+              >
                 <Plus aria-hidden />
                 Add a unit
               </Button>
-              <Button type="button" variant="outline" onClick={() => setAdding("many")}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!selected.ownable}
+                onClick={() => setAdding("many")}
+              >
                 <FileSpreadsheet aria-hidden />
                 Add from a spreadsheet
               </Button>
@@ -274,13 +325,13 @@ export function OrgManager({
       <div
         className={cn(
           "grid items-start gap-6 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]",
-          adding && "min-[1900px]:pr-[clamp(20rem,calc(100vw-98.5rem),40rem)]",
+          adding && DOCKED_ROOM,
         )}
       >
         <section
           aria-label="Organization hierarchy"
           // Stays in view while the panels beside it scroll.
-          className="rounded-md border bg-card p-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
+          className="min-w-0 overflow-x-auto rounded-md border bg-card p-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
         >
           <h2 className="px-2 pt-1 pb-2 text-xs font-bold tracking-wide text-foreground uppercase">
             Organization hierarchy
@@ -289,7 +340,7 @@ export function OrgManager({
         </section>
         {selected ? (
           <NodeDetail
-            key={selected.id}
+            key={`${selected.id}:${selected.parentId}`}
             node={selected}
             nodes={nodes}
             levels={levels}
@@ -303,6 +354,7 @@ export function OrgManager({
               })
             }
             onChanged={() => router.refresh()}
+            onSelect={(id) => select(id)}
           />
         ) : (
           <p className="text-sm text-muted-foreground">No organization root exists yet.</p>
@@ -341,6 +393,101 @@ export function OrgManager({
         ) : null}
       </div>
     </>
+  );
+}
+
+/**
+ * A unit's parents as a list of boxes to tick (owner's page feedback, 2026-10-11) — several can be chosen,
+ * which a dropdown cannot do. `fixed` is the parent that is not a choice here: always ticked.
+ */
+function ParentChecklist({
+  legend,
+  hint,
+  fixed,
+  fixedNote,
+  choices,
+  checked,
+  levels,
+  disabled,
+  onToggle,
+  note,
+  locked,
+  emptyText,
+}: {
+  legend: string;
+  hint: string;
+  fixed: OrgUnitRow | undefined;
+  fixedNote: string;
+  choices: OrgUnitRow[];
+  checked: Set<string>;
+  levels: OrgLevel[];
+  disabled: boolean;
+  onToggle: (id: string, on: boolean) => void;
+  /** Shown beside a choice in place of its level, e.g. where a project sits today. */
+  note?: (choice: OrgUnitRow) => string;
+  /** Choices that stay ticked and can't be changed here, with the reason as a tooltip. */
+  locked?: Map<string, string>;
+  emptyText?: string;
+}) {
+  const [filter, setFilter] = useState("");
+  const wanted = filter.trim().toLowerCase();
+  // Ticked ones stay in view whatever the filter says, so a choice is never hidden.
+  const shown = choices.filter(
+    (c) =>
+      !wanted ||
+      checked.has(c.id) ||
+      c.name.toLowerCase().includes(wanted) ||
+      c.code?.toLowerCase().includes(wanted),
+  );
+  const row = "grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-2 px-3 py-1.5 text-sm";
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm leading-5 font-medium">
+        {legend} ({checked.size + (locked?.size ?? 0) + (fixed ? 1 : 0)} included)
+      </legend>
+      <p className="text-xs leading-4 text-muted-foreground">{hint}</p>
+      {choices.length > 8 ? (
+        <Input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by name or code…"
+          aria-label={`Filter the list of ${legend.toLowerCase()}`}
+        />
+      ) : null}
+      <div className="max-h-64 divide-y overflow-y-auto rounded-md border">
+        {fixed ? (
+          <label className={cn(row, "text-muted-foreground")}>
+            <input type="checkbox" checked disabled className="size-4" />
+            <span className="truncate text-foreground">{fixed.name}</span>
+            <span className="text-xs">{fixedNote}</span>
+          </label>
+        ) : null}
+        {shown.map((choice) => (
+          <label key={choice.id} className={cn(row, "cursor-pointer hover:bg-muted")}>
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={checked.has(choice.id) || locked?.has(choice.id) === true}
+              disabled={disabled || locked?.has(choice.id) === true}
+              title={locked?.get(choice.id)}
+              onChange={(e) => onToggle(choice.id, e.target.checked)}
+            />
+            <span className="truncate">{choice.name}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {note ? note(choice) : levelLabel(levels, choice.unitType)}
+            </span>
+          </label>
+        ))}
+        {choices.length === 0 ? (
+          <p className="px-3 py-2 text-xs leading-4 text-muted-foreground">
+            {emptyText ??
+              "No other unit can be a parent here: a parent must be at an earlier level, active and in the same group."}
+          </p>
+        ) : shown.length === 0 ? (
+          <p className="px-3 py-2 text-xs leading-4 text-muted-foreground">Nothing matches.</p>
+        ) : null}
+      </div>
+    </fieldset>
   );
 }
 
@@ -391,7 +538,7 @@ function SharedPlaces({
           show();
         }}
         aria-label={`${name} is shared: show the ${parents.length} units it sits under`}
-        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary-text/60 bg-primary-text/10 px-1.5 text-[11px] leading-4 font-medium text-primary-text shadow-[0_0_8px_1px] shadow-primary-text/50 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary-text/30 bg-primary-text/5 px-1.5 text-[11px] leading-4 font-medium text-primary-text outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <Link2 className="size-3" aria-hidden />
         Shared
@@ -452,7 +599,12 @@ function AddChildren({
   const frozen = isFrozen(node.id, nodes);
   const frozenByAncestor = frozen && node.status === "active";
   const childTypes = allowedChildTypes(levels, node.unitType);
-  const [childType, setChildType] = useState<OrgUnitType | "">(childTypes[0] ?? "");
+  const [childType, setChildType] = useState<OrgUnitType | "">(
+    // Under a business unit the new unit is usually a project (owner's structure, 2026-11-12).
+    childTypes.includes(PROJECT_LEVEL) && node.unitType === BUSINESS_UNIT_LEVEL
+      ? PROJECT_LEVEL
+      : (childTypes[0] ?? ""),
+  );
   const [childName, setChildName] = useState("");
   const [childCode, setChildCode] = useState("");
   // A new group has no parent: a separate organization with its own tree (owner's decision 2026-10-11).
@@ -460,6 +612,20 @@ function AddChildren({
     frozen || childTypes.length === 0 ? "group" : "under",
   );
   const asGroup = where === "group";
+  // Further parents for the new unit, ticked from a list (owner's page feedback, 2026-10-11): every active
+  // unit of this group whose level comes before the new unit's. The unit selected in the tree is always one.
+  const [extraParents, setExtraParents] = useState<Set<string>>(new Set());
+  const group = rootOf(node.id, nodes);
+  const parentChoices = childType
+    ? nodes.filter(
+        (n) =>
+          n.id !== node.id &&
+          canBeChildOf(levels, n.unitType, childType) &&
+          rootOf(n.id, nodes) === group &&
+          !isFrozen(n.id, nodes),
+      )
+    : [];
+  const ticked = parentChoices.filter((n) => extraParents.has(n.id)).map((n) => n.id);
 
   function onAddChild(event: FormEvent) {
     event.preventDefault();
@@ -467,6 +633,7 @@ function AddChildren({
     startTransition(async () => {
       const result = await createOrgUnitAction({
         parentId: asGroup ? null : node.id,
+        alsoUnder: asGroup ? [] : ticked,
         unitType: asGroup ? ROOT_LEVEL : childType,
         name: childName,
         code: childCode,
@@ -478,6 +645,7 @@ function AddChildren({
       toast.success("Unit added");
       setChildName("");
       setChildCode("");
+      setExtraParents(new Set());
       onSelect(result.data.id);
       onChanged();
     });
@@ -561,6 +729,38 @@ function AddChildren({
               className="font-mono"
             />
           </div>
+          {/* No parent to choose around business units (owner's request, 2026-11-12). */}
+          {asGroup ? null : singleParent(childType) ? (
+            <p className="text-xs leading-4 text-muted-foreground">
+              A {levelLabel(levels, childType).toLowerCase()} belongs to {node.name} only. Include
+              its projects on its own panel once it is added.
+            </p>
+          ) : node.unitType === BUSINESS_UNIT_LEVEL ? (
+            <p className="text-xs leading-4 text-muted-foreground">
+              The new unit goes under {node.name}. To share a project with another{" "}
+              {levelLabel(levels, BUSINESS_UNIT_LEVEL).toLowerCase()}, include it in that one&apos;s
+              Projects list.
+            </p>
+          ) : (
+            <ParentChecklist
+              legend="Parents"
+              hint={`Tick every unit the new one belongs to. Leave only ${node.name} included for an ordinary unit; tick more for one that several units share, such as a project two business units run.`}
+              fixed={node}
+              fixedNote="selected in the tree"
+              choices={parentChoices}
+              checked={new Set(ticked)}
+              levels={levels}
+              disabled={pending}
+              onToggle={(id, on) =>
+                setExtraParents((prev) => {
+                  const next = new Set(prev);
+                  if (on) next.add(id);
+                  else next.delete(id);
+                  return next;
+                })
+              }
+            />
+          )}
           <Button type="submit" disabled={pending || childName.trim() === ""}>
             {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
             Add
@@ -571,6 +771,109 @@ function AddChildren({
   );
 }
 
+/**
+ * The projects under a business unit (owner's request, 2026-11-12), ticked like a unit's parents: every
+ * project of the same group the caller may change, with where it sits today. Saved together.
+ */
+function ProjectsCard({
+  node,
+  nodes,
+  levels,
+  onChanged,
+}: {
+  node: OrgUnitRow;
+  nodes: OrgUnitRow[];
+  levels: OrgLevel[];
+  onChanged: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const group = rootOf(node.id, nodes);
+  const projects = nodes.filter(
+    (n) =>
+      n.unitType === PROJECT_LEVEL &&
+      n.manageable &&
+      rootOf(n.id, nodes) === group &&
+      (n.parentId === node.id || n.alsoUnder.includes(node.id) || !isFrozen(n.id, nodes)),
+  );
+  // Projects managed from this business unit stay ticked; they are moved from their own panel.
+  const locked = new Map(
+    projects
+      .filter((p) => p.parentId === node.id)
+      .map((p) => [p.id, `Managed from ${node.name}: move it from its own panel`]),
+  );
+  const saved = projects.filter((p) => p.alsoUnder.includes(node.id)).map((p) => p.id);
+  const [ticked, setTicked] = useState<Set<string>>(new Set(saved));
+  const changed = ticked.size !== saved.length || saved.some((id) => !ticked.has(id));
+  const name = (id: string | null) => nodes.find((n) => n.id === id)?.name;
+  const unitLabel = levelLabel(levels, BUSINESS_UNIT_LEVEL).toLowerCase();
+  const projectLabel = levelLabel(levels, PROJECT_LEVEL).toLowerCase();
+  const sorted = [...projects].sort(
+    (a, b) =>
+      Number(misplaced(b, nodes, levels) !== null) - Number(misplaced(a, nodes, levels) !== null) ||
+      a.name.localeCompare(b.name),
+  );
+
+  return (
+    <div className="rounded-md border bg-card p-6">
+      <h3 className="text-base leading-6 font-semibold">Projects under {node.name}</h3>
+      <p className="mt-1 text-sm leading-5 text-muted-foreground">
+        Tick each existing {projectLabel} that belongs to this {unitLabel}, then save. A{" "}
+        {projectLabel} still straight under a {levelLabel(levels, SUBSIDIARY_LEVEL).toLowerCase()}{" "}
+        moves here; one already under another {unitLabel} is shared by both, and its figures count
+        in each.
+      </p>
+      <div className="mt-4 space-y-3">
+        <ParentChecklist
+          legend={levelLabel(levels, PROJECT_LEVEL) + "s"}
+          hint={`Projects of this group. Beside each: where it sits today.`}
+          fixed={undefined}
+          fixedNote=""
+          choices={sorted}
+          checked={ticked}
+          locked={locked}
+          levels={levels}
+          disabled={pending}
+          note={(p) => {
+            const under = [p.parentId, ...p.alsoUnder].map(name).filter(Boolean).join(", ");
+            return misplaced(p, nodes, levels)
+              ? `under ${under} — needs a ${unitLabel}`
+              : `under ${under}`;
+          }}
+          emptyText={`No ${projectLabel} in this group yet.`}
+          onToggle={(id, on) =>
+            setTicked((prev) => {
+              const next = new Set(prev);
+              if (on) next.add(id);
+              else next.delete(id);
+              return next;
+            })
+          }
+        />
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending || !changed}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await setOrgUnitChildrenAction({ id: node.id, childIds: [...ticked] });
+              if (!result.ok) {
+                toast.error(result.error);
+                return;
+              }
+              const n = result.data.changes.length;
+              toast.success(n === 1 ? "1 project updated" : `${n} projects updated`);
+              onChanged();
+            })
+          }
+        >
+          {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+          Save projects
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function NodeDetail({
   node,
   nodes,
@@ -578,6 +881,7 @@ function NodeDetail({
   openGroups,
   onToggleGroup,
   onChanged,
+  onSelect,
 }: {
   node: OrgUnitRow;
   nodes: OrgUnitRow[];
@@ -585,8 +889,10 @@ function NodeDetail({
   openGroups: Set<string>;
   onToggleGroup: (group: string, open: boolean) => void;
   onChanged: () => void;
+  onSelect: (id: string) => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
   const frozen = isFrozen(node.id, nodes);
   const frozenByAncestor = frozen && node.status === "active";
   const parent = nodes.find((n) => n.id === node.parentId);
@@ -602,8 +908,15 @@ function NodeDetail({
   const pathname = usePathname();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletable, setDeletable] = useState<OrgDeleteCheck | null>(null);
-  const [extraParentId, setExtraParentId] = useState("");
+  // The checklist's ticks; nothing is written until Save parents.
+  const [tickedParents, setTickedParents] = useState<Set<string>>(new Set(node.alsoUnder));
+  const parentsChanged =
+    tickedParents.size !== node.alsoUnder.length ||
+    node.alsoUnder.some((id) => !tickedParents.has(id));
   const alsoUnder = node.alsoUnder.flatMap((id) => nodes.find((n) => n.id === id) ?? []);
+  // Placed before the structure rules (a project straight under a subsidiary): the first ticked parent
+  // becomes its main one when the parents are saved.
+  const wrongPlace = misplaced(node, nodes, levels);
   const extraParentTargets = nodes.filter(
     (candidate) =>
       checkAlsoUnder(node.id, candidate.id, nodes, levels).ok && !isFrozen(candidate.id, nodes),
@@ -640,7 +953,11 @@ function NodeDetail({
 
   function onSave(event: FormEvent) {
     event.preventDefault();
-    run(() => updateOrgUnitAction({ id: node.id, name, code }), "Saved");
+    run(
+      () => updateOrgUnitAction({ id: node.id, name, code }),
+      "Saved",
+      () => setEditing(false),
+    );
   }
 
   function openStatusDialog() {
@@ -686,9 +1003,13 @@ function NodeDetail({
                   <span className="font-mono">{node.code}</span>
                 </>
               ) : null}
-              {" · "}
-              {node.activeAssignments} {node.activeAssignments === 1 ? "person" : "people"} assigned
-              here
+              {node.inScope ? (
+                <>
+                  {" · "}
+                  {node.activeAssignments} {node.activeAssignments === 1 ? "person" : "people"}{" "}
+                  assigned here
+                </>
+              ) : null}
             </p>
           </div>
           {node.status === "inactive" ? (
@@ -700,9 +1021,29 @@ function NodeDetail({
           )}
         </div>
 
+        {!node.manageable ? (
+          <p className="mt-6 text-sm leading-5 text-muted-foreground">
+            {node.inScope
+              ? "This is the unit you administer. You can add units under it and set what it must submit; its name, parent and status are changed by the administrator above you."
+              : "This unit is above the part of the organization you administer. It is listed so the tree reads from the top; you can't change it."}
+          </p>
+        ) : null}
+        {node.manageable && !editing ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => setEditing(true)}
+          >
+            <Pencil aria-hidden />
+            Edit name and code
+          </Button>
+        ) : null}
         <form
           onSubmit={onSave}
-          className="mt-6 grid gap-4 sm:grid-cols-[1fr_200px_auto] sm:items-end"
+          hidden={!node.manageable || !editing}
+          className="mt-6 grid gap-4 sm:grid-cols-[1fr_200px_auto_auto] sm:items-end"
         >
           <div className="space-y-2">
             <Label htmlFor="node-name">Name</Label>
@@ -720,17 +1061,33 @@ function NodeDetail({
           <Button type="submit" variant="outline" disabled={pending}>
             Save
           </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={pending}
+            onClick={() => {
+              setName(node.name);
+              setCode(node.code ?? "");
+              setEditing(false);
+            }}
+          >
+            Cancel
+          </Button>
         </form>
 
-        <ExpectationsCard
-          orgUnitId={node.id}
-          nodeName={node.name}
-          openGroups={openGroups}
-          onToggleGroup={onToggleGroup}
-        />
+        {node.ownable ? (
+          <ExpectationsCard
+            orgUnitId={node.id}
+            nodeName={node.name}
+            nodes={nodes}
+            onSelect={onSelect}
+            openGroups={openGroups}
+            onToggleGroup={onToggleGroup}
+          />
+        ) : null}
       </div>
 
-      {node.parentId ? (
+      {node.parentId && node.manageable && !singleParent(node.unitType) ? (
         <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">Move to a different parent</h3>
           <p className="mt-1 text-sm leading-5 text-muted-foreground">
@@ -766,92 +1123,76 @@ function NodeDetail({
         </div>
       ) : null}
 
-      {node.parentId ? (
+      {node.unitType === BUSINESS_UNIT_LEVEL && node.ownable ? (
+        <ProjectsCard
+          // Starts afresh when the saved placements change, so the ticks match what was written.
+          key={nodes
+            .filter((n) => n.parentId === node.id || n.alsoUnder.includes(node.id))
+            .map((n) => n.id + (n.parentId === node.id ? ":main" : ""))
+            .join(",")}
+          node={node}
+          nodes={nodes}
+          levels={levels}
+          onChanged={onChanged}
+        />
+      ) : null}
+
+      {node.parentId && node.manageable && singleParent(node.unitType) ? null : node.parentId &&
+        node.manageable ? (
         <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">
             {alsoUnder.length > 0 ? `Parents (${alsoUnder.length + 1})` : "Parents"}
           </h3>
+          {wrongPlace ? (
+            <p className="mt-2 rounded-md border border-status-warning px-3 py-2 text-sm leading-5 text-foreground">
+              {wrongPlace} {node.name} still sits straight under {parent?.name}. Tick the{" "}
+              {levelLabel(levels, BUSINESS_UNIT_LEVEL).toLowerCase()} it belongs to and save: the
+              first one ticked becomes its main parent and {parent?.name} is left out.
+            </p>
+          ) : null}
           <p className="mt-1 text-sm leading-5 text-muted-foreground">
-            For a unit that belongs to more than one parent, such as a project two subsidiaries run.{" "}
-            {node.name} then appears under each of them, their people can see it, and its figures
-            count in full in each parent and once in the group above them — so those parents add up
-            to more than the group.
+            For a unit that belongs to more than one parent, such as a project two business units
+            run. {node.name} then appears under each of them, their people can see it, and its
+            figures count in full in each parent and once in the group above them — so those parents
+            add up to more than the group.
           </p>
-          <ul className="mt-4 divide-y rounded-md border">
-            {parent ? (
-              <li className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
-                <span className="min-w-0 truncate text-sm">
-                  {parent.name}{" "}
-                  <span className="text-xs text-muted-foreground">
-                    ({levelLabel(levels, parent.unitType)})
-                  </span>
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  Moved and deactivated from here
-                </span>
-              </li>
-            ) : null}
-            {alsoUnder.map((extra) => (
-              <li key={extra.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                <span className="min-w-0 truncate text-sm">
-                  {extra.name}{" "}
-                  <span className="text-xs text-muted-foreground">
-                    ({levelLabel(levels, extra.unitType)})
-                  </span>
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={pending}
-                  onClick={() =>
-                    run(
-                      () => removeOrgUnitParentAction({ id: node.id, parentId: extra.id }),
-                      `No longer under ${extra.name}`,
-                    )
-                  }
-                >
-                  <X aria-hidden />
-                  Remove
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-            <div className="space-y-2">
-              <Label htmlFor="extra-parent">Add a parent</Label>
-              <NativeSelect
-                id="extra-parent"
-                value={extraParentId}
-                onChange={(e) => setExtraParentId(e.target.value)}
-              >
-                <option value="">Select another parent…</option>
-                {extraParentTargets.map((target) => (
-                  <option key={target.id} value={target.id}>
-                    {target.name} ({levelLabel(levels, target.unitType)})
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
+          <div className="mt-4 space-y-3">
+            <ParentChecklist
+              legend="Parents"
+              hint="Tick every unit this one belongs to, then save."
+              fixed={wrongPlace ? undefined : parent}
+              fixedNote="moved and deactivated from here"
+              choices={[...alsoUnder, ...extraParentTargets]}
+              checked={tickedParents}
+              levels={levels}
+              disabled={pending}
+              onToggle={(id, on) =>
+                setTickedParents((prev) => {
+                  const next = new Set(prev);
+                  if (on) next.add(id);
+                  else next.delete(id);
+                  return next;
+                })
+              }
+            />
             <Button
               type="button"
               variant="outline"
-              disabled={pending || extraParentId === ""}
+              disabled={pending || !parentsChanged}
               onClick={() =>
                 run(
-                  () => addOrgUnitParentAction({ id: node.id, parentId: extraParentId }),
-                  "Added",
-                  () => setExtraParentId(""),
+                  () => setOrgUnitParentsAction({ id: node.id, alsoUnder: [...tickedParents] }),
+                  "Parents saved",
                 )
               }
             >
-              Add
+              Save parents
             </Button>
           </div>
         </div>
       ) : null}
 
-      {canChangeStatus ? (
+      {canChangeStatus && node.manageable ? (
         <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">
             {deactivating ? "Deactivate this unit" : "Reactivate this unit"}
@@ -873,7 +1214,7 @@ function NodeDetail({
         </div>
       ) : null}
 
-      <div className="rounded-md border bg-card p-6">
+      <div hidden={!node.manageable} className="rounded-md border bg-card p-6">
         <h3 className="text-base leading-6 font-semibold">Delete this unit</h3>
         <p className="mt-1 text-sm leading-5 text-muted-foreground">
           Removes {node.name} and every unit under it for good. Only possible while they are unused:
@@ -1015,11 +1356,15 @@ function NodeDetail({
 function ExpectationsCard({
   orgUnitId,
   nodeName,
+  nodes,
+  onSelect,
   openGroups,
   onToggleGroup,
 }: {
   orgUnitId: string;
   nodeName: string;
+  nodes: OrgUnitRow[];
+  onSelect: (id: string) => void;
   openGroups: Set<string>;
   onToggleGroup: (group: string, open: boolean) => void;
 }) {
@@ -1079,10 +1424,27 @@ function ExpectationsCard({
   return (
     <div className="mt-6 border-t pt-6">
       <h3 className="text-base leading-6 font-semibold">Expected submissions</h3>
+      <div className="mt-3 max-w-md space-y-1">
+        <Label htmlFor="expected-unit">Org unit</Label>
+        <OrgTreeSelect
+          id="expected-unit"
+          value={orgUnitId}
+          onChange={onSelect}
+          nodes={nodes.map((n) => ({
+            id: n.id,
+            name: n.name,
+            parentIds: [n.parentId, ...n.alsoUnder].filter((id): id is string => !!id),
+            inactive: n.status === "inactive",
+            // Units above the caller stay listed, as in the big tree; they cannot be configured.
+            disabled: !n.ownable,
+          }))}
+        />
+      </div>
       <p className="mt-1 text-sm leading-5 text-muted-foreground">
         What {nodeName} must submit in every period of the metric&apos;s frequency. The Control
         Tower&apos;s completion figures and &ldquo;missing submissions&rdquo; count against these.
-        Each unit keeps its own list; nothing is inherited from the unit above or passed down.
+        What a unit below must submit is expected here as well, and is shown ticked with the
+        unit&apos;s name; change it on that unit. Nothing is passed down.
       </p>
       {rows === null ? (
         <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
@@ -1103,7 +1465,8 @@ function ExpectationsCard({
                 <summary className="cursor-pointer py-3 text-sm leading-5 font-semibold">
                   {group}
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    {inGroup.filter((r) => r.expected).length} of {inGroup.length} expected
+                    {inGroup.filter((r) => r.expected || r.requiredBelow.length > 0).length} of{" "}
+                    {inGroup.length} expected
                   </span>
                 </summary>
                 <div className="grid pb-3 items-start gap-x-8 gap-y-4 sm:grid-cols-2">
@@ -1126,12 +1489,26 @@ function ExpectationsCard({
                             >
                               <input
                                 type="checkbox"
-                                checked={row.expected}
-                                disabled={pending}
+                                // Required of a unit below: expected here too, and only that unit's
+                                // own list can take it away.
+                                checked={row.expected || row.requiredBelow.length > 0}
+                                disabled={
+                                  pending || (!row.expected && row.requiredBelow.length > 0)
+                                }
                                 onChange={() => toggle(row)}
                                 className="mt-0.5 size-4"
                               />
-                              <span>{row.metricName}</span>
+                              <span>
+                                {row.metricName}
+                                {row.requiredBelow.length > 0 ? (
+                                  <span className="block text-xs leading-4 text-muted-foreground">
+                                    From {row.requiredBelow.slice(0, 3).join(", ")}
+                                    {row.requiredBelow.length > 3
+                                      ? ` and ${row.requiredBelow.length - 3} more`
+                                      : ""}
+                                  </span>
+                                ) : null}
+                              </span>
                               <span className="text-right text-xs leading-5 text-muted-foreground capitalize">
                                 {row.frequency}
                               </span>

@@ -19,6 +19,18 @@ const ALL = [
   "scenario-f-activities",
   "authorization",
   "edge-cases",
+  "audit-regression",
+  "scoped-admin",
+  "invitations-sessions",
+  "feedback-2026-11",
+  "phase2-lifecycle",
+  "phase3-ocr",
+  "phase4-forwarding-audit",
+  "phase5-reminders",
+  "phase6-factors",
+  "phase7-analytics",
+  "phase8-templates-search",
+  "release-checks",
 ];
 const chosen = process.argv.slice(2).length ? process.argv.slice(2) : ALL;
 const APP = process.env.E2E_APP_URL ?? "http://localhost:3000";

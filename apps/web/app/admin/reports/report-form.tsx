@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { REPORT_TEMPLATES, TEMPLATE_INFO, type ReportTemplate } from "@/lib/reports/templates";
 import type { ReportOptions } from "@/lib/trpc/routers/reports";
 import { generateReportAction } from "./actions";
 
@@ -19,6 +20,7 @@ export type ReportPreset = {
   financialYear?: number;
   from?: string;
   to?: string;
+  template?: ReportTemplate;
 };
 
 export function ReportForm({
@@ -63,6 +65,9 @@ export function ReportForm({
         "",
     ),
   );
+  const [template, setTemplate] = useState<ReportTemplate>(
+    preset.template && REPORT_TEMPLATES.includes(preset.template) ? preset.template : "brsr",
+  );
   const [fromId, setFromId] = useState(rangeStart ?? options.defaultPeriodId ?? "");
   const [toId, setToId] = useState(rangeEnd ?? options.defaultPeriodId ?? "");
 
@@ -77,16 +82,18 @@ export function ReportForm({
     startTransition(async () => {
       const result = await generateReportAction(
         coverage === "period"
-          ? { orgUnitId, periodId }
+          ? { orgUnitId, periodId, template }
           : coverage === "year"
-            ? { orgUnitId, financialYear: Number(year) }
-            : { orgUnitId, from, to },
+            ? { orgUnitId, financialYear: Number(year), template }
+            : { orgUnitId, from, to, template },
       );
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
-      toast.success("Generating report… you'll be notified when it's ready.");
+      toast.success(
+        `Generating the ${TEMPLATE_INFO[template].label.toLowerCase()}… you'll be notified when it's ready.`,
+      );
       router.refresh();
     });
   }
@@ -95,8 +102,26 @@ export function ReportForm({
     <form
       onSubmit={submit}
       className="flex flex-wrap items-end gap-4 rounded-md border bg-card p-4"
-      aria-label="Generate a BRSR report"
+      aria-label="Generate a report"
     >
+      <div className="w-full space-y-2">
+        <Label htmlFor="report-template">Template</Label>
+        <NativeSelect
+          id="report-template"
+          value={template}
+          onChange={(e) => setTemplate(e.target.value as ReportTemplate)}
+          aria-describedby="report-template-help"
+        >
+          {REPORT_TEMPLATES.map((t) => (
+            <option key={t} value={t}>
+              {TEMPLATE_INFO[t].label}
+            </option>
+          ))}
+        </NativeSelect>
+        <p id="report-template-help" className="text-sm text-muted-foreground">
+          {TEMPLATE_INFO[template].description}
+        </p>
+      </div>
       <div className="space-y-2">
         <Label htmlFor="report-org">Organization scope</Label>
         <NativeSelect
@@ -113,7 +138,7 @@ export function ReportForm({
       </div>
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Covering</legend>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
           <label className="flex items-center gap-1.5">
             <input
               type="radio"
@@ -199,7 +224,7 @@ export function ReportForm({
       )}
       <Button type="submit" disabled={pending || !orgUnitId}>
         <FileText aria-hidden />
-        Generate BRSR report
+        Generate {TEMPLATE_INFO[template].label}
       </Button>
     </form>
   );

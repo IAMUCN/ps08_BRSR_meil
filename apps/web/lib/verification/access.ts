@@ -24,7 +24,10 @@ export async function documentAccess(
   if (!data) return null;
   return {
     uploadedBy: data.uploaded_by,
-    canVerify: data.uploaded_by === session.userId || session.permissions.includes("record.verify"),
+    canVerify:
+      data.uploaded_by === session.userId ||
+      session.isAdmin ||
+      session.permissions.includes("record.verify"),
   };
 }
 

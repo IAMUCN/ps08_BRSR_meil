@@ -25,7 +25,18 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   return next({ ctx: { session: ctx.session.session } });
 });
 
-/** Admin-only pages with no dedicated permission code (e.g. OCR Monitoring, 03_APP_FLOW.md §2.2). */
+/**
+ * The /admin area: a Super Admin or an Administrator. A procedure built on this must keep what it reads and
+ * writes inside the caller's org scope itself (lib/auth/scope.ts) — the guard only says who may ask.
+ */
+export const adminAreaProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!ctx.session.isAdmin && !ctx.session.isOrgAdmin) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that." });
+  }
+  return next();
+});
+
+/** Super Admin only: group-wide pages with no dedicated permission code (e.g. OCR Monitoring, §2.2). */
 export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (!ctx.session.isAdmin) {
     throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that." });

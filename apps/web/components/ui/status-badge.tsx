@@ -34,7 +34,9 @@ export function StatusBadge({ tone, children }: { tone: StatusTone; children: st
   return (
     <span
       className={cn(
-        "inline-flex h-6 items-center gap-1 rounded-sm border px-2 text-[11px] leading-[14px] font-medium tracking-wide text-foreground uppercase",
+        // nowrap: a fixed-height badge in a narrow table cell must not break its words onto a second line
+        // (owner's page feedback, 2026-11-11: "Pending approval" spilled out of its box).
+        "inline-flex h-6 shrink-0 items-center gap-1 rounded-sm border px-2 text-[11px] leading-[14px] font-medium tracking-wide whitespace-nowrap text-foreground uppercase",
         className,
       )}
     >

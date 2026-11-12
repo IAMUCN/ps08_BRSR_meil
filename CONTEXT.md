@@ -10,7 +10,7 @@ nobody has to re-explain it at the start of a session.
 - Details of any decision live in `.grill/`; deviations from the specification in `supabase/SCHEMA_DEVIATIONS.md`
   and `apps/web/APP_FLOW_DEVIATIONS.md`.
 
-_Last updated: 2026-10-11._
+_Last updated: 2026-11-11._
 
 ---
 
@@ -277,16 +277,499 @@ _Last updated: 2026-10-11._
   Also: migration `0045` renames the level "Subsidiary / Entity" to "Subsidiary" (label only);
   **pushed to hosted 2026-10-11** on the owner's page feedback and read back there (45 migrations); database
   tests 271/271 locally.
+- **Committed after `64d3579` and pushed to `ucn` `main` on 2026-10-11 (owner's page feedback):** the template is back to one Parent code
+  column taking any number of parents with commas (Parent code 2 / 3 removed, still read); codes and names
+  are matched ignoring extra spaces and case; the Organization heading makes room for the docked add panel.
+  Parents are chosen from a checkbox list on the page: in Add a unit and in the Parents card (Save parents;
+  `organization.setParents`, `create` takes `alsoUnder`). Checked: format, lint, typecheck, web unit
+  177/177; the two procedures 9/9 on the local database. After an org-unit sheet is uploaded, each preview row has a
+  Parents checklist (`row-parents-picker.tsx`) so several parents can be ticked instead of typed. Production
+  build passes after all of it. Not run: a browser view (the checklist opens in a popover inside the side
+  panel — check it there), the template opened in Excel.
+- **Committed and pushed to `ucn` `main` on 2026-10-11 (owner's page feedback on `/admin/data-explorer`):** a search box in the records
+  filter bar (Data Explorer and Submission Monitoring; URL param `q`, searched on the server in
+  `recordsFrom` — every word must appear in the document, metric, category, org unit, period, submitter,
+  value or unit) and Clear filters moved into the filter bar. Checked: format, lint, typecheck, web unit
+  177/177, production build, the query 12/12 on the local database. Not viewed in a browser.
 - **The test data was regenerated on 2026-10-11 with mixed formats, committed (`9ba9081`) and on `ucn` `main`** (owner's request): in each
   role's folder a third of the bills are single PDFs, a third are images (JPG and PNG in turn) and the rest
   are pages of one multi-bill PDF; `make_test_data.py` and `test data/README.md` changed. Set 1: 30 PDFs, 21 images, 6 multi-bill PDFs; set 2: 40, 27, 6. Ruff passes; no file was put
   through OCR or uploaded.
+- **Security audit of 2026-10-12, fixes uncommitted on branch `feature-security-audit-fixes`** (cut from `main`
+  at `d7add8c`; no migration, nothing pushed, nothing on hosted). Report with every finding, fix, test and open
+  item: [`SECURITY_AUDIT_2026-10-12.md`](SECURITY_AUDIT_2026-10-12.md). Fixed: deadlines reads are Admin-only;
+  org scope on carbon credits, Control Tower figures, report reads and the evidence bundle (new
+  `lib/auth/scope.ts`); the bundle read a table that does not exist (`audit_log`) and now needs
+  `report.generate`; bulk-import passwords are random; the reset code's attempts are claimed atomically;
+  `/reset-password` works only right after an emailed link (marker cookie); session cookies are HttpOnly; CSV
+  exports neutralise formulas; the carbon "integrity check" is computed; Next 16.3.5 → 16.3.8. Checked: web
+  unit 188/188, lint, typecheck, format, production build, the changed queries on the local database 17/17.
+  **Not run:** the end-to-end suite, any browser pass — sign-in / refresh / sign-out, an invite link
+  and one bundle download must be tried in a browser before merging. Two ui-lane files got one line each (CSV).
+- **Database audit of 2026-10-12, same branch, uncommitted; migration `0047` is on the LOCAL database only, NOT
+  on hosted** ([`DATABASE_AUDIT_2026-10-12.md`](DATABASE_AUDIT_2026-10-12.md): table map, data-access matrix,
+  findings, rollback; D38). `0047` adds no table or column: ownership columns of records and documents cannot
+  change, an evidence link stays inside one org unit, a carbon batch cannot be over-drawn, `org_settings` is
+  Admin-only, `chat_reader` loses the carbon tables, unused privileges are revoked. The validation queue is
+  scope-checked. New tests: `supabase/tests/database/audit_3_data_isolation.test.sql` (41) and
+  `pnpm --filter web test:isolation` (the real procedures called as a Project X user with a sibling
+  project's ids, 107/107). Checked: database 312/312, web unit 188/188, lint, typecheck, format. **Not run:**
+  `0047` on a fresh database, the end-to-end suite, anything on hosted.
+- **Chatbot audit of 2026-10-12, same branch, uncommitted, no migration**
+  ([`CHATBOT_AUDIT_2026-10-12.md`](CHATBOT_AUDIT_2026-10-12.md): threat model, findings, evidence). The design held under
+  every test. Changed: email addresses, employee ids and document file names are no longer sent to the AI
+  service (the Admin still sees them in the table the app draws; the records table gained a Document column);
+  the audit entry of a question no longer holds the words searched for; wording that claims a change gets a
+  "can only read" note. New: `pnpm --filter web test:chatbot` — the real `chat.send` on the local database
+  with a scripted hostile model in place of the provider, 49/49. Checked: web unit 191/191, cross-project
+  107/107, database 312/312, lint, typecheck, format. **Not run:** the real NVIDIA model, the panel in a
+  browser, anything on hosted.
+- **Privacy and compliance audit of 2026-10-12, same branch, uncommitted**
+  ([`COMPLIANCE_AUDIT_2026-10-12.md`](COMPLIANCE_AUDIT_2026-10-12.md): 20 areas, personal-data map, claims checked;
+  `docs/PRIVACY_NOTICE_DRAFT.md` is a draft for a lawyer, not a policy). One code change: deadline dates are no
+  longer called "statutory" (email, notice, Deadlines page — two one-line edits in the ui lane). Everything
+  else waits on facts the code does not hold. Contrast was computed from colour values; **no browser,
+  keyboard or screen-reader pass was made.**
+- **UI audit of 2026-10-12, same branch, uncommitted** ([`UI_AUDIT_2026-10-12.md`](UI_AUDIT_2026-10-12.md); changes listed
+  in `UI_NOTES.md`). The built app was driven in Edge on the local stack: 39 routes at 1440, 820 and 390px,
+  signed out, as an Admin and as a Project Manager; no console error on any route. Ten defects fixed, none a
+  restyle: pages scrolling sideways on phones (14 cases, one of 3px left), an unreadable first table-header
+  cell on Deadlines and Carbon credits, double top headings on empty pages, emoji icons, unlabelled filters,
+  32 announced image pieces on the landing page, the cursor mounted twice. **This pass also confirmed in a
+  browser what the security audit had left open: sign-in, the HttpOnly Secure session cookie and sign-out
+  work.** Not seen: the Special and Dark themes, open side panels and dialogs, pages with real data, a
+  screen reader. Still open from the security audit: an invite link end to end, one bundle download.
+- **Accessibility audit of 2026-10-12 (WCAG 2.2 AA target), same branch, uncommitted**
+  ([`ACCESSIBILITY_AUDIT_2026-10-12.md`](ACCESSIBILITY_AUDIT_2026-10-12.md), changes in `UI_NOTES.md`). New test
+  `pnpm --filter web test:a11y` (axe-core in Edge on 31 routes in all three themes, plus keyboard, skip
+  link, dialogs, reflow at 320px, target size, reduced motion): first pass 99 passed / 36 failed, last full
+  run 185 passed / 0 failed / 2 known open (Roles & Permissions and BRSR Disclosures at 320px). Fixed: skip
+  link, contrast on the four newest Admin pages and on tinted surfaces, focus returning from side panels,
+  a named notifications pop-up, small targets, reflow on eight pages. New dev dependency `axe-core`.
+  **No screen reader was used and no person tested**; the report's section 6 is the manual script. Not in CI.
+- **Dependency and production-configuration audit of 2026-10-12, same branch, uncommitted**
+  ([`DEPENDENCY_AUDIT_2026-10-12.md`](DEPENDENCY_AUDIT_2026-10-12.md): inventory, findings, deployment checklist split into
+  code and dashboards). Advisories in what ships went from 14 to 2, both without a fix and recorded with reasons
+  in `pnpm-workspace.yaml` (`auditConfig.ignoreGhsas`). Changed: `xlsx` now installs from SheetJS's own site
+  (0.20.3, hash pinned); `sharp`, `source-map-js`, `@modelcontextprotocol/sdk` refreshed in the lockfile;
+  `X-Powered-By` removed; API answers are `private, no-store`; CI has a read-only token, a pinned third-party
+  action and an advisory gate (**the changed workflow has not run on GitHub**); the worker `Dockerfile` upgrades
+  pip last (verified under a throwaway tag — **`traceesg-ocr-worker:latest` and the hosted container were not
+  rebuilt or replaced**). Retested: unit 194/194, build, cross-project 107/107, chatbot 49/49, browser checks
+  131/131. Nothing was changed in any dashboard or on hosted. A second pass added `app/robots.ts`, removed
+  `@types/jszip`, and stopped the worker's error reports from carrying stack-frame variables
+  (`worker/logs.py`; Ruff and worker unit 44/44 run inside the existing image — needs an image rebuild to
+  take effect).
+- **Validation of all the audit fixes, 2026-10-12, same branch, uncommitted**
+  ([`VALIDATION_REPORT_2026-10-12.md`](VALIDATION_REPORT_2026-10-12.md): every test with expected, actual, limits). Run on the
+  local stack through the real app: end-to-end suite **342/342 over nine scripts** (new
+  `tests/e2e/audit-regression.mjs`, 108 checks, is the ninth), cross-project 107/107, chatbot 49/49,
+  accessibility 185 passed / 0 failed / 2 known open, database 312/312 on the working database **and on a
+  fresh one** (all 47 migrations), unit 195/195, lint, typecheck, format, build, advisory gate. Four more
+  defects found and fixed: **the evidence bundle had never worked against the real schema** (six queries
+  with columns that do not exist — now generates 36 files with verified checksums); a return path with `..`
+  accepted after sign-in; a stale end-to-end expectation (snapshot version 3, the code is at 4 — also wrong
+  on `main`); one more unreadable table header that only shows with data. No regression from the fixes was
+  found. Not run: the real AI model, email delivery, anything on hosted, the changed CI workflow, a rebuilt
+  worker image, the OCR harness. The local database now holds the suites' accounts and records.
+- **Final verification of the audit, 2026-10-12** ([`FINAL_VERIFICATION_2026-10-12.md`](FINAL_VERIFICATION_2026-10-12.md) — start
+  here; it has the totals by severity, a status per requirement and the release checklist). Every fix was
+  re-read in the source and every suite re-run on the final tree: unit 195/195, database 312/312,
+  end-to-end 344/344 over nine scripts, cross-project 107/107, chatbot 49/49, accessibility 185 / 0 / 2 known
+  open, lint, typecheck, format, build, advisory gate. One more item found and fixed: the development
+  feedback widget's code was in the production bundle (`components/dev/feedback-widget.tsx` now loads it in
+  development only). Open: 2 Medium (client address for rate limits, inline scripts in the CSP), 18 Low,
+  and everything about hosting, legal documents and a human accessibility pass. **All of the 2026-10-12 audit work (every "uncommitted" entry above from that
+  date) was committed as `d4e214c` on `feature-security-audit-fixes` and the branch pushed to both `ucn` and
+  `origin` on 2026-10-12 at the owner's request. No pull request is open yet and CI has not run. Hosted is
+  untouched; migration `0047` is local only; the worker image is not rebuilt.**
+- **Renamed to EmeilSG with a new logo (2026-10-12, owner's request), committed on branch `ui-rename-emeilsg` and pushed to `ucn` and `origin` on 2026-10-12 (no pull request, CI not run)**
+  (cut from `feature-security-audit-fixes`). Details in `UI_NOTES.md`. 77 files; no migration. Checked:
+  typecheck, lint, format, unit 195/195, production build; the landing and sign-in pages viewed in Edge; no
+  page source and no built file contains the old name. `BREVO_SENDER_NAME` was changed in the two local env
+  files. **Not done (dashboards):** the hosted Supabase email subjects and templates, and the Brevo sender
+  name there if set. Not run after the rename: the end-to-end, isolation, chatbot and accessibility suites.
+  The documents (this file included) still say TraceESG where they describe history.
+- **Invite user emails a temporary password through Brevo (2026-10-12, owner's page feedback, A36), uncommitted on
+  branch `feature-invite-smtp`** (cut from `ui-rename-emeilsg`; `.grill/invite-smtp-decisions.md`). No migration.
+  "Invited" now means never signed in. Checked: the procedures on local with a captured SMTP transport 22/22,
+  typecheck, lint, format, unit 195/195, build. **Not run:** a real email, the screen in a browser, the
+  end-to-end suite. Two deactivated `invite.check*@traceesg.test` accounts stay on the local database.
+- **Show-password button on sign-in (2026-10-12, owner's page feedback), uncommitted on the same branch:**
+  `components/ui/password-input.tsx`, used on the sign-in form only (`UI_NOTES.md`). Checked: typecheck, lint,
+  format, build, and the button in Edge on the built page 10/10 (click, keyboard, value kept). The other
+  password fields were not changed.
+- **First sign-in must change the temporary password (2026-10-12, owner's request, A36), uncommitted, same
+  branch:** mark in the sign-in account's app metadata (`lib/auth/initial-password.ts`), new session status
+  `password_change_required`, the form on `/login`. No migration. Checked in Edge on the built app, local
+  stack, 24/24; invite procedures 22/22 again; typecheck, lint, format, unit 195/195. **Not run:** the
+  end-to-end suite (its `setPassword` helper now clears the mark), bulk import then sign-in, the reset-code
+  path. Accounts created before this change are not marked.
+- **Deleting a user who has no work on record now works (2026-10-12, owner's report), uncommitted, same
+  branch:** `users.delete` used to fail on any foreign key and say "has data on record" — a notification, a
+  reset code, a saved chat or one audit entry in the person's own name (a theme change) was enough. It now
+  counts real work (submissions, uploads, verifications, approvals, reports, roles given, configuration) and
+  names it when refusing; otherwise it removes the person's own traces and the account. Where the audit log
+  names them the profile row stays, hidden (`deleted_at`, address replaced) and the sign-in account is
+  soft-deleted, so the address can be invited again. No migration. Checked through the real procedure on
+  local, 20/20; typecheck, lint, format, unit. **Not run:** in a browser; on hosted — the cause for the
+  owner's account there was not looked up.
+- **Expected submissions of the units below show on the parent (2026-10-12, owner's request), uncommitted on
+  `feature-invite-smtp`:** `organization.expectations` returns `requiredBelow` (unit names, through
+  `org_unit_tree`); the Organization card shows those activities ticked and locked with "From <unit>" and
+  counts them. Nothing is stored on the parent — a stored row would make the Control Tower expect a record
+  from the parent itself. No migration. Checked through the procedures on local 13/13, typecheck, lint,
+  format, unit. **Not viewed in a browser.**
+- **Role defaults reviewed (2026-10-12, owner's request), uncommitted on `feature-invite-smtp`; migration
+  `0048` on the LOCAL database only:** Corporate ESG gains `validation.review` and `report.generate`; nothing
+  else changes (`.grill/role-permissions-decisions.md`, D39). Database tests 321/321. Not run: end-to-end.
+  For non-Admins those permissions have no page yet (`/admin` is Admin-only).
+- **Edit role on Roles & Permissions (2026-10-12, owner's request), uncommitted on `feature-invite-smtp`:**
+  `roles.update` (name and description; code fixed; audited) and a side panel. No migration. Checked through
+  the procedure on local 15/15, typecheck, lint, format, unit. **Not viewed in a browser.**
+- **The owner committed and merged the entries above themselves on 2026-10-12** (`e1586f3`, pull requests #27
+  and #28; expected submissions on the parent, role defaults with migration `0048`, Edit role) and switched
+  this checkout to `main` (`e7beca5`). Migration `0048` is still on the local database only.
+- **Test data set 1 follows the hierarchy in the web app (2026-10-12, owner's request), uncommitted in the
+  working tree, which is on `main` — branch before committing:** the hosted org units were read (read-only): MEIL, six subsidiaries, five code-less
+  projects under Olectra Greentech, TGSRTC Telangana under EVEY and Olectra. Set 1's documents are now filed
+  under Seetharampur plant, MSRTC e-bus order, BEST Mumbai e-buses and TGSRTC Telangana (57 files); its org
+  sheet is a reference list, not for import; its employee sheet names units by name. Set 2 was regenerated
+  too (it repeats set 1's units; the subsidiaries already in the app left its sheet). Checked: every name
+  against the hosted list, files on disk, Ruff. **Not run:** OCR on the new files, any import or upload. The
+  owner had set 1's employee sheet open in Excel, so the new one is `… - NEW.xlsx` beside it. Hosted has one
+  period, "August 26-27" (draft); the manifest says August 2026.
+- **The four `feature-invite-smtp` entries above were committed and the branch pushed to `ucn` and `origin` on
+  2026-10-12 at the owner's request** (it sits on top of `ui-rename-emeilsg`). No pull request, CI not run.
+- **Employee role uploads for the Project Manager (2026-10-12, owner's request), uncommitted on `main`'s
+  working tree:** migration `0049` (`roles.uploads_for_role_id`, D40), `uploadTargets`, `roles.update`, a select
+  in Edit role (`.grill/employee-uploads-decisions.md`). Checked: procedures on local 18/18, database tests
+  321/321, unit, typecheck, lint, format. Not viewed in a browser. **The column is on hosted (applied by hand,
+  not recorded in the migration history); the hosted Employee role does not have the setting yet.**
+- **August run on hosted with test data 1 — done 2026-10-12** (owner: "use test emails ... and proceed").
+  Set up by script, audited with no user and a note naming the agent: Employee (`emp`) uploads on behalf of
+  Project Manager; HR got upload and verify back; Corporate ESG got `validation.review`; **21 test accounts**
+  (`…@emeilsg.test`, employee ids `TEST-001`–`TEST-021`: Employee, Project Manager, EHS, HR, Procurement and
+  Finance at MSRTC e-bus order, BEST Mumbai e-buses and Seetharampur plant; Employee and Project Manager at
+  TGSRTC Telangana; Corporate ESG at MEIL). Their passwords are in the git-ignored
+  `test data/_backup/august-run-accounts.local.json`. The owner's own accounts were not touched; the period
+  was already open. Run through the dev server on port 3000 over HTTP as those accounts (sign-in form, the
+  screens' procedures, the hosted worker): 57 files uploaded, 6 multi-bill PDFs split, **66 records, all 47
+  activities**, each verified, all validated, **57 approved, 9 waiting for a conversion factor** (waste,
+  PNG, steam, heat / cooling, the spend-based ones — none has a factor by design). Project Manager bills
+  were uploaded by the Employee accounts and verified by the Project Manager accounts. The faint headcount
+  figure was misread (439 for 139), validation failed it, HR corrected it. No OCR job failed. Not done: a
+  report, anything in a browser. Run script and its state file: session scratchpad and `test data/_backup/`.
+- **Hosted migration history is behind what is applied:** it records up to `0045`; `0046` (carbon) and the
+  `0049` column are present, `0047` and `0048` are not. A plain `supabase db push` would try `0046` again.
+- **The Employee setting (migration `0049`), the realigned test data and the notes of the August run were
+  committed on branch `feature-employee-uploads` and pushed to `ucn` and `origin` on 2026-10-12** (owner's
+  request; no pull request, CI not run). Left out, the owner's own untracked files:
+  `PS_Documents/generated_reports/` and `test data/test data 1/employee-bulk-import-template.xlsx`.
+- **Hosted migration catch-up prepared, NOT applied (2026-10-12, owner: "make everything up to date"):** the
+  read-only check passed (no evidence link across org units, no over-drawn carbon batch, `0046` fully present,
+  66 records, 72 documents, 29 users), but applying `0047` and `0048` was refused by the permission system.
+  The owner runs `node "test data/_backup/hosted-catchup.cjs" apply` (or allows it). `PROGRESS.md` was brought
+  up to date the same day. Git: `main` is the same on `ucn`, `origin` and locally (`e7beca5`);
+  `feature-employee-uploads` is one commit ahead plus this docs commit, pushed, not merged.
+- **Vercel deployment check (2026-10-12, owner will deploy the web app there), uncommitted on
+  `feature-employee-uploads`:** `DEPLOYMENT.md` (settings, variables, what to try first). Fixed: the report
+  browser's files were not in the build's file trace (`outputFileTracingIncludes` in `next.config.ts`; checked
+  in the `.nft.json` of `/admin/reports` and the tRPC route); deadline-email links fell back to localhost
+  (`lib/app-url.ts`). Added `apps/web/vercel.json` (region `bom1`). Build, typecheck, lint, format, unit pass.
+  **Nothing was tried on Vercel.** Unknowns: pnpm 12 on Vercel's builder, evidence files over 4.5 MB through
+  a function, fonts in the packaged browser.
+- **Hosted has every migration, `0001`–`0049`, recorded in its history** (the owner ran the catch-up script on
+  2026-10-12; read back afterwards: the four `0047` triggers, `org_settings` Admin-only, both Corporate ESG
+  grants, 66 records, 72 documents, 29 users unchanged). Earlier lines in this section that say `0047`,
+  `0048` or the history are behind are superseded by this one.
+- **The deployment check, `DEPLOYMENT.md` and this note were committed on `feature-employee-uploads` and
+  pushed to `ucn` and `origin` on 2026-10-12** (owner's request). Not committed, the owner's own files:
+  `.mcp.json`, `.vscode/mcp.json`, `PS_Documents/generated_reports/`, the employee import template.
+- **Worker image rebuilt 2026-10-12** (owner's request): `traceesg-ocr-worker:latest` is now `5ee1ae92263e`,
+  `rules-13`, with the error-report change (`worker/logs.py`) and pip upgraded last. Checked in the image:
+  worker unit 44/44, the OCR engine loads. **The container `traceesg-ocr-worker-hosted` was recreated from it the same day** (owner's request; settings
+  from `apps/ocr-worker/.env`, restart `unless-stopped`; it reports "worker ready", no errors in its log). The
+  first attempt removed the old container and then failed to start the new one, so the worker was down for
+  about a minute. No document has been put through the new container yet.
+- **`feature-employee-uploads` is merged** (pull request #29, 2026-10-12) and the owner committed the MCP
+  settings and report files on `main` (`4d4dea1`); `main` is the same on `ucn`, `origin` and locally. This
+  note and the worker entry above are on branch `docs-worker-image-note`, pushed to both, not merged.
+- **Report PDFs and database connections on Vercel (2026-10-12, committed, on `origin` and `ucn` `main`,
+  `fe93b23`):** the packaged browser is launched as a headless shell (`lib/reports/pdf.ts`), and on Vercel
+  the pool is 3 connections that close after 5 idle seconds (`lib/pooler-url.ts`). Three reports were
+  generated on the deployed site. `CHROMIUM_EXECUTABLE_PATH` must not be set on Vercel.
+- **A six-stage piece of work was agreed on 2026-10-13** (`.grill/scoped-admin-onboarding-decisions.md` — read
+  it first; it holds every decision): (1) Super Admins and scoped Administrators, (2) invitation links in
+  place of emailed passwords, (3) session time limits, (4) an org-tree picker, Scope 1/2/3 filters and Excel
+  exports, (5) demo requests, public docs and signed-in help, (6) a phone and tablet pass. Each stage is its
+  own branch, merged before the next starts.
+- **Stage 1 — Super Admins and scoped Administrators — is done on branch `feature-scoped-admins`,
+  uncommitted; migration `0050` is on the LOCAL database only** (D41, A37, `UI_NOTES.md`). The `admin` role
+  is the Super Admin (at most two, enforced by the database); a new role `org_admin` ("Administrator")
+  administers its org unit and everything beneath. Checked: web unit 204/204, database 336/336, the
+  cross-project procedure test 264 passed (2 cannot run outside the app), the full end-to-end suite on the
+  local stack 344/344 plus the new `tests/e2e/scoped-admin.mjs` 77/77, lint, typecheck, format, production
+  build, and eight screens viewed in Edge as a project Administrator with no console error. **Not run:** the
+  chatbot and accessibility suites, phone and tablet widths, the other two themes, anything on hosted.
+  **Not built in stage 1:** the Super Admin's own-record mark in the report drill-down (it is in the audit
+  trail and the record's history); a notification to Administrators when a record in their scope is flagged
+  (Super Admins still get it); scoped versions of OCR Monitoring, Deadlines, Forecast, Simulator and Carbon
+  credits (Super Admin only for now).
+- **Stages 2 and 3 — invitation links and session time limits — are done in the same working tree
+  (`feature-scoped-admins`), uncommitted; migrations `0051` and `0052` are on the LOCAL database only**
+  (D42, D43, A38, A39, `UI_NOTES.md`; the agent's own decisions are listed in the decision log under
+  "Decisions made while building stages 2 and 3" for the owner to confirm). The owner asked for both at
+  once with stage 1 still uncommitted, so the three stages are one change, not three branches.
+  - *Stage 2:* Invite user and bulk import email a link (`/invite#token`), never a password; the token is
+    stored only as a hash, works once, for 24 hours; Resend replaces the link, Revoke cancels it; the new
+    public page `/invite` sets the password and uses the link up in one transaction and signs nobody in;
+    forgot-password sends no code to an account that was never set up.
+  - *Stage 3:* a sign-in ends after 3 hours without activity and 12 hours in all (`user_sessions`,
+    `touch_session`, checked in `resolveSession`); only what the person does on the page counts as
+    activity; a notice five minutes before the end; an ended session signs out that device only.
+  - Checked on the local stack: web unit 210/210, database 367/367 (31 new), the whole end-to-end suite
+    on the built app **519/519 over eleven scripts** (the new `invitations-sessions.mjs` is 98 of them:
+    real emails read from the mail catcher, the real page in Edge, two submissions of one link at once,
+    clocks moved in the database), cross-project procedures 264 passed (2 cannot run outside the app),
+    chatbot 49/49, accessibility 188 passed / 0 failed / 2 known open (`/invite` added; it now also runs
+    beside two Super Admins), lint, typecheck, format, production build. Users, the Manage panel, the
+    invalid-link page and the sign-out notice were looked at in Edge at 1440 and 390px, no console error.
+  - **Not run:** a real email through Brevo; anything on hosted; a real three-hour wait (the tests move
+    the clock in the database); tablet width; the notice in the Dark and Special themes; the valid
+    invitation form was driven by the test but not looked at as a picture.
+  - **Not built:** `scripts/provision-user.ts` without `--password` still uses Supabase's own invite email.
+- **2026-10-30: `0051` and `0052` are on hosted** (owner's "go"; step (1) below is done). Read back: both
+  recorded, both tables, `touch_session` and the two settings present; 34 users, 70 records, 33 assignments
+  unchanged. The hosted Supabase project had been paused (free tier) and was restored by the owner the same
+  day. The script's paths now point at this checkout.
+- **2026-10-30: steps (2) and (3) done.** `b462a2b` is on `ucn` and `origin` `main` and deployed on Vercel
+  (the owner pushed to `origin`); then `hosted-admin-placement.cjs apply` (owner's "go"): `0050` recorded,
+  roles "Super Admin" and "Administrator", `admin@meil.local` the only Super Admin, Bal / DD / AB / AD
+  Administrators of Olectra Greentech / EVEY / MSRTC e-bus order / BEST Mumbai e-buses; 70 records, 33 users,
+  32 assignments unchanged. Still to come: step (4), the second Super Admin invited from Admin → Users.
+- **Owner's feedback of 2026-11-01 is committed (`3489329`) and on `ucn` `main`; `origin` `main` and the live site are
+  still on `b462a2b`.** `.grill/org-tree-users-notifications-periods-decisions.md`, D44, A40. **`0053` is on hosted**
+  (2026-11-01, owner's go): its job ran and closed August 26-27 by itself, audited, Test Admin notified; 70 records
+  (61 approved), 33 users unchanged. **No period is open on hosted, so uploads are paused** until a Super Admin opens one.
+  Next: the owner pushes to `origin` to deploy.
+- **Users tab (2026-11-01, owner's requests), on `ucn` `main`, NOT on `origin` (the owner said not to push there for
+  now), no migration:** sorted by role by default with a Sort by control (`lib/users/sort.ts`); an Employee ID filter
+  and Add ID for people with none (`users.setEmployeeId`: once saved it cannot be replaced, nobody sets their own, an
+  Administrator only inside their unit). Checked: `tests/e2e/feedback-2026-11.mjs` 88/88, web unit 218/218. Not re-run:
+  the rest of the end-to-end suite. To confirm with the owner: self-assignment (`admin@meil.local` cannot get an ID
+  until a second Super Admin exists); a way to correct an ID.
+- **Hosted, in this order:** (1) `node "test data/_backup/hosted-invitations-sessions.cjs" apply` — `0051`
+  and `0052`, additive, safe under the code that is live today, and it must come BEFORE the deploy
+  (its `check` mode was run: nothing of either is there, 34 users, 68 records); (2) merge and deploy the
+  code; (3) `node "test data/_backup/hosted-admin-placement.cjs" apply` — AFTER the deploy (its `check`
+  mode was run earlier). In one transaction it takes the Super Admin role from Bal, DD, AB and AD, applies
+  and records `0050`, and makes them Administrators of Olectra Greentech, EVEY, MSRTC e-bus order and BEST
+  Mumbai e-buses; run before the deploy it would leave the old code with people who hold `org.manage` and
+  no scope check. (4) `admin@meil.local` invites `niharbehera965@gmail.com` as the second Super Admin from
+  Admin → Users. The migration history will hold `0051`, `0052` before `0050`; both scripts record by hand,
+  so a plain `supabase db push` is not needed and should not be used for these three.
+- **Feature roadmap (2026-11-07):** `PS_Documents/implementation_docs/feature_enhancement.md` (owner's file,
+  untracked) is the master document; its Appendix A holds every requirement's status. Phase 0 audit:
+  `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`. **Phase 1 is done on branch `feature-session-takeover-security`**
+  (fast-forwarded to `ucn/main` `95545c3` first), **uncommitted; migration `0055` is on the LOCAL database only.**
+  `ucn/main` gained a ui-lane `0054` (absolute session limit 72 hours): its setting is on hosted, the migration is
+  not recorded there. **Both `0054` and `0055` were applied to hosted on 2026-11-07 (owner's "go") with
+  `test data/_backup/hosted-0054-0055.cjs`** after the dev server on 3000 failed with "touch_session_single does
+  not exist"; read back: both recorded, functions present and closed to the browser roles, 34 users, 73 records
+  and 25 session rows unchanged (backup `hosted-0054-0055.backup.json`). Phase 1 is committed (`6b6c0e3`).
+  Requirement 37 (local database) is deferred by the owner until after the HoD demo.
+- **Phase 2 (2026-11-07/08), uncommitted on `feature-session-takeover-security`; migration `0056` local and hosted**
+  (decisions in `.grill/feature-enhancement-roadmap-decisions.md`, D46, A42). Several open periods, late uploads
+  (due +15 / late +45 days), Late / Same-file / Same-bill validation flags, bill number on records, document-type and
+  activity filters, stage tracker, Admin type correction and wrong-activity return, approval rows with thumbnails,
+  readable download names. Checked: web unit 243/243 (plus new), database 425/425, `phase2-lifecycle.mjs` 45/45,
+  typecheck, lint 0 errors, production build. Full end-to-end suite: 12 of 13 scripts pass in full
+  (578 checks); feedback-2026-11 stops at the old Add ID refresh step, as before Phase 2. Browser check `ui-phase2.mjs` 13/13 in Edge. Appendix
+  and PROGRESS updated. **`0056` applied to hosted on 2026-11-08 (owner's "go")** with
+  `test data/_backup/hosted-0056.cjs` (backup `hosted-0056.backup.json`); read back: functions present and closed to
+  the browser, 3 new columns, 48 bill numbers back-filled, auto-close job present, 34 users and 73 records unchanged.
+  Hosted's open period "oct" has no late date, so it closes on its due date (11 Nov 2026) unless one is set.
+  Findings: Grid Electricity captures no bill number (same-bill and Bill no. work only for the 40 activities with
+  one); every activity maps to one document type, so type correction has nothing to choose until one has several.
+- **Phase 3 (2026-11-08), uncommitted. On hosted since 2026-11-08 (owner's "go"):** migration `0057` (read back:
+  the field exists, 34 users and 73 records unchanged) and the OCR worker on `rules-14`: `traceesg-ocr-worker:latest`
+  now = the rules-14 image, container `traceesg-ocr-worker-hosted` recreated with the old container's own four
+  settings, reports "worker ready"; hosted queue: 79 jobs, all completed. The previous container is kept stopped as
+  `traceesg-ocr-worker-hosted-rules13` (image `5ee1ae92263e`) for rollback; delete it once rules-14 has read a real
+  upload. The end-to-end suite takes `E2E_WORKER_IMAGE`.
+  Handwriting (req. 15) waits for the owner's bus-ticket photos.
+- **Phase 4 (2026-11-08), uncommitted; migration `0058` applied to hosted 2026-11-08 (owner's "go")** with
+  `test data/_backup/hosted-0058.cjs`; read back: RLS on, closed to the browser roles, the one-open-step index
+  present, 34 users and 73 records unchanged. The local stack has test Administrators `e2e.prjx.admin` (PRJ-X) and `e2e.suba.admin` (SUB-A).
+- **Phase 5 (2026-11-08), uncommitted; migration `0059` applied to hosted 2026-11-08 (owner's "go")** (D49, A45; decisions in
+  `.grill/feature-enhancement-roadmap-decisions.md`). Deadline reminders: `lib/reminders/plan.ts` (who gets what,
+  pure), `lib/reminders/run.ts` (claims a `reminder_sends` row, then sends), `app/api/cron/reminders/route.ts`
+  (Bearer `CRON_SECRET`; 503 when unset), `vercel.json` cron `30 3 * * *`, the Reminders section on Reporting
+  Deadlines (open to Administrators). `0059` read back on hosted: recorded, `reminder_sends` with RLS and no
+  browser access, the default schedule row, 34 users and 73 records unchanged. **Still to do:** `CRON_SECRET`
+  (16+ characters) in the Vercel project and a deploy; until then the daily trigger refuses every call. The local e2e env file in the scratchpad now has a `CRON_SECRET`.
+- **Phase 6 (2026-11-08), uncommitted; migration `0060` applied to hosted 2026-11-09 (owner's "go")** (D50, A46; decisions in
+  `.grill/feature-enhancement-roadmap-decisions.md`). Factor versions carry their source (link, publisher, FY,
+  read date, typed or fetched); `lib/factors/source.ts` fetches only from `org_settings.factor_source_hosts`
+  (guarded lookup, no private addresses); every new version is a draft that another Super Admin approves
+  (`factors.approve`; the only Super Admin may approve their own, marked); a yearly review on Conversion
+  Factors; `carbon_credit_links` on Carbon Markets. `0060` read back on hosted: recorded, `carbon_credit_links`
+  with RLS and no browser access, 6 preset links, the approval trigger present and closed to the browser roles,
+  the official-site list set; 31 factor versions still active (shown as "Before the approval step"), 34 users
+  and 73 records unchanged. Every new factor on hosted is self-approved until a second Super Admin exists. New test: `pnpm --filter web test:factors` (needs the local
+  database's two Super Admins). Full end-to-end suite: 16 of 17 scripts in full (feedback-2026-11 stops at the
+  old Add ID step); invitations-sessions 112/112 once run with `E2E_APP_URL=http://localhost:3100`.
+- **Phase 7 (2026-11-09), uncommitted; migration `0061` applied to hosted 2026-11-09 (owner's "go")** (D51, A47; decisions in
+  `.grill/feature-enhancement-roadmap-decisions.md`, "Phase 7 decisions"). New page `/admin/carbon-analytics`
+  (Super Admins and Administrators): year-wise emissions by scope and activity, compared like for like
+  (`lib/analytics/trends.ts`), rule-based suggestions (`recommend.ts`) with AI wording on request
+  (`wording.ts`, refused when it adds figures), emission alerts against the same period of earlier years
+  (`alerts.ts`, `run-alerts.ts`), run by the same daily cron call as the reminders and by "Check now".
+  `0061` read back on hosted: recorded, both tables with RLS and no browser access, the guard trigger present and
+  closed to the browser roles, thresholds 20% per scope, no alerts; 34 users, 73 records, 2 periods unchanged. New tests:
+  `pnpm --filter web test:analytics`, `tests/e2e/phase7-analytics.mjs` (in the suite), `ui-phase7.mjs`. Full
+  end-to-end suite: 17 of 18 scripts in full (feedback-2026-11 stops at the old Add ID step, 85 checks before
+  it). AI wording not confirmed with a real reply: see §2.
+- **Phase 8 (2026-11-09), uncommitted; migration `0062` applied to hosted 2026-11-09 (owner's "go")** (D52, A48, `UI_NOTES.md`;
+  decisions in `.grill/feature-enhancement-roadmap-decisions.md`, "Phase 8 decisions"). Report templates
+  (`lib/reports/templates.ts`, `template-html.ts`, `extras.ts`, `workbook.ts`; `report_runs.template`, the GHG
+  inventory's `.xlsx` beside its PDF); top-bar search (`lib/search/*`, `components/search/global-search.tsx`,
+  `search.global`); Scope Table / Chart kept as `view=chart`; the Ask button and landing fixes (the owner asked the
+  feature lane to do these ui items). `0062` read back on hosted: recorded, the 13 existing runs read as `brsr`
+  with no workbook, the reports bucket private and taking PDF and .xlsx, the browser roles still unable to change
+  a run; 34 users, 73 records, 2 periods unchanged. New tests: `pnpm --filter web
+  test:search`, `tests/e2e/phase8-templates-search.mjs` (in the suite), `ui-phase8.mjs` (axe included). Full
+  suite: 18 of 19 scripts in full after one fix (feedback-2026-11 stops at the old Add ID step, 85 checks before
+  it); accessibility suite 188 passed / 0 failed / 2 known open (now also on Carbon Analytics).
+- **Phases 9 and 10 (2026-11-09), uncommitted; no migration.** Phones: bottom bar and Menu drawer
+  (`components/shell/sidebar.tsx`), tap cursor fixed (`registry/magicui/pointer.tsx`), installable app
+  (`app/manifest.ts`, `public/sw.js`, `docs/MOBILE_APP.md`). Help at `/app/help`. Runbooks:
+  `docs/PRODUCTION_DATABASE.md`, `docs/LOCAL_DATABASE_SERVER.md`, `RELEASE.md`. New tests: `test:scale`,
+  `tests/e2e/release-checks.mjs` (in the suite), `ui-phase9.mjs`, `ui-phase10.mjs`.
+- **Hosted was reset on 2026-11-09 (owner's go)** with `test data/_backup/hosted-reset.cjs`: 7 people (2 Super
+  Admins, 5 Administrators), 6 org units and the configuration kept; everything else, every stored file and
+  the audit log removed; one `platform.reset` audit entry. Full backup (restored and compared) in
+  `test data/_backup/hosted-reset-2026-11-09/`. Every kept person was signed out.
+- **The local database server** (`emeilsg_local_server`, `D:/Non Newtonian Things/emeilsg-local-server`, ports
+  544xx) holds the same data, verified against hosted; the app runs on it with `pnpm --filter web
+  dev:local-server` (`apps/web/.env.localserver`).
+- **2026-11-09, owner's request: the app points at the local server.** `apps/web/.env.local` and
+  `.env.production.local` switched (database, Auth, storage, chatbot); hosted values in `*.hosted-backup`. Sign-in
+  is the local server's own Auth (the 7 accounts and passwords). Docker: the local server (six containers) and one
+  OCR worker `emeilsg-ocr-worker-local`; `traceesg-ocr-worker-hosted` stopped, not deleted (hosted / Vercel uploads
+  wait for OCR). **The e2e suite and the test stack now need `E2E_ENV_FILE`** (the scratchpad's local test env):
+  `.env.local` no longer names the test stack either. Stop the local server before starting the test stack
+  (memory).
+  Two temporary files stay inside its database container: `/tmp/public.dump` and `/tmp/defacl.list` (a safety
+  check stopped their removal); delete them with `docker exec supabase_db_emeilsg_local_server rm
+  /tmp/public.dump /tmp/defacl.list`.
+- **Chatbot scope refusals (2026-11-09, owner's request), uncommitted, no migration:** a lookup of a unit outside
+  the person's scope ends the question with fixed words, and an answer with no successful lookup is replaced by a
+  fixed refusal (a short question back is allowed). `lib/chat/orchestrate.ts` (`OUT_OF_SCOPE`), `lib/chat/tools.ts`
+  (`ToolError.kind`), `tests/chat.test.ts`; `.grill/chat-analyst-decisions.md` last section. Unit 288/288,
+  typecheck, lint, format. Not run: `test:chatbot`, the real model (key refused, §2).
+- **2026-11-10/11: chatbot model and monthly test data.** `lib/chat/nim.ts` also reads `OPENAI_API_KEY` /
+  `OPENAI_MODEL` / `OPENAI_BASE_URL`; `.env.local` now uses `nvidia/nemotron-3.5-lightning-30b-a3b` (GLM 5.3 flash
+  hangs, others 404/410). `test data/<Month Year>/` for April 2025 to October 2026 (66 bills a month;
+  `make_monthly_data.py`, `feed-monthly-data.mjs`, `synthetic_extraction.py`; `test data/README.md`). **Local
+  server:** April 2025 to September 2026 fed and closed (July to September through real OCR, earlier months
+  direct-load), October 2026 open and empty. **Hosted:** prepared, April 2025 to June 2026 fed; **July to September
+  2026 not finished** (the real-OCR run was killed for low memory; July has 16 uploaded + 3 read records) and **no
+  hosted month is closed yet** — rerun `feed … --extract ocr` for those three months, then `close`, only when the
+  owner asks. 17 test accounts per database (`<role>.<unit>@emeilsg.test`, passwords in `test data/_backup/`). All
+  of it is in `e763572`, pushed to `ucn` `main` (not `origin`). The hosted worker container is stopped again.
+- **Owner's page feedback of 2026-11-11, committed as `e148b9e` on branch `feature-page-feedback-2026-11-11` and pushed to `ucn` `main` (fast-forward, no pull request, CI not run; not on `origin`)** (from
+  `e763572`; A50, `.grill/page-feedback-2026-11-11-decisions.md`, `UI_NOTES.md`; no migration). Submission
+  Monitoring / Data Explorer filters (no Document type, Activity by scope, upload-date range, Reset filters, wider
+  Period, submitter role line), the factor review's years (current FY back; neither database had future-year rows),
+  Save schedule also sends today's reminders (Run now gone), Deadlines' who-can-submit rule and wording, Audit Trail
+  (auto-apply, linked filters, Clear filters, suggestions and word-form search), split page undo/redo and arrow
+  keys, every right-hand panel expandable to the whole window and resizable. `apps/web/tsconfig.json` restored to
+  `95545c3` (Next had added `.next-e2e` includes, committed in `e763572`). Checked: typecheck, lint (0 errors), web
+  unit 292/292 (4 new in `tests/audit-words.test.ts`), format (only the known `app/loading.tsx`, `app/page.tsx`),
+  and Edge on a dev server against the local server as a temporary Administrator at MEIL, 31/31 after one test
+  expectation was corrected (filters, role line on real September rows, badge fit, date range, panel
+  expand / Esc / drag / keyboard / remembered width / reset, Deadlines wording, Audit Trail suggestions and linked
+  filters, phone width). **Not run:** the production build, database tests, the e2e suite (`ui-phase2/4/5.mjs`
+  were updated for the removed controls but not run), the split page and Conversion Factors and Save schedule in a
+  browser (they need a Super Admin or a pending multi-bill PDF), an on-behalf upload's role line (no such record on
+  the local data). The temporary account `ui.check.admin@emeilsg.test` is deactivated on the local server.
+- **Upload description and expected-submission progress (2026-11-11, owner's request), uncommitted on branch
+  `feature-upload-description-progress` (from `e148b9e`); migration `0063` is on the LOCAL server only, NOT on
+  hosted** (D53, A51, `.grill/upload-description-progress-decisions.md`, `UI_NOTES.md`). Checked: typecheck, lint,
+  unit 292/292, format (known two), the new database test 5/5 on the local server, the procedures 11/11 there
+  (`documents.expectedProgress` against the tables, `setDescription` rules and audit; the description was put back),
+  the Upload page in Edge 5/5 (description box, the list beside the form, phone width). **Not run:** an actual upload
+  with a description, a ticked item seen in the browser (October has no uploads for the units with expectations),
+  Verify's editor in a browser, the build, the e2e suite. **Hosted needs `0063` before this code runs against it.**
+  Only MSRTC (2), BEST (1) and Olectra (1) have expected submissions on the local database.
+- **Conversion factors per financial year (2026-11-11, owner's request), uncommitted on the same branch
+  (`feature-upload-description-progress`); migration `0064` is on the LOCAL server only, NOT on hosted** (D54, A52,
+  `.grill/factor-financial-years-decisions.md`). Versions are "effective for FY X to FY Y", inherited after Y; new
+  versions start next FY unless the years have no value yet; PNG moved to 1 Apr 2026. Checked: database tests
+  482/482 on the test database (with `0063`/`0064`), the 704 stored calculations pick the same versions, the
+  procedures 8/8 on the local server (refusals and yearly review; nothing written), typecheck, lint, unit 292/292.
+  **Not run:** the Conversion Factors page in a browser (needs a Super Admin login), `test:factors` and the e2e
+  suite, the build. PNG's April–July 2026 records need "Run calculation".
+- **Eye button on Verify (2026-11-11, owner's request), uncommitted on the same branch; migration `0065` on the
+  LOCAL server only** (D55, A53, `.grill/extraction-boxes-toggle-decisions.md`). Checked: Edge 8/8 as MSRTC's
+  Project Manager on two September documents (off by default, on colours every box, the key, the next document and
+  a new browser session open with it on, off sticks; the account's choice put back to off), typecheck, lint, unit
+  292/292. Not run: the build, the e2e suite, database tests after `0065`.
+- **Also 2026-11-11, same branch, uncommitted, no migration:** Carbon Analytics suggestions have "Which project
+  emits the most?" (A54; checked in Edge as the temporary Administrator, reactivated and deactivated again: the
+  coal suggestion lists BEST Mumbai e-buses, 12,088.9 tCO2e, 24 records, which the tables confirm). Section A of
+  BRSR Disclosures: 9 written answers added on the LOCAL server from meil.in (24 of 26 answered; hosted has 15);
+  the FY 2023-24 annual return link on meil.in is broken (404), so answers still cite FY 2022-23.
+- **All the 2026-11-11 work above on branch `feature-upload-description-progress` was committed as `38da203` and pushed
+  to `ucn` `main` (fast-forward, no pull request, CI not run; not on `origin`). Migrations `0063`-`0065` are on the
+  local server only. BRSR answers (134 written, sample ones labelled) are data on the local server, not in git.
+- **Migrations `0063`-`0065` were applied to hosted on 2026-11-11 (owner's request)** with
+  `test data/_backup/hosted-0063-0065.cjs`; read back: history at `0065`, both new columns, the year trigger, no
+  browser write grants, PNG moved to 1 Apr 2026, every version on year boundaries; 24 users, 1,009 records, 825
+  calculations unchanged; the 585 current calculations with a factor pick the same version. Earlier lines saying
+  these are local only are superseded.
+- **Request a demo (2026-11-11, owner's request), uncommitted on `feature-upload-description-progress`; migration `0066`
+  on the LOCAL server only, NOT on hosted** (D56, A55, `.grill/demo-requests-decisions.md`). Checked: Edge 7/7 on the
+  landing page signed out (no id before sending, field errors, the player after sending, phone width; YouTube loaded
+  the video in the frame), database tests 482/482 with `0066`, typecheck, lint, unit 292/292. The two test requests
+  were removed. Not run: the Demo Requests page in a browser (Super Admin login), the build, the e2e suite.
+- **2026-11-11/12: hosted is the primary again; the local server is an hourly one-way copy** (owner's decision).
+  `docs/LOCAL_DATABASE_SERVER.md` §5 has the details: hosted was first brought up to local (0066, BRSR answers,
+  Jul-Sep 2026 directly, 18 months closed); `.env.local` / `.env.production.local` point at hosted (local versions in
+  `*.localserver-backup`); hosted OCR worker running, local worker stopped; Windows task "EmeilSG hosted to local
+  sync" runs `apps/web/scripts/sync-hosted-to-local.mjs` hourly (checked: 58 tables matched; a scheduled run exit 0).
+  Local backup before the switch: `test data/_backup/local-backup-2026-11-11/`. The owner's 5 October test uploads
+  existed only on local; the two files are in `test data/_backup/your-october-uploads/` to re-upload. **The owner
+  restarts the dev server.** Never write to the local server now. Migration `0066` is on hosted.
+- **Category mismatch and activity list on Verify (2026-11-12, owner's request), uncommitted on `feature-upload-description-progress`, no migration** (A56, `.grill/verify-activity-change-decisions.md`): before Confirm, Verify lists every activity the Upload page offers and flags a Category mismatch naming the likely activity (hosted has two CNG records that are electricity bills); changing it re-queues OCR for the new fields. Checked: typecheck, lint, unit 292/292, the mismatch query read-only on hosted. **Not run:** a change through the app, a browser view, the build, the e2e suite.
+- **Subsidiary → business unit → project (2026-11-12, owner's request), uncommitted on `feature-upload-description-progress`, no migration** (A57, `.grill/org-structure-decisions.md`): a business unit sits under one subsidiary and is never shared; projects sit under business units (`lib/org/rules.ts`, every add / move / parents / bulk-import path); a business unit's panel ticks its projects (`organization.setChildren`); a project still straight under a subsidiary is marked and moves to the first business unit ticked. Checked: typecheck, lint, unit 293/293 (new structure test). **Not run:** the page in a browser, the procedures against a database, the e2e suite (`feedback-2026-11.mjs` updated), the build. **Hosted tree not rearranged:** Olectra has BU Transport (no projects) and BEST, MSRTC, Seetharampur straight under it; EVEY has TGSRTC straight under it.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
 
 | Question | Notes |
 |---|---|
+| Expected submissions for the demo (2026-11-11) | The Upload page's progress list is empty for most projects: only MSRTC, BEST and Olectra have expectations. Fill them in on Admin → Organization, or ask the agent to set them from the test data. |
+| Daily reminders on Vercel (2026-11-11) | Save schedule now sends today's reminders at once, but nothing runs daily until `CRON_SECRET` (16+ random characters) is added to the Vercel project's environment variables and the app is redeployed; the panel then says "Active · runs daily at 9:00 IST". |
+| Hosted July–September 2026 test data (2026-11-11) | The real-OCR load was killed for low memory and not restarted (system rule). Say when to resume (`feed --months "July 2026,August 2026,September 2026" --extract ocr`, other apps stopped, hosted worker started), then `close` all 18 hosted months. |
+| NVIDIA key in `apps/web/.env.local` (2026-11-09) | NVIDIA now refuses the key itself ("Authorization failed", 403, every model); before that the three listed models answered 404 / 410 / timeout. The owner creates a new key at build.nvidia.com and puts it in `NVIDIA_NIM_API_KEY`; then probe models with the scratchpad's `nim-probe.mjs` pattern (tool call, no MEIL data) and set `NVIDIA_NIM_MODEL`. Until then the chatbot and Phase 7's AI wording do not work. |
+| Phase 6–10 build-time choices | Listed under "Built that way" in `.grill/feature-enhancement-roadmap-decisions.md` for each phase: thresholds for rising / unusual month / largest source, alert window and minimum increase, factor units and fetch limits. |
+| Phase 1 of the feature roadmap (2026-11-07) | Confirm the build-time decisions in `.grill/feature-enhancement-roadmap-decisions.md` (sessions that skip the form replace the others; the Super Admin email goes to the Super Admin whose account took over). |
+| For the ui role (2026-11-07) | The root `app/loading.tsx` makes server redirects arrive inside a 200 page; `app/loading.tsx` and `app/page.tsx` fail `format:check`; after Add ID on Users the filtered list does not refresh (feedback-2026-11 stops there, also without Phase 1). |
+| Hosted OCR worker | `traceesg-ocr-worker-hosted` was found exited (137, out of memory) on 2026-11-07; hosted uploads wait until it is started again. |
+| Stages 1–3 of the 2026-10-13 work | Say "go" for the hosted step that must come first (`hosted-invitations-sessions.cjs apply`; the dev server on port 3000 is broken until then), when to commit `feature-scoped-admins`, when to merge it, and when to run the placement script (after the deploy). Then stage 4 starts. |
+| Decisions the agent made in stages 2 and 3 | Listed in `.grill/scoped-admin-onboarding-decisions.md`. The ones with a cost: forgot-password no longer works for an account that was never set up (an administrator sends a link); only activity on the page keeps a session alive; an ended session signs out that device only. |
+| Brevo click tracking | If it is on for transactional email, invitation links pass through Brevo's redirect. Switch it off for this sender in the Brevo dashboard. |
+| A second factor for Super Admins | Deferred by the owner (2026-10-13). Open risk: the two most powerful accounts rest on a password, and `admin@meil.local` is a shared login with no mailbox. |
+| Dependency and deployment decisions | Confirm `xlsx` from the vendor's site (or read sheets with `exceljs` and drop `.xls`); `apps/web/.env.production.local` holds the full hosted settings and is read by `next build` / `next start` on this machine — delete or keep deliberately; rebuild the worker image when convenient. Dashboard checklist: `DEPENDENCY_AUDIT_2026-10-12.md` section 6. |
+| Accessibility decisions | The custom cursor hides the system pointer on every page (a barrier for people who enlarge or recolour it); chart text alternatives on Forecast and Simulator; field-level errors on Admin forms; who does the manual keyboard and screen-reader pass. `ACCESSIBILITY_AUDIT_2026-10-12.md` sections 4 and 6. |
+| Design decisions from the UI audit | The site-wide custom cursor (the audit's rules say remove, the landing brief says keep); the hero card deck and the two captions that read as results; renaming and restyling Deadlines and Carbon credits to match the rest; the pill button on sign-in; an em-dash copy pass; the browser icon colour. `UI_AUDIT_2026-10-12.md`. |
+| Privacy and compliance decisions | Operator's legal name, address and privacy contact; legal basis and notice for employees; retention periods (audit log with IP addresses, documents and OCR text, notifications, reports); how people ask for access or erasure; processor terms (Supabase, Brevo, AI provider); landing wording ("Portfolio-Wide Deployment for MEIL", "by MEIL. All rights reserved" against the GPL-2.0 licence file, the FAQ's absolute "No"); the source of the six landing photographs; the Rs 2,500 carbon price and its stated source; a recipient for "Request a demo". List: `COMPLIANCE_AUDIT_2026-10-12.md` section 8. |
+| Chatbot: contact details no longer go to the AI service | Changed on 2026-10-12 against the 2026-10-11 "full access for Admins" decision: the model gets names, roles and org units; email, employee id and file names stay in the table. Confirm, or say to restore (`.grill/chat-admin-access-decisions.md`). |
+| After the August run | Keep or deactivate the 21 test accounts on hosted; enter factors for the 9 records waiting (or leave them); generate the report. Passwords: `test data/_backup/august-run-accounts.local.json`. |
+| Security audit follow-ups | Reset the passwords of accounts already created by bulk import (they were guessable). Decide: bulk import with no password at all (first sign-in by emailed code); what the carbon pages show when no price is configured (today an invented 2,500). Open items F-08, F-10 and the `xlsx` replacement are in `SECURITY_AUDIT_2026-10-12.md`. |
 | Chatbot on hosted | Migration `0042` is on hosted (2026-10-11). Still to do: the owner sets a password for `chat_reader` (`alter role chat_reader login password '…'` in the SQL editor) and puts `CHAT_DATABASE_URL` and `NVIDIA_NIM_MODEL` in `apps/web/.env.local`. Through the pooler the user is `chat_reader.<project-ref>` — untested. |
 | NVIDIA's terms for the free endpoints | Real MEIL figures would go to a trial service. The owner said "for now"; read the terms on submitted prompts and the rate limits before MEIL relies on it. A locally served model is a setting (`NVIDIA_NIM_BASE_URL`). |
 | Chatbot branch on MACRO72's repo | The owner pushed `feature-chat-analyst` straight to `ucn` `main` (2026-10-11). `origin` has neither the branch nor a pull request; `gh` is not installed. A pull request must say that the feature role built UI (`UI_NOTES.md`). |
@@ -308,7 +791,7 @@ _Last updated: 2026-10-11._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D37** and **A36**), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D57** and **A58**; the next migration is `0067`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on
@@ -461,7 +944,8 @@ _Last updated: 2026-10-11._
   `periods-manager.tsx`, 2026-10-11). Users’ bulk import is a side panel now, not a fold-out.
 - **OCR does not detect a lone digit on a line** ("Fatalities: 0" comes back empty). Sample documents print
   "0 Nos". A document type needs two of its keywords on the page or the person must pick it.
-- **Users cannot be deleted once the audit log names them** (foreign key, append-only log); deactivate instead.
+- **A user the audit log names cannot be removed as a row** (foreign key, append-only log): `users.delete`
+  keeps the row hidden (`deleted_at` set, address replaced) — filter `deleted_at is null` wherever people are listed.
   `calculations` and `audit_logs` refuse deletes for every role.
 - **Running the worker's OCR on files without the database:** `OcrEngine(Path("models"))`, `to_page_images`,
   `extract_fields` with `FieldSpec`s (about 10 s a page; output is buffered until the end when redirected).
@@ -483,7 +967,159 @@ _Last updated: 2026-10-11._
   both set folders before regenerating: files left from an earlier run (or restored by a pull) stay beside the
   new ones and the same bill then exists twice.
 - **This checkout had no `ucn` remote** until 2026-10-11 (`git remote add ucn https://github.com/IAMUCN/ps08_BRSR_meil.git`).
+- **Anything read through `lib/db.ts` bypasses RLS**: a procedure that takes an org unit, record or report id
+  must check the caller's scope itself (`lib/auth/scope.ts`). The 2026-10-12 audit found five routers that did not.
+- **Session cookies are HttpOnly** (`lib/supabase/cookie-options.ts`): never add a Supabase client in the
+  browser without revisiting that. `/reset-password` refuses a session without the marker cookie that
+  `/auth/confirm` sets.
+- **The local database in this checkout had no migration `0046`** until 2026-10-12 (`npx supabase migration up --local`).
+- **A record's or document's org unit and submitter cannot be changed** (migration `0047`), an evidence link must
+  stay inside one org unit, and a carbon batch cannot be over-drawn — fixtures and scripts that did otherwise
+  now fail with 42501 or 23514.
+- **Calling procedures from plain Node:** `apps/web/tests/isolation/hooks.mjs` is the loader (`@/`, `server-only`,
+  `next/*`); run with `--conditions=react-server`. Compare a thrown error by `error.name === "TRPCError"`, not
+  `instanceof` (the app loads its own copy of the class).
+- **`pnpm --filter web test:chatbot` leaves four accounts behind** on the local database
+  (`chat-audit.*@traceesg.test`, deactivated): the audit log names them and cannot be cleaned. `test:chatbot`
+  also sets the local `chat_reader` password and replaces `fetch`, so no request reaches the real provider.
+- **An absolutely positioned child escapes an `overflow-x-auto` box that is not positioned** (an `sr-only` label in a
+  table header widened whole pages on phones). The global rule in `globals.css` now makes those boxes
+  `position: relative`; keep it.
+- **Git Bash rewrites arguments that look like paths** (`/admin/users` became a Windows path): prefix the command
+  with `MSYS_NO_PATHCONV=1`. `node --env-file` cannot be used with `next build` (it lands in `NODE_OPTIONS`); load
+  the file in a small wrapper instead.
+- **Chrome reports boxes for content inside a closed `<details>`** but no text, so a script that looks for
+  unnamed controls raises false alarms there.
+- **Raw palette text colours fail contrast and ignore the theme** (`dark:` never applies; themes are `data-theme`).
+  Use the status and text tokens; on a tinted surface use `text-foreground` (rule in `UI_NOTES.md`).
+- **Running the browser checks** (`test:a11y`, the UI screenshots): start the local stack without storage,
+  build with a local env file and `NEXT_DIST_DIR=.next-e2e`, `next start -p 3100`; afterwards delete
+  `apps/web/.next-e2e` (lint scans it and fails) and `git checkout apps/web/tsconfig.json`.
+- **`pnpm audit --prod --audit-level=high` is a CI gate now.** A new advisory fails the web job; an accepted one
+  goes under `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml` with its reason.
+- **`.next/dev` holds a development server's output, source maps included;** a production build's browser files
+  are in `.next/static` and have none. Check the right folder before reporting exposed maps.
+- **A production build made on this machine reads `apps/web/.env.production.local`** (hosted values). For a local
+  test, export local values first: real environment variables win over the file.
+- **The end-to-end suite needs the mail catcher:** starting the local stack with `-x mailpit` makes every script
+  fail at set-up ("The invite email could not be sent"). Keep `storage-api` and the mail catcher running.
+- **This machine has Python 3.12 on the PATH but no worker venv:** `E2E_PYTHON` can point at any Python with
+  `pypdfium2`, `pillow` and `numpy` for the suite's sample documents.
+- **A fresh-database check without touching the working one:** copy `supabase/` elsewhere, change `project_id`
+  in the copy's `config.toml`, `supabase start --workdir <copy>`, `supabase test db --workdir <copy>`,
+  `supabase stop --no-backup --workdir <copy>` (the working stack must be stopped: same ports).
+- **`supabase start` prints the local keys.** They are the CLI's fixed demo values, the same on every machine —
+  not secrets, but do not mistake them for the hosted ones.
+- **Signing out ends every session of that person** (all devices). A test that signs an account out must use an
+  account nothing else is signed in with.
+- **A unit test of helpers does not show a feature works.** The evidence bundle had 7 passing unit tests and
+  six queries against columns that do not exist; only a run against the database showed it.
+- **`nodemailer` has separate builds for `import` and `require`:** replacing `createTransport` on the required
+  copy does nothing to the app (a test then reached Brevo with fake credentials). Patch the `dist/esm` default.
+- **A session can be signed in and still not "active":** `password_change_required` (temporary password not
+  yet changed). Anything new that reads the session must treat every status but `active` as no access. A
+  test that creates an account through `users.invite` or bulk import must clear the mark or change the password.
+- **A file-tracing pattern with `[param]` in its route key matches nothing** (the brackets are read as a
+  character class): use `/api/trpc/*`. Check `<dist>/server/app/<route>/*.nft.json` after a build.
+- **Docker on Windows cannot read an `--env-file` given as a Git Bash path** (`/tmp/…` from `mktemp`): use a
+  `C:/…` path, and keep the settings until the new container is up — the old one's are gone once it is removed.
+- **`session.isAdmin` means Super Admin only.** An Administrator is `isOrgAdmin` with `adminOrgUnitIds`.
+  `adminProcedure` and `requireAdminSession` stay Super Admin only; a page or procedure opened to
+  Administrators uses `adminAreaProcedure` / `requireAdminAreaSession` and must check org scope itself
+  (`lib/auth/scope.ts`; the tree's own rules are `reach()` in `routers/organization.ts`).
+- **At most two people may hold the `admin` role** (migration `0050`). A fixture or script that adds one on
+  a database that already has two fails with 23514 "At most 2 Super Admins"; a database test sets the
+  existing holders aside first (see `phase2_smoke.test.sql`).
+- **A whole end-to-end run without the worker venv:** a throw-away venv with `pypdfium2 pillow numpy` as
+  `E2E_PYTHON`, the stack started with `-x studio,imgproxy,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor`,
+  a local env file as `E2E_ENV_FILE`, the app built and started on 3100 with those values exported. About
+  6 GB free was enough beside the hosted worker.
+- **Invitation tokens exist only in the email.** A test that needs one reads it from the local mail catcher:
+  the stack must run with Mailpit (its SMTP port is 55325 since 2026-10-13, `supabase/config.toml`) and the
+  app must be started with `EMAIL_SMTP_HOST=127.0.0.1` and `EMAIL_SMTP_PORT=55325` (loopback only by
+  design). `tests/e2e/invitations-sessions.mjs` needs both and a browser.
+- **A link's expiry cannot be changed, even by a test** (trigger, migration `0051`): to age one, run the
+  update in a transaction after `set local session_replication_role = replica`.
+- **Supabase Auth gives an account created without a password a random one** (a hash is stored); "no
+  password" cannot be tested by looking for an empty column.
+- **Every request asks `touch_session`** (migration `0052`): code in the working tree fails on a database
+  without it, the owner's dev server on hosted included. A script that signs in and then waits must not
+  expect activity from requests: only `reportActivity` (the page's heartbeat) moves the idle clock.
+- **The page keeps the session times the server last told it.** A test that moves the clock in the
+  database must make the tab look again (`document.dispatchEvent(new Event("visibilitychange"))`).
+- **Do not change a test account's password while the end-to-end suite runs**: each script sets its own
+  at set-up and signs in with it later.
+- **An open period past its deadline is closed by a job every five minutes (migration `0053`).** A fixture that
+  needs an open period gives it a far-off `submission_closes_on`, as `seed.sql` does. A local database from before
+  needs that date set before `migration up`.
+- **`clickCount` no longer selects text in this Puppeteer:** clear a field with Backspace. The security hook
+  refuses a new file containing Puppeteer's `$eval`; use `page.evaluate`.
+- **One signed-in session per account (migration `0055`).** A test that signs an account in a second time gets the
+  takeover question instead of a session: use `login(who, { takeover: true })` (`tests/e2e/lib.mjs`), and expect the
+  first session to be refused afterwards. A browser and a script sharing one account share cookies
+  (`signedIn(who, share)` in `feedback-2026-11.mjs`).
+- **The root `app/loading.tsx` (ui, 2026-11-07) streams every page:** a server `redirect()` arrives as a 200 page
+  holding `NEXT_REDIRECT;replace;<path>` instead of a 307. Tests check for either.
+- **`next start` keeps serving the build it started with:** after a rebuild, stop the old process (find it by its
+  `start -p 3100` command line) or the tests run against stale code.
+- **Do not point the app at the transaction pooler (port 6543).** Tested 2026-11-07 from this laptop: any query
+  queued behind a busy connection never returns (pipelining and type fetching off made no difference); the session
+  pooler (5432) is fine. The pages run queries in parallel, so the app hangs there. Recorded as a Phase 10 item in
+  `feature_enhancement.md`. The session pool on hosted is 15 clients; recommended 24 (60 max connections).
+- **Stopping the test app by command line kills the shell doing it:** a Bash command that filters processes on
+  `start -p 3100` matches its own command line. Stop it by port (`Get-NetTCPConnection -LocalPort 3100`) and check
+  the port is free before starting again — an old server left on 3100 serves stale code.
+- **Tables pick up a global first-column rule** (pinned, dark header cell): a small settings layout is better as a
+  grid of labelled fields than a table.
+- **`Get-NetTCPConnection -State Listen` can miss the test app on 3100** (Windows reported its socket as
+  "Closed"), so a stale `next start` kept answering and two runs tested old code. Stop it in PowerShell by command
+  line: `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | ? CommandLine -like '*next*start -p 3100*'`,
+  then check the new server's log says Ready.
+- **pdf.js on the server must stay out of the bundle** (`serverExternalPackages` in `next.config.ts`) and its
+  worker is imported by name (`lib/factors/source.ts`) so Vercel's file trace includes it; bundled, every PDF
+  read failed with "The file could not be read".
+- **A conversion factor version cannot be inserted active without an approver** (migration `0060`): fixtures
+  set `approved_by`, `approved_at` and `self_approved = true` (see `phase9_calculation.test.sql`); the e2e suite
+  uses `approveSyntheticFactor` in `tests/e2e/lib.mjs`.
+- **Run the e2e suite with `E2E_APP_URL` on the same host as the env file's `NEXT_PUBLIC_APP_URL`**
+  (`http://localhost:3100`). With `127.0.0.1` the emailed invitation links (localhost, IPv6) come from another
+  client address than the test's own requests, and the link-guessing limit check fails.
+- **`test:factors` used to leave soft-deleted `ISO_FACTOR_*` activities behind**, and three Scope 1 database
+  tests count deleted activities too; the test now deletes its activity outright (2026-11-09).
+- **A Python edit script turns `\b` into a backspace character** inside a normal (non-raw) string: a regex lost
+  its word boundaries that way. Write regexes with the Edit tool or a Node `String.raw`.
+- **The test app on 3100 reads `apps/web/.env.local` for anything the e2e env file lacks** (the NVIDIA key, for
+  one), so the AI button appears there; `ui-phase7.mjs` makes one real request on synthetic figures when it does.
+- **Phase 7 fixtures insert records and calculations directly** (`tests/e2e/analytics-fixture.mjs`) and remove
+  them with `session_replication_role = replica` in their own transaction; its dates work between Aug 2026 and
+  Jan 2027 (the scripts refuse to run outside that window).
+- **Scenario E's two split bills are created in one transaction** and share `created_at`; the script now orders
+  them by `document_bundle_parts.part_number` (it failed once on 2026-11-09 with the bills swapped).
+- **The accessibility suite runs axe over the page behind an open menu:** a link inside a sentence must be
+  underlined (link-in-text-block), and small header text must not be dimmed (the Special theme's header is
+  crimson; 80% opacity failed 4.5:1).
+- **The `secondary` button style fails contrast in the Corporate theme** (#222 on #ef102d, 3.6:1): do not use it
+  for a pressed or selected state.
+- **A landing-page screenshot taken after a fast scroll shows sections blank:** `BlurFade inView` reveals on
+  scroll, once. Scroll slowly (300 px, 150 ms) before a full-page capture or an axe run.
+- **pdf.js: destroy the loading task, not the document** (`task.destroy()`), in tests as in `lib/factors`.
+- **Two Supabase stacks do not fit beside the app and the suites in memory:** stop the test stack while the local
+  server runs. Background jobs were killed for low memory on 2026-11-09; a killed accessibility run left
+  `super_admin_limit` at 3 locally (restored to 2) -- check it if `super_admin_and_administrators.test.sql` fails.
+- **DevTools offline mode covers the page, not its service worker:** switch the worker's own network off through
+  its CDP session to test the offline page (`ui-phase9.mjs`).
+- **A restore of `public` into a Supabase stack:** load the sign-in accounts first (users.id references them) and
+  the `supabase_admin` default grants as `supabase_admin` (`local-server.cjs load`).
 - **Long commands:** anything over 10 minutes is moved to the background by the tool; the output file path is given.
+- **A second `next dev` with `NEXT_DIST_DIR` outside `.next-e2e` breaks Tailwind** (it scanned a git-ignored
+  `.next-hosted` folder and produced a class that 500s every page). Keep extra dist folders under `.next-e2e/`,
+  delete it afterwards, and restore `apps/web/tsconfig.json` — Next rewrites it every time (it was committed
+  rewritten once, in `e763572`).
+- **Signing in by script when the account is signed in elsewhere:** the login form shows the takeover question;
+  click the last "Sign out there and continue" button without retyping the password (clearing the field by
+  script breaks the form's state).
+- **Side panels remember their width per page in `localStorage`** (`sheet-width:…`, 2026-11-11). A browser test
+  that measures a panel's default width must clear that key or use a fresh browser context.
 
 ## 6. Quick commands
 

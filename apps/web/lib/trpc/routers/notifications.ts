@@ -19,6 +19,8 @@ export const NOTIFICATION_TYPES = {
   report_failed: "Report failed",
   deadline_approaching: "Deadline approaching",
   submission_reminder: "Submission reminder",
+  period_closed: "Period closed",
+  demo_request: "Demo request",
 } as const;
 
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;
@@ -43,7 +45,74 @@ type Row = {
   created_at: Date;
 };
 
+function toItem(r: Row): NotificationItem {
+  return {
+    id: r.id,
+    type: r.type,
+    title: r.title,
+    message: r.message,
+    deepLinkPath: r.deep_link_path,
+    isRead: r.is_read,
+    createdAt: r.created_at.toISOString(),
+  };
+}
+
+// PRD §32 "approaching deadline": written by the reminder schedule (lib/reminders, Phase 5), once a day by
+// Vercel Cron. The bell only reads.
+
+/**
+ * Unread notifications that have not popped up yet, claimed for this account in one step: another tab or
+ * device asking at the same moment waits on the row and then finds nothing (migration 0053).
+ */
+async function claimFresh(userId: string): Promise<{ total: number; items: NotificationItem[] }> {
+  const sql = db();
+  // Most checks find nothing: answer those without taking a lock or writing.
+  const [{ any }] = await sql<{ any: boolean }[]>`
+    select exists (
+      select 1 from public.notifications n join public.users u on u.id = n.user_id
+      where n.user_id = ${userId} and not n.is_read and n.created_at > u.notifications_seen_at
+    ) as any`;
+  if (!any) return { total: 0, items: [] };
+  return sql.begin(async (tx) => {
+    await tx`select 1 from public.users where id = ${userId} for update`;
+    const rows = await tx<Row[]>`
+      select n.id, n.type, n.title, n.message, n.deep_link_path, n.is_read, n.created_at
+      from public.notifications n join public.users u on u.id = n.user_id
+      where n.user_id = ${userId} and not n.is_read and n.created_at > u.notifications_seen_at
+      order by n.created_at desc`;
+    await tx`
+      update public.users
+      set notifications_seen_at = greatest(notifications_seen_at, (
+        select max(created_at) from public.notifications where user_id = ${userId}))
+      where id = ${userId}`;
+    return { total: rows.length, items: rows.slice(0, 3).map(toItem) };
+  });
+}
+
 export const notificationsRouter = router({
+  /**
+   * The bell's check: what `list` gives for its dropdown, plus what should pop up. `sweep` is still accepted
+   * from older pages but does nothing: deadline reminders come from the schedule (Phase 5).
+   */
+  poll: protectedProcedure
+    .input(z.object({ sweep: z.boolean().default(false) }))
+    .mutation(async ({ ctx }) => {
+      const sql = db();
+      const userId = ctx.session.userId;
+      const [rows, [unread], fresh] = await Promise.all([
+        sql<Row[]>`
+          select id, type, title, message, deep_link_path, is_read, created_at
+          from public.notifications where user_id = ${userId}
+          order by created_at desc limit 5`,
+        sql<{ has_unread: boolean }[]>`
+          select exists (
+            select 1 from public.notifications where user_id = ${userId} and not is_read
+          ) as has_unread`,
+        claimFresh(userId),
+      ]);
+      return { hasUnread: unread.has_unread, items: rows.map(toItem), fresh };
+    }),
+
   /** Newest first; `hasUnread` drives the bell's red dot (UI brief §14). */
   list: protectedProcedure
     .input(
@@ -55,21 +124,6 @@ export const notificationsRouter = router({
     .query(async ({ ctx, input }) => {
       const sql = db();
       const userId = ctx.session.userId;
-      // PRD §32 "approaching deadline": there is no scheduler, so the reminder is written the first time
-      // the user's bell loads within three days of an open period's closing date — once per period.
-      await sql`
-        insert into public.notifications
-          (user_id, type, title, message, related_entity_type, related_entity_id, deep_link_path)
-        select ${userId}, 'deadline_approaching', 'Submission deadline approaching',
-               p.label || ' closes for submissions on ' || to_char(p.submission_closes_on, 'DD Mon YYYY') || '.',
-               'reporting_period', p.id, ${ctx.session.isAdmin ? "/admin/submissions" : "/app/upload"}
-        from public.reporting_periods p
-        where p.status = 'open'
-          and p.submission_closes_on between current_date and current_date + 3
-          and not exists (
-            select 1 from public.notifications n
-            where n.user_id = ${userId} and n.type = 'deadline_approaching'
-              and n.related_entity_id = p.id)`;
       const [rows, [unread]] = await Promise.all([
         sql<Row[]>`
           select id, type, title, message, deep_link_path, is_read, created_at

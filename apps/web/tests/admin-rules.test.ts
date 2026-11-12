@@ -9,6 +9,8 @@ import {
   importOrder,
   isFrozen,
   mergeSharedRows,
+  misplaced,
+  structureProblem,
   reachableNodeIds,
   rootOf,
   treeOrder,
@@ -18,8 +20,13 @@ import {
 } from "../lib/org/rules.ts";
 import { parentsOf } from "../lib/bulk-import/xlsx.ts";
 import { PASSWORD_RULES } from "../lib/auth/password-policy.ts";
-import { checkPeriodDates, checkTransition } from "../lib/periods/rules.ts";
-import { checkAdminRemoval, checkRoleAtNode, generateDefaultPassword } from "../lib/users/rules.ts";
+import {
+  checkPeriodDates,
+  checkTransition,
+  defaultWindow,
+  uploadTiming,
+} from "../lib/periods/rules.ts";
+import { checkAdminRemoval, checkRoleAtNode, generateInitialPassword } from "../lib/users/rules.ts";
 
 // The seeded levels (migration 0037) plus one an Admin added between Region and Project.
 const LEVELS: OrgLevel[] = [
@@ -41,14 +48,11 @@ const tree: OrgNode[] = [
   { id: "dept-1", parentId: "site-1", unitType: "department", status: "active" },
   { id: "sub-b", parentId: "meil", unitType: "subsidiary", status: "inactive" },
   { id: "prj-y", parentId: "sub-b", unitType: "project", status: "active" },
+  { id: "bu-b", parentId: "sub-b", unitType: "business_unit", status: "active" },
 ];
 
 test("org ordering: skip levels, never invert, no second group", () => {
-  assert.equal(
-    canBeChildOf(LEVELS, "subsidiary", "project"),
-    true,
-    "skipping BU and Region is allowed",
-  );
+  assert.equal(canBeChildOf(LEVELS, "subsidiary", "region"), true, "skipping a level is allowed");
   assert.equal(canBeChildOf(LEVELS, "project", "department"), true);
   assert.equal(canBeChildOf(LEVELS, "project", "subsidiary"), false, "inversion rejected");
   assert.equal(canBeChildOf(LEVELS, "project", "project"), false, "same level rejected");
@@ -80,7 +84,7 @@ test("org descendants and freezing", () => {
 });
 
 test("org moves: cycles, root, ordering", () => {
-  assert.deepEqual(checkMove("prj-x", "sub-b", tree, LEVELS), { ok: true });
+  assert.deepEqual(checkMove("prj-x", "bu-b", tree, LEVELS), { ok: true });
   assert.equal(checkMove("meil", "sub-a", tree, LEVELS).ok, false, "root cannot move");
   assert.equal(
     checkMove("sub-a", "dept-1", tree, LEVELS).ok,
@@ -97,41 +101,28 @@ test("org moves: cycles, root, ordering", () => {
 });
 
 test("period transitions", () => {
-  assert.deepEqual(checkTransition({ from: "draft", to: "open", anotherPeriodOpen: false }), {
+  assert.deepEqual(checkTransition({ from: "draft", to: "open" }), {
     ok: true,
   });
-  assert.equal(checkTransition({ from: "draft", to: "open", anotherPeriodOpen: true }).ok, false);
-  assert.equal(
-    checkTransition({ from: "draft", to: "closed", anotherPeriodOpen: false }).ok,
-    false,
-  );
-  assert.deepEqual(checkTransition({ from: "open", to: "closed", anotherPeriodOpen: false }), {
+  // Several periods may be open at once (migration 0056).
+  assert.equal(checkTransition({ from: "draft", to: "open" }).ok, true);
+  assert.equal(checkTransition({ from: "draft", to: "closed" }).ok, false);
+  assert.deepEqual(checkTransition({ from: "open", to: "closed" }), {
     ok: true,
   });
-  assert.equal(
-    checkTransition({ from: "closed", to: "open", anotherPeriodOpen: false }).ok,
-    false,
-    "reopen needs a reason",
-  );
-  assert.equal(
-    checkTransition({ from: "closed", to: "open", anotherPeriodOpen: false, reason: "  " }).ok,
-    false,
-  );
+  assert.equal(checkTransition({ from: "closed", to: "open" }).ok, false, "reopen needs a reason");
+  assert.equal(checkTransition({ from: "closed", to: "open", reason: "  " }).ok, false);
   assert.deepEqual(
     checkTransition({
       from: "closed",
       to: "open",
-      anotherPeriodOpen: false,
       reason: "Late utility bill",
     }),
     { ok: true },
   );
-  assert.equal(
-    checkTransition({ from: "closed", to: "open", anotherPeriodOpen: true, reason: "x" }).ok,
-    false,
-  );
-  assert.equal(checkTransition({ from: "open", to: "draft", anotherPeriodOpen: false }).ok, false);
-  assert.equal(checkTransition({ from: "open", to: "open", anotherPeriodOpen: false }).ok, false);
+  assert.equal(checkTransition({ from: "closed", to: "open", reason: "x" }).ok, true);
+  assert.equal(checkTransition({ from: "open", to: "draft" }).ok, false);
+  assert.equal(checkTransition({ from: "open", to: "open" }).ok, false);
 });
 
 test("period dates and submission window", () => {
@@ -178,30 +169,23 @@ test("bulk import: reachable nodes and default passwords", () => {
     "overlapping assignments de-duplicate",
   );
 
-  assert.equal(
-    generateDefaultPassword("Ravi Kumar", "EMP1042", () => 0),
-    "Ravi@EMP1042",
-    "already 12 characters — no padding needed",
-  );
-  assert.equal(
-    generateDefaultPassword("ravi", "1", () => 0),
-    "Ravi@1000000",
-  );
-  assert.equal(
-    generateDefaultPassword("  ", "42", () => 0.9),
-    "User@4299999",
-    "an unusable name falls back to a fixed token",
-  );
-  assert.ok(generateDefaultPassword("A", "1").length >= 12, "always meets the 12-char minimum");
-  assert.equal(
-    generateDefaultPassword("A", "EMP", () => 0),
-    "A@EMPx700000",
-    "fills in a missing lowercase letter and digit when the name/id alone don't supply one",
-  );
+  // Initial passwords of bulk-created accounts: random, never derived from the person's details.
+  const passwords = Array.from({ length: 200 }, () => generateInitialPassword());
   assert.ok(
-    PASSWORD_RULES.every((rule) => rule.test(generateDefaultPassword("A", "EMP"))),
-    "the generated password always satisfies every policy rule, not just length",
+    passwords.every((p) => p.length === 16 && PASSWORD_RULES.every((rule) => rule.test(p))),
+    "every generated password is 16 characters and satisfies every policy rule",
   );
+  assert.equal(new Set(passwords).size, passwords.length, "no two generated passwords are alike");
+  assert.ok(
+    passwords.every((p) => !/[0O1lI]/.test(p)),
+    "look-alike characters are never used",
+  );
+  let calls = 0;
+  generateInitialPassword((max) => {
+    calls++;
+    return max - 1;
+  });
+  assert.ok(calls >= 16, "every character and every shuffle step draws from the random source");
 });
 
 test("admin role only at root; lockout guards", () => {
@@ -370,28 +354,54 @@ test("import order waits for every parent a row names, the extra ones too", () =
   );
 });
 
-test("a Parent code cell may name several parents, the first being where the unit is created", () => {
+test("a Parent code cell names any number of parents; spaces around a name never matter", () => {
   assert.deepEqual(parentsOf("SUB-A, SUB-B"), { parentCode: "SUB-A", alsoUnder: ["SUB-B"] });
-  assert.deepEqual(parentsOf(" SUB-A ; SUB-B,SUB-C "), {
+  assert.deepEqual(parentsOf("  SUB-A  ;SUB-B ,  SUB-C,SUB-D   "), {
     parentCode: "SUB-A",
-    alsoUnder: ["SUB-B", "SUB-C"],
+    alsoUnder: ["SUB-B", "SUB-C", "SUB-D"],
   });
   assert.deepEqual(parentsOf("SUB-A"), { parentCode: "SUB-A", alsoUnder: [] });
+  assert.deepEqual(parentsOf("SUB-A,, ,SUB-A"), { parentCode: "SUB-A", alsoUnder: [] });
   assert.deepEqual(parentsOf(""), { parentCode: "", alsoUnder: [] });
-  // One value picked from the template's list stays one parent, comma in the name or not.
-  assert.deepEqual(parentsOf("SUB-A — Megha, Engineering Ltd"), {
-    parentCode: "SUB-A",
+  // Names: one space, two or three, before or after — the same name.
+  assert.deepEqual(parentsOf("Olectra   Greentech  ,   EVEY   "), {
+    parentCode: "Olectra Greentech",
+    alsoUnder: ["EVEY"],
+  });
+  // A name that holds a comma is kept whole when such a unit exists, alone or in a list.
+  const names = ["Seetharampur plant, Telangana", "Olectra Greentech"];
+  assert.deepEqual(parentsOf("Seetharampur plant, Telangana", names), {
+    parentCode: "Seetharampur plant, Telangana",
     alsoUnder: [],
   });
-  // An existing unit with no code is named by its name, whatever the name holds.
-  assert.deepEqual(parentsOf("Seetharampur plant, Telangana", ["Seetharampur plant, Telangana"]), {
-    parentCode: "Seetharampur plant, Telangana",
+  assert.deepEqual(parentsOf("EVEY,  seetharampur  plant ,Telangana , Olectra Greentech", names), {
+    parentCode: "EVEY",
+    alsoUnder: ["seetharampur plant, Telangana", "Olectra Greentech"],
+  });
+  // Values picked from the template's list: "CODE — Name", the name's comma included.
+  assert.deepEqual(parentsOf("SUB-A — Megha, Engineering Ltd"), {
+    parentCode: "SUB-A",
     alsoUnder: [],
   });
   assert.deepEqual(parentsOf("SUB-A — First, SUB-B — Second"), {
     parentCode: "SUB-A",
     alsoUnder: ["SUB-B"],
   });
+  assert.deepEqual(parentsOf("SUB-A — First, SUB-B"), {
+    parentCode: "SUB-A",
+    alsoUnder: ["SUB-B"],
+  });
+});
+
+test("an org unit is found by code or name whatever the spaces and letter case", () => {
+  const units = [
+    { code: "OLECTRA", name: "Olectra Greentech" },
+    { code: null, name: "TGSRTC  Telangana" },
+  ];
+  assert.equal(unitByRef(units, "  olectra "), units[0]);
+  assert.equal(unitByRef(units, "Olectra   Greentech  "), units[0]);
+  assert.equal(unitByRef(units, " TGSRTC Telangana   "), units[1]);
+  assert.equal(unitByRef(units, "TGSRTC"), undefined);
 });
 
 test("a shared unit listed under each parent is read as one unit with all those parents", () => {
@@ -445,4 +455,87 @@ test("a shared unit listed under each parent is read as one unit with all those 
       [12, 11],
     ],
   );
+});
+
+test("period window: defaults, late uploads and where an upload stands (migration 0056)", () => {
+  assert.deepEqual(defaultWindow("2026-08-31"), {
+    closesOn: "2026-09-15",
+    lateUntil: "2026-10-15",
+  });
+  assert.deepEqual(defaultWindow("2026-12-31"), {
+    closesOn: "2027-01-15",
+    lateUntil: "2027-02-14",
+  });
+  const august = {
+    endDate: "2026-08-31",
+    submissionClosesOn: "2026-09-15",
+    lateUploadsUntil: "2026-10-15",
+  };
+  assert.equal(uploadTiming(august, "2026-09-15"), "on_time");
+  assert.equal(uploadTiming(august, "2026-09-16"), "late");
+  assert.equal(uploadTiming(august, "2026-10-15"), "late");
+  assert.equal(uploadTiming(august, "2026-10-16"), "closed");
+  // No late date: the period closes on its due date, as before.
+  assert.equal(uploadTiming({ ...august, lateUploadsUntil: null }, "2026-09-16"), "closed");
+  assert.equal(
+    checkPeriodDates({
+      startDate: "2026-08-01",
+      endDate: "2026-08-31",
+      submissionClosesOn: "2026-09-15",
+      lateUploadsUntil: "2026-09-14",
+    }).ok,
+    false,
+  );
+});
+
+test("MEIL structure: business units under one subsidiary, projects under business units", () => {
+  assert.equal(canBeChildOf(LEVELS, "subsidiary", "business_unit"), true);
+  assert.equal(
+    canBeChildOf(LEVELS, "group", "business_unit"),
+    false,
+    "not straight under the group",
+  );
+  assert.equal(
+    canBeChildOf(LEVELS, "subsidiary", "project"),
+    false,
+    "a project needs a business unit",
+  );
+  assert.equal(canBeChildOf(LEVELS, "group", "project"), false);
+  assert.equal(canBeChildOf(LEVELS, "business_unit", "project"), true);
+  assert.equal(
+    canBeChildOf(LEVELS, "region", "project"),
+    true,
+    "a level after business unit is fine",
+  );
+  assert.match(structureProblem(LEVELS, "subsidiary", "project") ?? "", /under a Business Unit/);
+  assert.deepEqual(allowedChildTypes(LEVELS, "subsidiary"), [
+    "business_unit",
+    "region",
+    "package",
+    "site",
+    "department",
+  ]);
+  // Without a business-unit level the rules have nothing to hold on to.
+  const plain = LEVELS.filter((l) => l.code !== "business_unit");
+  assert.equal(canBeChildOf(plain, "subsidiary", "project"), true);
+
+  const t: OrgNode[] = [
+    { id: "g", parentId: null, unitType: "group", status: "active" },
+    { id: "s1", parentId: "g", unitType: "subsidiary", status: "active" },
+    { id: "s2", parentId: "g", unitType: "subsidiary", status: "active" },
+    { id: "b1", parentId: "s1", unitType: "business_unit", status: "active" },
+    { id: "b2", parentId: "s2", unitType: "business_unit", status: "active" },
+    { id: "p", parentId: "b1", unitType: "project", status: "active" },
+    { id: "old", parentId: "s1", unitType: "project", status: "active" },
+  ];
+  const also = (node: string, parent: string) => checkAlsoUnder(node, parent, t, LEVELS);
+  assert.deepEqual(also("p", "b2"), { ok: true }, "a project shared by two business units");
+  assert.equal(also("b1", "s2").ok, false, "a business unit has one subsidiary");
+  assert.match((also("b1", "s2") as { reason: string }).reason, /one Subsidiary/);
+  assert.equal(also("p", "s2").ok, false, "a project is not shared with a subsidiary");
+  assert.deepEqual(checkMove("b1", "s2", t, LEVELS), { ok: true }, "moved to another subsidiary");
+  assert.equal(checkMove("b1", "g", t, LEVELS).ok, false);
+  assert.equal(misplaced(t[6], t, LEVELS) !== null, true, "placed before the rules");
+  assert.equal(misplaced(t[5], t, LEVELS), null);
+  assert.deepEqual(checkMove("old", "b2", t, LEVELS), { ok: true }, "and put right by a move");
 });

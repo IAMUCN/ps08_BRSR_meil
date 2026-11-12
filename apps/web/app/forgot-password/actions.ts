@@ -1,10 +1,12 @@
 "use server";
 
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import { ownPasswordMetadata } from "@/lib/auth/initial-password";
+import { accountActivated } from "@/lib/auth/invitations";
 import { AUTH_MESSAGES } from "@/lib/auth/messages";
 import { passwordMeetsPolicy, passwordPolicyMessage } from "@/lib/auth/password-policy";
 import { db } from "@/lib/db";
@@ -12,8 +14,9 @@ import { passwordResetOtpEmailHtml, sendEmail } from "@/lib/email/brevo";
 import { bucket, clientAddress, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-// OTP password reset (bulk-import-decisions.md), replacing Supabase Auth's own reset-link email for this
-// flow only — invite / first-password-set (/reset-password via /auth/confirm) is untouched.
+// OTP password reset (bulk-import-decisions.md), replacing Supabase Auth's own reset-link email. It is for
+// accounts already in use: one that was invited and never set up gets no code, because its invitation link
+// (which an administrator can revoke) is the only way to choose its first password.
 const OTP_EXPIRY_MINUTES = 10;
 
 export type ResetRequestState =
@@ -45,7 +48,7 @@ export async function requestPasswordReset(
   const [user] = await db()<{ id: string; display_name: string }[]>`
     select id, display_name from public.users
     where lower(email) = ${email} and is_active and deleted_at is null`;
-  if (user) {
+  if (user && (await accountActivated(user.id))) {
     const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
     const codeHash = createHash("sha256").update(code).digest("hex");
     await db().begin(async (tx) => {
@@ -57,7 +60,7 @@ export async function requestPasswordReset(
     });
     await sendEmail({
       to: { email, name: user.display_name },
-      subject: "Your TraceESG password reset code",
+      subject: "Your EmeilSG password reset code",
       html: passwordResetOtpEmailHtml({
         displayName: user.display_name,
         code,
@@ -97,22 +100,30 @@ export async function verifyOtpAndSetPassword(
 
   const [user] = await db()<{ id: string }[]>`
     select id from public.users where lower(email) = ${email} and is_active and deleted_at is null`;
-  if (!user) return { error: AUTH_MESSAGES.otpInvalid };
+  if (!user || !(await accountActivated(user.id))) return { error: AUTH_MESSAGES.otpInvalid };
 
-  const [otp] = await db()<{ id: string; code_hash: string; expires_at: Date; attempts: number }[]>`
-    select id, code_hash, expires_at, attempts from public.password_reset_otps
-    where user_id = ${user.id} and consumed_at is null
-    order by created_at desc limit 1`;
-  if (!otp || otp.expires_at < new Date() || otp.attempts >= limits.otp_max_attempts) {
-    return { error: AUTH_MESSAGES.otpInvalid };
-  }
-  if (createHash("sha256").update(code).digest("hex") !== otp.code_hash) {
-    await db()`update public.password_reset_otps set attempts = attempts + 1 where id = ${otp.id}`;
+  // Every guess, right or wrong, first takes one of the code's attempts in a single statement: requests
+  // sent side by side cannot all read the same count and slip past the limit.
+  const [otp] = await db()<{ id: string; code_hash: string }[]>`
+    update public.password_reset_otps set attempts = attempts + 1
+    where id = (select id from public.password_reset_otps
+                where user_id = ${user.id} and consumed_at is null
+                order by created_at desc limit 1)
+      and expires_at > now() and attempts < ${limits.otp_max_attempts}
+    returning id, code_hash`;
+  if (!otp) return { error: AUTH_MESSAGES.otpInvalid };
+  const given = createHash("sha256").update(code).digest();
+  const stored = Buffer.from(otp.code_hash, "hex");
+  if (given.length !== stored.length || !timingSafeEqual(given, stored)) {
     return { error: AUTH_MESSAGES.otpInvalid };
   }
 
   const auth = createSupabaseAdminClient().auth.admin;
-  const { error: updateError } = await auth.updateUserById(user.id, { password });
+  const { error: updateError } = await auth.updateUserById(user.id, {
+    password,
+    // A password chosen with an emailed code is the person's own: no change is asked at sign-in.
+    app_metadata: ownPasswordMetadata,
+  });
   if (updateError) {
     return {
       error:

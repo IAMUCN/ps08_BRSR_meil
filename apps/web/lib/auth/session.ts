@@ -3,7 +3,9 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ADMIN_ROLE } from "@/lib/auth/redirects";
+import { mustChangePassword } from "@/lib/auth/initial-password";
+import { ADMIN_ROLE, ORG_ADMIN_ROLE } from "@/lib/auth/redirects";
+import { currentSessionId, touchSession } from "@/lib/auth/session-limits";
 import { DEFAULT_THEME, isTheme, type ThemeId } from "@/lib/theme";
 
 // Data Access Layer (Next.js 16 authentication guide): the authoritative per-request session check.
@@ -22,7 +24,12 @@ export type ActiveSession = {
   email: string;
   displayName: string;
   theme: ThemeId;
+  /** Super Admin: every org unit and the group-wide configuration. */
   isAdmin: boolean;
+  /** Administrator of the org units in `adminOrgUnitIds` and everything beneath them. */
+  isOrgAdmin: boolean;
+  /** Where the Administrator role is held; empty for everyone else, the Super Admin included. */
+  adminOrgUnitIds: string[];
   roleCodes: string[];
   permissions: string[];
   assignments: SessionAssignment[];
@@ -30,8 +37,12 @@ export type ActiveSession = {
 
 export type SessionResult =
   | { status: "anonymous" }
+  // Signed in, but the sign-in ran past its idle or absolute time limit (migration 0052).
+  | { status: "expired" }
   | { status: "deactivated" }
   | { status: "unprovisioned" }
+  // Signed in with the emailed temporary password: nothing is open until they choose their own.
+  | { status: "password_change_required"; email: string }
   | { status: "active"; session: ActiveSession };
 
 /** Why a signed-in user is being turned away; mirrors the /auth/signout `reason` values. */
@@ -64,6 +75,11 @@ export async function resolveSession(supabase: SupabaseClient): Promise<SessionR
   if (profileError) throw profileError;
   if (!profile) return { status: "unprovisioned" };
   if (!profile.is_active) return { status: "deactivated" };
+  // Every request is checked against the time limits. A request by itself is not activity: only what the
+  // person does on the page moves the idle clock (lib/auth/session-actions.ts).
+  const clock = await touchSession(await currentSessionId(supabase), user.id, false);
+  if (clock.state !== "active") return { status: "expired" };
+  if (mustChangePassword(user)) return { status: "password_change_required", email: profile.email };
 
   const { data: assignmentRows, error: assignmentError } = await supabase
     .from("user_org_assignments")
@@ -113,6 +129,10 @@ export async function resolveSession(supabase: SupabaseClient): Promise<SessionR
       displayName: profile.display_name,
       theme: isTheme(profile.theme) ? profile.theme : DEFAULT_THEME,
       isAdmin: roleCodes.includes(ADMIN_ROLE),
+      isOrgAdmin: roleCodes.includes(ORG_ADMIN_ROLE),
+      adminOrgUnitIds: assignments
+        .filter((a) => a.roleCode === ORG_ADMIN_ROLE)
+        .map((a) => a.orgUnitId),
       roleCodes,
       permissions,
       assignments,
@@ -126,25 +146,35 @@ export const getSessionContext = cache(async (): Promise<SessionResult> => {
   return resolveSession(supabase);
 });
 
-/** Active session or redirect: anonymous → /login; deactivated/unprovisioned → forced sign-out. */
+/** Active session or redirect: anonymous → /login; expired, deactivated or unprovisioned → forced sign-out. */
 export async function requireActiveSession(): Promise<ActiveSession> {
   const result = await getSessionContext();
   if (result.status === "anonymous") redirect("/login");
+  // A Server Component cannot clear cookies: the sign-out route ends the sign-in and shows the reason.
+  if (result.status === "expired") redirect("/auth/signout?reason=expired");
+  if (result.status === "password_change_required") redirect("/login");
   if (result.status !== "active") redirect(`/auth/signout?reason=${result.status}`);
   return result.session;
 }
 
-/** §4.4: non-admins reaching /admin are sent to their own dashboard with a notice. */
-export async function requireAdminSession(): Promise<ActiveSession> {
+/**
+ * The /admin area: a Super Admin or an Administrator. Each page built on this must keep what it shows
+ * inside the caller's org scope (lib/auth/scope.ts). §4.4: anyone else goes to their own dashboard.
+ */
+export async function requireAdminAreaSession(): Promise<ActiveSession> {
   const session = await requireActiveSession();
-  if (!session.isAdmin) redirect("/app?notice=forbidden");
+  if (!session.isAdmin && !session.isOrgAdmin) redirect("/app?notice=forbidden");
   return session;
 }
 
-/** /app is for non-admin roles; an Admin with no other role is sent to /admin. */
-export async function requireAppSession(): Promise<ActiveSession> {
-  const session = await requireActiveSession();
-  const hasNonAdminRole = session.roleCodes.some((code) => code !== ADMIN_ROLE);
-  if (session.isAdmin && !hasNonAdminRole) redirect("/admin?notice=forbidden");
+/** Group-wide configuration pages: Super Admin only. An Administrator is sent back to their dashboard. */
+export async function requireAdminSession(): Promise<ActiveSession> {
+  const session = await requireAdminAreaSession();
+  if (!session.isAdmin) redirect("/admin?notice=forbidden");
   return session;
+}
+
+/** /app is open to every active user; an administrator uploads and verifies there too. */
+export async function requireAppSession(): Promise<ActiveSession> {
+  return requireActiveSession();
 }

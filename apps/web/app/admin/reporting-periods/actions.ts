@@ -9,6 +9,7 @@ export async function createPeriodAction(input: {
   endDate: string;
   submissionOpensOn: string;
   submissionClosesOn: string;
+  lateUploadsUntil: string;
 }) {
   return runAction((api) => api.reportingPeriods.create(input));
 }
@@ -17,6 +18,7 @@ export async function updatePeriodWindowAction(input: {
   id: string;
   submissionOpensOn: string;
   submissionClosesOn: string;
+  lateUploadsUntil: string;
 }) {
   return runAction((api) => api.reportingPeriods.updateWindow(input));
 }
@@ -26,6 +28,7 @@ export async function transitionPeriodAction(input: {
   to: "open" | "closed";
   reason?: string;
   acknowledgeUnresolved?: boolean;
+  newClosesOn?: string;
 }) {
   return runAction((api) => api.reportingPeriods.transition(input));
 }

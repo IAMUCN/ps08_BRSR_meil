@@ -26,6 +26,9 @@ export function FieldRow({
   validation,
   disabled,
   onChange,
+  selected = false,
+  onSelect,
+  diagnostic = null,
 }: {
   field: VerifyField;
   entry: FieldEntry;
@@ -35,6 +38,12 @@ export function FieldRow({
   validation?: { outcome: "fail" | "flagged"; message: string } | null;
   disabled: boolean;
   onChange: (next: FieldEntry) => void;
+  /** Phase 3 grid: this row's value is boxed on the document. */
+  selected?: boolean;
+  /** Called when the person picks this row, to box its source on the document. */
+  onSelect?: () => void;
+  /** Why OCR did not read this field (e.g. the photo was unreadable), from the worker. */
+  diagnostic?: string | null;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(entry.value);
@@ -56,12 +65,17 @@ export function FieldRow({
 
   return (
     <li
+      // Picking a row (or focusing its value) boxes where it was read on the document (Phase 3).
+      onClickCapture={onSelect}
+      onFocusCapture={onSelect}
+      data-selected={selected || undefined}
+      data-field-key={field.key}
       className={cn(
         "border-l-2 px-4 py-3",
-        flagged && !resolved
-          ? "border-l-status-warning bg-status-warning/5"
-          : "border-l-transparent",
+        // Phase 3: low confidence not yet dealt with is red, like a flagged spreadsheet cell.
+        flagged && !resolved ? "border-l-status-error bg-status-error/5" : "border-l-transparent",
         error ? "border-l-status-error bg-status-error/5" : "",
+        selected && "ring-2 ring-primary/50 ring-inset",
       )}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -169,6 +183,15 @@ export function FieldRow({
           <span className="rounded-sm border border-border px-1.5 text-[11px] leading-4 text-muted-foreground uppercase">
             Not from OCR
           </span>
+        ) : null}
+        {!missing && changed ? (
+          // Both values stay on record (ocr_fields.extracted_value and verified_value).
+          <span className="text-xs leading-4 text-muted-foreground">
+            OCR read: <span className="font-mono">{field.extractedValue}</span>
+          </span>
+        ) : null}
+        {missing && diagnostic ? (
+          <p className="w-full text-xs leading-4 text-muted-foreground">{diagnostic}</p>
         ) : null}
         {field.critical ? (
           <span className="rounded-sm border border-status-warning/50 px-1.5 text-[11px] leading-4 text-muted-foreground uppercase">

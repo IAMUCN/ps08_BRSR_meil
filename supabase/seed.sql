@@ -21,8 +21,10 @@ select id, 'site', 'Project X Site 1', 'PRJ-X-S1'
 from project;
 
 -- One open monthly reporting period (uploads are blocked unless a period is open)
-insert into public.reporting_periods (label, period_type, start_date, end_date, status, opened_at)
-values ('September 2026', 'monthly', '2026-09-01', '2026-09-30', 'open', now());
+-- Its close date is far off: an open period past its deadline is closed by the job in migration 0053.
+insert into public.reporting_periods
+  (label, period_type, start_date, end_date, submission_closes_on, status, opened_at)
+values ('September 2026', 'monthly', '2026-09-01', '2026-09-30', '2099-12-31', 'open', now());
 
 -- A second project with nothing submitted, so "projects with missing submissions" has something to show.
 insert into public.org_units (parent_id, unit_type, name, code)

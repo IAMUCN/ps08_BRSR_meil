@@ -30,6 +30,8 @@ const ICONS: Record<string, { icon: LucideIcon; className: string }> = {
   calculation_blocked: { icon: Calculator, className: "text-status-warning" },
   report_ready: { icon: FileText, className: "text-status-success" },
   report_failed: { icon: FileX, className: "text-status-error" },
+  deadline_approaching: { icon: AlertTriangle, className: "text-status-warning" },
+  period_closed: { icon: AlertTriangle, className: "text-status-warning" },
 };
 
 const relative = new Intl.RelativeTimeFormat("en-IN", { numeric: "auto" });

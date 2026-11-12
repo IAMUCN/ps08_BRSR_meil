@@ -2,6 +2,7 @@ import "server-only";
 import postgres from "postgres";
 import type { ActiveSession } from "@/lib/auth/session";
 import { loadMetrics } from "@/lib/consolidation/query";
+import { poolSettings } from "@/lib/pooler-url";
 import { db } from "@/lib/db";
 import type { Period } from "./analysis";
 import { readConfig } from "./nim";
@@ -15,12 +16,12 @@ import type { AdminData, CalculationRow, DataLayer, OrgUnit, Person, RecordRow }
 /** The chatbot's settings from the environment; null when it is not set up, and it is then switched off. */
 export const chatConfig = () => readConfig(process.env);
 
-const globalForChat = globalThis as unknown as { traceEsgChatSql?: postgres.Sql };
+const globalForChat = globalThis as unknown as { emeilSgChatSql?: postgres.Sql };
 
 function reader(url: string): postgres.Sql {
   // Cached on globalThis like the main pool (lib/db.ts); prepare: false for Supabase's pooler.
-  globalForChat.traceEsgChatSql ??= postgres(url, { prepare: false, max: 3 });
-  return globalForChat.traceEsgChatSql;
+  globalForChat.emeilSgChatSql ??= postgres(url, { prepare: false, ...poolSettings(2) });
+  return globalForChat.emeilSgChatSql;
 }
 
 const NONE = ["00000000-0000-0000-0000-000000000000"];

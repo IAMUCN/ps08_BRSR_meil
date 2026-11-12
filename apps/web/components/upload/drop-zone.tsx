@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Upload, X } from "lucide-react";
+import { Camera, FileText, Upload, X } from "lucide-react";
 import { useId, useRef, useState, type DragEvent } from "react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,9 @@ export function DropZone({
   disabled: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  // Phones: a photo straight from the back camera (feature_enhancement.md 9.2). Only when images are accepted.
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const takesImages = accept.includes("image/");
   const [dragActive, setDragActive] = useState(false);
   const hintId = useId();
   const errorId = useId();
@@ -138,6 +141,35 @@ export function DropZone({
             >
               {file ? "Choose a different file" : "Browse files"}
             </Button>
+            {takesImages ? (
+              // Touch screens only: elsewhere a camera input opens a file dialog, which Browse already does.
+              <Button
+                type="button"
+                variant="outline"
+                disabled={disabled}
+                onClick={() => cameraRef.current?.click()}
+                className="hidden [@media(pointer:coarse)]:inline-flex"
+              >
+                <Camera aria-hidden />
+                Take a photo
+              </Button>
+            ) : null}
+            {takesImages ? (
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden
+                onChange={(event) => {
+                  const picked = event.target.files?.[0];
+                  if (picked) onFile(picked);
+                  event.target.value = "";
+                }}
+              />
+            ) : null}
             <input
               ref={inputRef}
               type="file"

@@ -4,9 +4,16 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-11 — org units under several parents, several groups, delete, and chat pane feedback (committed `db4f66b`, on `ucn` `main`; migration `0044` on hosted since 2026-10-11); reports for a custom period, and the chatbot's Admin-only lookups and report-page link (committed, merged with `main`; migration `0043` on hosted); hosted cleared and given MEIL's Admin inputs, two sets of test data generated (uncommitted); the ESG data analyst chatbot is committed on branch `feature-chat-analyst` (`67700f8`, not pushed); migration `0042` is on hosted (2026-10-11), the read-only role has no password there yet. Before that: Phases 1–20 and audit fixes P0-2 to P3 committed and pushed on branch `feature` (pull request #2 open, not
-merged); the second audit's follow-up work (migrations `0038`–`0039`, fuller report with SDG tags, 28 sourced factors on local) is committed locally, not
-pushed; migrations `0038`–`0039` are on hosted (2026-10-09), the factors and demo data are not; Phase 21 (deployment) comes after, hosting to be decided by the owner._
+_Last updated: 2026-10-13 — stages 1–3 of the scoped-administrator work (Super Admins and Administrators,
+invitation links, session time limits; migrations `0050`–`0052`) are done locally, uncommitted and not on
+hosted. Before that:_
+
+_2026-10-12 — the app is renamed EmeilSG; the 2026-10-12 audits and their fixes are merged to `main`;
+invites email a temporary password that must be changed at first sign-in; a role can upload on behalf of another
+(migration `0049`, branch `feature-employee-uploads`, not merged); test data set 1 follows the hierarchy in the web
+app and was run through hosted for August (66 records, 57 approved). Hosted has every migration, `0001`–`0049` (caught up 2026-10-12). A Vercel deployment check is in
+`DEPLOYMENT.md`. Phase 21 (deployment) is still to come, hosting to be decided by
+the owner. `CONTEXT.md` has the detail of what is committed where._
 
 ---
 
@@ -36,12 +43,12 @@ Big rules that shape everything:
 | `apps/web/` | Next.js 16 app (UI + tRPC server) |
 | `apps/ocr-worker/` | Python 3.12 PaddleOCR worker — job polling, OCR, rule-based field extraction, test harness |
 | `packages/shared-types/` | Shared TypeScript types |
-| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format, the chatbot, custom-period reports, shared org units (`0001`–`0045`, all pushed to hosted) |
+| `supabase/migrations/` | Database schema, RLS, seed reference data, evidence bucket, OCR field requirements, OCR threshold, validation rules, calculation formulas, Scope 1 fuels, Scope 2 electricity, Scope 3 categories, role modules, BRSR mapping, consolidation views, submission expectations, reports, append-only audit log and rate limits, user theme, bulk import, password-reset OTP, default theme, multi-bill PDFs, July-2023 BRSR indicator codes, hierarchy rules, Scope 1 and 3 activities, calculation guard and audit context, hierarchy levels, the full BRSR format, the chatbot, custom-period reports, shared org units, carbon credits, data-isolation rules, role defaults, a role uploading for another (`0001`–`0049`, all on hosted) |
 | `supabase/tests/database/` | pgTAP database tests (also run in CI) |
 | `apps/web/tests/e2e/` | End-to-end suite: Scenarios A–F, authorization, edge cases (`pnpm --filter web test:e2e`) |
 | `QA_CHECKLIST.md` | Phase 20 checklist: every edge case and testing category with its result |
-| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D36) |
-| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A35) |
+| `supabase/SCHEMA_DEVIATIONS.md` | Every intentional difference from `05_BACKEND_SCHEMA.md` (D1–D43) |
+| `apps/web/APP_FLOW_DEVIATIONS.md` | Every intentional difference from `03_APP_FLOW.md` / UI brief (A1–A39) |
 | `SECURITY_REVIEW.md` | The Phase 18 security review: findings, fixes, accepted risks and deployment actions |
 | `ASSURANCE.md` | How the system supports assurance on BRSR Core KPIs: controls, KPI-by-KPI status, an assurer's walkthrough |
 | `render.yaml` | Render Blueprint for the OCR worker (background worker, Docker). **The owner does not use Render** — kept only as a reference for the worker's settings until the host is chosen |
@@ -85,6 +92,24 @@ may run in parallel with Phases 3–5.
 | — | Full BRSR format in the report: 146 questions, typed disclosures, all 17 SDGs (migration `0040`); owner's page feedback | Done, **uncommitted**; `0040` on hosted | — |
 | — | ESG data analyst chatbot: read-only tools, NVIDIA NIM, saved conversations (migration `0042`) | Done, on branch `feature-chat-analyst` (not pushed); `0042` on hosted | `67700f8` |
 | — | Org units under several parents, several groups, delete; chat pane feedback (migration `0044`) | Done, on `ucn` `main`; `0044` on hosted | `db4f66b` |
+| — | Audits of 2026-10-12 (security, database, chatbot, privacy, UI, accessibility, dependencies) and their fixes (migration `0047`) | Done, on `main` | `d4e214c` |
+| — | Renamed to EmeilSG, new logo | Done, on `main` | `7eb48cd` |
+| — | Invite by emailed temporary password, forced change at first sign-in, user delete, show-password | Done, on `main` | `7fb16ff` |
+| — | Expected submissions shown on the parent, role defaults (migration `0048`), Edit role | Done, on `main` | `e1586f3` |
+| — | A role uploads on behalf of another (migration `0049`); test data set 1 on the app's hierarchy; August run on hosted | Done, on branch `feature-employee-uploads` | `e3805f7` |
+| — | Report PDFs on Vercel (headless shell) and a small connection pool there | Done, on `main` | `fe93b23` |
+| — | Stage 1 of 6: Super Admins and scoped Administrators (migration `0050`) | Done on branch `feature-scoped-admins`, **uncommitted, not on hosted** | — |
+| — | Stages 2 and 3 of 6: invitation links (migration `0051`) and session time limits (migration `0052`) | Done in the same working tree, **uncommitted, not on hosted** | — |
+| — | Feature roadmap (`feature_enhancement.md`) Phase 0 audit and Phase 1: one session per account (migration `0055`), permission names, show/hide password, security re-check | Done on branch `feature-session-takeover-security`, **uncommitted; `0055` local only** | — |
+| — | Feature roadmap Phase 2: several open periods, late uploads, duplicate rules, bill number, monitoring filters, stage tracker, approval list (migration `0056`) | Done, **uncommitted**; `0056` on hosted (2026-11-08) | — |
+| — | Feature roadmap Phase 3: billing-period fix (rules-14), document-kind check, one monitoring page, field grid with source boxes, electricity bill number (migration `0057`) | Done, **uncommitted**; `0057` and the rules-14 worker on hosted (2026-11-08) | — |
+| — | Feature roadmap Phase 4: forwarding reports for verification (migration `0058`), scoped audit trail, search, My Activity | Done, **uncommitted**; `0058` on hosted (2026-11-08) | — |
+| — | Feature roadmap Phase 5: deadline reminders on a schedule, Administrators' summaries, sent log, daily Vercel Cron (migration `0059`) | Done, **uncommitted**; `0059` on hosted (2026-11-08) | — |
+| — | Feature roadmap Phase 6: factor sources and fetching from official sites, factor approval, yearly review, carbon-credit links (migration `0060`) | Done, **uncommitted**; `0060` on hosted (2026-11-09) | — |
+| — | Feature roadmap Phase 7: Carbon Analytics — year-wise trends, suggested actions, emission threshold alerts (migration `0061`) | Done, **uncommitted**; `0061` on hosted (2026-11-09) | — |
+| — | Feature roadmap Phase 8: four report templates (GHG also as Excel), top-bar search, Scope Table / Chart, Ask button, landing fixes (migration `0062`) | Done, **uncommitted**; `0062` on hosted (2026-11-09) | — |
+| — | Feature roadmap Phase 9: phone navigation, tap cursor, installable app | Done, **uncommitted**; no migration | — |
+| — | Feature roadmap Phase 10: Help, production database runbook, release checklist, hosted reset and the local database server | Done, **uncommitted**; hosted reset 2026-11-09 | — |
 | 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
 
 ### What each finished phase delivered
@@ -749,7 +774,170 @@ real procedures on the local database. Not run: a browser view, the real model, 
 Migration `0044` was pushed to hosted on 2026-10-11 and checked there.
 The test data was also regenerated with a mix of single PDFs, images and multi-bill PDFs (`9ba9081`).
 
+**Work of 2026-10-12.** Reports and decisions are named in each line; `CONTEXT.md` §1 has the test results.
+- **Seven audits and their fixes** (`FINAL_VERIFICATION_2026-10-12.md` is the place to start; one report per
+  audit beside it): org scope enforced in five routers that read through the app's own connection, the evidence
+  bundle rewritten against the real schema, random bulk-import passwords, HttpOnly session cookies, database
+  rules for ownership and the carbon ledger (migration `0047`, D38), contact details kept from the AI service,
+  a skip link and contrast fixes, advisories in what ships down from 14 to 2. Open: 2 Medium, 18 Low, hosting,
+  legal documents, a human accessibility pass.
+- **The app is called EmeilSG**, with a new logo in the browser icon and the landing and sign-in headers
+  (`UI_NOTES.md`). The hosted Supabase email templates and the documents still say TraceESG.
+- **Invite user emails a temporary password** through the app's SMTP sender, as bulk import does, and **the
+  first sign-in must change it** (`.grill/invite-smtp-decisions.md`, A36). Deleting a user refuses only for
+  real work on record and says what stands in the way. The sign-in password field has a show/hide button.
+- **Expected submissions of the units below show on the parent** (read from the hierarchy, not stored).
+  **Role defaults reviewed** (`.grill/role-permissions-decisions.md`, migration `0048`, D39): Corporate ESG
+  gains review of flagged values and report generation. **Edit role** on Roles & Permissions.
+- **A role can upload on behalf of another** (`.grill/employee-uploads-decisions.md`, migration `0049`, D40):
+  the owner's Employee role files a project's bills for its Project Manager.
+- **Test data set 1 follows the hierarchy in the web app** and was run through hosted for August 2026 as 21
+  labelled test accounts: 57 files, 66 records over all 47 activities, 57 approved, 9 waiting for a factor.
+
+**Super Admins and scoped Administrators (2026-10-13, stage 1 of 6).** Decisions:
+`.grill/scoped-admin-onboarding-decisions.md`; D41, A37. Until now every Admin could do everything and
+nothing limited how many there were. The `admin` role is now the Super Admin — group-wide configuration and
+every org unit, at most two people, enforced by the database. A new role, Administrator, is assigned at any
+org unit and administers that unit and everything beneath it: people, the hierarchy, the queues, Scope
+1/2/3, the Data Explorer, reports and uploads. Roles are handed out downwards only; an account is changed
+only by someone who administers every role it holds. Administrators upload any activity; nobody but a
+Super Admin approves their own record, and that is marked in the audit trail. Checks: web unit 204/204,
+database 336/336, cross-project procedures 264 passed, end-to-end 344/344 and a new script 77/77, lint,
+typecheck, format, build, eight screens in Edge. Not run: chatbot and accessibility suites, phone widths,
+anything on hosted.
+
+**Invitation links and session time limits (2026-10-13, stages 2 and 3 of 6).** Decisions:
+`.grill/scoped-admin-onboarding-decisions.md`; D42, D43, A38, A39.
+- **No password is emailed any more.** Invite user and bulk import create the account and email a link.
+  The link carries a random token after the `#`, so it reaches no server log; only its hash is stored; it
+  works once and for 24 hours. Opening it changes nothing. The person chooses a password on the new
+  `/invite` page, which sets it and uses the link up in one transaction, then sends them to sign in. Resend
+  invitation replaces the link, Revoke link cancels it, and both follow the scope rules of stage 1. One
+  message covers every link that is no good. Forgot-password sends no code to an account never set up.
+- **Sessions end by themselves**: after 3 hours without activity and 12 hours after sign-in, both
+  settings, enforced by the app on every request from a clock it keeps per sign-in. Only what the person
+  does on the page counts; the notification bell and refreshing lists do not. A notice appears five minutes
+  before the end, and an open page leaves for sign-in when the session has ended and returns to the same
+  page afterwards. Only that device is signed out.
+- Also: the local mail catcher now receives the app's own email (loopback only), so a test can read a real
+  link; the accessibility suite runs beside two Super Admins; one small target on the Audit Trail was
+  made 24px high.
+- Checks: web unit 210/210, database 367/367, end-to-end 519/519 over eleven scripts on the built app
+  (the new script is 98 of them), cross-project procedures 264 passed, chatbot 49/49, accessibility 188
+  passed / 0 failed / 2 known open, lint, typecheck, format, production build, the new screens in Edge at
+  1440 and 390px. Not run: a real email through Brevo, anything on hosted, a real three-hour wait.
+
+**Owner's feedback (2026-11-01).** Decisions: `.grill/org-tree-users-notifications-periods-decisions.md`; D44, A40.
+Periods close by themselves at their submissions close date (migration `0053`, a job every five minutes); a closed
+period takes no new documents but what was uploaded finishes review. Invited people's name and email can be corrected.
+Role codes give clear messages, and every form now shows a validator's words instead of its raw JSON. Notifications
+pop up within 5 seconds while the tab is visible, once per account. Submission Monitoring, the Data Explorer and
+Expected Submissions choose units from one tree. Test results: `CONTEXT.md`.
+
+**Feature roadmap, Phase 0 and Phase 1 (2026-11-07).** `PS_Documents/implementation_docs/feature_enhancement.md`
+(40 requirements, status in its Appendix A), audit `FEATURE_ENHANCEMENT_AUDIT_2026-11-07.md`, decisions
+`.grill/feature-enhancement-roadmap-decisions.md`; D45, A41. One signed-in session per account: a second device is
+asked first and, on confirmation, ends the other sign-in (revoked in Supabase Auth too, audited with both devices);
+the other device is told why and when; a Super Admin's takeover is emailed to them (migration `0055`, requirements
+18 and 32). The 20 approved permission names on Roles & Permissions (13); show/hide on forgot-password,
+reset-password and Profile (11); a re-check of the code written since the October audits (20): one Low fixed, three
+Low recorded. Checks: web unit 238/238, database 408/408, end-to-end 10 of 11 scripts in full (sessions 112/112,
+authorization 42/42, audit-regression 110/110, scoped-admin 77/77, scenarios A–F, edge cases), feedback-2026-11
+85/85 before an Add ID step that also fails without these changes, cross-project 264 passed, production build,
+lint, typecheck. Not on hosted.
+
+**Feature roadmap, Phase 2 (2026-11-08).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 2
+decisions"); D46, A42. Several reporting periods may be open at once and the uploader picks one; each has a due
+date and a "late uploads until" date (defaults +15 / +45 days); a late upload is marked and flagged for review, and
+a unit's Administrator may accept it. Duplicates: an identical file and the same bill (bill number + billing period +
+activity, any unit or period) are Validation Queue flags naming the earlier record; a corrected re-upload is a new
+version. The confirmed bill number is kept on the record and searched. Submission Monitoring and the Data Explorer
+filter by Activity and Document type; the record panel has a stage tracker, Admin document-type correction and
+"return as wrong activity"; the approval list has bill previews and row Approve / Return; downloads get readable
+names. Checks: web unit 243, database 425/425, end-to-end 12 of 13 scripts in full (623 checks, the new
+`phase2-lifecycle.mjs` 45/45; feedback-2026-11 stops at the old Add ID refresh step), browser `ui-phase2.mjs` 13/13
+in Edge, typecheck, lint, production build. Not on hosted. Findings: Grid Electricity captures no bill number; every
+activity has one document type.
+
+**Feature roadmap, Phase 3 (2026-11-08).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 3
+decisions"); D47, A43. The missing billing period on photographed TPCODL bills was traced on hosted (the present
+reading's date runs into the reading, "PRES:7591.1201-04-2026") and fixed in OCR `rules-14` at a capped confidence;
+a missing period now says why. OCR checks every document type and flags a clear mismatch with the chosen activity.
+OCR Monitoring is part of Submission Monitoring (OCR column, filter, stalled-worker warning, Retry in the record
+panel). Verify Extraction boxes each value on the document and keeps both in step; unresolved low-confidence values
+are red; the values download as Excel. Grid Electricity records its bill number (migration `0057`). Handwriting
+(conductor-written bus tickets) waits for sample photos. Checks: worker unit 53/53 and Ruff, web unit 244, database
+425/425, end-to-end 13 of 14 scripts in full with the rules-14 image (601 checks, `phase3-ocr.mjs` 22/22; feedback-2026-11 stops at the old Add ID step), browser `ui-phase3.mjs` 8/8, typecheck, lint, build.
+
+**Feature roadmap, Phase 4 (2026-11-08).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 4
+decisions"); D48, A44. A ready report is forwarded for verification to the Administrators of the next unit up (or
+the Super Admins at the top), who verify it, optionally sending it on, or return it with a reason; every step is
+audited and notified and the report shows its trail; nobody verifies a report they generated or forwarded. The audit
+log is open to everyone, scoped by what an entry is about: own entries for all (My Activity), plus an
+Administrator's units; search bar, role filter and roles shown. Checks: web unit 250, database 432/432,
+end-to-end 14 of 15 scripts in full (637 checks, `phase4-forwarding-audit.mjs` 36/36; feedback-2026-11 stops at the old Add ID step), browser `ui-phase4.mjs` 10/10, typecheck, lint, build.
+
+**Feature roadmap, Phase 5 (2026-11-08).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 5
+decisions"); D49, A45. Reminders go out once a day at 9:00 India time (Vercel Cron on `/api/cron/reminders`,
+protected by `CRON_SECRET`; a Super Admin can Run now): 7 to 0 days before a period's due date in the app, by email
+on 7, 5, 3 and the due day, each a Super Admin setting. Each person gets one message listing their missing
+submissions; each Administrator a summary of their units; the Super Admins a group summary on email days. Every
+reminder is a row (migration `0059`) claimed before sending, so nothing goes out twice; a failed email is tried once
+more. Reporting Deadlines shows the schedule and the sent log, and opens to Administrators for their units. The
+bell's own "due soon" notices and the sweep's before-due stages are gone (overdue escalations stay). Checks: web unit
+256, database 439/439, `phase5-reminders.mjs` 33/33, browser `ui-phase5.mjs` 17/17 in Edge, typecheck, production
+build; full suite in CONTEXT.md. `0059` on hosted 2026-11-08; the daily run needs `CRON_SECRET` on Vercel and a deploy.
+
+**Feature roadmap, Phase 6 (2026-11-08).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 6
+decisions"); D50, A46. No SEBI or other official API publishes emission factors (recorded). Each factor version now
+keeps its source link, publisher, financial year and the date it was read; a link on an official site (CEA, BEE,
+IPCC and others) can be fetched and a value picked from the page, never saved by itself. New and corrected versions
+are drafts until another Super Admin approves them (the only Super Admin may approve their own, marked). A yearly
+review lists what each financial year still needs. Carbon Markets lists outside sites for exploring or buying
+credits, checked, under a notice that EmeilSG sells none. Checks: web unit 263, database 453/453, procedures
+`test:factors` 46/46, `phase6-factors.mjs` 28/28, browser `ui-phase6.mjs` 18/18 in Edge, a real CEA PDF and the
+BEE page read through the built app, typecheck, lint, production build; full suite in CONTEXT.md. `0060` on hosted
+2026-11-09.
+
+**Feature roadmap, Phase 7 (2026-11-09).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 7
+decisions"); D51, A47. A new page, Carbon Analytics, shows emissions by financial year for a unit and everything
+beneath it, per scope and per activity, from approved records, compared like for like and saying what is missing.
+Fixed rules suggest actions (travel policy, energy audit, leak checks and others) with the figures behind them;
+the AI service may reword one on request, and a wording with figures it was not given is refused. A daily check
+compares each closed period with the same period of earlier years and alerts the unit's Administrators and the
+Super Admins in the app and by email, once (migration `0061`). Checks: web unit 273, database 465/465,
+procedures `test:analytics` 44/44, `phase7-analytics.mjs` 23/23 through the daily trigger and the mail catcher,
+browser `ui-phase7.mjs` 23/23 in Edge; full suite in CONTEXT.md. `0061` on hosted 2026-11-09. AI wording not confirmed with a
+real reply (the configured models are retired or refused).
+
+**Feature roadmap, Phase 8 (2026-11-09).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md` ("Phase 8
+decisions"); D52, A48, `UI_NOTES.md`. Reports offers four templates over the same approved figures: the full SEBI
+BRSR, BRSR Core, a GHG inventory (also as an Excel workbook) and an executive summary (migration `0062`). A search
+in the top bar (Ctrl+K) finds records, people, org units, reports and pages, only what each person may open. The
+Scope pages' Table / Chart switch now changes every summary section and is kept in the address. The Ask button
+and the landing page were reworked by the feature lane at the owner's request. Checks: web unit 287, database
+471/471, `test:search` 23/23, `phase8-templates-search.mjs` 35/35 (every template generated and read back, the
+workbook opened), browser `ui-phase8.mjs` 30/30 in Edge with axe; full suite in CONTEXT.md. `0062` on hosted 2026-11-09.
+
+**Feature roadmap, Phases 9 and 10 (2026-11-09).** Decisions: `.grill/feature-enhancement-roadmap-decisions.md`
+("Phase 9 decisions", "Phase 10 decisions"); A49, `UI_NOTES.md`. Phones get a bottom bar and a Menu drawer,
+"Take a photo" on Upload and documents that fit on Verify; the custom cursor no longer follows taps; EmeilSG
+installs from the browser (docs/MOBILE_APP.md). A Help page explains the product as configured. The
+transaction-pooler hang no longer reproduces (docs/PRODUCTION_DATABASE.md). On the owner's go, hosted was reset to
+the Super Admins, the Administrators and the configuration (backup restored and compared first) and copied to a
+local Supabase stack on this machine, verified table by table (docs/LOCAL_DATABASE_SERVER.md). `RELEASE.md` holds
+the release checklist, rollback, operations and the regression run: unit 287, database 471/471, end-to-end 19 of
+20 scripts, isolation 264, accessibility 190/0/0, scale and large-file checks.
+
+Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
+docs, the phone and tablet pass.
+
 ## 4. What comes next
+
+**Deploying the web app to Vercel** (the owner's next step): `DEPLOYMENT.md` has the settings, the
+variables and what to try on the first deployment. Merge `feature-employee-uploads` first — it holds the fix
+that packages the report browser. Still to do around it: rebuild the worker image and replace the hosted
+container, update the hosted email templates to the new name, decide whether the 21 test accounts stay.
 
 **Organization feedback, to finish:** look at
 the Organization page and the chat pane in a browser; bring `origin` (MACRO72) up to date with `ucn` `main`.
@@ -812,8 +1000,9 @@ Things to remember for Phase 21:
   and `traceesg-ocr-worker-hosted` are stopped test leftovers; the image to deploy is `traceesg-ocr-worker:latest`.
 - **Email:** Brevo SMTP is wired for bulk-import passwords and OTP reset (`BREVO_API_KEY` = the SMTP key,
   `BREVO_SENDER_EMAIL` must be a verified sender, `BREVO_SENDER_NAME`, optional `BREVO_SMTP_LOGIN`); set them on
-  the web host. Invite emails (first password) still use Supabase's own email, which only reaches the Supabase
-  team — configure custom SMTP in Supabase Auth before inviting anyone outside it.
+  the web host. Since 2026-10-12 (A36) Invite user also emails a temporary password through Brevo, so the app no
+  longer depends on Supabase Auth's own email (which only reaches the Supabase team); only
+  `provision-user` without a password still uses it.
 - **CI:** the new database job runs on GitHub only once pushed (untested there). The end-to-end suite, the OCR
   integration harness and the Docker image build run locally.
 - **Real documents:** OCR accuracy on real MEIL documents is untested — only synthetic samples so far.

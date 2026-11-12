@@ -3,7 +3,7 @@
 import { AlertTriangle, CalendarRange, CheckCircle2, Loader2, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { acceptedTypesLabel, formatMegabytes } from "@/lib/storage/evidence";
 import type {
   DuplicateWarnings,
   ReplacementTarget,
+  UploadPeriod,
   UploadTarget,
 } from "@/lib/trpc/routers/documents";
 import {
@@ -60,26 +61,51 @@ function putFile(
   });
 }
 
+/** "15 Sep 2026" from an ISO date, without any time-zone shift. */
+function shortDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-IN", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export function UploadForm({
-  periodLabel,
+  periods,
   targets,
   maxBytes,
   replaces,
+  onUploaded,
+  onTargetChange,
 }: {
-  periodLabel: string;
+  /** Periods that take uploads now, newest first (migration 0056). */
+  periods: UploadPeriod[];
   targets: UploadTarget[];
   maxBytes: number;
   replaces?: ReplacementTarget | null;
+  /** Called after each recorded upload (the expected-submissions list refreshes). */
+  onUploaded?: () => void;
+  /** The project and period chosen on the form, for the expected-submissions list. */
+  onTargetChange?: (orgUnitId: string, periodId: string) => void;
 }) {
   const router = useRouter();
   const metricFieldId = useId();
   const nodeFieldId = useId();
+  const periodFieldId = useId();
   const xhrRef = useRef<XMLHttpRequest | null>(null);
 
   const [mode, setMode] = useState<Mode>("single");
+  const [periodId, setPeriodId] = useState(periods[0].id);
+  const period = periods.find((p) => p.id === periodId) ?? periods[0];
   const [orgUnitId, setOrgUnitId] = useState(replaces?.orgUnitId ?? targets[0].orgUnitId);
-  const [metricId, setMetricId] = useState(replaces?.metricId ?? "");
+  // A rejected record may come back as another activity (it was the wrong one); a failed read may not.
+  const activityFixed = replaces?.reason === "ocr_failed";
+  const [metricId, setMetricId] = useState(activityFixed ? replaces.metricId : "");
   const [file, setFile] = useState<File | null>(null);
+  /** Optional description (migration 0063), kept with the document. */
+  const [description, setDescription] = useState("");
+  const descriptionId = useId();
   const [metricError, setMetricError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -91,6 +117,10 @@ export function UploadForm({
   const [received, setReceived] = useState<{ fileName: string; splitHref?: string } | null>(null);
 
   const target = targets.find((t) => t.orgUnitId === orgUnitId) ?? targets[0];
+  // Tell the page which project and period are chosen (the expected-submissions list follows them).
+  useEffect(() => {
+    onTargetChange?.(target.orgUnitId, period.id);
+  }, [onTargetChange, target.orgUnitId, period.id]);
   const metric = useMemo(
     () => target.categories.flatMap((c) => c.metrics).find((m) => m.id === metricId),
     [target, metricId],
@@ -126,6 +156,7 @@ export function UploadForm({
         orgUnitId,
         fileName: chosen.name,
         acknowledgeDuplicates: acknowledge,
+        description,
       });
       setPhase("idle");
       if (!outcome.ok) {
@@ -138,7 +169,9 @@ export function UploadForm({
         return;
       }
       setFile(null);
+      setDescription("");
       setUploaded(null);
+      onUploaded?.();
       setReceived({
         fileName: chosen.name,
         splitHref: `/app/upload/split/${outcome.data.documentId}`,
@@ -153,6 +186,7 @@ export function UploadForm({
       fileName: chosen.name,
       acknowledgeDuplicates: acknowledge,
       replacesDocumentId: replaces?.documentId,
+      description,
     });
     setPhase("idle");
     if (!result.ok) {
@@ -171,7 +205,9 @@ export function UploadForm({
       return;
     }
     setFile(null);
+    setDescription("");
     setUploaded(null);
+    onUploaded?.();
     setReceived({ fileName: chosen.name });
   }
 
@@ -192,12 +228,14 @@ export function UploadForm({
       const sha256 = await sha256Hex(file);
       const prepared = bundle
         ? await prepareBundleUploadAction({
+            reportingPeriodId: period.id,
             orgUnitId,
             fileSize: file.size,
             sha256,
             acknowledgeDuplicates: acknowledge,
           })
         : await prepareUploadAction({
+            reportingPeriodId: period.id,
             orgUnitId,
             metricId,
             mimeType: file.type,
@@ -240,16 +278,55 @@ export function UploadForm({
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-6">
-      <p className="flex items-center gap-2 text-sm leading-5">
-        <CalendarRange className="size-4 text-primary-text" strokeWidth={1.5} aria-hidden />
-        Reporting period: <span className="font-medium">{periodLabel}</span>
-      </p>
+      <div className="space-y-2">
+        {periods.length > 1 ? (
+          <>
+            <Label htmlFor={periodFieldId} className="flex items-center gap-2">
+              <CalendarRange className="size-4 text-primary-text" strokeWidth={1.5} aria-hidden />
+              Reporting period
+            </Label>
+            <NativeSelect
+              id={periodFieldId}
+              value={period.id}
+              disabled={busy}
+              onChange={(e) => {
+                setPeriodId(e.target.value);
+                resetAttempt();
+              }}
+            >
+              {periods.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label} —{" "}
+                  {p.late ? `late (was due ${shortDate(p.dueOn)})` : `due ${shortDate(p.dueOn)}`}
+                </option>
+              ))}
+            </NativeSelect>
+          </>
+        ) : (
+          <p className="flex items-center gap-2 text-sm leading-5">
+            <CalendarRange className="size-4 text-primary-text" strokeWidth={1.5} aria-hidden />
+            Reporting period: <span className="font-medium">{period.label}</span>
+            <span className="text-muted-foreground">· due {shortDate(period.dueOn)}</span>
+          </p>
+        )}
+        {period.late ? (
+          <p
+            role="note"
+            className="rounded-md border border-status-warning/50 bg-status-warning/10 p-3 text-sm leading-5 text-foreground"
+          >
+            <span className="font-semibold">Late submission.</span> {period.label} was due on{" "}
+            {shortDate(period.dueOn)}. You can still upload until {shortDate(period.lastUploadDay)};
+            the record is marked late and reviewed before approval.
+          </p>
+        ) : null}
+      </div>
 
       {replaces ? (
         <div className="rounded-md border border-status-warning/50 bg-status-warning/10 p-3 text-sm leading-5">
-          <span className="font-semibold">Replacing {replaces.fileName}</span> — its extraction
-          failed. The project and activity are fixed to match; the old record closes when this
-          upload finishes.
+          <span className="font-semibold">Replacing {replaces.fileName}</span>
+          {activityFixed
+            ? " — its extraction failed. The project and activity are fixed to match; the old record closes when this upload finishes."
+            : " — it was returned. Choose the right activity; this upload is kept as its new version and both stay in the record's history."}
         </div>
       ) : null}
 
@@ -269,7 +346,7 @@ export function UploadForm({
             ).map(([value, title, hint]) => (
               <label
                 key={value}
-                className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface-elevated p-3 text-sm leading-5 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
+                className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface-elevated p-3 text-sm leading-5 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:[&_.text-muted-foreground]:text-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
               >
                 <input
                   type="radio"
@@ -327,7 +404,7 @@ export function UploadForm({
           <NativeSelect
             id={metricFieldId}
             value={metricId}
-            disabled={busy || Boolean(replaces)}
+            disabled={busy || activityFixed}
             aria-invalid={metricError ? true : undefined}
             aria-describedby={metricError ? `${metricFieldId}-error` : undefined}
             onChange={(event) => {
@@ -385,6 +462,32 @@ export function UploadForm({
           resetAttempt();
         }}
       />
+
+      <div className="space-y-2">
+        <Label htmlFor={descriptionId}>
+          Description <span className="font-normal text-muted-foreground">(optional)</span>
+        </Label>
+        <textarea
+          id={descriptionId}
+          value={description}
+          maxLength={500}
+          rows={2}
+          disabled={busy}
+          onChange={(e) => setDescription(e.target.value)}
+          aria-describedby={`${descriptionId}-hint`}
+          className="w-full rounded-sm border border-input bg-surface px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+        />
+        <p
+          id={`${descriptionId}-hint`}
+          className="flex justify-between gap-2 text-xs text-muted-foreground"
+        >
+          <span>
+            Anything that helps reviewers, e.g. &ldquo;meter 2, generator shed&rdquo; or
+            &ldquo;credit note for March&rdquo;. You can change it until the record is approved.
+          </span>
+          <span className="shrink-0">{description.length}/500</span>
+        </p>
+      </div>
 
       {received ? (
         <div

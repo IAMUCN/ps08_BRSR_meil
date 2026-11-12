@@ -3,6 +3,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValue, type HTMLMotionProps } from "motion/react";
 import { cn } from "@/lib/utils";
+import { isCustomCursorSupported } from "@/lib/cursor";
+
+export { isCustomCursorSupported };
 
 export type CursorMode = "default" | "hover" | "ibeam" | "not-allowed";
 
@@ -57,6 +60,7 @@ export function Pointer({
   const x = useMotionValue(-100);
   const y = useMotionValue(-100);
   const [isActive, setIsActive] = useState<boolean>(false);
+  const [isEnabled, setIsEnabled] = useState<boolean>(false);
   const [isPressed, setIsPressed] = useState<boolean>(false);
   const [cursorMode, setCursorMode] = useState<CursorMode>("default");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,225 +70,327 @@ export function Pointer({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Preserve native behavior on touch / coarse pointer devices
-    const isTouchOrCoarse =
-      window.matchMedia("(pointer: coarse)").matches ||
-      "ontouchstart" in window ||
-      navigator.maxTouchPoints > 0;
+    let styleEl: HTMLStyleElement | null = null;
+    let cleanupCurrentMode: (() => void) | null = null;
 
-    if (isTouchOrCoarse) {
-      return;
-    }
+    const setupCursor = () => {
+      const supported = isCustomCursorSupported();
+      setIsEnabled(supported);
 
-    if (global) {
-      document.documentElement.classList.add("custom-cursor-enabled");
-
-      // Inject high-priority custom cursor stylesheet to guarantee complete suppression of native OS hand/pointer
-      const styleEl = document.createElement("style");
-      styleEl.setAttribute("data-custom-cursor-style", "true");
-      styleEl.textContent = `
-        html.custom-cursor-enabled,
-        html.custom-cursor-enabled body,
-        html.custom-cursor-enabled *,
-        html.custom-cursor-enabled *::before,
-        html.custom-cursor-enabled *::after,
-        html.custom-cursor-enabled a,
-        html.custom-cursor-enabled button,
-        html.custom-cursor-enabled [role="button"],
-        html.custom-cursor-enabled input,
-        html.custom-cursor-enabled textarea,
-        html.custom-cursor-enabled select,
-        html.custom-cursor-enabled label,
-        html.custom-cursor-enabled summary,
-        html.custom-cursor-enabled *:hover,
-        html.custom-cursor-enabled *:active,
-        html.custom-cursor-enabled *:focus,
-        html.custom-cursor-enabled a:hover,
-        html.custom-cursor-enabled a:active,
-        html.custom-cursor-enabled a:focus,
-        html.custom-cursor-enabled button:hover,
-        html.custom-cursor-enabled button:active,
-        html.custom-cursor-enabled button:focus {
-          cursor: none !important;
+      if (!supported) {
+        if (cleanupCurrentMode) {
+          cleanupCurrentMode();
+          cleanupCurrentMode = null;
         }
-        html.custom-cursor-enabled a,
-        html.custom-cursor-enabled button,
-        html.custom-cursor-enabled [role="button"],
-        html.custom-cursor-enabled img {
-          -webkit-user-drag: none !important;
-          user-drag: none !important;
-          user-select: none;
+        if (styleEl) {
+          styleEl.remove();
+          styleEl = null;
         }
-        [data-native-cursor="true"], [data-native-cursor="true"] * {
-          cursor: auto !important;
-        }
-      `;
-      document.head.appendChild(styleEl);
-
-      const updateCursorState = (target: HTMLElement | null) => {
-        // Detect disabled / not-allowed elements
-        const isNotAllowed = !!(
-          target &&
-          target.closest(
-            ':disabled, [disabled], [aria-disabled="true"], .cursor-not-allowed, [data-cursor="not-allowed"], [data-cursor="prohibited"], [data-state="disabled"]',
-          )
-        );
-
-        // Detect text-editable fields and active text selection
-        const isTextEditable =
-          !isNotAllowed &&
-          !!(
-            target &&
-            (target.closest(
-              'input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([disabled]), textarea:not([disabled]), [contenteditable="true"], [role="textbox"]:not([aria-disabled="true"]), .monaco-editor, [data-cursor="ibeam"]',
-            ) ||
-              (window.getSelection() && window.getSelection()?.type === "Range"))
-          );
-
-        // Detect hover over interactive clickable elements
-        const isClickable =
-          !isNotAllowed &&
-          !isTextEditable &&
-          !!(
-            target &&
-            (target.closest(
-              'a, button:not([disabled]), [role="button"]:not([aria-disabled="true"]), [role="link"], [role="tab"]:not([aria-disabled="true"]), [role="menuitem"], [role="switch"], [role="checkbox"], select:not([disabled]), label, summary, [data-cursor="hover"], [data-pointer="hover"], .cursor-pointer, [tabindex]:not([tabindex="-1"])',
-            ) ||
-              target.onclick !== null ||
-              target.getAttribute("onclick") !== null ||
-              (target.parentElement &&
-                (target.parentElement.onclick !== null ||
-                  target.parentElement.getAttribute("onclick") !== null)))
-          );
-
-        const currentMode: CursorMode = isNotAllowed
-          ? "not-allowed"
-          : isTextEditable
-            ? "ibeam"
-            : isClickable
-              ? "hover"
-              : "default";
-
-        if (cursorModeRef.current !== currentMode) {
-          cursorModeRef.current = currentMode;
-          setCursorMode(currentMode);
-        }
-      };
-
-      const handleMouseMove = (e: MouseEvent) => {
-        x.set(e.clientX);
-        y.set(e.clientY);
-
-        if (!isActiveRef.current) {
-          isActiveRef.current = true;
-          setIsActive(true);
-        }
-
-        updateCursorState(e.target as HTMLElement | null);
-      };
-
-      const handleMouseDown = (e: MouseEvent) => {
-        setIsPressed(true);
-        x.set(e.clientX);
-        y.set(e.clientY);
-
-        if (!isActiveRef.current) {
-          isActiveRef.current = true;
-          setIsActive(true);
-        }
-
-        updateCursorState(e.target as HTMLElement | null);
-      };
-
-      const handleMouseUp = () => {
-        setIsPressed(false);
-      };
-
-      const handleMouseLeaveWindow = (e: MouseEvent) => {
-        // Hide custom cursor if mouse leaves browser window viewport
-        if (
-          !e.relatedTarget &&
-          !("toElement" in e && (e as unknown as { toElement: unknown }).toElement)
-        ) {
-          isActiveRef.current = false;
-          setIsActive(false);
-          setIsPressed(false);
-          cursorModeRef.current = "default";
-          setCursorMode("default");
-        }
-      };
-
-      const handleMouseEnterWindow = () => {
-        isActiveRef.current = true;
-        setIsActive(true);
-      };
-
-      const handleDragStart = (e: DragEvent) => {
-        // Suppress native drag on links/buttons so browser does not invoke OS drag/hand cursor
-        const target = e.target as HTMLElement | null;
-        if (!target?.closest?.('[data-draggable="true"]')) {
-          e.preventDefault();
-        }
-      };
-
-      window.addEventListener("mousemove", handleMouseMove, { passive: true });
-      window.addEventListener("mousedown", handleMouseDown, { passive: true });
-      window.addEventListener("mouseup", handleMouseUp, { passive: true });
-      window.addEventListener("dragstart", handleDragStart, { capture: true });
-      document.documentElement.addEventListener("mouseleave", handleMouseLeaveWindow);
-      document.documentElement.addEventListener("mouseenter", handleMouseEnterWindow);
-
-      return () => {
-        styleEl.remove();
         document.documentElement.classList.remove("custom-cursor-enabled");
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mousedown", handleMouseDown);
-        window.removeEventListener("mouseup", handleMouseUp);
-        window.removeEventListener("dragstart", handleDragStart, { capture: true });
-        document.documentElement.removeEventListener("mouseleave", handleMouseLeaveWindow);
-        document.documentElement.removeEventListener("mouseenter", handleMouseEnterWindow);
-      };
-    } else {
-      // Local parent element scoped pointer (standard Magic UI behavior)
-      const parentElement = containerRef.current?.parentElement ?? null;
-
-      const handleMouseMove = (e: MouseEvent) => {
-        x.set(e.clientX);
-        y.set(e.clientY);
-        if (!isActiveRef.current) {
-          isActiveRef.current = true;
-          setIsActive(true);
-        }
-      };
-
-      const handleMouseEnter = (e: MouseEvent) => {
-        x.set(e.clientX);
-        y.set(e.clientY);
-        isActiveRef.current = true;
-        setIsActive(true);
-      };
-
-      const handleMouseLeave = () => {
         isActiveRef.current = false;
         setIsActive(false);
-      };
-
-      if (parentElement) {
-        parentElement.style.cursor = "none";
-        parentElement.addEventListener("mousemove", handleMouseMove);
-        parentElement.addEventListener("mouseenter", handleMouseEnter);
-        parentElement.addEventListener("mouseleave", handleMouseLeave);
+        setIsPressed(false);
+        return;
       }
 
-      return () => {
+      if (cleanupCurrentMode) return;
+
+      if (global) {
+        document.documentElement.classList.add("custom-cursor-enabled");
+
+        // Inject high-priority custom cursor stylesheet scoped to desktop fine-pointer viewports
+        styleEl = document.createElement("style");
+        styleEl.setAttribute("data-custom-cursor-style", "true");
+        styleEl.textContent = `
+          @media (min-width: 768px) and (pointer: fine) {
+            html.custom-cursor-enabled,
+            html.custom-cursor-enabled body,
+            html.custom-cursor-enabled *,
+            html.custom-cursor-enabled *::before,
+            html.custom-cursor-enabled *::after,
+            html.custom-cursor-enabled a,
+            html.custom-cursor-enabled button,
+            html.custom-cursor-enabled [role="button"],
+            html.custom-cursor-enabled input,
+            html.custom-cursor-enabled textarea,
+            html.custom-cursor-enabled select,
+            html.custom-cursor-enabled label,
+            html.custom-cursor-enabled summary,
+            html.custom-cursor-enabled *:hover,
+            html.custom-cursor-enabled *:active,
+            html.custom-cursor-enabled *:focus,
+            html.custom-cursor-enabled a:hover,
+            html.custom-cursor-enabled a:active,
+            html.custom-cursor-enabled a:focus,
+            html.custom-cursor-enabled button:hover,
+            html.custom-cursor-enabled button:active,
+            html.custom-cursor-enabled button:focus {
+              cursor: none !important;
+            }
+            html.custom-cursor-enabled a,
+            html.custom-cursor-enabled button,
+            html.custom-cursor-enabled [role="button"],
+            html.custom-cursor-enabled img {
+              -webkit-user-drag: none !important;
+              user-drag: none !important;
+              user-select: none;
+            }
+            [data-native-cursor="true"], [data-native-cursor="true"] * {
+              cursor: auto !important;
+            }
+            html.custom-cursor-enabled nextjs-portal,
+            html.custom-cursor-enabled nextjs-portal:hover {
+              cursor: auto !important;
+            }
+          }
+        `;
+        document.head.appendChild(styleEl);
+
+        const updateCursorState = (target: HTMLElement | null) => {
+          // Detect disabled / not-allowed elements
+          const isNotAllowed = !!(
+            target &&
+            target.closest(
+              ':disabled, [disabled], [aria-disabled="true"], .cursor-not-allowed, [data-cursor="not-allowed"], [data-cursor="prohibited"], [data-state="disabled"]',
+            )
+          );
+
+          // Detect text-editable fields and active text selection
+          const isTextEditable =
+            !isNotAllowed &&
+            !!(
+              target &&
+              (target.closest(
+                'input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([disabled]), textarea:not([disabled]), [contenteditable="true"], [role="textbox"]:not([aria-disabled="true"]), .monaco-editor, [data-cursor="ibeam"]',
+              ) ||
+                (window.getSelection() && window.getSelection()?.type === "Range"))
+            );
+
+          // Detect hover over interactive clickable elements
+          const isClickable =
+            !isNotAllowed &&
+            !isTextEditable &&
+            !!(
+              target &&
+              (target.closest(
+                'a, button:not([disabled]), [role="button"]:not([aria-disabled="true"]), [role="link"], [role="tab"]:not([aria-disabled="true"]), [role="menuitem"], [role="switch"], [role="checkbox"], select:not([disabled]), label, summary, [data-cursor="hover"], [data-pointer="hover"], .cursor-pointer, [tabindex]:not([tabindex="-1"])',
+              ) ||
+                target.onclick !== null ||
+                target.getAttribute("onclick") !== null ||
+                (target.parentElement &&
+                  (target.parentElement.onclick !== null ||
+                    target.parentElement.getAttribute("onclick") !== null)))
+            );
+
+          const currentMode: CursorMode = isNotAllowed
+            ? "not-allowed"
+            : isTextEditable
+              ? "ibeam"
+              : isClickable
+                ? "hover"
+                : "default";
+
+          if (cursorModeRef.current !== currentMode) {
+            cursorModeRef.current = currentMode;
+            setCursorMode(currentMode);
+          }
+        };
+
+        // A tap fires touch events and then emulated mouse events at the same spot; those must not bring the
+        // cursor back (feature_enhancement.md 9.1, requirement 8). Pens and mice still drive it.
+        let lastTouch = -Infinity;
+        const emulated = () => performance.now() - lastTouch < 1000;
+        const handlePointer = (e: PointerEvent) => {
+          if (e.pointerType !== "touch") return;
+          lastTouch = performance.now();
+          if (isActiveRef.current) {
+            isActiveRef.current = false;
+            setIsActive(false);
+            setIsPressed(false);
+          }
+        };
+
+        const handleMouseMove = (e: MouseEvent) => {
+          if (emulated()) return;
+          x.set(e.clientX);
+          y.set(e.clientY);
+
+          if (!isActiveRef.current) {
+            isActiveRef.current = true;
+            setIsActive(true);
+          }
+
+          updateCursorState(e.target as HTMLElement | null);
+        };
+
+        const handleMouseDown = (e: MouseEvent) => {
+          if (emulated()) return;
+          setIsPressed(true);
+          x.set(e.clientX);
+          y.set(e.clientY);
+
+          if (!isActiveRef.current) {
+            isActiveRef.current = true;
+            setIsActive(true);
+          }
+
+          updateCursorState(e.target as HTMLElement | null);
+        };
+
+        const handleMouseUp = () => {
+          setIsPressed(false);
+        };
+
+        const handleMouseLeaveWindow = (e: MouseEvent) => {
+          // Hide custom cursor if mouse leaves browser window viewport
+          if (
+            !e.relatedTarget &&
+            !("toElement" in e && (e as unknown as { toElement: unknown }).toElement)
+          ) {
+            isActiveRef.current = false;
+            setIsActive(false);
+            setIsPressed(false);
+            cursorModeRef.current = "default";
+            setCursorMode("default");
+          }
+        };
+
+        const handleMouseEnterWindow = () => {
+          if (emulated()) return;
+          isActiveRef.current = true;
+          setIsActive(true);
+        };
+
+        const handleDragStart = (e: DragEvent) => {
+          // Suppress native drag on links/buttons so browser does not invoke OS drag/hand cursor
+          const target = e.target as HTMLElement | null;
+          if (!target?.closest?.('[data-draggable="true"]')) {
+            e.preventDefault();
+          }
+        };
+
+        const handleTouchStart = () => {
+          lastTouch = performance.now();
+          isActiveRef.current = false;
+          setIsActive(false);
+        };
+
+        window.addEventListener("pointerdown", handlePointer, { passive: true, capture: true });
+        window.addEventListener("pointermove", handlePointer, { passive: true, capture: true });
+        window.addEventListener("mousemove", handleMouseMove, { passive: true });
+        window.addEventListener("mousedown", handleMouseDown, { passive: true });
+        window.addEventListener("mouseup", handleMouseUp, { passive: true });
+        window.addEventListener("dragstart", handleDragStart, { capture: true });
+        window.addEventListener("touchstart", handleTouchStart, { passive: true });
+        document.documentElement.addEventListener("mouseleave", handleMouseLeaveWindow);
+        document.documentElement.addEventListener("mouseenter", handleMouseEnterWindow);
+
+        cleanupCurrentMode = () => {
+          if (styleEl) {
+            styleEl.remove();
+            styleEl = null;
+          }
+          document.documentElement.classList.remove("custom-cursor-enabled");
+          window.removeEventListener("mousemove", handleMouseMove);
+          window.removeEventListener("mousedown", handleMouseDown);
+          window.removeEventListener("mouseup", handleMouseUp);
+          window.removeEventListener("dragstart", handleDragStart, { capture: true });
+          window.removeEventListener("touchstart", handleTouchStart);
+          window.removeEventListener("pointerdown", handlePointer, { capture: true });
+          window.removeEventListener("pointermove", handlePointer, { capture: true });
+          document.documentElement.removeEventListener("mouseleave", handleMouseLeaveWindow);
+          document.documentElement.removeEventListener("mouseenter", handleMouseEnterWindow);
+        };
+      } else {
+        // Local parent element scoped pointer (standard Magic UI behavior)
+        const parentElement = containerRef.current?.parentElement ?? null;
+
+        const handleMouseMove = (e: MouseEvent) => {
+          x.set(e.clientX);
+          y.set(e.clientY);
+          if (!isActiveRef.current) {
+            isActiveRef.current = true;
+            setIsActive(true);
+          }
+        };
+
+        const handleMouseEnter = (e: MouseEvent) => {
+          x.set(e.clientX);
+          y.set(e.clientY);
+          isActiveRef.current = true;
+          setIsActive(true);
+        };
+
+        const handleMouseLeave = () => {
+          isActiveRef.current = false;
+          setIsActive(false);
+        };
+
+        const handleTouchStart = () => {
+          isActiveRef.current = false;
+          setIsActive(false);
+        };
+
         if (parentElement) {
-          parentElement.style.cursor = "";
-          parentElement.removeEventListener("mousemove", handleMouseMove);
-          parentElement.removeEventListener("mouseenter", handleMouseEnter);
-          parentElement.removeEventListener("mouseleave", handleMouseLeave);
+          parentElement.style.cursor = "none";
+          parentElement.addEventListener("mousemove", handleMouseMove);
+          parentElement.addEventListener("mouseenter", handleMouseEnter);
+          parentElement.addEventListener("mouseleave", handleMouseLeave);
+          parentElement.addEventListener("touchstart", handleTouchStart, { passive: true });
         }
-      };
-    }
+
+        cleanupCurrentMode = () => {
+          if (parentElement) {
+            parentElement.style.cursor = "";
+            parentElement.removeEventListener("mousemove", handleMouseMove);
+            parentElement.removeEventListener("mouseenter", handleMouseEnter);
+            parentElement.removeEventListener("mouseleave", handleMouseLeave);
+            parentElement.removeEventListener("touchstart", handleTouchStart);
+          }
+        };
+      }
+    };
+
+    setupCursor();
+
+    const mediaQueries = [
+      window.matchMedia("(max-width: 767px)"),
+      window.matchMedia("(pointer: coarse)"),
+      window.matchMedia("(any-pointer: fine)"),
+      window.matchMedia("(hover: hover)"),
+    ];
+
+    const handleMediaOrResize = () => {
+      setupCursor();
+    };
+
+    mediaQueries.forEach((mq) => {
+      if (mq.addEventListener) {
+        mq.addEventListener("change", handleMediaOrResize);
+      } else if ("addListener" in mq) {
+        (mq as unknown as { addListener: (cb: () => void) => void }).addListener(
+          handleMediaOrResize,
+        );
+      }
+    });
+
+    window.addEventListener("resize", handleMediaOrResize, { passive: true });
+
+    return () => {
+      mediaQueries.forEach((mq) => {
+        if (mq.removeEventListener) {
+          mq.removeEventListener("change", handleMediaOrResize);
+        } else if ("removeListener" in mq) {
+          (mq as unknown as { removeListener: (cb: () => void) => void }).removeListener(
+            handleMediaOrResize,
+          );
+        }
+      });
+      window.removeEventListener("resize", handleMediaOrResize);
+      if (cleanupCurrentMode) {
+        cleanupCurrentMode();
+      }
+    };
   }, [global, x, y]);
 
   const prefersReducedMotion =
@@ -311,9 +417,13 @@ export function Pointer({
     <>
       {!global && <div ref={containerRef} />}
       <AnimatePresence>
-        {isActive && (
+        {isEnabled && isActive && (
           <motion.div
-            className={cn("pointer-events-none fixed top-0 left-0 z-[9999] select-none", className)}
+            data-custom-cursor="true"
+            className={cn(
+              "pointer-events-none fixed top-0 left-0 z-[9999] select-none max-md:hidden",
+              className,
+            )}
             style={{
               x,
               y,

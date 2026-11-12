@@ -44,7 +44,7 @@ export function ProcessStepsSection() {
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#313490]/[0.08] text-[#313490]">
                       <Icon className="h-5 w-5" />
                     </span>
-                    <span className="font-mono text-xs font-semibold text-slate-400">0{i + 1}</span>
+                    <span className="font-mono text-xs font-semibold text-slate-500">0{i + 1}</span>
                   </div>
                   <h3 className="text-base font-semibold text-slate-900">{title}</h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{text}</p>

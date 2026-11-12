@@ -193,7 +193,7 @@ export function DeadlinesClient({
             escalations (L1 to PM, L2 to Corporate ESG), and send in-app and email notices.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -225,7 +225,7 @@ export function DeadlinesClient({
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium uppercase tracking-wider">Upcoming</span>
-            <CalendarClock className="size-4 text-sky-500" aria-hidden />
+            <CalendarClock className="size-4 text-primary-text" aria-hidden />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold tracking-tight text-foreground">
@@ -233,79 +233,69 @@ export function DeadlinesClient({
             </span>
             <span className="text-[11px] text-muted-foreground">tasks</span>
           </div>
-          <p className="mt-1 text-[11px] text-sky-600 dark:text-sky-400">
-            {kpis.dueSoon} due within 7 days
-          </p>
+          <p className="mt-1 text-[11px] text-primary-text">{kpis.dueSoon} due within 7 days</p>
         </div>
 
         {/* Due Today */}
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium uppercase tracking-wider">Due Today</span>
-            <AlarmClock className="size-4 text-amber-500" aria-hidden />
+            <AlarmClock className="size-4 text-status-warning" aria-hidden />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400">
+            <span className="text-2xl font-bold tracking-tight text-status-warning">
               {kpis.dueToday}
             </span>
             <span className="text-[11px] text-muted-foreground">tasks</span>
           </div>
-          <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
-            Closing today midnight
-          </p>
+          <p className="mt-1 text-[11px] text-status-warning">Closing today midnight</p>
         </div>
 
         {/* Overdue */}
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium uppercase tracking-wider">Overdue</span>
-            <AlertTriangle className="size-4 text-rose-500" aria-hidden />
+            <AlertTriangle className="size-4 text-status-error" aria-hidden />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold tracking-tight text-rose-600 dark:text-rose-400">
+            <span className="text-2xl font-bold tracking-tight text-status-error">
               {kpis.overdue}
             </span>
             <span className="text-[11px] text-muted-foreground">tasks</span>
           </div>
-          <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
-            Past due (&lt; 3 days)
-          </p>
+          <p className="mt-1 text-[11px] text-status-error">Past due (&lt; 3 days)</p>
         </div>
 
         {/* Escalated */}
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium uppercase tracking-wider">Escalated</span>
-            <ShieldAlert className="size-4 text-red-600" aria-hidden />
+            <ShieldAlert className="size-4 text-status-error" aria-hidden />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold tracking-tight text-red-600 dark:text-red-400">
+            <span className="text-2xl font-bold tracking-tight text-status-error">
               {kpis.escalated}
             </span>
             <span className="text-[11px] text-muted-foreground">tasks</span>
           </div>
-          <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">
-            Alerted to PM / Corporate ESG
-          </p>
+          <p className="mt-1 text-[11px] text-status-error">Alerted to PM / Corporate ESG</p>
         </div>
 
         {/* Completed */}
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium uppercase tracking-wider">Completed</span>
-            <CheckCircle2 className="size-4 text-emerald-500" aria-hidden />
+            <CheckCircle2 className="size-4 text-status-success" aria-hidden />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+            <span className="text-2xl font-bold tracking-tight text-status-success">
               {kpis.completed}
             </span>
             <span className="text-[11px] text-muted-foreground">
               / {kpis.totalTasks} ({kpis.completionRate}%)
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-            Filed on or before deadline
-          </p>
+          <p className="mt-1 text-[11px] text-status-success">Filed on or before deadline</p>
         </div>
       </div>
 
@@ -315,6 +305,7 @@ export function DeadlinesClient({
         <div className="relative min-w-[220px] flex-1">
           <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" aria-hidden />
           <Input
+            aria-label="Search deadlines by metric, org unit or owner"
             placeholder="Search metric, entity, or owner..."
             value={searchQuery}
             onChange={(e) => {
@@ -328,6 +319,7 @@ export function DeadlinesClient({
         {/* Reporting Period Filter */}
         <div className="w-[180px]">
           <NativeSelect
+            aria-label="Reporting period"
             value={selectedPeriodId}
             onChange={(e) => {
               setSelectedPeriodId(e.target.value);
@@ -348,6 +340,7 @@ export function DeadlinesClient({
         {/* Org Unit Filter */}
         <div className="w-[180px]">
           <NativeSelect
+            aria-label="Org unit"
             value={selectedOrgUnitId}
             onChange={(e) => {
               setSelectedOrgUnitId(e.target.value);
@@ -368,6 +361,7 @@ export function DeadlinesClient({
         {/* Status Filter */}
         <div className="w-[150px]">
           <NativeSelect
+            aria-label="Status"
             value={selectedStatus}
             onChange={(e) => {
               const val = e.target.value as DeadlineStatus | "all";
@@ -388,6 +382,7 @@ export function DeadlinesClient({
         {/* Escalation Level Filter */}
         <div className="w-[160px]">
           <NativeSelect
+            aria-label="Escalation level"
             value={selectedEscalation}
             onChange={(e) => {
               setSelectedEscalation(e.target.value);
@@ -408,7 +403,7 @@ export function DeadlinesClient({
       <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm">
-            <thead className="border-b border-border bg-muted/60 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <thead className="bg-table-header text-[11px] font-semibold tracking-wider text-table-header-foreground uppercase">
               <tr>
                 <th scope="col" className="px-4 py-3">
                   Task & ESG Metric
@@ -423,7 +418,7 @@ export function DeadlinesClient({
                   Assigned Owner(s)
                 </th>
                 <th scope="col" className="px-4 py-3">
-                  Statutory Due Date
+                  Due Date
                 </th>
                 <th scope="col" className="px-4 py-3">
                   Time Remaining
@@ -464,11 +459,11 @@ export function DeadlinesClient({
                           {task.scopeCode ? (
                             <span className="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.2 text-[10px] font-semibold text-muted-foreground">
                               {task.scopeCode === "SCOPE_1" ? (
-                                <Flame className="size-2.5 text-orange-500" />
+                                <Flame className="size-2.5 text-status-warning" />
                               ) : task.scopeCode === "SCOPE_2" ? (
-                                <Zap className="size-2.5 text-amber-500" />
+                                <Zap className="size-2.5 text-status-warning" />
                               ) : (
-                                <Link2 className="size-2.5 text-sky-500" />
+                                <Link2 className="size-2.5 text-primary-text" />
                               )}
                               {task.scopeCode.replace("_", " ")}
                             </span>
@@ -493,59 +488,81 @@ export function DeadlinesClient({
                       </td>
 
                       {/* Assigned Owners */}
+                      {/* Who can submit, by the Upload page's rule (owner's page feedback, 2026-11-11):
+                          the responsible role first, then roles that upload on its behalf. */}
                       <td className="px-4 py-3">
-                        {task.assignedOwners.length > 0 ? (
+                        {task.assignedOwners.length + task.alsoUpload.length > 0 ? (
                           <div className="space-y-0.5">
-                            {task.assignedOwners.slice(0, 2).map((owner) => (
-                              <div
-                                key={owner.userId}
-                                className="text-xs text-foreground"
-                                title={owner.email}
-                              >
-                                {owner.displayName}{" "}
-                                <span className="text-[10px] text-muted-foreground">
-                                  ({owner.roleName})
-                                </span>
-                              </div>
-                            ))}
-                            {task.assignedOwners.length > 2 ? (
+                            {[...task.assignedOwners, ...task.alsoUpload]
+                              .slice(0, 3)
+                              .map((owner) => (
+                                <div
+                                  key={owner.userId}
+                                  className={
+                                    owner.onBehalf
+                                      ? "text-[11px] text-muted-foreground"
+                                      : "text-xs text-foreground"
+                                  }
+                                  title={owner.email}
+                                >
+                                  {owner.displayName}{" "}
+                                  <span className="text-[10px] text-muted-foreground">
+                                    ({owner.roleName}
+                                    {owner.onBehalf ? ", on behalf" : ""})
+                                  </span>
+                                </div>
+                              ))}
+                            {task.assignedOwners.length + task.alsoUpload.length > 3 ? (
                               <div className="text-[10px] text-muted-foreground">
-                                +{task.assignedOwners.length - 2} more
+                                +{task.assignedOwners.length + task.alsoUpload.length - 3} more
                               </div>
                             ) : null}
                           </div>
                         ) : (
-                          <span className="inline-flex items-center text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                            ⚠️ Unassigned
-                          </span>
+                          <div className="space-y-0.5">
+                            <span
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-status-warning"
+                              title={`No one at this unit or above holds the ${task.owningRoleName ?? "responsible"} role, or a role that uploads on its behalf.`}
+                            >
+                              <AlertTriangle className="size-3.5" aria-hidden />
+                              No one to submit
+                            </span>
+                            <Link
+                              href={`/admin/users?q=${encodeURIComponent(task.orgUnitName)}`}
+                              className="block text-[11px] font-medium text-primary-text underline underline-offset-2"
+                            >
+                              Assign {task.owningRoleName ?? "someone"}
+                            </Link>
+                          </div>
                         )}
                       </td>
 
                       {/* Due Date */}
-                      <td className="px-4 py-3 font-mono text-xs text-foreground">
+                      <td className="px-4 py-3 font-mono text-xs whitespace-nowrap text-foreground">
                         {task.dueDate}
                       </td>
 
                       {/* Time Remaining / Days Overdue */}
                       <td className="px-4 py-3 text-xs">
+                        {task.isCompleted ? null : (
+                          <span className="block font-medium text-foreground">Not submitted</span>
+                        )}
                         {task.isCompleted ? (
-                          <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                            Completed
-                          </span>
+                          <span className="font-medium text-status-success">Completed</span>
                         ) : task.daysRemaining > 7 ? (
                           <span className="text-muted-foreground">
                             {task.daysRemaining} days left
                           </span>
                         ) : task.daysRemaining > 0 ? (
-                          <span className="font-semibold text-amber-600 dark:text-amber-400">
+                          <span className="font-semibold text-status-warning">
                             {task.daysRemaining} days left
                           </span>
                         ) : task.daysRemaining === 0 ? (
-                          <span className="font-bold text-amber-600 dark:text-amber-400 animate-pulse">
+                          <span className="font-bold text-status-warning animate-pulse">
                             Due Today
                           </span>
                         ) : (
-                          <span className="font-bold text-rose-600 dark:text-rose-400">
+                          <span className="font-bold text-status-error">
                             {task.daysOverdue} day{task.daysOverdue === 1 ? "" : "s"} overdue
                           </span>
                         )}
@@ -561,12 +578,12 @@ export function DeadlinesClient({
                       {/* Escalation Tier */}
                       <td className="px-4 py-3">
                         {task.escalationLevel === 2 ? (
-                          <span className="inline-flex items-center gap-1 rounded bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wide">
+                          <span className="inline-flex items-center gap-1 rounded bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 text-[10px] font-bold text-status-error uppercase tracking-wide">
                             <ShieldAlert className="size-3" />
                             L2: Corporate Admin
                           </span>
                         ) : task.escalationLevel === 1 ? (
-                          <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                          <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-status-warning uppercase tracking-wide">
                             <AlertTriangle className="size-3" />
                             L1: Project Mgr
                           </span>
@@ -608,8 +625,9 @@ export function DeadlinesClient({
                               </Button>
                             </>
                           ) : (
-                            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                              ✓ Submitted
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-status-success">
+                              <CheckCircle2 className="size-3.5" aria-hidden />
+                              Submitted
                             </span>
                           )}
                         </div>

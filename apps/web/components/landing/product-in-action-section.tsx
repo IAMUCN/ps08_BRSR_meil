@@ -43,7 +43,7 @@ export function ProductInActionSection() {
                 <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center text-white text-xs font-black">
                   T
                 </div>
-                <span className="font-extrabold text-base tracking-tight text-white">TraceESG</span>
+                <span className="font-extrabold text-base tracking-tight text-white">EmeilSG</span>
               </div>
 
               <nav className="space-y-1 text-xs font-semibold flex-1">

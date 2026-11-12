@@ -1,11 +1,11 @@
 "use client";
 
-import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, Redo2, Trash2, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { confirmBundleAction } from "@/app/app/upload/actions";
-import { DocumentViewer } from "@/components/document-viewer/document-viewer";
+import { DocumentViewer, isTyping } from "@/components/document-viewer/document-viewer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,8 +54,13 @@ export function SplitReview({
     () => new Set(categories.flatMap((c) => c.metrics.map((m) => m.id))),
     [categories],
   );
-  const [rows, setRows] = useState<Row[]>(() =>
-    parts.map((p, i) => {
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [duplicates, setDuplicates] = useState<Duplicate[] | null>(null);
+  const [history, setHistory] = useState<{ past: Row[][]; rows: Row[]; future: Row[][] }>(() => ({
+    past: [],
+    future: [],
+    rows: parts.map((p, i) => {
       const notAllowed = p.metricId !== null && !allowed.has(p.metricId);
       return {
         key: `${i}`,
@@ -68,10 +73,63 @@ export function SplitReview({
         notAllowed,
       };
     }),
-  );
-  const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
-  const [duplicates, setDuplicates] = useState<Duplicate[] | null>(null);
+  }));
+  const rows = history.rows;
+  // Undo / redo (owner's page feedback, 2026-11-11): every change to the split is one step, except that
+  // typing in one page box is merged into a single step. The history ends with the page.
+  // The page box last typed in: further keystrokes there extend the same step until another change.
+  const lastEdit = useRef<string | null>(null);
+  function setRows(change: (current: Row[]) => Row[], tag?: string) {
+    const merge = !!tag && lastEdit.current === tag;
+    lastEdit.current = tag ?? null;
+    setHistory((h) => ({
+      past: merge ? h.past : [...h.past, h.rows].slice(-100),
+      rows: change(h.rows),
+      future: [],
+    }));
+  }
+  const undo = () => {
+    lastEdit.current = null;
+    setHistory((h) =>
+      h.past.length
+        ? {
+            past: h.past.slice(0, -1),
+            rows: h.past[h.past.length - 1],
+            future: [h.rows, ...h.future],
+          }
+        : h,
+    );
+    setDuplicates(null);
+    setFailure(null);
+  };
+  const redo = () => {
+    lastEdit.current = null;
+    setHistory((h) =>
+      h.future.length
+        ? { past: [...h.past, h.rows], rows: h.future[0], future: h.future.slice(1) }
+        : h,
+    );
+    setDuplicates(null);
+    setFailure(null);
+  };
+  const keys = useRef({ undo, redo });
+  useEffect(() => {
+    keys.current = { undo, redo };
+  });
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      // In a text box Ctrl+Z belongs to the box.
+      if (isTyping(event.target)) return;
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) keys.current.undo();
+      else if (key === "y" || (key === "z" && event.shiftKey)) keys.current.redo();
+      else return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const problem = checkBundleParts(
     rows.map((r) => ({
@@ -85,7 +143,12 @@ export function SplitReview({
   const keptCount = rows.filter((r) => !r.skip).length;
 
   function update(key: string, change: Partial<Row>) {
-    setRows((current) => current.map((r) => (r.key === key ? { ...r, ...change } : r)));
+    const field = Object.keys(change).join(",");
+    setRows(
+      (current) => current.map((r) => (r.key === key ? { ...r, ...change } : r)),
+      // Keystrokes in a page box merge into one step.
+      field === "pageFrom" || field === "pageTo" ? `${key}:${field}` : undefined,
+    );
     setDuplicates(null);
     setFailure(null);
   }
@@ -144,9 +207,40 @@ export function SplitReview({
         mimeType="application/pdf"
         fileName={fileName}
         className="h-[70vh] xl:sticky xl:top-4"
+        arrowKeys
       />
 
       <div className="space-y-4">
+        <div
+          className="flex flex-wrap items-center justify-end gap-1"
+          role="toolbar"
+          aria-label="Edit"
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy || history.past.length === 0}
+            onClick={undo}
+            title="Undo (Ctrl+Z)"
+            aria-keyshortcuts="Control+Z"
+          >
+            <Undo2 aria-hidden />
+            Undo
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy || history.future.length === 0}
+            onClick={redo}
+            title="Redo (Ctrl+Y)"
+            aria-keyshortcuts="Control+Y Control+Shift+Z"
+          >
+            <Redo2 aria-hidden />
+            Redo
+          </Button>
+        </div>
         <p className="text-sm leading-5 text-muted-foreground">
           {orgUnitName} · {periodLabel} · {pageCount} {pageCount === 1 ? "page" : "pages"}. Each
           bill below becomes its own record that you then review and confirm. Change the pages or

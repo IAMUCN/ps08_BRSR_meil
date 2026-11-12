@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api, orNotFound } from "@/lib/trpc/server";
 import { AuditFilters, AuditTable } from "./audit-view";
 
-export const metadata: Metadata = { title: "Audit Trail · TraceESG" };
+export const metadata: Metadata = { title: "Audit Trail · EmeilSG" };
 
 type Params = Record<string, string | string[] | undefined>;
 const one = (p: Params, k: string) =>
@@ -16,7 +16,8 @@ const date = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v 
 // 03_APP_FLOW.md §2.2 Audit Trail (.grill/phase-18-audit-security-decisions.md): the append-only log, and a
 // record's complete history from upload to the reports that included it (?record=).
 export default async function AuditTrailPage({ searchParams }: PageProps<"/admin/audit-trail">) {
-  const [, caller, params] = await Promise.all([requireAdminSession(), api(), searchParams]);
+  // Phase 4: Administrators too; what each sees is decided by the audit procedures (their units' entries).
+  const [, caller, params] = await Promise.all([requireAdminAreaSession(), api(), searchParams]);
   const recordId = uuid(one(params, "record"));
 
   if (recordId) {
@@ -71,6 +72,9 @@ export default async function AuditTrailPage({ searchParams }: PageProps<"/admin
     id: uuid(one(params, "id")),
     from: date(one(params, "from")),
     to: date(one(params, "to")),
+    q: one(params, "q")?.slice(0, 100),
+    mine: one(params, "mine") === "1" ? "1" : undefined,
+    role: one(params, "role")?.slice(0, 60),
   };
   const beforeAt = one(params, "before_at");
   const beforeId = uuid(one(params, "before_id"));
@@ -83,6 +87,9 @@ export default async function AuditTrailPage({ searchParams }: PageProps<"/admin
       entityId: values.id,
       from: values.from,
       to: values.to,
+      q: values.q,
+      mine: values.mine === "1",
+      roleCode: values.role,
       before: beforeAt && beforeId ? { at: beforeAt, id: beforeId } : undefined,
     }),
   ]);
@@ -98,7 +105,11 @@ export default async function AuditTrailPage({ searchParams }: PageProps<"/admin
     <div className="max-w-7xl space-y-4">
       <PageHeader
         title="Audit Trail"
-        description="Every material action in TraceESG, newest first. The log is append-only: the database refuses any change or removal of an entry."
+        description={
+          options.reach === "all"
+            ? "Every material action in EmeilSG, newest first. The log is append-only: the database refuses any change or removal of an entry."
+            : "Your own actions and everything that happened inside the units you administer, newest first. The log is append-only."
+        }
       />
       <AuditFilters options={options} values={values} />
       <AuditTable events={page.events} />

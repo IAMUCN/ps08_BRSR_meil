@@ -180,7 +180,8 @@ export const PixelImage = ({
         >
           <img
             src={src}
-            alt={`${alt} piece ${index + 1}`}
+            alt=""
+            aria-hidden
             className={cn(
               "w-full h-full object-cover",
               imgClassName,

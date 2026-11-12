@@ -1,5 +1,5 @@
 /**
- * Pure calculation logic for the TraceESG Carbon & ESG What-If Simulator.
+ * Pure calculation logic for the EmeilSG Carbon Reduction Simulator.
  * No server dependencies — shared between client-side real-time recalculation and unit tests.
  *
  * Milestone 5:
@@ -94,7 +94,7 @@ export const STANDARD_SIMULATOR_DISCLAIMER =
 
 /**
  * Converts a raw emission figure to metric tonnes (tCO2e).
- * TraceESG rule: 1 t = 1000 kg.
+ * EmeilSG rule: 1 t = 1000 kg.
  */
 export function toTonnesCo2e(
   value: number | null | undefined,

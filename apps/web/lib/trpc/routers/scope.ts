@@ -5,7 +5,8 @@ import { loadCalculations } from "@/lib/calculation/lookup";
 import type { CalculationState } from "@/lib/calculation/trace";
 import { db } from "@/lib/db";
 import { scopeBreakdown, type ScopeBreakdown } from "@/lib/scope/totals";
-import { adminProcedure, protectedProcedure, router } from "@/lib/trpc/init";
+import { assertOrgScope, defaultOrgUnitId } from "@/lib/auth/scope";
+import { adminAreaProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 
 // Scope dashboards (03_APP_FLOW.md §2.2; 06_IMPLEMENTATION_PLAN.md Phase 10). `getTotal` is parameterised
 // by scope code so Scope 2 and Scope 3 reuse it unchanged. Admin-only for the organisation-wide view;
@@ -79,21 +80,21 @@ export const scopeRouter = router({
       return state.get(input.recordId) ?? { trace: null, blockedReason: null };
     }),
 
-  /** Organisation-wide totals for a scope, one org level at a time (Admin). */
-  getTotal: adminProcedure.input(input).query(async ({ input }): Promise<ScopeView | null> => {
-    const sql = db();
-    const periodId = await resolvePeriod(input.periodId);
-    if (!periodId) return null;
-    let orgUnitId = input.orgUnitId;
-    if (!orgUnitId) {
-      const [root] = await sql<{ id: string }[]>`
-        select id from public.org_units where parent_id is null and deleted_at is null
-          order by created_at limit 1`;
-      orgUnitId = root?.id;
-    }
-    if (!orgUnitId) return null;
-    return view(input.scopeCode, orgUnitId, periodId);
-  }),
+  /**
+   * Totals for a scope, one org level at a time: the whole organisation for a Super Admin, their own
+   * units and everything beneath for an Administrator.
+   */
+  getTotal: adminAreaProcedure
+    .input(input)
+    .query(async ({ ctx, input }): Promise<ScopeView | null> => {
+      const sql = db();
+      const periodId = await resolvePeriod(input.periodId);
+      if (!periodId) return null;
+      if (input.orgUnitId) await assertOrgScope(sql, ctx.session, input.orgUnitId);
+      const orgUnitId = input.orgUnitId ?? (await defaultOrgUnitId(sql, ctx.session));
+      if (!orgUnitId) return null;
+      return view(input.scopeCode, orgUnitId, periodId);
+    }),
 
   /**
    * The same figures for one org unit the signed-in user is assigned to (their project's Scope 1 total on

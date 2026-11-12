@@ -47,8 +47,9 @@ factor as (
 version as (
   insert into public.conversion_factor_versions
     (conversion_factor_id, version_number, value, input_unit, output_unit, source_reference,
-     effective_from, status, created_by)
-  select factor.id, 1, 2.5, 'L', 'kgCO2e', 'Synthetic test value', date '2026-01-01', 'active', u.id
+     effective_from, status, created_by, approved_by, approved_at, self_approved)
+  select factor.id, 1, 2.5, 'L', 'kgCO2e', 'Synthetic test value', date '2026-01-01', 'active', u.id,
+         u.id, now(), true
   from factor, u returning id
 ),
 record as (

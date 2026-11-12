@@ -19,6 +19,10 @@ insert into public.users (id, display_name, email) values
   ('20202020-0000-4000-8000-00000000000c', 'P20 Admin', 'p20.admin@example.test');
 insert into public.org_units (parent_id, unit_type, name, code)
 select id, 'project', 'Project Q', 'P20-Q' from public.org_units where code = 'SUB-A';
+-- Whoever already holds the Super Admin role in this database is set aside first: at most two may hold it
+-- (migration 0050), and this fixture adds one. Rolled back with the rest of the test.
+update public.user_org_assignments uoa set revoked_at = now()
+from public.roles r where r.id = uoa.role_id and r.code = 'admin' and uoa.revoked_at is null;
 insert into public.user_org_assignments (user_id, org_unit_id, role_id, assigned_by)
 select a.u::uuid, o.id, r.id, '20202020-0000-4000-8000-00000000000c'
 from (values ('20202020-0000-4000-8000-00000000000a', 'PRJ-X', 'project_manager'),

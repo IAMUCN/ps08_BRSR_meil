@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2, Lock, Plus } from "lucide-react";
+import { Loader2, Lock, Pencil, Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
+import { ROLE_CODE_EXISTS, roleCodeError } from "@/lib/roles/code";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -17,8 +18,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { permissionLabel } from "@/lib/roles/permission-labels";
 import type { RoleMatrix } from "@/lib/trpc/routers/roles";
-import { createRoleAction, deleteRoleAction, setRolePermissionsAction } from "./actions";
+import {
+  createRoleAction,
+  deleteRoleAction,
+  setRolePermissionsAction,
+  updateRoleAction,
+} from "./actions";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -33,19 +40,28 @@ export function RolesManager({
   const pathname = usePathname();
   const selected = matrix.roles.find((r) => r.id === selectedId) ?? matrix.roles[0] ?? null;
   const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  // One side panel at a time: a docked panel stays open when another opens.
+  const show = (panel: "create" | "edit") => {
+    setCreateOpen(panel === "create");
+    setEditOpen(panel === "edit");
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(260px,320px)_1fr]">
-      <section aria-label="Roles" className="space-y-3">
+      <section aria-label="Roles" className="min-w-0 space-y-3">
         <ul className="divide-y rounded-md border bg-card">
           {matrix.roles.map((role) => (
             <li key={role.id}>
               <button
                 type="button"
-                onClick={() => router.replace(`${pathname}?role=${role.id}`, { scroll: false })}
+                onClick={() => {
+                  setEditOpen(false);
+                  router.replace(`${pathname}?role=${role.id}`, { scroll: false });
+                }}
                 aria-current={selected?.id === role.id ? "true" : undefined}
                 className={cn(
-                  "flex w-full items-center justify-between gap-2 px-3 py-3 text-left text-sm",
+                  "flex w-full flex-wrap items-center justify-between gap-2 px-3 py-3 text-left text-sm",
                   selected?.id === role.id ? "bg-table-row-hover" : "hover:bg-muted",
                 )}
               >
@@ -60,7 +76,7 @@ export function RolesManager({
             </li>
           ))}
         </ul>
-        <Button variant="outline" className="w-full" onClick={() => setCreateOpen(true)}>
+        <Button variant="outline" className="w-full" onClick={() => show("create")}>
           <Plus aria-hidden />
           Create role
         </Button>
@@ -71,8 +87,20 @@ export function RolesManager({
           key={selected.id}
           role={selected}
           permissions={matrix.permissions}
+          onEdit={() => show("edit")}
           onDone={() => router.refresh()}
           onDeleted={() => router.replace(pathname, { scroll: false })}
+        />
+      ) : null}
+
+      {selected ? (
+        <EditRoleSheet
+          key={`edit-${selected.id}-${selected.name}-${selected.description ?? ""}-${selected.uploadsForRoleId ?? ""}`}
+          role={selected}
+          roles={matrix.roles}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onSaved={() => router.refresh()}
         />
       ) : null}
 
@@ -91,11 +119,13 @@ export function RolesManager({
 function RolePermissions({
   role,
   permissions,
+  onEdit,
   onDone,
   onDeleted,
 }: {
   role: RoleMatrix["roles"][number];
   permissions: RoleMatrix["permissions"];
+  onEdit: () => void;
   onDone: () => void;
   onDeleted: () => void;
 }) {
@@ -127,7 +157,7 @@ function RolePermissions({
   }
 
   return (
-    <section aria-labelledby="role-heading" className="rounded-md border bg-card p-6">
+    <section aria-labelledby="role-heading" className="min-w-0 rounded-md border bg-card p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 id="role-heading" className="text-xl leading-7 font-semibold">
@@ -139,13 +169,19 @@ function RolePermissions({
             </p>
           ) : null}
         </div>
-        {role.isLocked ? (
-          <StatusBadge tone="locked">Locked</StatusBadge>
-        ) : role.isSystemRole ? (
-          <StatusBadge tone="neutral">System role</StatusBadge>
-        ) : (
-          <StatusBadge tone="neutral">Custom role</StatusBadge>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {role.isLocked ? (
+            <StatusBadge tone="locked">Locked</StatusBadge>
+          ) : role.isSystemRole ? (
+            <StatusBadge tone="neutral">System role</StatusBadge>
+          ) : (
+            <StatusBadge tone="neutral">Custom role</StatusBadge>
+          )}
+          <Button type="button" variant="outline" size="sm" onClick={onEdit}>
+            <Pencil aria-hidden />
+            Edit role
+          </Button>
+        </div>
       </div>
 
       {role.isLocked ? (
@@ -177,7 +213,7 @@ function RolePermissions({
                   }
                 />
                 <label htmlFor={`perm-${permission.id}`} className="text-sm leading-5">
-                  <span className="block font-mono text-xs">{permission.code}</span>
+                  <span className="block font-medium">{permissionLabel(permission.code)}</span>
                   <span className="text-muted-foreground">{permission.description}</span>
                 </label>
               </li>
@@ -224,6 +260,125 @@ function RolePermissions({
   );
 }
 
+/** Name and description of a role. Its code and, for Admin, its permissions stay as they are. */
+function EditRoleSheet({
+  role,
+  roles,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  role: RoleMatrix["roles"][number];
+  roles: RoleMatrix["roles"];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [name, setName] = useState(role.name);
+  const [description, setDescription] = useState(role.description ?? "");
+  const [uploadsFor, setUploadsFor] = useState(role.uploadsForRoleId ?? "");
+  const dirty =
+    name.trim() !== role.name ||
+    description.trim() !== (role.description ?? "") ||
+    uploadsFor !== (role.uploadsForRoleId ?? "");
+  // A role can stand in for one that uploads in its own right: not Admin, not itself, not a stand-in.
+  const behalfOptions = roles.filter(
+    (r) =>
+      r.id !== role.id && !r.isLocked && (!r.uploadsForRoleId || r.id === role.uploadsForRoleId),
+  );
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    startTransition(async () => {
+      const result = await updateRoleAction({
+        roleId: role.id,
+        name,
+        description,
+        uploadsForRoleId: uploadsFor || null,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Role updated");
+      onOpenChange(false);
+      onSaved();
+    });
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>Edit role</SheetTitle>
+          <SheetDescription>
+            Change the name and description. Permissions are ticked on the page; the code cannot
+            change because assignments and import sheets refer to it.
+          </SheetDescription>
+        </SheetHeader>
+        <form onSubmit={onSubmit} className="space-y-4 px-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-role-name">Name</Label>
+            <Input
+              id="edit-role-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={100}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-role-code">Code</Label>
+            <Input id="edit-role-code" value={role.code} className="font-mono" readOnly disabled />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-role-description">Description (optional)</Label>
+            <textarea
+              id="edit-role-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              maxLength={500}
+              className="w-full rounded-sm border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          </div>
+          {!role.isLocked ? (
+            <div className="space-y-2">
+              <Label htmlFor="edit-role-uploads-for">Uploads documents on behalf of</Label>
+              <select
+                id="edit-role-uploads-for"
+                value={uploadsFor}
+                onChange={(e) => setUploadsFor(e.target.value)}
+                aria-describedby="edit-role-uploads-for-hint"
+                className="h-10 w-full rounded-sm border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <option value="">Nobody — its own activities only</option>
+                {behalfOptions.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+              <p
+                id="edit-role-uploads-for-hint"
+                className="text-xs leading-4 text-muted-foreground"
+              >
+                People with this role can then upload the activities that role files, at the org
+                units they are assigned to. They also need the document.upload permission.
+              </p>
+            </div>
+          ) : null}
+          <Button type="submit" className="w-full" disabled={pending || !dirty || !name.trim()}>
+            {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+            Save changes
+          </Button>
+        </form>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function CreateRoleSheet({
   open,
   onOpenChange,
@@ -237,19 +392,31 @@ function CreateRoleSheet({
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  // Empty is not called out while typing has not started; submitting says so.
+  const [submitted, setSubmitted] = useState(false);
+  const [taken, setTaken] = useState<string | null>(null);
+  const codeError =
+    code !== "" || submitted
+      ? (roleCodeError(code) ?? (taken === code.trim() ? ROLE_CODE_EXISTS : null))
+      : null;
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
+    setSubmitted(true);
+    if (roleCodeError(code)) return;
     startTransition(async () => {
       const result = await createRoleAction({ code, name, description });
       if (!result.ok) {
-        toast.error(result.error);
+        if (result.error === ROLE_CODE_EXISTS) setTaken(code.trim());
+        else toast.error(result.error);
         return;
       }
       toast.success("Role created");
       setCode("");
       setName("");
       setDescription("");
+      setSubmitted(false);
+      setTaken(null);
       onOpenChange(false);
       onCreated(result.data.id);
     });
@@ -273,13 +440,27 @@ function CreateRoleSheet({
               id="role-code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="font-mono"
+              className={cn(
+                "font-mono",
+                codeError &&
+                  "border-status-error bg-status-error/5 focus-visible:border-status-error",
+              )}
+              aria-invalid={codeError ? true : undefined}
               aria-describedby="role-code-hint"
-              required
             />
-            <p id="role-code-hint" className="text-xs leading-4 text-muted-foreground">
-              Lowercase letters, numbers and underscores, e.g.{" "}
-              <span className="font-mono">site_auditor</span>.
+            <p
+              id="role-code-hint"
+              className={cn(
+                "text-xs leading-4",
+                codeError ? "font-medium text-status-error" : "text-muted-foreground",
+              )}
+            >
+              {codeError ?? (
+                <>
+                  Lowercase letters, numbers and underscores, e.g.{" "}
+                  <span className="font-mono">site_auditor</span>.
+                </>
+              )}
             </p>
           </div>
           <div className="space-y-2">

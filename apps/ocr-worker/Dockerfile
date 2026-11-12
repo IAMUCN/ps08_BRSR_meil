@@ -24,6 +24,10 @@ COPY scripts/ scripts/
 RUN python scripts/download_models.py
 
 # PaddleX writes a small cache under $HOME, so the non-root user gets a home directory.
+# The base image's pip has published advisories and is not needed at run time: bring it up to date last, so
+# the large dependency and model layers above stay cached (DEPENDENCY_AUDIT_2026-10-12.md).
+RUN python -m pip install --upgrade "pip>=26.2"
+
 RUN useradd --create-home --uid 10001 worker
 USER worker
 

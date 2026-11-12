@@ -8,9 +8,12 @@ import {
 } from "@/lib/consolidation/aggregate";
 import { db } from "@/lib/db";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { renderReportHtml } from "./html";
+import { templateExtras } from "./extras";
 import { renderPdf } from "./pdf";
 import { buildSnapshot, unmappedRequiredIndicators } from "./snapshot";
+import { renderTemplateHtml } from "./template-html";
+import { isTemplate, TEMPLATE_INFO, type ReportTemplate } from "./templates";
+import { ghgWorkbook } from "./workbook";
 
 // The report job (App Flow §4.10; .grill/phase-17-reporting-decisions.md). Runs after the request that
 // queued it; every outcome is stored on the run, audited and notified, and a specific reason is recorded
@@ -39,14 +42,22 @@ async function notify(userId: string, runId: string, ok: boolean, message: strin
 async function finish(
   runId: string,
   userId: string,
-  outcome: { ok: true; path: string; snapshot: unknown } | { ok: false; error: string },
+  outcome:
+    | {
+        ok: true;
+        path: string;
+        workbookPath: string | null;
+        snapshot: unknown;
+        template: ReportTemplate;
+      }
+    | { ok: false; error: string },
 ) {
   const sql = db();
   await sql.begin(async (tx) => {
     if (outcome.ok) {
       await tx`
         update public.report_runs
-        set status = 'completed', storage_path = ${outcome.path},
+        set status = 'completed', storage_path = ${outcome.path}, workbook_path = ${outcome.workbookPath},
             snapshot_data = ${tx.json(outcome.snapshot as never)}, completed_at = now(), error_message = null
         where id = ${runId}`;
     } else {
@@ -60,14 +71,20 @@ async function finish(
       entityType: "report_run",
       entityId: runId,
       userId: null, // the job itself, after the request
-      newValue: outcome.ok ? { storage_path: outcome.path } : { error: outcome.error },
+      newValue: outcome.ok
+        ? {
+            storage_path: outcome.path,
+            workbook_path: outcome.workbookPath,
+            template: outcome.template,
+          }
+        : { error: outcome.error },
     });
   });
   await notify(
     userId,
     runId,
     outcome.ok,
-    outcome.ok ? "Your BRSR report is ready." : outcome.error,
+    outcome.ok ? `Your ${TEMPLATE_INFO[outcome.template].title} is ready.` : outcome.error,
   );
 }
 
@@ -81,12 +98,13 @@ export async function runReport(runId: string): Promise<void> {
       financial_year: number | null;
       period_from: string | null;
       period_to: string | null;
+      template: string;
     }[]
   >`
     update public.report_runs set status = 'generating'
     where id = ${runId} and status = 'pending'
     returning requested_by, org_unit_id, reporting_period_id, financial_year,
-              period_from::text, period_to::text`;
+              period_from::text, period_to::text, template`;
   if (!run) return; // already taken, finished or expired
 
   try {
@@ -140,6 +158,7 @@ export async function runReport(runId: string): Promise<void> {
       );
     }
 
+    const template: ReportTemplate = isTemplate(run.template) ? run.template : "brsr";
     const snapshot = await buildSnapshot(sql, {
       orgUnitId: run.org_unit_id,
       periodIds,
@@ -148,9 +167,15 @@ export async function runReport(runId: string): Promise<void> {
       disclosureYear,
       previous,
     });
+    snapshot.template = template;
+    snapshot.extras = await templateExtras(sql, template, {
+      orgUnitId: run.org_unit_id,
+      periodIds,
+      previousPeriodIds: previous?.periodIds ?? [],
+    });
     let pdf: Uint8Array;
     try {
-      pdf = await renderPdf(renderReportHtml(snapshot));
+      pdf = await renderPdf(renderTemplateHtml(snapshot, template));
     } catch (error) {
       console.error("report rendering failed", runId, error);
       throw new ReportFailure(
@@ -165,7 +190,23 @@ export async function runReport(runId: string): Promise<void> {
       console.error("report upload failed", runId, error);
       throw new ReportFailure("Report generation failed: the PDF could not be stored. Try again.");
     }
-    await finish(runId, run.requested_by, { ok: true, path, snapshot });
+    let workbookPath: string | null = null;
+    if (TEMPLATE_INFO[template].workbook) {
+      workbookPath = `${runId}.xlsx`;
+      const { error: workbookError } = await createSupabaseAdminClient()
+        .storage.from(reportsBucket())
+        .upload(workbookPath, await ghgWorkbook(snapshot), {
+          contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          upsert: true,
+        });
+      if (workbookError) {
+        console.error("report workbook upload failed", runId, workbookError);
+        throw new ReportFailure(
+          "Report generation failed: the Excel workbook could not be stored. Try again.",
+        );
+      }
+    }
+    await finish(runId, run.requested_by, { ok: true, path, workbookPath, snapshot, template });
   } catch (error) {
     if (!(error instanceof ReportFailure)) console.error("report generation failed", runId, error);
     await finish(runId, run.requested_by, {

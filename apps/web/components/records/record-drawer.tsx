@@ -18,6 +18,9 @@ import type { RecordDetail } from "@/lib/trpc/routers/records";
 import type { Outcome, RuleType } from "@/lib/validation/checks";
 import { StageBadge } from "./stage-badge";
 import { EvidenceFiles } from "./evidence-files";
+import { RecordCorrections } from "./record-corrections";
+import { RecordOcr } from "./record-ocr";
+import { StageTracker } from "./stage-tracker";
 
 // The shared record detail (03_APP_FLOW.md §2.2 Submission Monitoring → "record detail view, shared
 // component also used by … ESG Data Explorer"): evidence, extracted values, validation, calculation and the
@@ -40,6 +43,9 @@ const EVENT_LABELS: Record<string, string> = {
   "calculation.blocked": "Calculation blocked",
   "approval.approved": "Approved",
   "approval.returned": "Returned by the approver",
+  "document.type_corrected": "Document type corrected",
+  "record.returned_wrong_activity": "Returned as the wrong activity",
+  "record.activity_changed": "Activity changed before confirming",
 };
 
 /** Where this record can be acted on, if anywhere. */
@@ -48,8 +54,6 @@ function queueFor(d: RecordDetail): { href: string; label: string } | null {
     return { href: "/admin/approval-queue", label: "Open the Approval Queue" };
   if (d.statuses.validation === "flagged")
     return { href: "/admin/validation-queue", label: "Open the Validation Queue" };
-  if (["document_uploaded", "ocr_completed"].includes(d.statuses.verification))
-    return { href: "/admin/ocr-monitoring", label: "Open OCR Monitoring" };
   return null;
 }
 
@@ -62,6 +66,8 @@ export function RecordDrawer({
 }) {
   const [detail, setDetail] = useState<RecordDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumped after a correction, so the panel reads the record again.
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     if (!recordId) return;
@@ -76,7 +82,7 @@ export function RecordDrawer({
       setDetail(null);
       setError(null);
     };
-  }, [recordId]);
+  }, [recordId, version]);
 
   const queue = detail ? queueFor(detail) : null;
   return (
@@ -89,6 +95,12 @@ export function RecordDrawer({
               ? `${detail.metricName} · ${detail.orgUnitName} · ${detail.periodLabel}`
               : (error ?? "Loading…")}
           </SheetDescription>
+          {detail?.description ? (
+            <p className="mt-1 text-sm whitespace-pre-line text-foreground">
+              <span className="font-medium">Description: </span>
+              {detail.description}
+            </p>
+          ) : null}
         </SheetHeader>
         {detail ? (
           // Sized by the panel, not the screen: one column while docked, document beside the values once
@@ -123,6 +135,18 @@ export function RecordDrawer({
                     </Link>
                   ) : null}
                 </div>
+                <StageTracker statuses={detail.statuses} submittedBy={detail.submittedBy} />
+                {detail.billNumber || detail.late || detail.duplicate ? (
+                  <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                    {detail.billNumber ? <span>Bill no. {detail.billNumber}</span> : null}
+                    {detail.late ? (
+                      <span className="font-medium text-status-warning">Late submission</span>
+                    ) : null}
+                    {detail.duplicate ? (
+                      <span className="font-medium text-status-warning">Possible duplicate</span>
+                    ) : null}
+                  </p>
+                ) : null}
 
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold">Extracted and verified values</h3>
@@ -136,7 +160,16 @@ export function RecordDrawer({
                           className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-baseline gap-3 px-3 py-2"
                         >
                           <dt className="leading-5 text-muted-foreground">{f.label}</dt>
-                          <dd className="font-mono leading-5 break-words">{f.value ?? "—"}</dd>
+                          <dd className="font-mono leading-5 break-words">
+                            {f.value ?? "—"}
+                            {detail.confidences[f.label] != null ? (
+                              <span
+                                className={`ml-2 font-sans text-xs ${(detail.confidences[f.label] ?? 100) < 80 ? "text-status-error" : "text-muted-foreground"}`}
+                              >
+                                {Math.round(detail.confidences[f.label]!)}%
+                              </span>
+                            ) : null}
+                          </dd>
                         </div>
                       ))}
                     </dl>
@@ -169,6 +202,10 @@ export function RecordDrawer({
                 {detail.calculation.trace || detail.calculation.blockedReason ? (
                   <CalculationTraceView state={detail.calculation} />
                 ) : null}
+
+                <RecordOcr detail={detail} onChanged={() => setVersion((v) => v + 1)} />
+
+                <RecordCorrections detail={detail} onChanged={() => setVersion((v) => v + 1)} />
 
                 <EvidenceFiles recordId={detail.recordId} />
 

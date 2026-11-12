@@ -18,9 +18,9 @@ import { MotionProvider } from "@/components/landing/motion-provider";
 export function LandingPage() {
   return (
     <MotionProvider>
-      <div className="landing-page bg-white text-slate-900 font-sans min-h-screen">
+      <div className="landing-page min-h-screen overflow-x-clip bg-white font-sans text-slate-900">
         <LandingNavbar />
-        <main>
+        <main id="main-content" tabIndex={-1} className="outline-none">
           <HeroSection />
           <TrustBadgesSection />
           <ProblemSection />

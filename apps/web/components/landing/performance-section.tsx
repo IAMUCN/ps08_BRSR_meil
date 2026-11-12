@@ -2,6 +2,94 @@ import { ArrowUp } from "lucide-react";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { SectionHeading } from "@/components/landing/section-heading";
 
+// Sample figures for the illustration (labelled "sample" on the page). The drawings are computed from them, so a
+// bar or a point always agrees with the number printed beside it (feature_enhancement.md 8.2).
+const TREND = [
+  { month: "Jan", value: 48 },
+  { month: "Feb", value: 52 },
+  { month: "Mar", value: 60 },
+  { month: "Apr", value: 57 },
+  { month: "May", value: 72 },
+  { month: "Jun", value: 78 },
+];
+const SCOPES = [
+  { label: "Scope 1 (Direct Fuel)", value: 32400, color: "#313490" },
+  { label: "Scope 2 (Electricity)", value: 56210, color: "#E91029" },
+  { label: "Scope 3 (Value chain)", value: 34810, color: "#333333" },
+];
+const SCOPE_MAX = Math.max(...SCOPES.map((s) => s.value));
+
+/** A plain line chart: straight segments between the points (no smoothing that invents values), round markers,
+ * y labels on their grid lines, one label per month under its point. */
+function TrendChart() {
+  const W = 260;
+  const H = 170;
+  const left = 26;
+  const right = 10;
+  const top = 10;
+  const bottom = 24;
+  const [min, max] = [30, 90];
+  const ticks = [30, 50, 70, 90];
+  const x = (i: number) => left + (i * (W - left - right)) / (TREND.length - 1);
+  const y = (v: number) => top + ((max - v) * (H - top - bottom)) / (max - min);
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="mt-4 h-auto w-full"
+      role="img"
+      aria-label={`Sample monthly emissions: ${TREND.map((t) => `${t.month} ${t.value}`).join(", ")}`}
+    >
+      {ticks.map((t) => (
+        <g key={t}>
+          <line
+            x1={left}
+            x2={W - right}
+            y1={y(t)}
+            y2={y(t)}
+            stroke="#e2e8f0"
+            strokeDasharray="3 3"
+          />
+          <text
+            x={left - 6}
+            y={y(t) + 3}
+            textAnchor="end"
+            fontSize="9"
+            fontWeight="600"
+            fill="#64748b"
+          >
+            {t}
+          </text>
+        </g>
+      ))}
+      <polyline
+        points={TREND.map((t, i) => `${x(i)},${y(t.value)}`).join(" ")}
+        fill="none"
+        stroke="#313490"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      {TREND.map((t, i) => (
+        <g key={t.month}>
+          <circle cx={x(i)} cy={y(t.value)} r="4" fill="#313490" stroke="#fff" strokeWidth="2">
+            <title>{`${t.month}: ${t.value}`}</title>
+          </circle>
+          <text
+            x={x(i)}
+            y={H - 6}
+            textAnchor="middle"
+            fontSize="10"
+            fontWeight="600"
+            fill="#64748b"
+          >
+            {t.month}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 export function PerformanceSection() {
   return (
     <section id="reporting" className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50/70">
@@ -21,80 +109,7 @@ export function PerformanceSection() {
               </h3>
             </div>
 
-            <div className="relative flex-1 flex items-end pt-6 pb-2">
-              {/* Y Axis */}
-              <div className="flex flex-col justify-between h-full pr-3 text-[10px] font-semibold text-slate-500">
-                <span>90</span>
-                <span>70</span>
-                <span>50</span>
-                <span>30</span>
-              </div>
-
-              {/* Line Graph with Nodes */}
-              <div className="relative flex-1 h-full flex flex-col justify-end">
-                <svg
-                  className="w-full h-full overflow-visible"
-                  viewBox="0 0 240 100"
-                  preserveAspectRatio="none"
-                >
-                  {/* Subtle Grid Lines */}
-                  <line
-                    x1="0"
-                    y1="10"
-                    x2="240"
-                    y2="10"
-                    stroke="#f1f5f9"
-                    strokeWidth="1"
-                    strokeDasharray="3 3"
-                  />
-                  <line
-                    x1="0"
-                    y1="40"
-                    x2="240"
-                    y2="40"
-                    stroke="#f1f5f9"
-                    strokeWidth="1"
-                    strokeDasharray="3 3"
-                  />
-                  <line
-                    x1="0"
-                    y1="70"
-                    x2="240"
-                    y2="70"
-                    stroke="#f1f5f9"
-                    strokeWidth="1"
-                    strokeDasharray="3 3"
-                  />
-
-                  {/* Trend Line */}
-                  <path
-                    d="M 10 80 Q 40 65 60 70 T 110 50 T 160 55 T 200 30 T 235 20"
-                    fill="none"
-                    stroke="#313490"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                  />
-
-                  {/* Data Points */}
-                  <circle cx="10" cy="80" r="4.5" fill="#313490" className="shadow-xs" />
-                  <circle cx="60" cy="70" r="4.5" fill="#313490" />
-                  <circle cx="110" cy="50" r="4.5" fill="#313490" />
-                  <circle cx="160" cy="55" r="4.5" fill="#313490" />
-                  <circle cx="200" cy="30" r="4.5" fill="#313490" />
-                  <circle cx="235" cy="20" r="4.5" fill="#313490" />
-                </svg>
-
-                {/* X Axis */}
-                <div className="flex justify-between text-[11px] font-semibold text-slate-500 pt-3 border-t border-slate-100">
-                  <span>Jan</span>
-                  <span>Feb</span>
-                  <span>Mar</span>
-                  <span>Apr</span>
-                  <span>May</span>
-                  <span>Jun</span>
-                </div>
-              </div>
-            </div>
+            <TrendChart />
           </div>
 
           {/* Card 2: Scope Composition */}
@@ -107,38 +122,24 @@ export function PerformanceSection() {
             </div>
 
             <div className="space-y-6 flex-1 flex flex-col justify-center">
-              {/* Scope 1 */}
-              <div>
-                <div className="flex justify-between items-center text-xs font-bold mb-2">
-                  <span className="text-slate-700">Scope 1 (Direct Fuel)</span>
-                  <span className="text-slate-900">32,400</span>
+              {SCOPES.map((scope) => (
+                <div key={scope.label}>
+                  <div className="flex justify-between items-center text-xs font-bold mb-2">
+                    <span className="text-slate-700">{scope.label}</span>
+                    <span className="text-slate-900">{scope.value.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="w-full h-4 bg-slate-100 rounded-md overflow-hidden">
+                    {/* Length is the figure against the largest one, so the bars agree with the numbers. */}
+                    <div
+                      className="h-full rounded-md"
+                      style={{
+                        width: `${Math.round((scope.value / SCOPE_MAX) * 100)}%`,
+                        backgroundColor: scope.color,
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-4 bg-slate-100 rounded-md overflow-hidden">
-                  <div className="h-full bg-[#313490] rounded-md" style={{ width: "42%" }} />
-                </div>
-              </div>
-
-              {/* Scope 2 */}
-              <div>
-                <div className="flex justify-between items-center text-xs font-bold mb-2">
-                  <span className="text-slate-700">Scope 2 (Electricity)</span>
-                  <span className="text-slate-900">56,210</span>
-                </div>
-                <div className="w-full h-4 bg-slate-100 rounded-md overflow-hidden">
-                  <div className="h-full bg-[#E91029] rounded-md" style={{ width: "75%" }} />
-                </div>
-              </div>
-
-              {/* Scope 3 */}
-              <div>
-                <div className="flex justify-between items-center text-xs font-bold mb-2">
-                  <span className="text-slate-700">Scope 3 (Value chain)</span>
-                  <span className="text-slate-900">34,810</span>
-                </div>
-                <div className="w-full h-4 bg-slate-100 rounded-md overflow-hidden">
-                  <div className="h-full bg-[#333333] rounded-md" style={{ width: "48%" }} />
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 

@@ -11,8 +11,24 @@ export async function inviteUserAction(input: {
   return runAction((api) => api.users.invite(input));
 }
 
+export async function setEmployeeIdAction(input: { userId: string; employeeId: string }) {
+  return runAction((api) => api.users.setEmployeeId(input));
+}
+
+export async function updateInvitedUserAction(input: {
+  userId: string;
+  displayName: string;
+  email: string;
+}) {
+  return runAction((api) => api.users.updateInvited(input));
+}
+
 export async function resendInviteAction(input: { userId: string }) {
   return runAction((api) => api.users.resendInvite(input));
+}
+
+export async function revokeInviteAction(input: { userId: string }) {
+  return runAction((api) => api.users.revokeInvite(input));
 }
 
 export async function addAssignmentAction(input: {

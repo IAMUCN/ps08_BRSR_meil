@@ -1,4 +1,5 @@
 import { cn } from "cn";
+import Link from "next/link";
 import { financialYearLabel } from "@/lib/consolidation/aggregate";
 import { yearOnYear, type KpiTrends } from "@/lib/dashboard/trends";
 
@@ -18,7 +19,14 @@ export function KpiTrendsCard({ trends, orgName }: { trends: KpiTrends; orgName:
         </h2>
         <p className="mt-1 text-sm leading-5 text-muted-foreground">
           Approved records only, for {orgName} and everything beneath it. A year with no approved
-          data is left empty, never shown as zero.
+          data is left empty, never shown as zero.{" "}
+          <Link
+            href="/admin/carbon-analytics"
+            className="text-primary-text underline underline-offset-2"
+          >
+            Carbon Analytics
+          </Link>{" "}
+          has the break-down by activity, suggested actions and emission alerts.
         </p>
       </div>
       {trends.years.length === 0 ? (

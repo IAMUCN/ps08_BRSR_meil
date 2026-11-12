@@ -1,4 +1,4 @@
-import { ISSUES, STATUSES, type Issue, type Status } from "./search";
+import { ISSUES, OCR_STATES, STATUSES, type Issue, type Status } from "./search";
 
 // URL search params → a validated records query (unknown values are dropped, never passed through).
 
@@ -9,6 +9,8 @@ const one = (params: Params, key: string) => {
   return typeof value === "string" && value ? value : undefined;
 };
 const uuid = (v: string | undefined) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : undefined);
+const day = (v: string | undefined) =>
+  v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) ? v : undefined;
 const SCOPES = ["SCOPE_1", "SCOPE_2", "SCOPE_3"];
 
 export function readParams(params: Params) {
@@ -22,7 +24,14 @@ export function readParams(params: Params) {
     financialYear: Number.isInteger(fy) && fy > 2000 ? fy : undefined,
     scopeCode: scope && SCOPES.includes(scope) ? scope : undefined,
     metricCode: one(params, "metric"),
+    documentTypeCode: one(params, "doctype"),
     roleCode: one(params, "role"),
+    text: one(params, "q")?.trim().slice(0, 100) || undefined,
+    ocr: OCR_STATES.includes(one(params, "ocr") as never)
+      ? (one(params, "ocr") as (typeof OCR_STATES)[number])
+      : undefined,
+    uploadedFrom: day(one(params, "from")),
+    uploadedTo: day(one(params, "to")),
     status: STATUSES.includes(status as Status) ? (status as Status) : undefined,
     issue: ISSUES.includes(issue as Issue) ? (issue as Issue) : undefined,
     missingSubmissions: issue === "missing_submissions",

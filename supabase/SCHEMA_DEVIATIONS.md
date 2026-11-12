@@ -531,7 +531,238 @@ once at the group, and for more than one group (2026-10-11). Decision:
 
 **Why:** Roadmap requirement for Carbon Markets - Credit Tracking & Double-Counting Prevention and Internal Carbon Pricing CapEx Evaluator for SEBI BRSR net emissions reporting.
 
+## D38 — Data isolation rules enforced by the database for every writer (migration `0047`)
+
+**Schema says:** nothing on these points; RLS scopes the browser roles and the application is trusted for the rest.
+
+**Built:** six additions, none of which changes a legitimate workflow (database audit of 2026-10-12,
+`DATABASE_AUDIT_2026-10-12.md`):
+
+- `esg_records.org_unit_id` / `submitted_by` and `documents.org_unit_id` / `uploaded_by` cannot change once filed.
+- An evidence link (`esg_record_documents`) must join a record and a document of the same org unit.
+- A carbon-credit batch cannot have more retired and transferred than it holds; a retirement must name its
+  period, beneficiary and scope, a transfer its counterparty (constraints added `NOT VALID`); one active
+  internal carbon price per org unit.
+- `chat_reader` no longer reads the four carbon tables (no chatbot lookup uses them).
+- `org_settings` is readable by Admins only (it now holds turnover, assurance details and rate limits).
+- Browser roles lose the unused `MAINTAIN` privilege; trigger functions are not executable by them; every
+  function in `public` has a fixed search path.
+
+**Why:** the application's own connection and the service role bypass RLS, so rules about ownership and the
+ledger have to live in triggers and constraints to hold for every writer. Each section of the migration lists
+its own undo.
+
 ## Documentation cross-reference errors noticed (no schema impact)
 
 - §16.4 refers to "a trigger (§17.3)"; the trigger is in §19.3.
 - §3.1 refers to "a narrow view, §14.5"; no §14.5 exists (addressed by D5).
+
+## D39 — Default permissions of the seeded roles reviewed (migration `0048`)
+
+**Change:** Corporate ESG / Sustainability also holds `validation.review` and `report.generate`. No permission
+is added to or removed from the catalogue; no other role changes; custom roles are untouched.
+
+**Why:** the owner asked for each role's permissions to follow how the roles work in a real organisation
+(`.grill/role-permissions-decisions.md` has the full table). The corporate sustainability team approves and
+monitors, and needs the two steps between: settling flagged values and producing the report. Both are limited
+to the person's org scope. Organisation-wide configuration stays with Admin.
+
+## D40 — A role can upload on behalf of another role (migration `0049`)
+
+**Change:** `roles.uploads_for_role_id` (nullable, references `roles`, not itself).
+
+**Why:** the schema gives each ESG category one owning role, and only that role is offered the category's
+activities on Upload. The owner added an Employee role whose people file the bills their Project Manager is
+responsible for; a custom role owns no category and was offered nothing. The column lends one role's
+categories to another for uploading without taking them away (`.grill/employee-uploads-decisions.md`).
+
+## D41 — Super Admins and scoped Administrators (migration `0050`)
+
+**Change:** a new system role `org_admin` ("Administrator") with eleven of the existing permissions and none
+of the configuration ones; the `admin` role is renamed "Super Admin"; a setting `super_admin_limit` (2); a
+trigger function `enforce_super_admin_limit()` on `user_org_assignments` and on `users`.
+
+**Why:** the schema has one global Admin role and nothing limits how many people hold it — the hosted project
+had five within three weeks. The owner decided (2026-10-13, `.grill/scoped-admin-onboarding-decisions.md`)
+that group-wide configuration belongs to at most two Super Admins and that everyone else who administers is
+limited to the org unit they are assigned at and everything beneath it.
+
+**How it is enforced:** `is_admin()` and every policy that calls it are unchanged and keep meaning the Super
+Admin, so nothing opened to an Administrator by accident. Their reach is the org scope the app already had
+(`lib/auth/scope.ts`), checked in each procedure; who may hand out which role where is one pure rule
+(`lib/users/rules.ts`: `checkGrant`, `checkAccountReach`). The limit counts unrevoked `admin` assignments on
+active, undeleted accounts under a transaction-scoped lock, so two grants at once cannot both pass; a
+deactivated Super Admin frees a place and cannot be reactivated while it is taken. The migration refuses to
+run on a database that is already over the limit.
+
+## D42 — Invitation links (migration `0051`)
+
+**Schema document:** has no invitation table; accounts were to be invited by Supabase Auth's own email.
+
+**What exists:** `public.user_invitations` (`user_id`, `token_hash`, `created_by`, `created_at`,
+`expires_at`, `consumed_at`, `revoked_at`), server-only (RLS on, no policy, no browser grant), and the
+setting `org_settings.invitation_valid_hours` (24).
+
+**Why:** Supabase's invite link is used up, and signs the person in, by a plain GET, which mail scanners
+perform; and since A36 new accounts were emailed a temporary password. The owner decided no password is
+ever emailed (`.grill/scoped-admin-onboarding-decisions.md`).
+
+**Rules the database holds for every writer:** only a SHA-256 can be stored as the token; an account has at
+most one link that is neither used nor revoked; a link is used or revoked, never both; a used or revoked
+link cannot be changed; a link's account, token and expiry cannot be changed.
+
+**Undo:** drop the table and `guard_user_invitation()`, delete the setting.
+
+## D43 — Session time limits (migration `0052`)
+
+**Schema document:** sessions are Supabase Auth's; no table.
+
+**What exists:** `public.user_sessions` (one row per sign-in, keyed by the `session_id` claim of the access
+token: `user_id`, `started_at`, `last_activity_at`, `ended_at`, `ended_reason`), server-only; the functions
+`session_limits()` and `touch_session(session, user, activity)`, not callable by the browser roles; the
+setting `org_settings.session_limits` (`{"idle_minutes": 180, "absolute_minutes": 720}`).
+
+**Why:** a Supabase session lives for as long as its refresh token is used. The owner decided on 3 hours
+without activity and 12 hours in all, enforced by the app.
+
+**Behaviour:** `touch_session` registers a session seen for the first time, ends one past either limit
+(for good: an ended session never becomes active again) and, only when told the person did something,
+moves the idle clock. A session id belongs to the person it started with. A missing or senseless setting
+gives the default limits. Rows older than 30 days are removed when someone signs out.
+
+**Undo:** drop the two functions and the table, delete the setting.
+
+## D44 — Reporting periods close by themselves; a pop-up marker per account (migration `0053`, 2026-11-01)
+
+`close_expired_reporting_periods()` closes an open period past `submission_closes_on` (else `end_date`), India
+time, with a system audit entry and a `period_closed` notification to Super Admins; `pg_cron` runs it every five
+minutes (`close-expired-reporting-periods`). Records are not touched. `users.notifications_seen_at` records how
+far pop-ups have reached, so each notification pops up once per account. The schema specified manual open and
+close only. `.grill/org-tree-users-notifications-periods-decisions.md`.
+
+## D45 — One signed-in session per account (migration `0055`, 2026-11-07)
+
+`user_sessions` gains `user_agent`, `ip_address`, `replaced_by` and the ending `replaced`. `live_sessions()` lists a
+person's sign-ins that are within both time limits and still known to Supabase Auth. `start_session()` (the
+sign-in form) refuses to start beside a live sign-in unless told to replace it; replacing ends the others as
+`replaced`, deletes their `auth.sessions` rows (refresh tokens cascade) and writes `auth.session_replaced` to the
+audit log with both devices, in one transaction; refusing deletes the new `auth.sessions` row. `touch_session_single()`
+is `touch_session()` for code from this migration on: a session it has never seen replaces the others, so a sign-in
+that skipped the form cannot sit beside another. `touch_session()` itself is unchanged, so code built before keeps
+its behaviour. The specification allows any number of sessions. feature_enhancement.md requirements 18 and 32;
+`.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** in the migration's header.
+
+## D46 — Several open periods, late uploads, bill number (migration `0056`, 2026-11-07)
+
+The one-open-period unique index is dropped: several periods may be open at once and the uploader picks one.
+`reporting_periods.late_uploads_until` (after the due date `submission_closes_on`, uploads are accepted and marked
+late until this day); `reporting_period_late()`, `reporting_period_locked()` and `reporting_period_today()`;
+`close_expired_reporting_periods()` closes a period when its late window ends (a period without the date closes on
+its due date, as before). `esg_records.submitted_late` (fixed at upload) and `esg_records.bill_number` (the confirmed
+invoice number, written by validation; existing ones back-filled). `documents.document_type_source` ('person',
+'admin'; null with a type = chosen by OCR). Validation adds built-in Late and Same-file checks; the configured
+`duplicate_invoice` check now means "same bill" across every unit and period (bill number + billing period +
+activity). feature_enhancement.md Phase 2; `.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** in the migration's footer.
+
+## D47 — Grid Electricity records its bill number (migration `0057`, 2026-11-08)
+
+An optional `invoice_number` field ("Bill number") for Grid Electricity, so the same-bill check and the Bill no.
+column work for electricity bills; the utility in Source classification stands in for the supplier. OCR rules-14
+also stores `page_sizes`, `classification.mismatch` and `diagnostics` in `ocr_extractions.raw_output` (no schema
+change). feature_enhancement.md Phase 3; `.grill/feature-enhancement-roadmap-decisions.md`.
+
+## D48 — Forwarding a report for verification (migration `0058`, 2026-11-08)
+
+`report_forwards`: one row per step of a report travelling up the organisation (from unit, to unit — null for the
+Super Admins — who forwarded, an optional note, the previous step, and the decision: pending, verified or returned
+with a reason). One open step per report and receiver; server-only. The receivers are the Administrators of the
+next unit up that has any (lib/reports/forwarding.ts). The audit log is now readable by everyone through the app,
+scoped: own entries, plus an Administrator's units' entries (lib/trpc/routers/audit.ts); no schema change for that.
+feature_enhancement.md Phase 4; `.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** `drop table public.report_forwards`.
+
+## D49 — Deadline reminder schedule and sends (migration `0059`, 2026-11-08)
+
+`org_settings.reminder_schedule`: the days before a period's due date on which reminders go out and which of them
+also by email (default 7 to 0 days in the app, email on 7, 5, 3 and the due day; India time). `reminder_sends`: one
+row per reminder per period, kind (owner, digest), recipient, schedule day and channel, unique on those five, with
+its status (sending, sent, failed), attempts (a failed email is tried once more), the number missing and the units it
+covers. Server-only (RLS on, no browser grants). Written by lib/reminders/run.ts, called daily by Vercel Cron
+(/api/cron/reminders, protected by `CRON_SECRET`) or by a Super Admin's Run now. feature_enhancement.md Phase 5;
+`.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** `drop table public.reminder_sends; delete from public.org_settings where key = 'reminder_schedule';`
+
+## D50 — Factor sources, factor approval and carbon-credit links (migration `0060`, 2026-11-08)
+
+`conversion_factor_versions` gains `source_url` (https only), `source_publisher`, `financial_year` ("2026-27"),
+`source_retrieved_on`, `value_origin` (manual or fetched), `source_content_sha256`, `approved_by`, `approved_at`,
+`self_approved` and `review_note`. A check keeps the approver consistent (self-approved only by the person who entered
+it, and only when marked so); a trigger refuses a version entering use (inserted active, or a draft switched on)
+without an approver, and any change to an approval once made. Versions active before the migration are untouched (no
+approver). `org_settings.factor_source_hosts`: the official sites a link may be fetched from. `carbon_credit_links`:
+outside sites for exploring or trading credits (https only, unique address, last check), server-only.
+feature_enhancement.md Phase 6; `.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** in the header of `0060_factor_sources_approval_credit_links.sql`.
+
+## D51 — Emission threshold alerts (migration `0061`, 2026-11-09)
+
+`org_settings.emission_alert_settings` (daily check on/off, threshold per scope in percent, earlier years needed,
+smallest increase in tCO2e, how far back a closed period is checked). `emission_alerts`: one row per org unit,
+reporting period and scope whose approved emissions came out above the mean of the same period in up to three
+earlier financial years by more than the threshold; it keeps the measured figure, the average, the threshold and the
+periods averaged, which a trigger keeps unchanged; an alert is acknowledged once, with who, when and a note.
+`emission_alert_sends`: one row per alert, person and channel, claimed before sending. Both tables server-only.
+feature_enhancement.md Phase 7; `.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** in the header of `0061_emission_alerts.sql`.
+
+## D52 — Report templates (migration `0062`, 2026-11-09)
+
+`report_runs.template` ('brsr', 'brsr_core', 'ghg', 'summary'; default 'brsr', which is what every earlier run
+printed) and `report_runs.workbook_path` (a run id with `.xlsx`, for the GHG inventory's Excel workbook). The private
+`reports` bucket accepts `.xlsx` beside `.pdf`. feature_enhancement.md Phase 8.1;
+`.grill/feature-enhancement-roadmap-decisions.md`.
+
+**Undo:** in the header of `0062_report_templates.sql`.
+
+## D53 — Document description (migration `0063`, 2026-11-11)
+
+`documents.description`: optional text, at most 500 characters (check `documents_description_length`), typed by
+the uploader on Upload and changeable by them (`documents.setDescription`, audited `document.description_changed`)
+until the record is approved or rejected. A bill cut out of a multi-bill PDF copies the PDF's description. No
+browser write grant. Owner's request; `.grill/upload-description-progress-decisions.md`.
+
+**Undo:** `alter table public.documents drop column description;`
+
+## D54 — Conversion factors per financial year (migration `0064`, 2026-11-11)
+
+`conversion_factor_versions.effective_from` is always 1 April and `effective_to` (now required) always 31 March:
+a trigger rounds any written date to its financial year, with check constraints behind it. A version after its
+last year is inherited until a newer one starts (the engine ignores `effective_to` when choosing). Existing rows
+were moved to year boundaries (old dates in `factor.version_years_set` audit entries). Owner's decision;
+`.grill/factor-financial-years-decisions.md`.
+
+**Undo:** in the header of `0064_factor_financial_years.sql`.
+
+## D55 — The eye button's choice on the account (migration `0065`, 2026-11-11)
+
+`users.show_extraction_boxes boolean not null default false`: Verify Extraction draws where each value was read,
+coloured by confidence. Server-written (`profile.setShowExtractionBoxes`), audited. Owner's request;
+`.grill/extraction-boxes-toggle-decisions.md`.
+
+**Undo:** `alter table public.users drop column show_extraction_boxes;`
+
+## D56 — Demo requests (migration `0066`, 2026-11-11)
+
+`demo_requests` (name, email, phone, created, contacted at / by): server-written, RLS on with no policy and no
+browser grants, listed for Super Admins. `org_settings.demo_video` holds the YouTube id of the video shown after a
+request. Owner's request; `.grill/demo-requests-decisions.md`.
+
+**Undo:** in the header of `0066_demo_requests.sql`.

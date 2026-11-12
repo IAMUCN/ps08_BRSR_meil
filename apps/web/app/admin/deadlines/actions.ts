@@ -23,3 +23,13 @@ export async function remindTaskAction(input: { expectationId: string; periodId:
 export async function fetchDeadlinesAction(filter?: DeadlineFilter) {
   return runAction((api) => api.deadlines.list(filter));
 }
+
+/** Phase 5: send today's reminders now (Super Admin). */
+export async function runRemindersAction() {
+  return runAction((api) => api.deadlines.runReminders());
+}
+
+/** Phase 5: save the reminder schedule (Super Admin). */
+export async function saveScheduleAction(input: { days: { before: number; email: boolean }[] }) {
+  return runAction((api) => api.deadlines.setSchedule(input));
+}

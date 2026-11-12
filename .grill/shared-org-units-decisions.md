@@ -78,6 +78,29 @@ pick-list as Parent code. Codes typed into Parent code with commas are still rea
 still writes them that way. A cell that is exactly the name of an existing unit is read as that unit even
 when the name holds a comma.
 
+**One Parent code column after all (owner's sixth note the same day).** Parent code 2 and 3 are removed from
+the template: every parent goes in the one Parent code cell, as many as there are, separated by commas.
+Spaces never matter — at either end of a name, or several in a row inside it — in the cell and when the
+server matches a code or a name (`tidy`, `sameName`). A name that itself holds a comma is kept whole when an
+org unit of that name exists. The two removed columns are still read. Also: while the add panel is docked
+(1900px and wider) the page heading makes room for it, so Add from a spreadsheet and Export hierarchy are no
+longer underneath it.
+
+**A checkbox list for parents (owner's seventh note the same day).** On the Organization page the parent is
+chosen from a list of boxes to tick, not a dropdown: in **Add a unit** (the unit selected in the tree is
+ticked and fixed; tick more for a shared unit — `organization.create` takes `alsoUnder`) and in the
+**Parents** card (tick or untick, then Save parents — `organization.setParents`, all or nothing, one audit
+entry). The list shows every active unit of the same group at an earlier level, with a filter box when
+there are more than eight. Read as a request about the page: a spreadsheet cell cannot hold a checkbox list
+without a macro, so the template's Parent code cell is unchanged (codes separated by commas).
+
+**Ticking parents during a bulk import (owner's eighth note the same day).** A spreadsheet cell cannot hold a
+checkbox list, so the list is on the page: after a sheet is uploaded, each row of the preview has a Parents
+button that opens a checklist of every unit the row may sit under — existing units and other rows of the
+sheet, at an earlier level (`components/bulk-import/row-parents-picker.tsx`). Nothing needs typing. A parent
+the sheet named that is not in the list is shown ticked and marked, so it can be removed. The Parent code
+column still works as before.
+
 ## Assumptions made (say if any is wrong)
 
 - "Suggested questions should be in the top portion not in the up portion" was read as: at the **bottom**,

@@ -4,7 +4,7 @@ import { requireAdminSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { PeriodsManager } from "./periods-manager";
 
-export const metadata: Metadata = { title: "Reporting Periods · TraceESG" };
+export const metadata: Metadata = { title: "Reporting Periods · EmeilSG" };
 
 export default async function ReportingPeriodsPage() {
   const [, caller] = await Promise.all([requireAdminSession(), api()]);

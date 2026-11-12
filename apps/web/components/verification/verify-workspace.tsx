@@ -1,12 +1,13 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Loader2, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, Loader2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
 import { ValidationResult } from "@/components/validation/validation-result";
+import { ActivityPicker } from "@/components/verification/activity-picker";
 import { FieldRow } from "@/components/verification/field-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -16,6 +17,8 @@ import {
   MANUAL_JUSTIFICATION_MIN,
   REJECT_REASON_MIN,
   checkConfirm,
+  isFlagged,
+  isResolved,
   type FieldEntry,
 } from "@/lib/verification/rules";
 import type { VerifyDocument } from "@/lib/trpc/routers/verification";
@@ -34,7 +37,68 @@ const INVOICE_FIELD = "invoice_number";
  * Right panel of Verify Extraction (UI brief §12.2): document type, fields with confidence, the guard
  * rail, and the Confirm/Reject actions. The same rules run on the server — this panel only explains them.
  */
-export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
+/**
+ * The fields as a spreadsheet (Phase 3): what OCR read, its confidence, whether it needs review and the value
+ * as it stands now. Built in the browser from what is on screen; the library loads only when asked for.
+ */
+async function downloadFieldsWorkbook(
+  doc: VerifyDocument,
+  entries: Record<string, FieldEntry>,
+): Promise<void> {
+  const { default: ExcelJS } = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Extracted values");
+  sheet.columns = [
+    { header: "Field", key: "field", width: 28 },
+    { header: "Read by OCR", key: "ocr", width: 30 },
+    { header: "Confidence (%)", key: "confidence", width: 15 },
+    { header: "Needs review", key: "review", width: 14 },
+    { header: "Value now", key: "value", width: 30 },
+  ];
+  sheet.getRow(1).font = { bold: true };
+  for (const field of doc.fields) {
+    const entry = entries[field.id] ?? { value: "", acknowledged: false };
+    const unresolved = !isResolved(field, entry, doc.threshold);
+    const row = sheet.addRow({
+      field: field.label,
+      ocr: field.extractedValue ?? "(not found)",
+      confidence: field.confidence === null ? null : Math.round(field.confidence),
+      review: isFlagged(field, doc.threshold) ? (unresolved ? "Yes" : "Checked") : "No",
+      value: entry.value,
+    });
+    if (unresolved) {
+      row.getCell("ocr").fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFFDE2E1" },
+      };
+    }
+  }
+  const buffer = await workbook.xlsx.writeBuffer();
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(
+    new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+  );
+  link.download = `${doc.fileName.replace(/\.[^.]+$/, "")} - extracted values.xlsx`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+export function VerifyWorkspace({
+  doc,
+  selectedKey = null,
+  onSelectKey,
+  diagnostics = {},
+}: {
+  doc: VerifyDocument;
+  /** The field boxed on the document (Phase 3); rows and boxes select each other. */
+  selectedKey?: string | null;
+  onSelectKey?: (key: string) => void;
+  /** Why OCR did not read a field, per field key. */
+  diagnostics?: Record<string, string>;
+}) {
   const router = useRouter();
   const manual = doc.state === "failed";
   const returned = doc.state === "returned";
@@ -164,7 +228,8 @@ export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
         <div className="space-y-4 border-b p-4">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
             {[
-              ["ESG activity", doc.metricName ?? "—"],
+              // With a picker below, the activity is shown (and changed) there.
+              ...(doc.activityOptions.length ? [] : [["ESG activity", doc.metricName ?? "—"]]),
               ["Project / site", doc.orgUnitName],
               ["Reporting period", doc.periodLabel],
               ["Uploaded by", doc.uploadedByName],
@@ -175,6 +240,8 @@ export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
               </div>
             ))}
           </dl>
+
+          <ActivityPicker doc={doc} disabled={pending} />
 
           {/* Master Approach §12: no document type, no verification. */}
           {doc.documentTypeId && doc.documentTypeName ? (
@@ -240,6 +307,24 @@ export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
 
         {doc.recordId ? <EvidenceFiles recordId={doc.recordId} /> : null}
 
+        <div className="flex items-center justify-between gap-3 border-b px-4 py-2 text-xs leading-4 text-muted-foreground">
+          <span>
+            Pick a value to see where it was read on the document. Values in red need checking.
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            onClick={() =>
+              void downloadFieldsWorkbook(doc, entries).catch(() =>
+                toast.error("The spreadsheet could not be made. Try again."),
+              )
+            }
+          >
+            <Download aria-hidden />
+            Download as Excel
+          </Button>
+        </div>
         <ul className="divide-y">
           {doc.fields.map((field) => {
             const entry = entries[field.id] ?? { value: "", acknowledged: false };
@@ -253,6 +338,9 @@ export function VerifyWorkspace({ doc }: { doc: VerifyDocument }) {
                 validation={returned ? (fieldValidation.get(field.key) ?? null) : null}
                 disabled={pending}
                 onChange={(next) => setEntries((current) => ({ ...current, [field.id]: next }))}
+                selected={selectedKey === field.key}
+                onSelect={onSelectKey ? () => onSelectKey(field.key) : undefined}
+                diagnostic={diagnostics[field.key] ?? null}
               />
             );
           })}

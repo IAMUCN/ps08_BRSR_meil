@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { after } from "next/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
+import { assertOrgScope, scopedOrgUnitIds } from "@/lib/auth/scope";
 import { loadCalculationsById } from "@/lib/calculation/lookup";
 import type { CalculationState } from "@/lib/calculation/trace";
 import {
@@ -16,11 +17,12 @@ import { expireStaleRuns, runReport } from "@/lib/reports/generate";
 import { REPORT_INPUTS_KEY, type FyInputs } from "@/lib/reports/inputs";
 import { loadReportInputs, type Snapshot } from "@/lib/reports/snapshot";
 import { getBundlePreview, type BundlePreview } from "@/lib/reports/bundle";
-import { adminProcedure, permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
+import { adminProcedure, permissionProcedure, router } from "@/lib/trpc/init";
+import { isTemplate, REPORT_TEMPLATES, type ReportTemplate } from "@/lib/reports/templates";
 
 // Reports (03_APP_FLOW.md §2.2 Reports / Report Detail, §4.10; .grill/phase-17-reporting-decisions.md).
 // Generating needs `report.generate`; a requester who is not an Admin may only report inside their own
-// assignments. The job runs after the response.
+// assignments, and reads past runs under the same limit. The job runs after the response.
 
 const generateProcedure = permissionProcedure("report.generate");
 
@@ -33,6 +35,9 @@ export type ReportRunRow = {
   requestedAt: string;
   completedAt: string | null;
   error: string | null;
+  /** Phase 8: the layout this run printed; and whether it has an Excel workbook beside the PDF. */
+  template: ReportTemplate;
+  hasWorkbook: boolean;
 };
 
 /** One evidence file behind a record of a financial year. */
@@ -72,7 +77,7 @@ const text = (max: number) =>
     .transform((v) => v || null);
 
 /** What a run covers, as the lists and the report's title name it. */
-const coverageOf = (r: {
+export const coverageOf = (r: {
   financial_year: number | null;
   period_from: string | null;
   period_to: string | null;
@@ -127,10 +132,12 @@ export const reportsRouter = router({
     }),
 
   /** Every evidence file linked to a record whose reporting period lies in the financial year. */
-  evidence: adminProcedure
+  evidence: generateProcedure
     .input(z.object({ financialYear }))
-    .query(async ({ input }): Promise<EvidenceFile[]> => {
+    .query(async ({ ctx, input }): Promise<EvidenceFile[]> => {
       const { from, to } = financialYearRange(input.financialYear);
+      // Evidence of the caller's own org units only; every unit for a Super Admin.
+      const scope = await scopedOrgUnitIds(db(), ctx.session);
       const rows = await db()<
         {
           document_id: string;
@@ -158,6 +165,7 @@ export const reportsRouter = router({
         join public.org_units o on o.id = r.org_unit_id
         join public.users u on u.id = d.uploaded_by
         where p.start_date >= ${from} and p.end_date <= ${to}
+          and (${scope === null} or r.org_unit_id = any(${scope ?? []}::uuid[]))
         order by p.start_date, o.name, m.name, erd.is_primary desc, d.created_at`;
       return rows.map((r) => ({
         documentId: r.document_id,
@@ -173,9 +181,9 @@ export const reportsRouter = router({
       }));
     }),
 
-  options: generateProcedure.query(async (): Promise<ReportOptions> => {
+  options: generateProcedure.query(async ({ ctx }): Promise<ReportOptions> => {
     const sql = db();
-    const [orgUnits, periods] = await Promise.all([
+    const [allOrgUnits, periods, scope] = await Promise.all([
       sql<{ id: string; name: string; depth: number }[]>`
         with recursive tree as (
           select id, name, 0 as depth, array[name::text] as path
@@ -188,7 +196,12 @@ export const reportsRouter = router({
       sql<{ id: string; label: string; start_date: string; end_date: string; status: string }[]>`
         select id, label, start_date::text, end_date::text, status::text from public.reporting_periods
         order by start_date desc`,
+      scopedOrgUnitIds(sql, ctx.session),
     ]);
+    // Only the units the caller may report on, indented from their own top unit.
+    const inScope = allOrgUnits.filter((o) => scope === null || scope.includes(o.id));
+    const top = Math.min(...inScope.map((o) => o.depth));
+    const orgUnits = inScope.map((o) => ({ ...o, depth: o.depth - top }));
     const open = periods.find((p) => p.status === "open") ?? periods[0];
     return {
       defaultPeriodId: open?.id ?? null,
@@ -217,6 +230,8 @@ export const reportsRouter = router({
           /** A custom range (D35): every reporting period lying wholly between the two dates. */
           from: z.iso.date().optional(),
           to: z.iso.date().optional(),
+          /** Phase 8 (D52): the layout; the full BRSR format when not given. */
+          template: z.enum(REPORT_TEMPLATES).default("brsr"),
         })
         .refine(
           (i) =>
@@ -254,9 +269,10 @@ export const reportsRouter = router({
         const [run] = await tx<{ id: string }[]>`
           insert into public.report_runs
             (requested_by, org_unit_id, reporting_period_id, financial_year, period_from, period_to,
-             report_type)
+             report_type, template)
           values (${ctx.session.userId}, ${input.orgUnitId}, ${input.periodId ?? null},
-                  ${input.financialYear ?? null}, ${input.from ?? null}, ${input.to ?? null}, 'brsr')
+                  ${input.financialYear ?? null}, ${input.from ?? null}, ${input.to ?? null}, 'brsr',
+                  ${input.template})
           returning id`;
         await writeAudit(tx, {
           eventType: "report.requested",
@@ -272,8 +288,9 @@ export const reportsRouter = router({
       return { runId };
     }),
 
-  list: generateProcedure.query(async (): Promise<ReportRunRow[]> => {
+  list: generateProcedure.query(async ({ ctx }): Promise<ReportRunRow[]> => {
     await expireStaleRuns();
+    const scope = await scopedOrgUnitIds(db(), ctx.session);
     const rows = await db()<
       {
         id: string;
@@ -287,16 +304,19 @@ export const reportsRouter = router({
         requested_at: Date;
         completed_at: Date | null;
         error_message: string | null;
+        template: string;
+        has_workbook: boolean;
       }[]
     >`
       select rr.id, rr.status::text as status, o.name as org_unit_name, p.label as period_label,
              rr.financial_year, rr.period_from::text, rr.period_to::text,
              u.display_name as requested_by, rr.requested_at, rr.completed_at,
-             rr.error_message
+             rr.error_message, rr.template, rr.workbook_path is not null as has_workbook
       from public.report_runs rr
       join public.org_units o on o.id = rr.org_unit_id
       join public.users u on u.id = rr.requested_by
       left join public.reporting_periods p on p.id = rr.reporting_period_id
+      where (${scope}::uuid[] is null or rr.org_unit_id = any(${scope}::uuid[]))
       order by rr.requested_at desc
       limit 100`;
     return rows.map((r) => ({
@@ -308,12 +328,15 @@ export const reportsRouter = router({
       requestedAt: r.requested_at.toISOString(),
       completedAt: r.completed_at?.toISOString() ?? null,
       error: r.error_message,
+      template: isTemplate(r.template) ? r.template : "brsr",
+      hasWorkbook: r.has_workbook,
     }));
   }),
 
   get: generateProcedure
     .input(z.object({ id: z.uuid() }))
-    .query(async ({ input }): Promise<ReportRunRow & { snapshot: Snapshot | null }> => {
+    .query(async ({ ctx, input }): Promise<ReportRunRow & { snapshot: Snapshot | null }> => {
+      const scope = await scopedOrgUnitIds(db(), ctx.session);
       const runs = await db()<
         {
           id: string;
@@ -328,17 +351,21 @@ export const reportsRouter = router({
           completed_at: Date | null;
           error_message: string | null;
           snapshot_data: Snapshot | null;
+          template: string;
+          has_workbook: boolean;
         }[]
       >`
         select rr.id, rr.status::text as status, o.name as org_unit_name, p.label as period_label,
                rr.financial_year, rr.period_from::text, rr.period_to::text,
              u.display_name as requested_by, rr.requested_at, rr.completed_at,
-               rr.error_message, rr.snapshot_data
+               rr.error_message, rr.snapshot_data, rr.template,
+               rr.workbook_path is not null as has_workbook
         from public.report_runs rr
         join public.org_units o on o.id = rr.org_unit_id
         join public.users u on u.id = rr.requested_by
         left join public.reporting_periods p on p.id = rr.reporting_period_id
-        where rr.id = ${input.id}`;
+        where rr.id = ${input.id}
+          and (${scope}::uuid[] is null or rr.org_unit_id = any(${scope}::uuid[]))`;
       const r = runs[0];
       if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Report not found." });
       return {
@@ -350,6 +377,8 @@ export const reportsRouter = router({
         requestedAt: r.requested_at.toISOString(),
         completedAt: r.completed_at?.toISOString() ?? null,
         error: r.error_message,
+        template: isTemplate(r.template) ? r.template : "brsr",
+        hasWorkbook: r.has_workbook,
         snapshot: r.snapshot_data,
       };
     }),
@@ -362,6 +391,7 @@ export const reportsRouter = router({
     .input(z.object({ recordId: z.uuid(), calculationId: z.uuid().nullable() }))
     .query(
       async ({
+        ctx,
         input,
       }): Promise<{
         available: boolean;
@@ -369,9 +399,11 @@ export const reportsRouter = router({
         recalculatedSince: boolean;
       }> => {
         const sql = db();
+        const scope = await scopedOrgUnitIds(sql, ctx.session);
         const [record] = await sql<{ current: string | null }[]>`
           select (select id from public.calculations where esg_record_id = r.id and is_current) as current
-          from public.esg_records r where r.id = ${input.recordId}`;
+          from public.esg_records r where r.id = ${input.recordId}
+            and (${scope}::uuid[] is null or r.org_unit_id = any(${scope}::uuid[]))`;
         if (!record) return { available: false, calculation: null, recalculatedSince: false };
         if (!input.calculationId) {
           return { available: true, calculation: null, recalculatedSince: false };
@@ -389,7 +421,7 @@ export const reportsRouter = router({
   /**
    * Preview records, calculations, and supporting documents in scope before downloading the bundle.
    */
-  bundlePreview: protectedProcedure
+  bundlePreview: generateProcedure
     .input(
       z.object({
         orgUnitId: z.string().uuid(),
@@ -398,21 +430,7 @@ export const reportsRouter = router({
       }),
     )
     .query(async ({ ctx, input }): Promise<BundlePreview> => {
-      if (!ctx.session.isAdmin) {
-        const sql = db();
-        const [inScope] = await sql<{ ok: boolean }[]>`
-          select exists (
-            select 1 from public.user_org_assignments uoa
-            join public.org_unit_tree t on t.ancestor_id = uoa.org_unit_id
-            where uoa.user_id = ${ctx.session.userId} and uoa.revoked_at is null
-              and t.descendant_id = ${input.orgUnitId}) as ok`;
-        if (!inScope?.ok) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "You can only preview evidence inside your own assigned scope.",
-          });
-        }
-      }
+      await assertOrgScope(db(), ctx.session, input.orgUnitId);
       return getBundlePreview(input);
     }),
 });

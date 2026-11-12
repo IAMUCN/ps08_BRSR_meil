@@ -22,6 +22,7 @@ import {
   setup,
   sql,
   upload,
+  approveSyntheticFactor,
 } from "./lib.mjs";
 
 const { sessions } = await setup();
@@ -55,6 +56,7 @@ for (const [activityType, name, value, inputUnit] of FACTORS) {
     effectiveFrom: "2026-01-01",
   });
   if (!ok(created)) throw new Error(`could not enter the synthetic ${activityType} factor`);
+  await approveSyntheticFactor(admin, created.data.versionId);
 }
 const factorOf = async (code) =>
   (
@@ -165,6 +167,17 @@ const coal = await confirm(pm, coalUpload.documentId, {
   acknowledge: ["quantity", "unit"],
 });
 const coalRecord = await recordOf(coalUpload.documentId);
+// The sample is a diesel invoice filed as coal, so OCR (rules-14) flags it as another activity's document;
+// an Admin accepts the flag, as a reviewer would for a coal invoice that mentions diesel.
+check(
+  "a diesel invoice filed as coal is flagged as looking like another activity's document",
+  coalRecord.validation_status === "flagged",
+);
+await admin.mutate("validation.review", {
+  recordId: coalRecord.id,
+  decision: "accept",
+  reason: "Test document reused for coal on purpose.",
+});
 const coalCalc = await currentCalculation(coalRecord.id);
 check(
   "2 MT of bituminous coal = 2,000 kg × the factor, in Scope 1",

@@ -1,5 +1,8 @@
 # ESG data analyst (chatbot)
 
+The chatbot is called **Tracey** (owner's request, 2026-11-11): "Ask Tracey" in the top bar, her own mark
+(`components/brand/tracey-mark.tsx`), and she answers to the name.
+
 A read-only assistant inside TraceESG. A signed-in person asks a question in plain language ("compare this
 month's electricity with last month") and gets a short worded answer with the figures, a table and a chart.
 
@@ -107,9 +110,10 @@ host. A question can take up to 60 seconds; the host's function time limit must 
 
 Each question sends to the AI service: the question, up to 10 earlier messages of the same conversation, and
 the results of the lookups — org unit names, period labels, metric names, summed figures, calculation factors
-and their sources. **For an Admin's question it can also receive people's names, email addresses, employee
-ids, roles and org units, and the file name of a record's document** (the Admin-only lookups). For everyone
-else it never receives those. It never receives document text, OCR output, invoice numbers, audit entries or
+and their sources. **For an Admin's question it can also receive people's names, roles and org units, and who
+submitted and approved a record** (the Admin-only lookups). Email addresses, employee ids and document file
+names are shown to the Admin in the table the application draws and are **not** sent to the AI service
+(since 2026-10-12, `CHATBOT_AUDIT_2026-10-12.md`). For everyone else it receives nothing about people. It never receives document text, OCR output, invoice numbers, audit entries or
 written BRSR disclosures, whoever asks. NVIDIA's hosted
 endpoints are a trial service with rate limits; read their terms on submitted prompts before relying on it.
 
@@ -134,8 +138,8 @@ session is an Admin's; for anyone else a request for one is answered like a tool
 
 | Tool | Arguments | Gives |
 |---|---|---|
-| `list_people` | `search?`, `role?`, `org_unit?` | Name, email, employee id, roles, org units, active or not (up to 50). |
-| `list_records` | `org_unit?`, `period`, `metric?` | Each record: value, status, submitted by, approved by, file name (up to 50). |
+| `list_people` | `search?`, `role?`, `org_unit?` | To the model: name, roles, org units, active or not (up to 50). The table shown to the Admin adds email and employee id. |
+| `list_records` | `org_unit?`, `period`, `metric?` | To the model: each record's value, status, submitted by, approved by (up to 50). The table shown to the Admin adds the file name. |
 | `open_report_page` | `org_unit?`, `period` | A link to Reports with the org unit and period selected; the panel goes there. |
 
 These run as fixed queries on the app's own connection in read-only transactions (`adminData` in

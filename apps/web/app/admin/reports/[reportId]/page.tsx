@@ -3,23 +3,30 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { PageHeader } from "@/components/shell/page-header";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api, orNotFound } from "@/lib/trpc/server";
+import { ReportForwarding } from "@/components/reports/report-forwarding";
+import { TEMPLATE_INFO } from "@/lib/reports/templates";
 import { ReportView } from "./report-view";
 
-export const metadata: Metadata = { title: "Report · TraceESG" };
+export const metadata: Metadata = { title: "Report · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Report Detail / Drill-down: the stored report with live links into its data trail.
 export default async function ReportDetailPage({ params }: PageProps<"/admin/reports/[reportId]">) {
-  const [, caller, { reportId }] = await Promise.all([requireAdminSession(), api(), params]);
+  const [session, caller, { reportId }] = await Promise.all([
+    requireAdminAreaSession(),
+    api(),
+    params,
+  ]);
   const run = await orNotFound(caller.reports.get({ id: reportId }));
+  const steps = await caller.reportForwarding.trail({ reportRunId: reportId });
   const s = run.snapshot;
 
   return (
     <div className="max-w-7xl space-y-4">
       <AutoRefresh active={run.status === "pending" || run.status === "generating"} />
       <PageHeader
-        title={`BRSR Report · ${run.coverage}`}
+        title={`${TEMPLATE_INFO[run.template].title} · ${run.coverage}`}
         description={
           s
             ? `${s.org.path.join(" › ")} · generated ${new Date(s.generatedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} by ${run.requestedBy}. Approved records only${s.excludedAwaitingApproval ? ` — ${s.excludedAwaitingApproval} awaiting approval not included` : ""}. Click any value to trace it to its document.`
@@ -27,13 +34,24 @@ export default async function ReportDetailPage({ params }: PageProps<"/admin/rep
         }
         action={
           run.status === "completed" ? (
-            <a
-              href={`/api/reports/${run.id}/file`}
-              className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted"
-            >
-              <Download className="size-4" aria-hidden />
-              Download PDF
-            </a>
+            <span className="flex flex-wrap gap-2">
+              <a
+                href={`/api/reports/${run.id}/file`}
+                className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+              >
+                <Download className="size-4" aria-hidden />
+                Download PDF
+              </a>
+              {run.hasWorkbook ? (
+                <a
+                  href={`/api/reports/${run.id}/file?format=xlsx`}
+                  className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+                >
+                  <Download className="size-4" aria-hidden />
+                  Download Excel
+                </a>
+              ) : null}
+            </span>
           ) : null
         }
       />
@@ -53,6 +71,17 @@ export default async function ReportDetailPage({ params }: PageProps<"/admin/rep
           Generating report… this page refreshes on its own, and you&apos;ll be notified when
           it&apos;s ready.
         </p>
+      ) : null}
+      {run.status === "completed" ? (
+        <ReportForwarding
+          reportRunId={run.id}
+          steps={steps}
+          // The server decides precisely; offered while the report may be sent and nothing waits.
+          canForward={
+            session.permissions.includes("report.generate") &&
+            !steps.some((step) => step.status === "pending")
+          }
+        />
       ) : null}
       {s ? <ReportView snapshot={s} /> : null}
     </div>

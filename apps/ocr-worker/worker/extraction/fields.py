@@ -64,6 +64,12 @@ _TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9/\-]*[A-Za-z0-9]")
 _DATE = r"(?<!\d)\d{1,2}[-/. ](?:\d{1,2}|[A-Za-z]{3,9})[-/. ]\d{2,4}"
 _PERIOD_RANGE = re.compile(rf"({_DATE})\s*(?:to|till|until|-|–|—)\s*({_DATE})", re.IGNORECASE)
 _SINGLE_DATE = re.compile(rf"({_DATE})")
+# A date run together with the meter reading in front of it, as OCR reads a photographed thermal
+# bill ("PRES:7591.1201-04-2026" for "PRES:7591.12 01-04-2026"). Only at the end of a PREV/PRES
+# line, and always below the review threshold: where the reading ends and the date begins is a
+# guess the person checks.
+_GLUED_READING_DATE = re.compile(r"\d[.,]\d{1,2}(\d{2}[-/.]\d{2}[-/.]\d{4})\s*$")
+GLUED_DATE_CONFIDENCE = 0.60
 _WHOLE_DATE = re.compile(rf"{_DATE}|\d{{4}}-\d{{2}}-\d{{2}}")
 # Volume (incl. water in m³), energy, weight (Scope 3 waste) and currency (spend-based metrics).
 _UNIT = re.compile(
@@ -220,6 +226,8 @@ def _find_reading_period(lines: list[TextLine]) -> tuple[str, float, dict] | Non
                 continue
             remainder = re.sub(r"\s+", " ", line.text).strip()[match.end() :]
             date, score, used = _SINGLE_DATE.search(remainder), line.score, [i]
+            if not date and (glued := _GLUED_READING_DATE.search(remainder)):
+                date, score = glued, min(score, GLUED_DATE_CONFIDENCE)
             if not date and (j := _date_on_same_row(lines, i)) is not None:
                 date, score, used = (
                     _SINGLE_DATE.search(lines[j].text),
@@ -340,3 +348,56 @@ def classify(
     if len(ranked) > 1 and ranked[0][1] == ranked[1][1]:
         return None, scores
     return ranked[0][0], scores
+
+
+# --- Diagnostics (feature_enhancement.md Phase 3) ---------------------------------------------
+
+# Fewer readable lines than this on a page: the picture itself is the problem, not the rules.
+FEW_LINES = 15
+
+
+def billing_period_diagnosis(lines: list[TextLine]) -> str:
+    """Why no billing period was read, in words the person can act on. Never a guess at it."""
+    readable = [ln for ln in lines if ln.text.strip()]
+    if len(readable) < FEW_LINES:
+        return (
+            f"Only {len(readable)} lines of text could be read from this document, so the "
+            "billing period could not be found. Retake the photo closer, flat and in focus, "
+            "or type the period from the bill."
+        )
+    text = [_normalize(ln.text) for ln in readable]
+    if any(_label_match("prev", t) or _label_match("pres", t) for t in text):
+        return (
+            "Meter readings (PREV / PRES) were found, but a reading date could not be read "
+            "next to them. Type the billing period from the bill."
+        )
+    if any(
+        _label_match(label, t)
+        for t in text
+        for label in ("billing period", "bill period", "bill month", "period", "from")
+    ):
+        return (
+            "A billing-period label was found, but no dates could be read beside it. "
+            "Type the billing period from the bill."
+        )
+    return (
+        "No billing period, meter-reading dates or period label was found on this document. "
+        "Type the billing period from the bill."
+    )
+
+
+# Another activity's document type must beat this record's own types by this many keywords before
+# it is reported: a mismatch sends the record to a person, so only a clear one counts.
+MISMATCH_MARGIN = 2
+
+
+def detect_mismatch(lines: list[TextLine], own_codes: list[str]) -> dict | None:
+    """The document type this looks like among every known type, when that is clearly not one of the
+    record's own (Phase 3: the uploader may have picked the wrong activity)."""
+    detected, scores = classify(lines, {code: code for code in DOCUMENT_TYPE_KEYWORDS})
+    if detected is None or detected in own_codes:
+        return None
+    own_best = max((scores.get(code, 0) for code in own_codes), default=0)
+    if scores[detected] - own_best < MISMATCH_MARGIN:
+        return None
+    return {"document_type": detected, "score": scores[detected], "own_best": own_best}

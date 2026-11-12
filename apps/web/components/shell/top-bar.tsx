@@ -1,12 +1,15 @@
 import { LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
 import { ChatLauncher } from "@/components/chat/chat-launcher";
+import { GlobalSearch } from "@/components/search/global-search";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { signOutAction } from "@/lib/auth/actions";
 import type { ActiveSession } from "@/lib/auth/session";
 import { chatConfig } from "@/lib/chat/data";
+import { LogoMark } from "@/components/brand/logo-mark";
+import { LogoWordmarkOnBar } from "@/components/brand/logo-wordmark-on-bar";
 
 /**
  * Top bar (03_APP_FLOW.md §1). The org/period context switcher arrives with its data (Phase 16) —
@@ -24,7 +27,17 @@ export function TopBar({
   const roles = [...new Set(session.assignments.map((a) => a.roleName))].join(", ");
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-end gap-2 border-b bg-header px-4 text-header-foreground md:gap-4 md:px-6">
+    <header className="flex h-14 shrink-0 items-center justify-end gap-1 border-b bg-header px-3 text-header-foreground sm:gap-2 sm:px-4 md:gap-4 md:px-6">
+      {/* Phones have no sidebar rail, so the name sits here (feature_enhancement.md 9.1). */}
+      <Link
+        href={profileHref.startsWith("/admin") ? "/admin" : "/app"}
+        className="mr-auto flex items-center gap-1.5 md:hidden"
+        aria-label="EmeilSG home"
+      >
+        <LogoMark className="size-11 shrink-0" />
+        <LogoWordmarkOnBar className="h-5 w-auto text-header-foreground" />
+      </Link>
+      <GlobalSearch />
       <ThemeToggle current={session.theme} />
       {session.permissions.includes("chat.use") && chatConfig() ? <ChatLauncher /> : null}
       <NotificationBell viewAllHref={notificationsHref} />

@@ -1,11 +1,25 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  // Responses do not advertise the framework (no X-Powered-By header).
+  poweredByHeader: false,
   // The end-to-end run builds into its own folder so it never touches a dev server's output.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
-  // Report PDFs (TRD §17): a headless browser and its binary are loaded at runtime, never bundled.
-  serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium"],
+  // Report PDFs (TRD §17): a headless browser and its binary are loaded at runtime, never bundled. pdf.js reads a
+  // conversion factor's source PDF on the server (feature_enhancement.md 6.1) and loads its worker file by path.
+  serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium", "pdfjs-dist"],
+  // The browser itself is a set of compressed files in the package's bin folder, opened by path at runtime:
+  // file tracing does not see them, so a deployed function would have the package and no browser. They are
+  // added to the two places a report can be started from (the Reports page's action and the API route).
+  outputFileTracingRoot: path.join(import.meta.dirname, "../../"),
+  outputFileTracingIncludes: Object.fromEntries(
+    ["/admin/reports", "/api/trpc/*"].map((route) => [
+      route,
+      ["../../node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**"],
+    ]),
+  ),
   // Security headers on every response (audit fix P2, SECURITY_REVIEW.md). The policy stops the app being
   // framed, plugins and injected <base>/form targets; it does not restrict scripts — that needs per-request
   // nonces, recorded as an open item rather than shipped half-working.
@@ -18,6 +32,28 @@ const nextConfig: NextConfig = {
         { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+      ],
+    },
+    {
+      // The service worker must never be cached, so a new version reaches every installed app (Phase 9.2).
+      source: "/sw.js",
+      headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }],
+    },
+    {
+      // Protected dashboard routes must not be cached by browsers (audit / back navigation safety)
+      source: "/:prefix(admin|app)/:path*",
+      headers: [
+        { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, proxy-revalidate" },
+        { key: "Pragma", value: "no-cache" },
+        { key: "Expires", value: "0" },
+      ],
+    },
+    {
+      source: "/:prefix(admin|app)",
+      headers: [
+        { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, proxy-revalidate" },
+        { key: "Pragma", value: "no-cache" },
+        { key: "Expires", value: "0" },
       ],
     },
     {

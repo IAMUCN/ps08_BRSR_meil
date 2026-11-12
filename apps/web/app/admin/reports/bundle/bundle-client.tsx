@@ -357,7 +357,7 @@ export function BundleClient({ options }: { options: BundleOptions }) {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-border bg-muted/40 font-semibold text-muted-foreground">
+              <thead className="bg-table-header font-semibold text-table-header-foreground">
                 <tr>
                   <th className="px-4 py-2.5">ESG Activity / Metric</th>
                   <th className="px-4 py-2.5">Entity / Site</th>

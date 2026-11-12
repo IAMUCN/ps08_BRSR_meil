@@ -22,6 +22,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 import { documentAccess } from "@/lib/verification/access";
+import { expectedProgress, type ExpectedProgress } from "@/lib/upload/progress";
 import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 
 // Phase 5 document ingestion (.grill/phase-5-document-ingestion-decisions.md; SCHEMA_DEVIATIONS.md D3).
@@ -29,6 +30,17 @@ import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
 // object and records it. Scope is decided here from the session, never from client-supplied identity.
 
 const upload = permissionProcedure("document.upload");
+
+/**
+ * The optional description typed on Upload (migration 0063, owner's request 2026-11-11): trimmed, at most 500
+ * characters; empty means none.
+ */
+export const DESCRIPTION = z
+  .string()
+  .trim()
+  .max(500, "Keep the description to 500 characters.")
+  .optional()
+  .transform((v) => (v ? v : undefined));
 
 export type Sql = Tx | ReturnType<typeof db>;
 
@@ -47,8 +59,23 @@ export type UploadTarget = {
   unitTypeLabel: string;
   categories: UploadCategory[];
 };
+/** A period that takes uploads now (migration 0056): open, and its late-upload window not yet over. */
+export type UploadPeriod = {
+  id: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  /** Due date: uploads after it are late. */
+  dueOn: string;
+  /** Last day uploads are taken at all. */
+  lastUploadDay: string;
+  /** An upload now would be late. */
+  late: boolean;
+};
+
 export type UploadOptions = {
-  openPeriod: { id: string; label: string } | null;
+  /** Newest first; the first is the default choice. */
+  periods: UploadPeriod[];
   targets: UploadTarget[];
   maxBytes: number;
 };
@@ -62,29 +89,82 @@ export type DuplicateWarnings = {
 };
 
 export const NO_PERIOD = "No active reporting period — contact your Admin.";
+export const PERIOD_CLOSED = "That reporting period no longer takes uploads — choose another one.";
 const NOT_ALLOWED = "You can't upload that category for that project.";
 
 export function badRequest(message: string): never {
   throw new TRPCError({ code: "BAD_REQUEST", message });
 }
 
+/**
+ * The period an upload goes to: the one asked for if it still takes uploads, else (nothing asked) the
+ * newest. Throws a message the person can act on.
+ */
+export function resolvePeriod(options: UploadOptions, periodId?: string | null): UploadPeriod {
+  if (options.periods.length === 0) badRequest(NO_PERIOD);
+  if (!periodId) return options.periods[0];
+  const period = options.periods.find((p) => p.id === periodId);
+  if (!period) badRequest(PERIOD_CLOSED);
+  return period;
+}
+
 export async function loadUploadOptions(sql: Sql, userId: string): Promise<UploadOptions> {
-  const [period] = await sql<{ id: string; label: string }[]>`
-    select id, label from public.reporting_periods where status = 'open'`;
+  const periodRows = await sql<
+    {
+      id: string;
+      label: string;
+      start_date: string;
+      end_date: string;
+      due_on: string;
+      last_upload_day: string;
+      late: boolean;
+    }[]
+  >`
+    select rp.id, rp.label, rp.start_date::text, rp.end_date::text,
+           coalesce(rp.submission_closes_on, rp.end_date)::text as due_on,
+           coalesce(rp.late_uploads_until, rp.submission_closes_on, rp.end_date)::text as last_upload_day,
+           public.reporting_period_late(rp) as late
+    from public.reporting_periods rp
+    where rp.status = 'open' and not public.reporting_period_locked(rp)
+    order by rp.start_date desc`;
+  const periods: UploadPeriod[] = periodRows.map((r) => ({
+    id: r.id,
+    label: r.label,
+    startDate: r.start_date,
+    endDate: r.end_date,
+    dueOn: r.due_on,
+    lastUploadDay: r.last_upload_day,
+    late: r.late,
+  }));
   const levels = await loadLevels(sql);
 
   const nodeRows = await loadOrgNodes(sql);
   const nodes: OrgNode[] = nodeRows;
 
-  // Admin works in /admin and does not upload (03_APP_FLOW.md §2.3 "All non-admin roles").
-  const assignments = await sql<{ org_unit_id: string; role_id: string }[]>`
-    select uoa.org_unit_id, uoa.role_id
+  // An administrator uploads too (owner's decision 2026-10-13): any activity, whichever role owns it, for
+  // every unit they administer. A Super Admin's reach is every group, wherever the role is assigned.
+  const held = await sql<{ org_unit_id: string; role_id: string; code: string }[]>`
+    select uoa.org_unit_id, uoa.role_id, r.code
     from public.user_org_assignments uoa join public.roles r on r.id = uoa.role_id
-    where uoa.user_id = ${userId} and uoa.revoked_at is null and r.code <> 'admin'`;
+    where uoa.user_id = ${userId} and uoa.revoked_at is null`;
+  const superRole = held.find((a) => a.code === "admin");
+  const assignments = [
+    ...held,
+    ...(superRole
+      ? nodes
+          .filter((n) => n.parentId === null)
+          .map((n) => ({ org_unit_id: n.id, role_id: superRole.role_id, code: "admin" }))
+      : []),
+  ];
+  const administratorRoleIds = new Set(
+    held.filter((a) => a.code === "admin" || a.code === "org_admin").map((a) => a.role_id),
+  );
   const uploadRoles = await sql<{ role_id: string }[]>`
     select rp.role_id from public.role_permissions rp
     join public.permissions p on p.id = rp.permission_id
     where p.code = 'document.upload'`;
+  const behalfRows = await sql<{ id: string; uploads_for_role_id: string }[]>`
+    select id, uploads_for_role_id from public.roles where uploads_for_role_id is not null`;
 
   const metricRows = await sql<
     {
@@ -129,6 +209,8 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
     assignments.map((a) => ({ orgUnitId: a.org_unit_id, roleId: a.role_id })),
     new Set(uploadRoles.map((r) => r.role_id)),
     [...categoriesById.values()],
+    new Map(behalfRows.map((r) => [r.id, r.uploads_for_role_id])),
+    administratorRoleIds,
   );
   const targets = nodeRows
     .filter((n) => targetMap.has(n.id))
@@ -144,7 +226,7 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  return { openPeriod: period ?? null, targets, maxBytes: MAX_UPLOAD_BYTES };
+  return { periods, targets, maxBytes: MAX_UPLOAD_BYTES };
 }
 
 /** Resolves the target node + metric for this user, or throws a non-revealing error. */
@@ -188,6 +270,8 @@ export async function duplicateWarnings(
 }
 
 const fileInput = {
+  /** The period chosen; omitted = the newest one that takes uploads. */
+  reportingPeriodId: z.uuid().optional(),
   orgUnitId: z.uuid(),
   metricId: z.uuid(),
   mimeType: z.string().max(100),
@@ -202,11 +286,18 @@ export type ReplacementTarget = {
   fileName: string;
   orgUnitId: string;
   metricId: string;
+  /**
+   * Why it is replaced: its extraction failed (same activity), or the record was rejected — for instance
+   * returned as the wrong activity — and is uploaded again as a new version (Phase 2; the activity may
+   * change).
+   */
+  reason: "ocr_failed" | "rejected";
 };
 
 /**
- * The failed document this upload replaces, or null. Only a document whose extraction failed and whose
- * record is still waiting can be replaced, and only by someone who could verify it.
+ * The document this upload replaces, or null: one whose extraction failed while its record still waits, or
+ * one whose record was rejected (Phase 2: a corrected re-upload is a new version, linked to the old one,
+ * never a duplicate). Only by someone who could verify it, only once, and only for the same project.
  */
 async function replacementTarget(
   sql: Sql,
@@ -236,14 +327,16 @@ async function replacementTarget(
     left join public.ocr_jobs j on j.document_id = d.id
     where d.id = ${documentId} and d.deleted_at is null`;
   if (!row) badRequest("That document can't be replaced.");
-  if (
-    row.job_status !== "failed" ||
-    row.verification_status !== "document_uploaded" ||
-    row.data_quality_state === "rejected"
-  ) {
-    badRequest("That document no longer needs replacing.");
+  const rejected = row.data_quality_state === "rejected";
+  const ocrFailed = row.job_status === "failed" && row.verification_status === "document_uploaded";
+  if (!rejected && !ocrFailed) badRequest("That document no longer needs replacing.");
+  const [already] = await sql`
+    select 1 from public.documents where related_document_id = ${documentId} and deleted_at is null`;
+  if (already) badRequest("That document was already replaced.");
+  if (expected && row.org_unit_id !== expected.orgUnitId) {
+    badRequest("A replacement must be for the same project.");
   }
-  if (expected && (row.org_unit_id !== expected.orgUnitId || row.metric_id !== expected.metricId)) {
+  if (expected && !rejected && row.metric_id !== expected.metricId) {
     badRequest("A replacement must be for the same project and activity.");
   }
   return {
@@ -252,6 +345,7 @@ async function replacementTarget(
     fileName: row.file_name,
     orgUnitId: row.org_unit_id,
     metricId: row.metric_id,
+    reason: rejected ? "rejected" : "ocr_failed",
   };
 }
 
@@ -288,11 +382,12 @@ async function supportingTarget(sql: Sql, session: ActiveSession, recordId: stri
     select org_unit_id, reporting_period_id, metric_id, approval_status::text, data_quality_state::text
     from public.esg_records where id = ${recordId}`;
   if (!record) badRequest("Record not found.");
-  const { metric } = resolveTarget(
-    await loadUploadOptions(sql, session.userId),
-    record.org_unit_id,
-    record.metric_id,
-  );
+  const options = await loadUploadOptions(sql, session.userId);
+  const { metric } = resolveTarget(options, record.org_unit_id, record.metric_id);
+  // A closed period takes no new documents; what was already uploaded still finishes its review.
+  if (!options.periods.some((p) => p.id === record.reporting_period_id)) {
+    badRequest("This record's reporting period is closed. No new evidence can be added.");
+  }
   if (record.approval_status === "approved") {
     badRequest("This record is approved — its evidence is closed.");
   }
@@ -335,7 +430,7 @@ export const documentsRouter = router({
       const sql = db();
       await enforceUploadLimit(ctx.session.userId);
       const options = await loadUploadOptions(sql, ctx.session.userId);
-      if (!options.openPeriod) badRequest(NO_PERIOD);
+      const period = resolvePeriod(options, input.reportingPeriodId);
       const { target, metric } = resolveTarget(options, input.orgUnitId, input.metricId);
       checkDeclaredFile(metric, input.fileSize, input.mimeType);
       const replaces = await replacementTarget(sql, ctx.session, input.replacesDocumentId, {
@@ -347,7 +442,7 @@ export const documentsRouter = router({
         sql,
         input.sha256,
         input.orgUnitId,
-        options.openPeriod.id,
+        period.id,
         input.metricId,
         replaces?.recordId ?? null,
       );
@@ -358,18 +453,13 @@ export const documentsRouter = router({
             ...warnings,
             orgUnitName: target.name,
             metricName: metric.name,
-            periodLabel: options.openPeriod.label,
+            periodLabel: period.label,
           } satisfies DuplicateWarnings,
         };
       }
 
       const documentId = randomUUID();
-      const path = evidencePath(
-        input.orgUnitId,
-        options.openPeriod.id,
-        documentId,
-        input.mimeType,
-      )!;
+      const path = evidencePath(input.orgUnitId, period.id, documentId, input.mimeType)!;
       const { data, error } = await createSupabaseAdminClient()
         .storage.from(evidenceBucket())
         .createSignedUploadUrl(path);
@@ -377,7 +467,7 @@ export const documentsRouter = router({
       return {
         status: "ready" as const,
         documentId,
-        reportingPeriodId: options.openPeriod.id,
+        reportingPeriodId: period.id,
         signedUrl: data.signedUrl,
       };
     }),
@@ -389,6 +479,7 @@ export const documentsRouter = router({
         documentId: z.uuid(),
         reportingPeriodId: z.uuid(),
         fileName: z.string().trim().min(1).max(255),
+        description: DESCRIPTION,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -413,9 +504,9 @@ export const documentsRouter = router({
       // Scope first: nothing in storage is touched for a node outside the user's scope.
       const options = await loadUploadOptions(sql, ctx.session.userId);
       const { metric } = resolveTarget(options, input.orgUnitId, input.metricId);
-      if (!options.openPeriod) return reject(NO_PERIOD);
-      if (options.openPeriod.id !== input.reportingPeriodId) {
-        return reject("The reporting period changed while you were uploading — upload again.");
+      if (options.periods.length === 0) return reject(NO_PERIOD);
+      if (!options.periods.some((p) => p.id === input.reportingPeriodId)) {
+        return reject("The reporting period closed while you were uploading — choose another one.");
       }
 
       const { data: blob, error: downloadError } = await storage.download(path);
@@ -444,7 +535,7 @@ export const documentsRouter = router({
           await tx`select pg_advisory_xact_lock_shared(hashtext('reporting_period_status'))`;
           await tx`select pg_advisory_xact_lock_shared(hashtext('org_units_tree'))`;
           const current = await loadUploadOptions(tx, ctx.session.userId);
-          if (current.openPeriod?.id !== input.reportingPeriodId) badRequest(NO_PERIOD);
+          const period = resolvePeriod(current, input.reportingPeriodId);
           const { target } = resolveTarget(current, input.orgUnitId, input.metricId);
 
           const replaces = await replacementTarget(tx, ctx.session, input.replacesDocumentId, {
@@ -467,7 +558,7 @@ export const documentsRouter = router({
                 ...warnings,
                 orgUnitName: target.name,
                 metricName: metric.name,
-                periodLabel: current.openPeriod.label,
+                periodLabel: period.label,
               } satisfies DuplicateWarnings,
             };
           }
@@ -481,20 +572,21 @@ export const documentsRouter = router({
           await tx`
             insert into public.documents (
               id, org_unit_id, reporting_period_id, storage_path, file_name, mime_type,
-              file_size_bytes, file_hash, uploaded_by, related_document_id
+              file_size_bytes, file_hash, uploaded_by, related_document_id, description
             ) values (
               ${input.documentId}, ${input.orgUnitId}, ${input.reportingPeriodId}, ${path},
               ${input.fileName}, ${content.mimeType}, ${bytes.length}, ${fileHash}, ${userId},
-              ${replaces?.documentId ?? null}
+              ${replaces?.documentId ?? null}, ${input.description ?? null}
             )`;
           const [record] = await tx<{ id: string }[]>`
             insert into public.esg_records (
               org_unit_id, reporting_period_id, metric_id, scope_id, submitted_by,
-              verification_status, calculation_status, is_duplicate_flag
+              verification_status, calculation_status, is_duplicate_flag, submitted_late
             ) values (
               ${input.orgUnitId}, ${input.reportingPeriodId}, ${input.metricId}, ${metricRow.scope_id},
               ${userId}, 'document_uploaded',
-              ${metricRow.requires_calculation ? "pending" : "not_applicable"}, ${warnings.sameFile}
+              ${metricRow.requires_calculation ? "pending" : "not_applicable"}, ${warnings.sameFile},
+              ${period.late}
             ) returning id`;
           await tx`
             insert into public.esg_record_documents (esg_record_id, document_id, is_primary, added_by)
@@ -502,9 +594,10 @@ export const documentsRouter = router({
           const [job] = await tx<{ id: string }[]>`
             insert into public.ocr_jobs (document_id) values (${input.documentId}) returning id`;
 
-          if (replaces) {
+          if (replaces?.reason === "ocr_failed") {
             // The replaced record closes in the same transaction, so a failed upload can never leave a
-            // half-done replacement (.grill/phase-7-ocr-verification-decisions.md).
+            // half-done replacement (.grill/phase-7-ocr-verification-decisions.md). A rejected one is
+            // closed already; the new document's related_document_id is the link.
             await tx`
               update public.esg_records set data_quality_state = 'rejected'
               where id = ${replaces.recordId}`;
@@ -532,6 +625,7 @@ export const documentsRouter = router({
               mime_type: content.mimeType,
               file_size_bytes: bytes.length,
               file_hash: fileHash,
+              description: input.description ?? null,
               org_unit_id: input.orgUnitId,
               reporting_period_id: input.reportingPeriodId,
               metric_id: input.metricId,
@@ -557,6 +651,85 @@ export const documentsRouter = router({
         throw error;
       }
     }),
+  /**
+   * The expected submissions of a unit the caller can upload for, in a period that takes uploads, with what
+   * is on file for each (owner's request, 2026-11-11). Every expected activity of the unit is listed, other
+   * roles' too; nothing beyond activity names and stages is shown.
+   */
+  expectedProgress: upload
+    .input(z.object({ orgUnitId: z.uuid(), periodId: z.uuid() }))
+    .query(async ({ ctx, input }): Promise<ExpectedProgress> => {
+      const sql = db();
+      const options = await loadUploadOptions(sql, ctx.session.userId);
+      if (
+        !options.targets.some((t) => t.orgUnitId === input.orgUnitId) ||
+        !options.periods.some((p) => p.id === input.periodId)
+      ) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That project or period isn't available.",
+        });
+      }
+      return expectedProgress(sql, input.orgUnitId, input.periodId);
+    }),
+
+  /**
+   * Change a document's description (migration 0063): only the person who uploaded it, and only while its
+   * record is not yet approved or rejected (a multi-bill PDF: until its bills are recorded). Audited.
+   */
+  setDescription: upload
+    .input(z.object({ documentId: z.uuid(), description: DESCRIPTION }))
+    .mutation(async ({ ctx, input }) => {
+      const description = input.description ?? null;
+      return db().begin(async (tx) => {
+        const [doc] = await tx<
+          {
+            uploaded_by: string;
+            description: string | null;
+            is_bundle: boolean;
+            bundle_open: boolean;
+            approval_status: string | null;
+            data_quality_state: string | null;
+          }[]
+        >`
+          select d.uploaded_by, d.description, d.is_bundle,
+                 not exists (select 1 from public.document_bundle_parts bp
+                             where bp.bundle_document_id = d.id and bp.status <> 'proposed') as bundle_open,
+                 r.approval_status::text, r.data_quality_state::text
+          from public.documents d
+          left join public.esg_record_documents erd on erd.document_id = d.id and erd.is_primary
+          left join public.esg_records r on r.id = erd.esg_record_id
+          where d.id = ${input.documentId} and d.deleted_at is null
+          for update of d`;
+        // Someone else's document is refused like a missing one.
+        if (!doc || doc.uploaded_by !== ctx.session.userId) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "That document isn't available." });
+        }
+        const closed = doc.is_bundle
+          ? !doc.bundle_open
+          : doc.approval_status === "approved" || doc.data_quality_state === "rejected";
+        if (closed) {
+          badRequest(
+            doc.is_bundle
+              ? "The bills in this PDF are already recorded; change each bill's description instead."
+              : "The record is approved or rejected, so its description can no longer change.",
+          );
+        }
+        if (doc.description === description) return { description };
+        await tx`update public.documents set description = ${description}
+                 where id = ${input.documentId}`;
+        await writeAudit(tx, {
+          eventType: "document.description_changed",
+          entityType: "document",
+          entityId: input.documentId,
+          userId: ctx.session.userId,
+          oldValue: { description: doc.description },
+          newValue: { description },
+        });
+        return { description };
+      });
+    }),
+
   /** Every evidence file of a record the caller can see (RLS: org scope or Admin), the primary one first. */
   recordEvidence: protectedProcedure
     .input(z.object({ recordId: z.uuid() }))

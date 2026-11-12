@@ -107,8 +107,9 @@ openai_api_key = "env(OPENAI_API_KEY)"
 enabled = true
 # Port to use for the email testing server web interface.
 port = 55324
-# Uncomment to expose additional ports for testing user applications that send emails.
-# smtp_port = 54325
+# The app's own emails (invitation links, reset codes, reminders) reach this catcher when
+# apps/web/.env.local sets EMAIL_SMTP_HOST=127.0.0.1 and EMAIL_SMTP_PORT=55325.
+smtp_port = 55325
 # pop3_port = 54326
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
@@ -249,11 +250,11 @@ otp_expiry = 3600
 
 # Links point to the app's /auth/confirm handler (token_hash flow for server-side sessions).
 [auth.email.template.invite]
-subject = "You have been invited to TraceESG"
+subject = "You have been invited to EmeilSG"
 content_path = "./supabase/templates/invite.html"
 
 [auth.email.template.recovery]
-subject = "Reset your TraceESG password"
+subject = "Reset your EmeilSG password"
 content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template

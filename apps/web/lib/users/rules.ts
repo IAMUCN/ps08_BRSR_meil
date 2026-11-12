@@ -2,6 +2,7 @@
 
 // Relative import with extension so Node's test runner can load it without the "@/" alias.
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULES } from "../auth/password-policy.ts";
+import { descendantIds, type OrgNode } from "../org/rules.ts";
 
 export type RuleCheck = { ok: true } | { ok: false; reason: string };
 
@@ -16,38 +17,46 @@ export function checkRoleAtNode(roleCode: string, orgUnitType: string): RuleChec
   return { ok: true };
 }
 
-/** First name, letters only, capitalized — for a memorable default password. */
-function firstNameToken(displayName: string): string {
-  const first = displayName.trim().split(/\s+/)[0] ?? "";
-  const letters = first.replace(/[^A-Za-z]/g, "") || "User";
-  return letters[0]!.toUpperCase() + letters.slice(1).toLowerCase();
+// No look-alikes (0/O, 1/l/I), so a password read off an email or a results sheet is typed correctly.
+const UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const LOWER = "abcdefghijkmnopqrstuvwxyz";
+const DIGITS = "23456789";
+const SPECIAL = "!@#$%*?";
+const INITIAL_PASSWORD_LENGTH = 16;
+
+/** An unbiased integer in [0, max) from the platform's cryptographic generator. */
+function secureRandomInt(max: number): number {
+  const limit = Math.floor(0x1_0000_0000 / max) * max;
+  const buffer = new Uint32Array(1);
+  do {
+    globalThis.crypto.getRandomValues(buffer);
+  } while (buffer[0]! >= limit);
+  return buffer[0]! % max;
 }
 
-// A fixed, harmless filler for whichever policy rule the name/employee ID alone doesn't happen to cover
-// (e.g. a one-letter name has no lowercase remainder; an all-letters employee ID has no digit).
-const RULE_FILLER: Record<string, string> = {
-  uppercase: "X",
-  lowercase: "x",
-  number: "7",
-  special: "!",
-};
-
 /**
- * A default password for a bulk-created account (no invite email is sent — bulk-import-decisions.md):
- * "<FirstName>@<EmployeeId>", topped up to satisfy every rule in lib/auth/password-policy.ts (never just
- * the length minimum). `random` is injectable for deterministic tests; defaults to `Math.random`.
+ * A random password that satisfies every rule in lib/auth/password-policy.ts, from a cryptographic source.
+ * No new account gets one any more (the person chooses their own through an invitation link); it is used
+ * to overwrite the emailed temporary password of an older account when that account is sent a link, and
+ * nobody is ever told it.
+ * `randomInt` is injectable for deterministic tests only.
  */
-export function generateDefaultPassword(
-  displayName: string,
-  employeeId: string,
-  random: () => number = Math.random,
+export function generateInitialPassword(
+  randomInt: (max: number) => number = secureRandomInt,
 ): string {
-  let password = `${firstNameToken(displayName)}@${employeeId}`;
-  for (const rule of PASSWORD_RULES) {
-    if (rule.id !== "length" && !rule.test(password)) password += RULE_FILLER[rule.id];
+  const pick = (set: string) => set[randomInt(set.length)]!;
+  const all = UPPER + LOWER + DIGITS + SPECIAL;
+  const chars = [pick(UPPER), pick(LOWER), pick(DIGITS), pick(SPECIAL)];
+  while (chars.length < Math.max(INITIAL_PASSWORD_LENGTH, PASSWORD_MIN_LENGTH))
+    chars.push(pick(all));
+  // Fisher–Yates, so the four guaranteed characters are not always at the front.
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j]!, chars[i]!];
   }
-  while (password.length < PASSWORD_MIN_LENGTH) {
-    password += Math.floor(random() * 10);
+  const password = chars.join("");
+  if (!PASSWORD_RULES.every((rule) => rule.test(password))) {
+    throw new Error("generated password does not meet the policy");
   }
   return password;
 }
@@ -67,6 +76,83 @@ export function checkAdminRemoval(input: {
   }
   if (input.targetIsActiveAdmin && input.otherActiveAdminCount < 1) {
     return { ok: false, reason: "At least one active Admin is required." };
+  }
+  return { ok: true };
+}
+
+/** Who is acting: a Super Admin, or an Administrator of some org units, or neither. */
+export type Grantor = { isAdmin: boolean; adminOrgUnitIds: readonly string[] };
+
+/**
+ * The org units an Administrator administers: where they hold the role and everything beneath, shared
+ * units included (they are seen from every parent). `null` means every unit (Super Admin).
+ */
+export function administeredIds(grantor: Grantor, nodes: readonly OrgNode[]): Set<string> | null {
+  if (grantor.isAdmin) return null;
+  const ids = new Set<string>();
+  for (const unitId of grantor.adminOrgUnitIds) {
+    if (!nodes.some((n) => n.id === unitId)) continue;
+    ids.add(unitId);
+    for (const id of descendantIds(unitId, nodes, "all")) ids.add(id);
+  }
+  return ids;
+}
+
+/**
+ * Whether the grantor may give (or take away) this role at this org unit
+ * (.grill/scoped-admin-onboarding-decisions.md). A Super Admin: any role anywhere. An Administrator:
+ * operational roles at their own units and beneath; the Administrator role only beneath, never at their
+ * own level — every administrator is appointed from above; never Super Admin. Anyone else: nothing.
+ */
+export function checkGrant(
+  grantor: Grantor,
+  roleCode: string,
+  orgUnitId: string,
+  nodes: readonly OrgNode[],
+): RuleCheck {
+  if (grantor.isAdmin) return { ok: true };
+  if (grantor.adminOrgUnitIds.length === 0) {
+    return { ok: false, reason: "Only an administrator can assign or remove roles." };
+  }
+  if (roleCode === "admin") {
+    return { ok: false, reason: "Only a Super Admin can assign or remove the Super Admin role." };
+  }
+  const scope = administeredIds(grantor, nodes)!;
+  if (!scope.has(orgUnitId)) {
+    return { ok: false, reason: "That part of the organisation isn't in your scope." };
+  }
+  if (roleCode === "org_admin" && grantor.adminOrgUnitIds.includes(orgUnitId)) {
+    return {
+      ok: false,
+      reason:
+        "An Administrator at your own level is appointed by the administrator above you. You can appoint Administrators for the units beneath yours.",
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Whether the grantor may act on a whole account (deactivate, reactivate, delete, resend its invitation):
+ * only when every role the person holds is one the grantor could take away. Someone who also works in
+ * another branch, or who administers at the grantor's own level or above, is out of reach.
+ */
+export function checkAccountReach(
+  grantor: Grantor,
+  assignments: readonly { roleCode: string; orgUnitId: string }[],
+  nodes: readonly OrgNode[],
+): RuleCheck {
+  if (grantor.isAdmin) return { ok: true };
+  if (assignments.length === 0) {
+    return { ok: false, reason: "Only a Super Admin can manage an account with no role." };
+  }
+  for (const a of assignments) {
+    if (!checkGrant(grantor, a.roleCode, a.orgUnitId, nodes).ok) {
+      return {
+        ok: false,
+        reason:
+          "This person also holds a role outside what you administer, so the account itself isn't yours to change. You can still remove the roles inside your own scope.",
+      };
+    }
   }
   return { ok: true };
 }

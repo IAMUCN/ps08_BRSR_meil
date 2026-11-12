@@ -193,6 +193,89 @@ export function checkDuplicateInvoice(
       };
 }
 
+/**
+ * Built-in (Phase 3): OCR found that the document clearly looks like another activity's type than the one
+ * chosen at upload. A review flag: the reviewer returns it as the wrong activity, or accepts it.
+ */
+export function checkDocumentKind(
+  suggestion: { typeName: string; activities: string[] } | null,
+  chosenActivity: string,
+): Verdict {
+  if (!suggestion) {
+    return { ok: true, message: `The document matches ${chosenActivity}.` };
+  }
+  const activities = suggestion.activities.length
+    ? ` (used for ${suggestion.activities.join(", ")})`
+    : "";
+  const likely = suggestion.activities.length
+    ? ` It may belong to ${suggestion.activities.join(" or ")}.`
+    : "";
+  return {
+    ok: false,
+    forceFlag: true,
+    message: `Category mismatch: this looks like ${/^[aeiou]/i.test(suggestion.typeName) ? "an" : "a"} ${suggestion.typeName}${activities}, suggested by OCR, but it was uploaded as ${chosenActivity}.${likely} If the activity is wrong, return it as the wrong activity.`,
+  };
+}
+
+/** Another record a new one is compared with, named so a reviewer can find it. */
+export type OtherRecord = {
+  metricName: string;
+  orgUnitName: string;
+  periodLabel: string;
+  submittedBy: string;
+  /** ISO date the other record's document was uploaded. */
+  uploadedOn: string;
+};
+
+function describe(other: OtherRecord): string {
+  return `${other.metricName} for ${other.orgUnitName}, ${other.periodLabel}, uploaded by ${other.submittedBy} on ${other.uploadedOn}`;
+}
+
+/**
+ * Built-in (migration 0056): uploaded after the period's due date. Always a review flag, never a failure: a
+ * person decides in the Validation Queue whether the late record is accepted.
+ */
+export function checkLate(input: { late: boolean; dueOn: string; uploadedOn: string }): Verdict {
+  return input.late
+    ? {
+        ok: false,
+        forceFlag: true,
+        message: `Late submission: due on ${input.dueOn}, uploaded on ${input.uploadedOn}.`,
+      }
+    : { ok: true, message: `Uploaded on time (due on ${input.dueOn}).` };
+}
+
+/**
+ * Built-in: the identical file (same SHA-256) is evidence for another record that is still live, in any
+ * period. A file name is never compared. A re-upload of the record it replaces is not a duplicate.
+ */
+export function checkSameFile(others: OtherRecord[]): Verdict {
+  if (others.length === 0) return { ok: true, message: "No other record has this exact file." };
+  const more = others.length > 1 ? ` (and ${others.length - 1} more)` : "";
+  return {
+    ok: false,
+    forceFlag: true,
+    message: `Same file as ${describe(others[0])}${more}.`,
+  };
+}
+
+/**
+ * Configured `duplicate_invoice` (owner's rule of 2026-11-07): another live record of the same activity with
+ * the same bill number and, where both have one, the same billing period — in any unit and any period. A
+ * scan and a photo of one bill are caught here, where the file fingerprints differ.
+ */
+export function checkSameBill(billNumber: string | null, others: OtherRecord[]): Verdict {
+  if (!billNumber?.trim()) return { ok: true, message: "No bill number to compare." };
+  if (others.length === 0) {
+    return { ok: true, message: `Bill number ${billNumber.trim()} is not recorded elsewhere.` };
+  }
+  const more = others.length > 1 ? ` (and ${others.length - 1} more)` : "";
+  return {
+    ok: false,
+    message: `Looks like the same bill (no. ${billNumber.trim()}) as ${describe(others[0])}${more}.`,
+  };
+}
+
 /** Configured `duplicate_period`: another verified record for the same project, period and activity. */
 export function checkDuplicatePeriod(matches: number, what: string, where: string): Verdict {
   return matches > 0

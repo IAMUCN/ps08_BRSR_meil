@@ -15,6 +15,7 @@ import {
   type WasteRoute,
 } from "./classify";
 import { EMPTY_INPUTS, REPORT_INPUTS_KEY, type FyInputs } from "./inputs";
+import type { ReportTemplate, TemplateExtras } from "./templates";
 
 // What a BRSR report says, frozen at generation (schema §13.1 snapshot_data; .grill/phase-17-reporting-
 // decisions.md). Approved records only. Every reported metric lists its contributing records with the
@@ -164,6 +165,10 @@ export type Snapshot = {
   factors: FactorUsed[];
   /** Schema §13.1: the contributing record ids per indicator, in the documented shape. */
   indicators: { brsr_indicator_id: string; esg_record_ids: string[] }[];
+  /** Phase 8 (D52): the layout this snapshot was printed with; absent = the full BRSR format. */
+  template?: ReportTemplate;
+  /** Phase 8: what that template adds (per-activity emissions, the summary's trends and alerts). */
+  extras?: TemplateExtras;
 };
 
 /** Required BRSR indicators (Section A/B and Essential) with no applicable metric mapping. */

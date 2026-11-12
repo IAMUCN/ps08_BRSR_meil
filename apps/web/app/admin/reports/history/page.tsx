@@ -5,15 +5,15 @@ import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { RunsTable } from "../runs-table";
 
-export const metadata: Metadata = { title: "Past Reports · TraceESG" };
+export const metadata: Metadata = { title: "Past Reports · EmeilSG" };
 
 // Every report ever generated, successful or failed (owner's page feedback, 2026-10-09; A29).
 export default async function ReportHistoryPage() {
-  const [, caller] = await Promise.all([requireAdminSession(), api()]);
+  const [, caller] = await Promise.all([requireAdminAreaSession(), api()]);
   const runs = await caller.reports.list();
 
   if (runs.length === 0) {

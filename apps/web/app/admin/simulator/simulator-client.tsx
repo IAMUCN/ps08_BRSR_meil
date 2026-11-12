@@ -178,12 +178,12 @@ export function SimulatorClient({
   return (
     <div className="space-y-6">
       {/* A. Persistent Disclaimer Banner */}
-      <div className="flex flex-col gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-foreground [&_.text-muted-foreground]:text-foreground sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-2.5">
-          <Info className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+          <Info className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden />
           <div>
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center rounded bg-amber-500/20 px-2 py-0.5 text-[11px] font-bold tracking-wide text-amber-700 dark:text-amber-300">
+              <span className="inline-flex items-center rounded bg-amber-500/20 px-2 py-0.5 text-[11px] font-bold tracking-wide text-foreground">
                 SIMULATION — NOT OFFICIAL BRSR DATA
               </span>
             </div>
@@ -205,13 +205,13 @@ export function SimulatorClient({
       {isForecastMode && (
         <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/10 p-4 text-xs text-foreground sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-2.5">
-            <TrendingUp className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            <TrendingUp className="mt-0.5 size-4 shrink-0 text-primary-text" aria-hidden />
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-semibold tracking-wide uppercase text-primary">
+                <span className="font-semibold tracking-wide uppercase text-primary-text">
                   Predicted Baseline Scenario (Statistical Estimate)
                 </span>
-                <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary-text">
                   Analytical Layer
                 </span>
               </div>
@@ -255,7 +255,7 @@ export function SimulatorClient({
       <div className="rounded-lg border border-border bg-card p-5 shadow-xs">
         <div className="mb-4 flex items-center justify-between border-b border-border/60 pb-3">
           <div className="flex items-center gap-2">
-            <Sliders className="size-4 text-primary" aria-hidden />
+            <Sliders className="size-4 text-primary-text" aria-hidden />
             <h2 className="text-sm font-semibold tracking-tight text-foreground">
               Select Scope &amp; Target Category
             </h2>
@@ -364,7 +364,7 @@ export function SimulatorClient({
 
         {/* Category Eligibility & Baseline Notice */}
         {currentCategory && !currentCategory.isEligible && (
-          <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-status-warning">
             <AlertTriangle className="size-4 shrink-0" aria-hidden />
             <span>
               <strong>{currentCategory.name}</strong> has no approved baseline records in this
@@ -449,7 +449,7 @@ export function SimulatorClient({
           </div>
 
           {/* Scenario Name Field */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="sim-scenario-name" className="text-xs text-muted-foreground">
               Scenario Name:
             </label>
@@ -482,7 +482,9 @@ export function SimulatorClient({
           <div className="space-y-2 sm:col-span-8">
             <div className="flex items-center justify-between text-xs font-medium">
               <span className="text-muted-foreground">Reduction Assumption</span>
-              <span className="font-mono text-sm font-bold text-primary">{reductionPercent}%</span>
+              <span className="font-mono text-sm font-bold text-primary-text">
+                {reductionPercent}%
+              </span>
             </div>
             <input
               type="range"
@@ -532,7 +534,7 @@ export function SimulatorClient({
             </div>
 
             {/* Quick Presets */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] text-muted-foreground">Presets:</span>
               {PRESETS.map((p) => (
                 <button
@@ -576,10 +578,10 @@ export function SimulatorClient({
         {/* Card 2: Projected Category Emissions */}
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <BarChart3 className="size-3.5 text-primary" aria-hidden />
+            <BarChart3 className="size-3.5 text-primary-text" aria-hidden />
             Projected Category Emissions
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-primary">
+          <div className="mt-2 text-2xl font-bold tracking-tight text-primary-text">
             {simulation ? `${simulation.categoryProjected.toFixed(2)}` : "—"}
             <span className="ml-1 text-xs font-normal text-muted-foreground">tCO₂e</span>
           </div>
@@ -604,7 +606,7 @@ export function SimulatorClient({
         {/* Card 4: Overall Organization Impact */}
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <TrendingDown className="size-3.5 text-primary" aria-hidden />
+            <TrendingDown className="size-3.5 text-primary-text" aria-hidden />
             Overall Organization Impact
           </div>
           <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
@@ -630,7 +632,7 @@ export function SimulatorClient({
           </div>
 
           {/* Chart Legend */}
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex flex-wrap items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
               <span className="size-3 rounded-xs bg-[var(--chart-primary)]" aria-hidden />
               <span>Baseline</span>
@@ -671,7 +673,7 @@ export function SimulatorClient({
                       <span className="font-mono text-muted-foreground">
                         {sc.projected.toFixed(2)} / {sc.baseline.toFixed(2)} tCO₂e
                         {sc.avoided > 0 ? (
-                          <strong className="ml-1.5 text-emerald-600 dark:text-emerald-400">
+                          <strong className="ml-1.5 text-status-success">
                             (-{sc.avoided.toFixed(2)} tCO₂e)
                           </strong>
                         ) : null}
@@ -804,7 +806,7 @@ export function SimulatorClient({
                   <td className="px-3.5 py-3 font-mono text-xs text-muted-foreground">
                     {row.categoryBaseline.toFixed(2)} tCO₂e
                   </td>
-                  <td className="px-3.5 py-3 font-mono text-xs font-semibold text-primary">
+                  <td className="px-3.5 py-3 font-mono text-xs font-semibold text-primary-text">
                     {row.categoryProjected.toFixed(2)} tCO₂e
                   </td>
                   <td className="px-3.5 py-3 font-mono text-xs font-semibold text-status-success">
@@ -826,7 +828,7 @@ export function SimulatorClient({
       {/* H. Source Records Drill-Down Links */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/80 bg-muted/40 p-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
-          <CheckCircle2 className="size-4 text-primary" aria-hidden />
+          <CheckCircle2 className="size-4 text-primary-text" aria-hidden />
           <span>
             Every baseline calculation originates from verified invoices and approved factor
             versions.
@@ -835,19 +837,19 @@ export function SimulatorClient({
         <div className="flex items-center gap-3 font-medium">
           <Link
             href="/admin/scope-1"
-            className="flex items-center gap-1 text-primary hover:underline"
+            className="flex items-center gap-1 text-primary-text hover:underline"
           >
             Scope 1 Drill-Down <ChevronRight className="size-3" aria-hidden />
           </Link>
           <Link
             href="/admin/scope-2"
-            className="flex items-center gap-1 text-primary hover:underline"
+            className="flex items-center gap-1 text-primary-text hover:underline"
           >
             Scope 2 Drill-Down <ChevronRight className="size-3" aria-hidden />
           </Link>
           <Link
             href="/admin/reports/bundle"
-            className="flex items-center gap-1 text-primary hover:underline"
+            className="flex items-center gap-1 text-primary-text hover:underline"
           >
             Audit Evidence Bundle <ChevronRight className="size-3" aria-hidden />
           </Link>

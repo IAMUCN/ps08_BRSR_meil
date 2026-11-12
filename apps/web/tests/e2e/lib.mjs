@@ -106,6 +106,8 @@ export async function validationResults(recordId) {
 // --- Sessions -------------------------------------------------------------------------------------------
 
 export const ok = (r) => r?.status === 200;
+/** What the login form says when the account is already signed in elsewhere (migration 0055). */
+export const TAKEOVER_QUESTION = "This account is signed in on another device";
 export const rejected = (r, includes) =>
   !!r && r.status >= 400 && (!includes || !!r.error?.includes(includes));
 
@@ -133,8 +135,11 @@ export class Session {
     this.store(r);
     return { status: r.status, location: r.headers.get("location"), html: await r.text() };
   }
-  /** Signs in through the real login form (a Server Action). Returns where the app sends the user. */
-  async login({ email, password }) {
+  /**
+   * Signs in through the real login form (a Server Action). Returns where the app sends the user. With
+   * `takeover`, answers yes to "signed in on another device" (migration 0055): the other sign-in ends.
+   */
+  async login({ email, password }, { takeover = false } = {}) {
     const page = await this.get("/login");
     const form = page.html.match(/<form[^>]*>([\s\S]*?)<\/form>/)[1];
     const body = new FormData();
@@ -145,6 +150,7 @@ export class Session {
     }
     body.append("email", email);
     body.append("password", password);
+    if (takeover) body.append("takeover", "confirm");
     const r = await fetch(`${APP}/login`, {
       method: "POST",
       body,
@@ -194,7 +200,11 @@ const newPassword = () => `E2e-${randomBytes(12).toString("hex")}-x!`;
 async function setPassword(id, password) {
   const r = await authAdmin(`users/${id}`, {
     method: "PUT",
-    body: JSON.stringify({ password, email_confirm: true }),
+    body: JSON.stringify({
+      password,
+      email_confirm: true,
+      app_metadata: { must_change_password: false },
+    }),
   });
   if (!r.ok) throw new Error(`could not set a test password (${r.status})`);
 }
@@ -317,7 +327,36 @@ async function ensureFactors(admin) {
     });
     if (!ok(created))
       throw new Error(`could not enter the synthetic ${activityType} factor: ${created.error}`);
+    await approveSyntheticFactor(admin, created.data.versionId);
   }
+}
+
+/**
+ * A new factor version is a draft until a Super Admin approves it (migration 0060). The suite's Admin approves its
+ * own synthetic value when it is the only Super Admin; where another Super Admin exists (a local database with a
+ * second one), the fixture is marked self-approved directly, labelled as the synthetic test value it is.
+ */
+export async function approveSyntheticFactor(admin, versionId) {
+  const approved = await admin.mutate("factors.approve", {
+    versionId,
+    note: "Synthetic test value (tests/e2e)",
+  });
+  if (ok(approved)) return;
+  if (approved.status !== 403)
+    throw new Error(`could not approve a synthetic factor: ${approved.error}`);
+  await sql.begin(async (tx) => {
+    await tx`
+      update public.conversion_factor_versions v
+      set status = 'superseded', effective_to = n.effective_from - 1
+      from public.conversion_factor_versions n
+      where n.id = ${versionId} and v.conversion_factor_id = n.conversion_factor_id and v.status = 'active'
+        and v.effective_from < n.effective_from`;
+    await tx`
+      update public.conversion_factor_versions
+      set status = 'active', approved_by = created_by, approved_at = now(), self_approved = true,
+          review_note = 'Synthetic test value (tests/e2e fixture)'
+      where id = ${versionId} and status = 'draft'`;
+  });
 }
 
 // --- Documents and the OCR worker -----------------------------------------------------------------------
@@ -355,9 +394,18 @@ export async function upload(
   who,
   bytes,
   fileName,
-  { orgCode = "PRJ-X", metric = "DIESEL_CONSUMPTION", mimeType = "application/pdf" } = {},
+  {
+    orgCode = "PRJ-X",
+    metric = "DIESEL_CONSUMPTION",
+    mimeType = "application/pdf",
+    periodId,
+    replacesDocumentId,
+  } = {},
 ) {
   const base = {
+    // Omitted = the newest period that takes uploads (migration 0056: several may be open).
+    ...(periodId ? { reportingPeriodId: periodId } : {}),
+    ...(replacesDocumentId ? { replacesDocumentId } : {}),
     orgUnitId: await orgId(orgCode),
     metricId: await metricId(metric),
     mimeType,

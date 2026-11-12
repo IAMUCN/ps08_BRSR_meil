@@ -15,7 +15,7 @@ from worker.processor import process_next
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="TraceESG OCR worker")
+    parser = argparse.ArgumentParser(description="EmeilSG OCR worker")
     parser.add_argument("--once", action="store_true", help="process waiting jobs, then exit")
     args = parser.parse_args()
 

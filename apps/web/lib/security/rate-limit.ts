@@ -19,6 +19,14 @@ export type RateLimits = {
   otp_max_attempts: number;
   chat_messages_per_user: number;
   chat_window_minutes: number;
+  /** Invitation links one person may issue (Invite user, Resend, each bulk-import row). */
+  invitations_per_user: number;
+  /** New links for one account. */
+  invitation_resends_per_account: number;
+  invitation_window_minutes: number;
+  /** Links that turned out not to exist, per client address: guessing, not people. */
+  invitation_failures_per_address: number;
+  invitation_failure_window_minutes: number;
 };
 
 const DEFAULTS: RateLimits = {
@@ -33,6 +41,11 @@ const DEFAULTS: RateLimits = {
   otp_max_attempts: 5,
   chat_messages_per_user: 20,
   chat_window_minutes: 10,
+  invitations_per_user: 600,
+  invitation_resends_per_account: 5,
+  invitation_window_minutes: 60,
+  invitation_failures_per_address: 30,
+  invitation_failure_window_minutes: 15,
 };
 
 export async function rateLimits(): Promise<RateLimits> {

@@ -173,7 +173,14 @@ export type ToolContext = {
 export type ToolResult = { data: unknown; blocks: Block[]; orgUnitIds: string[] };
 
 /** A refusal the model may read and pass on: wrong name, out of scope, too wide. Never internal detail. */
-export class ToolError extends Error {}
+export class ToolError extends Error {
+  /** "out_of_scope": the lookup named something this person may not see; the answer becomes a fixed refusal. */
+  readonly kind: "error" | "out_of_scope";
+  constructor(message: string, kind: "error" | "out_of_scope" = "error") {
+    super(message);
+    this.kind = kind;
+  }
+}
 
 // --- Limits -----------------------------------------------------------------------------------------------
 
@@ -252,6 +259,7 @@ export function resolveUnit(ctx: ToolContext, ref: string | undefined): OrgUnit 
       roots.length
         ? `Ask which org unit is meant. This person can see: ${names(roots)}.`
         : "This person has no org unit in scope.",
+      roots.length ? "error" : "out_of_scope",
     );
   }
   const wanted = ref.toLowerCase();
@@ -265,7 +273,7 @@ export function resolveUnit(ctx: ToolContext, ref: string | undefined): OrgUnit 
   if (found.length > 1) {
     throw new ToolError(`"${ref}" matches several org units: ${names(found)}. Ask which one.`);
   }
-  throw new ToolError(`No org unit called "${ref}" is in this person's scope.`);
+  throw new ToolError(`No org unit called "${ref}" is in this person's scope.`, "out_of_scope");
 }
 
 function resolveWhen(ctx: ToolContext, spec: PeriodSpec) {
@@ -1220,7 +1228,7 @@ export const TOOLS = {
   list_people: tool({
     adminOnly: true,
     description:
-      "The people with an account: name, email, employee id, roles, org units, active or deactivated. Use for any question about employees, users, who holds a role or who works where.",
+      "The people with an account: name, roles, org units, active or deactivated. Use for any question about employees, users, who holds a role or who works where. Email addresses and employee ids are in the table the application shows the person beneath your answer; you are not given them, so point to the table for those.",
     schema: z.strictObject({
       search: z
         .string()
@@ -1248,12 +1256,12 @@ export const TOOLS = {
       const list = (p: Person, key: "role" | "orgUnit") =>
         [...new Set(p.assignments.map((x) => x[key]))].join(", ") || "—";
       return {
+        // What leaves for the AI service is what wording an answer needs. Email addresses and employee ids
+        // stay here: the table below is drawn by the application for the Admin and never passes the model.
         data: {
           total,
           people: rows.map((p) => ({
             name: p.name,
-            email: p.email,
-            employee_id: p.employeeId,
             status: p.active ? "active" : "deactivated",
             assignments: p.assignments,
           })),
@@ -1284,7 +1292,7 @@ export const TOOLS = {
   list_records: tool({
     adminOnly: true,
     description:
-      "The individual records of one org unit (and everything beneath it) over a period: value, status, who submitted it, who approved it and the document's file name. Use for 'who uploaded', 'who approved', 'which records'.",
+      "The individual records of one org unit (and everything beneath it) over a period: value, status, who submitted it and who approved it. Use for 'who uploaded', 'who approved', 'which records'. Each document's file name is in the table the application shows beneath your answer; you are not given it.",
     schema: z.strictObject({ org_unit: orgUnit, period, metric }),
     async run(a, ctx) {
       const unit = resolveUnit(ctx, a.org_unit);
@@ -1311,7 +1319,7 @@ export const TOOLS = {
             status: status(r.status),
             submitted_by: r.submittedBy,
             approved_by: r.approvedBy,
-            document: r.fileName,
+            // The file name is typed by whoever uploaded it: it is shown in the table, not sent to the model.
           })),
         },
         blocks: [
@@ -1329,6 +1337,7 @@ export const TOOLS = {
               "Status",
               "Submitted by",
               "Approved by",
+              "Document",
             ],
             rows: rows.map((r) => [
               unitName(r.orgUnitId),
@@ -1338,6 +1347,7 @@ export const TOOLS = {
               status(r.status),
               r.submittedBy,
               r.approvedBy ?? "—",
+              r.fileName?.slice(0, 200) ?? "—",
             ]),
           },
           ...(when.note ? [note(when.note)] : []),
@@ -1624,7 +1634,8 @@ const withoutNulls = (value: unknown): unknown =>
       : value;
 
 export type ToolOutcome =
-  { ok: true; name: ToolName; args: unknown; result: ToolResult } | { ok: false; error: string };
+  | { ok: true; name: ToolName; args: unknown; result: ToolResult }
+  | { ok: false; error: string; outOfScope?: boolean };
 
 /**
  * Runs one tool call a model asked for. The name must be on the list and the arguments must pass the
@@ -1663,7 +1674,8 @@ export async function runTool(
       result: await t.run(parsed.data, ctx),
     };
   } catch (error) {
-    if (error instanceof ToolError) return { ok: false, error: error.message };
+    if (error instanceof ToolError)
+      return { ok: false, error: error.message, outOfScope: error.kind === "out_of_scope" };
     onUnexpected(error);
     return { ok: false, error: "That lookup failed. Tell the person it could not be completed." };
   }

@@ -617,3 +617,263 @@ nothing about people and only points to Admin → Reports.
 - **Bulk import** has an Also under column for the other parents of a shared unit.
 - **Chat pane:** a coloured header bar as tall as the top bar, a one-line question box that grows, and the
   suggested questions at the foot of the pane.
+
+## A36 — Invite user emails a temporary password (2026-10-12, owner's page feedback)
+
+App Flow has an invited person set their own password from an emailed link. That link was sent by Supabase
+Auth's own email service, which on the hosted project only reaches the Supabase team. **Invite user** now works
+like bulk import: the account is created with a random temporary password, emailed through the app's own SMTP
+sender (Brevo). Decisions: `.grill/invite-smtp-decisions.md`.
+
+- **Invited** on the Users page now means "has never signed in" (it was "has not followed the link"), so
+  bulk-imported accounts show it too until their first sign-in.
+- **Resend email** sets a new temporary password and emails it; refused once the person has signed in.
+- If the email cannot be sent the account still exists and the Admin is told why; the password is not shown.
+- **The first sign-in must change the password.** After signing in with the temporary password, the sign-in
+  page shows "Choose a new password" and no page or procedure opens until it is set; the person then continues
+  signed in. Applies to Invite user, Resend email and bulk import from this change on.
+- **Deleting a user** (same day, owner's report): refused only when the records name the person
+  (submissions, uploads, verifications, approvals, reports, roles given to others, configuration changes),
+  and the message counts what stands in the way. Notifications, reset codes and chat history go with the
+  account. If the audit log names them, their profile row is kept hidden without the email address, so the
+  history still shows who acted and the address can be invited again.
+- **Expected submissions roll up on the Organization page** (same day, owner's request): what a unit below
+  must submit is shown as expected on every unit above it, naming the unit it comes from. It is read from
+  the hierarchy, not stored on the parent, so the Control Tower's figures (which already counted it there)
+  do not change. Nothing is passed down.
+- **Roles & Permissions has Edit role** (same day, owner's request): the name and description of any role,
+  system roles included, can be changed; the code never changes (assignments, import sheets and the app's own
+  rules refer to it), and the Admin role keeps every permission whatever it is called. Audited as
+  `role.updated`.
+
+## A37 — Super Admins and scoped Administrators (2026-10-13, owner's decision)
+
+`03_APP_FLOW.md` §1 gives `/admin` to one Admin role and `/app` to everyone else, and §2.3 says the Admin
+does not upload. The owner changed both (`.grill/scoped-admin-onboarding-decisions.md`, D41).
+
+- **`/admin` is for administrators.** A Super Admin (the old Admin role, at most two people) sees all of it.
+  An Administrator, assigned at any org unit, sees the pages about their own units — Dashboard, Submission
+  Monitoring, the two queues, Scope 1/2/3, Data Explorer, Reports, Organization, Users — limited to that
+  unit and everything beneath it. Group-wide configuration (conversion factors, BRSR mapping and
+  disclosures, roles, reporting periods, hierarchy levels, yearly report inputs, the audit trail) and the
+  pages not yet reviewed for scoping (OCR Monitoring, Reporting Deadlines, Forecast, Simulator, Carbon
+  credits) stay with the Super Admin; an Administrator who opens one is sent back to their dashboard.
+- **Roles are handed out downwards.** A Super Admin: any role anywhere. An Administrator: operational roles
+  at their own units and beneath, the Administrator role only beneath (never a peer at their own level),
+  never Super Admin. A whole account (deactivate, reactivate, delete, re-invite) can be changed only by
+  someone who could take away every role it holds. Holding `user.manage` or `org.manage` without an
+  administrator role no longer opens anything outside one's own assignments.
+- **The Organization page** shows an Administrator their branch and, by name only, the units above it. Their
+  own unit takes new units and expected submissions; its name, parent and status are changed from above.
+- **Administrators upload** (Upload and My Uploads in the admin sidebar, the same screens as everyone
+  else): any activity, whichever role owns it, for any unit they administer.
+- **Approval:** still nobody decides on a record they submitted or verified — except a Super Admin, who has
+  nobody above them. That decision carries a note in the audit trail and the flag
+  `same_person_as_submitter_or_verifier`. `/app` no longer sends an administrator away; its dashboard does.
+
+## A38 — Invitation links replace emailed passwords (2026-10-13, owner's decision)
+
+Supersedes the emailed temporary password of A36 for every new account. Decisions:
+`.grill/scoped-admin-onboarding-decisions.md`; D42.
+
+- **Invite user** and **bulk import** create the account and email a link (`/invite#token`). No password is
+  created for the person, shown on a screen or emailed. The bulk-import results no longer have a password
+  column.
+- **`/invite`** (public, new): checks the link, shows "Enter new password" and "Confirm new password", and on
+  submit sets the password and uses the link up in one transaction. The person is then sent to the ordinary
+  sign-in page; the link signs nobody in. A link that is unknown, used, revoked, expired or belongs to a
+  deactivated account gets one message.
+- **Users**: an invited account shows where its link stands (valid until, expired, revoked, none). The side
+  panel has **Resend invitation** (a new link; the earlier one stops working) and **Revoke link**. Both are
+  refused once the person has set the account up, and follow the same scope rule as deactivating an account
+  (A37).
+- **Forgot password** sends no code to an account that was never set up.
+- Accounts that already hold an emailed temporary password keep the forced-change screen of A36 until an
+  administrator sends them a link.
+- Audit events: `user.invited` and `user.invite_resent` (with the validity, never the token),
+  `user.invite_revoked`, `user.invitation_accepted` (in the person's own name).
+
+## A39 — Sessions end by themselves (2026-10-13, owner's decision)
+
+03_APP_FLOW §4.3 describes an expired session but sets no limit. Decisions:
+`.grill/scoped-admin-onboarding-decisions.md`; D43.
+
+- A sign-in ends after 3 hours without activity and 12 hours after it started. Closing the browser does not
+  end it.
+- Activity is what the person does on the page; the notification bell and refreshing lists do not count.
+- Five minutes before the end a notice appears at the top of the page: for the idle limit with **Stay
+  signed in**, for the 12-hour limit with the time only.
+- When it has ended, an open page goes to sign-in ("Your session expired") and comes back to the same page
+  afterwards; a procedure call is refused as for any expired session (§4.3).
+- Only that device is signed out. Log out still ends every device.
+
+## A40 — Owner's feedback of 2026-11-01
+
+A closed period refuses new uploads, new evidence and confirming a multi-bill split; records already uploaded still
+finish review. Opening a period past its deadline needs a new close date. Someone with status Invited can have their
+name and email corrected (Manage panel); a changed email replaces the link. Organization: name and code are behind
+an Edit button, Expected Submissions has a tree selector, a selected shared unit is highlighted under every parent.
+Submission Monitoring and the Data Explorer choose the org unit from the same tree. The bell checks every 5 seconds
+while the tab is visible, shows pop-ups and has Mark all read. `.grill/org-tree-users-notifications-periods-decisions.md`.
+
+## A41 — One device per account, permission names, show/hide password (2026-11-07)
+
+Sign-in on a second device asks "This account is signed in on another device" (a dialog, and the same choice on the
+page itself, which also works without JavaScript); Sign out there and continue ends the other sign-in, Cancel signs in
+nowhere. The other device goes to sign-in with "You were signed out because this account signed in on another
+device at <time>" (shown for 24 hours; the browser keeps an `emeilsg-sign-in` cookie holding only the session id
+for this). A Super Admin whose account takes over a sign-in is emailed. Roles & Permissions shows the 20 approved
+permission names instead of codes (`lib/roles/permission-labels.ts`); the Audit Trail keeps codes. The eye button
+is on forgot-password, reset-password and Profile's password fields. `.grill/feature-enhancement-roadmap-decisions.md`.
+
+## A42 — Periods, late uploads, duplicates and monitoring (2026-11-07, Phase 2)
+
+Upload offers every period that takes uploads, each with its due date; a late one says so. Reporting Periods has a
+"Late uploads until" date (defaults: due 15 days and late 45 days after the period ends). A late record, an
+identical file and the same bill are flags reviewed in the Validation Queue (new filters: Late submissions, Possible
+duplicates); a unit's Administrator may accept them. Submission Monitoring and the Data Explorer filter by Activity
+and Document type, show the bill number, document type (and who chose it) and Late / Duplicate marks, and search the
+bill number. The record panel shows a five-step stage tracker with who it waits on and the next action, lets an Admin
+correct the document type or return the record as the wrong activity (the uploader re-uploads it as a new version).
+The approval list shows a thumbnail of the bill, the bill number and the marks, with Approve / Return on rows that
+need no reading. Downloaded originals are named activity_Bill-number_period.
+
+## A43 — One monitoring page, the field grid, document-kind checks (2026-11-08, Phase 3)
+
+OCR Monitoring is part of Submission Monitoring: an OCR column (Reading, Read, Needs attention, Failed with its
+reason, Manual entry), an OCR filter, the stalled-worker warning, and OCR status, rules version, confidences and Retry
+in the record panel (Retry open to an Administrator inside their units). `/admin/ocr-monitoring` redirects to the
+"Needs attention" filter. Verify Extraction boxes each value where it was read on the document and keeps the two in
+step; low-confidence values not yet dealt with are red; a changed value shows what OCR read; a missing billing
+period says why; the values download as an Excel sheet. A document that clearly looks like another activity's is
+flagged in the Validation Queue.
+
+## A44 — Report verification and scoped audit logs (2026-11-08, Phase 4)
+
+A ready report can be forwarded for verification from its page; Reports lists "Reports to verify" for the receiving
+Administrators (or the Super Admins), who verify it (and may forward it on) or return it with a reason; the report
+page shows the whole trail. Everyone has My Activity (their own audit entries, with a search bar). The Audit Trail is
+open to Administrators, showing their own entries and everything about their units, with search, Only my activity,
+a role filter and each person's roles; a record's full history opens for its unit's Administrators.
+
+## A45 — Deadline reminders on a schedule (2026-11-08, Phase 5)
+
+Reporting Deadlines has a Reminders section: the schedule (a Super Admin changes it and can Run now), and every
+reminder sent with its day, channel, recipient and whether it went out. Administrators now open the page and see the
+schedule read-only and the reminders about their units; the task list and the escalation sweep stay Super Admin. The
+reminders run once a day at 9:00 India time: each person gets one message listing their missing submissions, each
+Administrator a summary by unit, the Super Admins a group summary on email days. The bell no longer writes its own
+"due soon" notices.
+
+## A46 — Factor sources and approval; carbon-credit links (2026-11-08, Phase 6)
+
+Conversion Factors opens with a yearly review (per financial year: activities with no value, an earlier year's value
+or one entered for that year, each with Add value). Add factor and New version take a source link, publisher, the date
+it was read and a financial year; a link on an official site can be fetched and a value picked from the page. Every
+new version is saved as a draft that another Super Admin approves or turns down; the version history shows the
+source, its reliability (official site, other site, no link) and who approved it. Carbon Markets gains "Where to
+explore or buy carbon credits": outside sites grouped by kind, a notice that EmeilSG does not sell, certify or
+guarantee credits, and for the Super Admin Add / Edit / Remove and Check addresses.
+
+## A47 — Carbon Analytics: year-wise trends, suggested actions, emission alerts (2026-11-09, Phase 7)
+
+A new page in the sidebar, Carbon Analytics, for Super Admins and Administrators (their units). For one org unit and
+everything beneath it: a small chart per scope and the total by financial year (a hatched bar is a year that is not
+complete), a table with each scope's change on the year before (full year, or the months both years have) and what
+is missing, a table by activity, suggested actions from fixed rules with their figures and evidence (and, where the
+AI service is set up, "Explain in plain words"), and emission alerts with the measured figure, the expected average,
+the difference, the threshold and the periods averaged, each acknowledged with a note. A Super Admin sets the
+thresholds and can run the daily check now. Alerts also arrive as a notification and an email. The Control Tower's
+KPI card links to the page.
+
+## A48 — Report templates, top-bar search, Scope Table / Chart, Ask button, landing page (2026-11-09, Phase 8)
+
+Reports has a Template choice (full SEBI BRSR, BRSR Core KPIs, GHG inventory, executive summary); the runs list and
+the report page name the template, and a GHG inventory also downloads as Excel. The top bar has Search (Ctrl+K or
+"/"): records, people, org units, reports, pages and the audit trail, limited to what the person may open, the
+current page's section first. The Users page reads `?q=`. Scope 1/2/3 have a Table | Chart switch for every summary
+section, kept in the address. The Ask button is an "Ask AI" pill. The landing page's sample charts, Traceability
+layout, phone hero and step numbers were corrected.
+
+## A49 — Phones, the installable app and Help (2026-11-09, Phases 9 and 10)
+
+Below 768px a bottom bar (Home, Upload, Uploads, Approvals or Activity) and Menu replace the icon rail; Upload
+offers "Take a photo" on touch screens; Verify opens documents at 50% on phones. EmeilSG can be installed from the
+browser (manifest, icons, an offline page). A Help page in both sidebars explains the product as configured, with
+administrator sections for administrators.
+
+## A50 — Owner's page feedback of 2026-11-11: filters, reminders, Deadlines, Audit Trail, split page, panels
+
+Decisions in `.grill/page-feedback-2026-11-11-decisions.md`. Submission Monitoring and the Data Explorer lose the
+Document type filter (one document type per activity); Activity follows Scope (grouped by scope when none is
+chosen, choosing an activity sets its scope); an upload-date range (`from`, `to`, India time); a Reset filters
+button when the view differs from the default (own unit, current open period); the submitter's role(s) today under
+their name, with "for <role>" for an on-behalf upload. Conversion Factors' yearly review offers the current
+financial year back to the earliest with data, never a later one. Reminders: Run now is gone; Save schedule also
+sends today's reminders, and the panel says whether a daily run is set up on the server. Reporting Deadlines lists
+who can submit by the Upload page's rule (on-behalf roles included; they are reminded only when nobody holds the
+owning role), "No one to submit" with an Assign link instead of "Unassigned", and "Not submitted" on open tasks.
+Audit Trail: filters apply as they change, linked (Only my activity greys Role and User; a role narrows people; a
+person sets or narrows the role; Action lists what the chosen people did), Clear filters, and a rule-based search
+with grouped suggestions and word-form matching (`lib/audit/words.ts`) that also finds entries about the records
+of a named activity, org unit or period. The split page has Undo / Redo (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z) and ← / →
+turn its pages. Every right-hand side panel can expand to the whole window from 768px up (Esc collapses first) and
+be resized by dragging its inner edge, each kind remembering its width in the browser.
+
+## A51 — Upload: an optional description and the project's expected submissions (2026-11-11)
+
+Upload has an optional Description box (500 characters). It is shown on Verify (where the uploader can change it
+until approval), in the record panel, on My Submissions and in Submission Monitoring, and it is searched and
+exported. Beside the form, Upload lists every activity the chosen project is expected to submit for the chosen
+period, other roles' included: "N of M submitted", a tick once a document is on file, and the newest one's stage
+(a rejected record does not count). The list follows the form, refreshes after each upload and every 20 seconds
+while the tab is visible. `.grill/upload-description-progress-decisions.md`.
+
+## A52 — Conversion factors are entered for financial years (2026-11-11)
+
+The factor form asks "Effective for: From FY / To FY" (To defaults to From) instead of dates, defaulting to the next
+financial year; an earlier year is refused where the factor already has a value. The factors table's Effective
+column shows the current financial year with "Inherited from FY …" (or "Entered for FY …") beneath it; a
+version's history shows its own years; the yearly review shows "Inherited from FY …".
+`.grill/factor-financial-years-decisions.md`.
+
+## A53 — Eye button under the document on Verify Extraction (2026-11-11)
+
+"Show extracted parts" under the viewer draws every value's place on the page, green / amber / red by confidence,
+with a colour key; the choice is saved on the account and applies to every document. Boxes now load for any
+document already read by OCR, approved ones included. `.grill/extraction-boxes-toggle-decisions.md`.
+
+## A54 — "Which project emits the most?" on Carbon Analytics suggestions (2026-11-11)
+
+Each suggestion has a button that lists the units (projects, sites) its activities' approved emissions came from
+in the suggestion's financial year, largest first with tCO2e, share and record count (`analytics.byUnit`,
+`emissionsByUnit` in `lib/analytics/service.ts`; read-only, same scope rule as the page). Owner's request.
+
+## A55 — Request a demo: form, video and Demo Requests page (2026-11-11)
+
+The three "Request a demo" links on the landing page (they opened a blank email) open a form (name, email, phone);
+after it is sent the demo video plays in a window on the page. Super Admins see the requests on Admin -> Demo
+Requests and are notified in the app. `.grill/demo-requests-decisions.md`.
+
+## A56 — Category mismatch and the activity list on Verify Extraction (2026-11-12)
+
+Before Confirm, Verify Extraction shows an "ESG activity" list with every activity the Upload page offers this
+person for the record's project (grouped by category, only activities that take the file's type). When OCR found
+the document is clearly another activity's (Phase 3's mismatch), a "Category mismatch" box says what it looks like
+and which activity it may belong to, with a "Change to …" button. Changing the activity moves the record and reads
+the document again for the new activity's fields (old values kept in the audit entry `record.activity_changed`);
+a document whose reading failed keeps the failure and takes the new fields by hand. After Confirm the mismatch is
+still the reviewer's flag, now worded "Category mismatch: … It may belong to …".
+`.grill/verify-activity-change-decisions.md`.
+
+## A57 — Subsidiary, business unit, project: the structure rules and the projects checklist (2026-11-12)
+
+MEIL's tree is Group -> Subsidiary -> Business Unit -> Project. A business unit sits directly under one subsidiary
+and is never shared (no "also under"); a project sits under a business unit (or a level after it), and may be shared
+by several business units. Enforced in `canBeChildOf` / `checkAlsoUnder` (`lib/org/rules.ts`), so the add form,
+Move, the Parents checklist and bulk import all follow; the rules apply only while the `subsidiary`,
+`business_unit` and `project` levels exist. A business unit's panel has "Projects under …": every project of the
+group with where it sits today; ticking one adds the business unit as a parent (`organization.setChildren`). A
+project placed before these rules (straight under a subsidiary) is marked, and its first ticked business unit
+becomes its main parent. Units already in the database are not changed by the rules. No migration.
+`.grill/org-structure-decisions.md`.

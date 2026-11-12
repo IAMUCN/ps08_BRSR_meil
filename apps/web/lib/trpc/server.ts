@@ -51,7 +51,9 @@ export async function runAction<T>(
       redirect(`/login?reason=expired${next ? `&next=${encodeURIComponent(next)}` : ""}`);
     }
     if (error instanceof TRPCError && error.code !== "INTERNAL_SERVER_ERROR") {
-      return { ok: false, error: error.message };
+      // Rejected input: tRPC's message is the validator's raw JSON. Show the first rule's own words.
+      const issues = (error.cause as { issues?: { message: string }[] } | undefined)?.issues;
+      return { ok: false, error: issues?.[0]?.message ?? error.message };
     }
     console.error(error);
     return { ok: false, error: AUTH_MESSAGES.retry };

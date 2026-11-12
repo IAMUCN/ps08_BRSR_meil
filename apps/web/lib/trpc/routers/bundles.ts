@@ -21,10 +21,13 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { permissionProcedure, router } from "@/lib/trpc/init";
 import {
+  DESCRIPTION,
   NO_PERIOD,
+  PERIOD_CLOSED,
   badRequest,
   enforceUploadLimit,
   loadUploadOptions,
+  resolvePeriod,
   resolveTarget,
   type DuplicateWarnings,
   type UploadCategory,
@@ -111,6 +114,8 @@ export const bundlesRouter = router({
   prepareUpload: upload
     .input(
       z.object({
+        /** The period chosen; omitted = the newest one that takes uploads. */
+        reportingPeriodId: z.uuid().optional(),
         orgUnitId: z.uuid(),
         fileSize: z.number().int().positive(),
         sha256: z.string().regex(/^[0-9a-f]{64}$/),
@@ -121,7 +126,7 @@ export const bundlesRouter = router({
       const sql = db();
       await enforceUploadLimit(ctx.session.userId);
       const options = await loadUploadOptions(sql, ctx.session.userId);
-      if (!options.openPeriod) badRequest(NO_PERIOD);
+      const period = resolvePeriod(options, input.reportingPeriodId);
       const target = options.targets.find((t) => t.orgUnitId === input.orgUnitId);
       if (!target)
         throw new TRPCError({ code: "FORBIDDEN", message: "You can't upload for that project." });
@@ -141,12 +146,12 @@ export const bundlesRouter = router({
             existingRecords: 0,
             orgUnitName: target.name,
             metricName: "",
-            periodLabel: options.openPeriod.label,
+            periodLabel: period.label,
           } satisfies DuplicateWarnings,
         };
       }
       const documentId = randomUUID();
-      const path = evidencePath(input.orgUnitId, options.openPeriod.id, documentId, PDF)!;
+      const path = evidencePath(input.orgUnitId, period.id, documentId, PDF)!;
       const { data, error } = await createSupabaseAdminClient()
         .storage.from(evidenceBucket())
         .createSignedUploadUrl(path);
@@ -154,7 +159,7 @@ export const bundlesRouter = router({
       return {
         status: "ready" as const,
         documentId,
-        reportingPeriodId: options.openPeriod.id,
+        reportingPeriodId: period.id,
         signedUrl: data.signedUrl,
       };
     }),
@@ -167,6 +172,7 @@ export const bundlesRouter = router({
         reportingPeriodId: z.uuid(),
         fileName: z.string().trim().min(1).max(255),
         acknowledgeDuplicates: z.boolean().default(false),
+        description: DESCRIPTION,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -183,9 +189,9 @@ export const bundlesRouter = router({
       const target = options.targets.find((t) => t.orgUnitId === input.orgUnitId);
       if (!target)
         throw new TRPCError({ code: "FORBIDDEN", message: "You can't upload for that project." });
-      if (!options.openPeriod) return reject(NO_PERIOD);
-      if (options.openPeriod.id !== input.reportingPeriodId) {
-        return reject("The reporting period changed while you were uploading — upload again.");
+      if (options.periods.length === 0) return reject(NO_PERIOD);
+      if (!options.periods.some((p) => p.id === input.reportingPeriodId)) {
+        return reject("The reporting period closed while you were uploading — choose another one.");
       }
 
       const { data: blob, error: downloadError } = await storage.download(path);
@@ -215,7 +221,7 @@ export const bundlesRouter = router({
           await tx`select pg_advisory_xact_lock_shared(hashtext('reporting_period_status'))`;
           await tx`select pg_advisory_xact_lock_shared(hashtext('org_units_tree'))`;
           const current = await loadUploadOptions(tx, ctx.session.userId);
-          if (current.openPeriod?.id !== input.reportingPeriodId) badRequest(NO_PERIOD);
+          const period = resolvePeriod(current, input.reportingPeriodId);
           if (!current.targets.some((t) => t.orgUnitId === input.orgUnitId)) {
             throw new TRPCError({
               code: "FORBIDDEN",
@@ -233,17 +239,18 @@ export const bundlesRouter = router({
                 existingRecords: 0,
                 orgUnitName: target.name,
                 metricName: "",
-                periodLabel: current.openPeriod.label,
+                periodLabel: period.label,
               } satisfies DuplicateWarnings,
             };
           }
           await tx`
             insert into public.documents (
               id, org_unit_id, reporting_period_id, storage_path, file_name, mime_type,
-              file_size_bytes, file_hash, uploaded_by, is_bundle
+              file_size_bytes, file_hash, uploaded_by, is_bundle, description
             ) values (
               ${input.documentId}, ${input.orgUnitId}, ${input.reportingPeriodId}, ${path},
-              ${input.fileName}, ${PDF}, ${bytes.length}, ${fileHash}, ${ctx.session.userId}, true
+              ${input.fileName}, ${PDF}, ${bytes.length}, ${fileHash}, ${ctx.session.userId}, true,
+              ${input.description ?? null}
             )`;
           const [job] = await tx<{ id: string }[]>`
             insert into public.ocr_jobs (document_id) values (${input.documentId}) returning id`;
@@ -256,6 +263,7 @@ export const bundlesRouter = router({
               file_name: input.fileName,
               file_size_bytes: bytes.length,
               file_hash: fileHash,
+              description: input.description ?? null,
               page_count: pages,
               org_unit_id: input.orgUnitId,
               reporting_period_id: input.reportingPeriodId,
@@ -436,8 +444,10 @@ export const bundlesRouter = router({
 
       // Each kept bill must be one the uploader could have uploaded here on its own.
       const options = await loadUploadOptions(sql, userId);
-      if (options.openPeriod?.id !== bundle.reporting_period_id) {
-        badRequest("The reporting period changed since you uploaded this PDF — upload it again.");
+      if (!options.periods.some((p) => p.id === bundle.reporting_period_id)) {
+        badRequest(
+          "This PDF's reporting period no longer takes uploads — upload it again in another one.",
+        );
       }
       const kept = input.parts.flatMap((part, index) => (part.skip ? [] : [{ part, index }]));
       const metricNames = new Map<string, string>();
@@ -512,7 +522,9 @@ export const bundlesRouter = router({
           await tx`select pg_advisory_xact_lock_shared(hashtext('reporting_period_status'))`;
           await tx`select pg_advisory_xact_lock_shared(hashtext('org_units_tree'))`;
           const current = await loadUploadOptions(tx, userId);
-          if (current.openPeriod?.id !== bundle.reporting_period_id) badRequest(NO_PERIOD);
+          if (!current.periods.some((p) => p.id === bundle.reporting_period_id)) {
+            badRequest(PERIOD_CLOSED);
+          }
           // One confirmation only: lock the proposal and check nothing has been recorded since.
           const locked = await tx<{ status: string }[]>`
             select status from public.document_bundle_parts
@@ -532,19 +544,26 @@ export const bundlesRouter = router({
             await tx`
               insert into public.documents (
                 id, org_unit_id, reporting_period_id, storage_path, file_name, mime_type,
-                file_size_bytes, file_hash, uploaded_by, bundle_document_id
+                file_size_bytes, file_hash, uploaded_by, bundle_document_id, description
               ) values (
                 ${file.id}, ${bundle.org_unit_id}, ${bundle.reporting_period_id}, ${file.path},
-                ${file.name}, ${PDF}, ${file.bytes.length}, ${file.hash}, ${userId}, ${bundle.id}
+                ${file.name}, ${PDF}, ${file.bytes.length}, ${file.hash}, ${userId}, ${bundle.id},
+                -- A bill cut out of the PDF takes the PDF's description (migration 0063).
+                (select description from public.documents where id = ${bundle.id})
               )`;
             const [record] = await tx<{ id: string }[]>`
               insert into public.esg_records (
                 org_unit_id, reporting_period_id, metric_id, scope_id, submitted_by,
-                verification_status, calculation_status, is_duplicate_flag
+                verification_status, calculation_status, is_duplicate_flag, submitted_late
               ) values (
                 ${bundle.org_unit_id}, ${bundle.reporting_period_id}, ${part.metricId!},
                 ${metricRow.scope_id}, ${userId}, 'document_uploaded',
-                ${metricRow.requires_calculation ? "pending" : "not_applicable"}, false
+                ${metricRow.requires_calculation ? "pending" : "not_applicable"}, false,
+                -- Late if the PDF itself arrived after the due date (migration 0056).
+                (select (d.created_at at time zone 'Asia/Kolkata')::date
+                          > coalesce(p.submission_closes_on, p.end_date)
+                 from public.documents d join public.reporting_periods p on p.id = d.reporting_period_id
+                 where d.id = ${bundle.id})
               ) returning id`;
             await tx`
               insert into public.esg_record_documents (esg_record_id, document_id, is_primary, added_by)

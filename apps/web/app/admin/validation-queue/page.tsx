@@ -2,16 +2,16 @@ import { ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { ValidationQueueTable } from "./validation-queue-table";
 
-export const metadata: Metadata = { title: "Validation Queue · TraceESG" };
+export const metadata: Metadata = { title: "Validation Queue · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Validation Queue; UI brief §19: the shared monitoring template
 // (filter bar + table + row-click detail drawer).
 export default async function ValidationQueuePage() {
-  const [, caller] = await Promise.all([requireAdminSession(), api()]);
+  const [, caller] = await Promise.all([requireAdminAreaSession(), api()]);
   const rows = await caller.validation.queue();
 
   return (
@@ -22,6 +22,7 @@ export default async function ValidationQueuePage() {
       />
       {rows.length === 0 ? (
         <EmptyState
+          nested
           icon={ShieldCheck}
           title="No records need validation review"
           message="Everything confirmed so far passed validation."

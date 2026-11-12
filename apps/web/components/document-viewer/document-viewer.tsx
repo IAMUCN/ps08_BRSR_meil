@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, FileWarning, Loader2, ZoomIn, ZoomOut } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +11,14 @@ import { Button } from "@/components/ui/button";
 
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3] as const;
 const DEFAULT_ZOOM_INDEX = 2;
+/** On a phone an A4 page at 100% is wider than the screen; it opens at 50% there (feature_enhancement.md 9.1). */
+const NARROW = "(max-width: 639px)";
+const NARROW_ZOOM_INDEX = 0;
+const subscribeNarrow = (onChange: () => void) => {
+  const mq = window.matchMedia(NARROW);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+};
 
 type PdfDocument = {
   numPages: number;
@@ -24,19 +32,73 @@ type PdfDocument = {
   }>;
 };
 
+/**
+ * A place on the document where OCR read a value (Phase 3: the field grid). `box` is [x0, y0, x1, y1] in the
+ * pixels of the page image OCR read; `pageSize` is that image's [width, height], when known.
+ */
+export type Region = {
+  key: string;
+  label: string;
+  page: number;
+  box: [number, number, number, number];
+  selected: boolean;
+  /** Low confidence, not yet dealt with: drawn in the warning colour. */
+  warning: boolean;
+  /**
+   * How sure the reading is, for the eye button (owner's request, 2026-11-11): read confidently or confirmed by
+   * a person; low confidence on an optional field; low confidence on a field Confirm needs.
+   */
+  tone?: "ok" | "check" | "blocking";
+};
+
+/** The eye button's colours, by confidence (shared with its legend). */
+export const REGION_TONE = {
+  ok: "border-status-success/80 bg-status-success/10 hover:bg-status-success/20",
+  check: "border-status-warning/90 bg-status-warning/15 hover:bg-status-warning/25",
+  blocking: "border-status-error/80 bg-status-error/10 hover:bg-status-error/20",
+} as const;
+
 /** `destroy()` belongs to the loading task, not the document (pdfjs-dist 6). */
 type PdfLoadingTask = { promise: Promise<PdfDocument>; destroy: () => Promise<void> };
+
+/** Is the keyboard working in a field (text box, select, editable text)? Shortcuts leave those alone. */
+export function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target instanceof HTMLInputElement)
+    return !["checkbox", "radio", "button", "submit", "reset"].includes(target.type);
+  return target.isContentEditable || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
+}
 
 export function DocumentViewer({
   src,
   mimeType,
   fileName,
   className,
+  regions = [],
+  pageSizes = null,
+  renderDpi = 200,
+  onRegionClick,
+  arrowKeys = false,
+  showRegions = false,
 }: {
+  /** Draw every region in its confidence colour (the eye button); otherwise only the selected and warning ones. */
+  showRegions?: boolean;
+  /**
+   * ← / → turn the page from anywhere on the page, except while typing in a field (owner's page feedback,
+   * 2026-11-11, the split page). Off by default: a page with several viewers would turn them all.
+   */
+  arrowKeys?: boolean;
   src: string;
   mimeType: string;
   fileName: string;
   className?: string;
+  /** Boxes to draw over the document; the selected one is brought into view. */
+  regions?: Region[];
+  /** The OCR page images' [width, height]; null for older uploads (measured here instead). */
+  pageSizes?: [number, number][] | null;
+  /** The resolution OCR rendered PDF pages at, for older uploads without page sizes. */
+  renderDpi?: number;
+  onRegionClick?: (key: string) => void;
 }) {
   const isPdf = mimeType === "application/pdf";
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -44,9 +106,142 @@ export function DocumentViewer({
   const taskRef = useRef<PdfLoadingTask | null>(null);
   const [pageCount, setPageCount] = useState(1);
   const [page, setPage] = useState(1);
-  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
+  useEffect(() => {
+    if (!arrowKeys || !isPdf) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (isTyping(event.target)) return;
+      if (event.key === "ArrowRight") setPage((p) => Math.min(pageCount, p + 1));
+      else if (event.key === "ArrowLeft") setPage((p) => Math.max(1, p - 1));
+      else return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [arrowKeys, isPdf, pageCount]);
+  const narrow = useSyncExternalStore(
+    subscribeNarrow,
+    () => window.matchMedia(NARROW).matches,
+    () => false,
+  );
+  // Null until the person zooms: then their choice wins over the screen-size default.
+  const [chosenZoom, setZoomIndex] = useState<number | null>(null);
+  const zoomIndex = chosenZoom ?? (narrow ? NARROW_ZOOM_INDEX : DEFAULT_ZOOM_INDEX);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(isPdf ? "loading" : "ready");
   const zoom = ZOOM_STEPS[zoomIndex];
+  // Ctrl (or Cmd) + mouse wheel zooms the document, as in a PDF reader (owner's request, 2026-11-11). A trackpad
+  // pinch arrives the same way. Small trackpad steps add up to one zoom step; the page itself is never zoomed.
+  // Only the document grows: the first zoom fixes the viewer's height where it is, so the panel around it keeps
+  // its size and the document scrolls (or is dragged) inside it.
+  const tileRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const currentZoom = useRef(zoomIndex);
+  // The height fixed at the first zoom, for the document it was fixed on (another document starts unfixed).
+  const [lock, setLock] = useState<{ src: string; height: number } | null>(null);
+  const lockedHeight = lock?.src === src ? lock.height : null;
+  const srcRef = useRef(src);
+  useEffect(() => {
+    srcRef.current = src;
+  }, [src]);
+  useEffect(() => {
+    currentZoom.current = zoomIndex;
+  }, [zoomIndex]);
+  const zoomTo = useCallback((next: number) => {
+    const bounded = Math.min(ZOOM_STEPS.length - 1, Math.max(0, next));
+    if (bounded === currentZoom.current) return;
+    const tile = tileRef.current;
+    if (tile)
+      setLock((current) =>
+        current?.src === srcRef.current
+          ? current
+          : { src: srcRef.current, height: Math.round(tile.getBoundingClientRect().height) },
+      );
+    currentZoom.current = bounded;
+    setZoomIndex(bounded);
+  }, []);
+  // Drag to move around a document larger than the viewer (owner's request, 2026-11-11). A press that moves
+  // less than a few pixels stays a click (a box on the document can still be picked).
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    const area = scrollRef.current;
+    if (!area) return;
+    let start: { x: number; y: number; left: number; top: number; id: number } | null = null;
+    let moved = false;
+    const down = (event: PointerEvent) => {
+      if (event.button !== 0 || event.pointerType === "touch") return;
+      start = {
+        x: event.clientX,
+        y: event.clientY,
+        left: area.scrollLeft,
+        top: area.scrollTop,
+        id: event.pointerId,
+      };
+      moved = false;
+    };
+    const move = (event: PointerEvent) => {
+      if (!start || event.pointerId !== start.id) return;
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      if (!moved) {
+        if (Math.hypot(dx, dy) < 5) return;
+        // Nothing to move when the whole document is visible.
+        if (area.scrollWidth <= area.clientWidth && area.scrollHeight <= area.clientHeight) return;
+        moved = true;
+        area.setPointerCapture(event.pointerId);
+        setDragging(true);
+      }
+      event.preventDefault();
+      area.scrollLeft = start.left - dx;
+      area.scrollTop = start.top - dy;
+    };
+    const up = (event: PointerEvent) => {
+      if (!start || event.pointerId !== start.id) return;
+      if (moved) {
+        // The release after a drag is not a click on whatever is under the pointer.
+        const swallow = (e: MouseEvent) => {
+          e.stopPropagation();
+          e.preventDefault();
+        };
+        area.addEventListener("click", swallow, { capture: true, once: true });
+        setTimeout(() => area.removeEventListener("click", swallow, { capture: true }), 0);
+        if (area.hasPointerCapture(event.pointerId)) area.releasePointerCapture(event.pointerId);
+      }
+      start = null;
+      moved = false;
+      setDragging(false);
+    };
+    area.addEventListener("pointerdown", down);
+    area.addEventListener("pointermove", move);
+    area.addEventListener("pointerup", up);
+    area.addEventListener("pointercancel", up);
+    return () => {
+      area.removeEventListener("pointerdown", down);
+      area.removeEventListener("pointermove", move);
+      area.removeEventListener("pointerup", up);
+      area.removeEventListener("pointercancel", up);
+    };
+  }, []);
+  useEffect(() => {
+    // Anywhere on the viewer, toolbar included: the browser page itself never zooms from here.
+    const area = tileRef.current;
+    if (!area) return;
+    let pending = 0;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      // A mouse notch is about 100 pixels (or 1-3 lines); a trackpad sends many small deltas.
+      pending += event.deltaMode === 1 ? event.deltaY * 33 : event.deltaY;
+      if (Math.abs(pending) < 50) return;
+      const step = pending < 0 ? 1 : -1;
+      pending = 0;
+      zoomTo(currentZoom.current + step);
+    };
+    area.addEventListener("wheel", onWheel, { passive: false });
+    return () => area.removeEventListener("wheel", onWheel);
+  }, [zoomTo]);
+  const selectedRef = useRef<HTMLButtonElement | null>(null);
+  // The size of the OCR image the boxes are measured on, when the upload did not record it.
+  const [measured, setMeasured] = useState<[number, number] | null>(null);
 
   useEffect(() => {
     if (!isPdf) return;
@@ -101,7 +296,62 @@ export function DocumentViewer({
     canvas.style.width = `${viewport.width / ratio}px`;
     canvas.style.height = `${viewport.height / ratio}px`;
     await rendered.render({ canvas, canvasContext: context, viewport }).promise;
-  }, [page, zoom]);
+    const base = rendered.getViewport({ scale: 1 });
+    // OCR rendered the page at renderDpi (PDF points are 1/72 inch).
+    setMeasured([(base.width * renderDpi) / 72, (base.height * renderDpi) / 72]);
+  }, [page, zoom, renderDpi]);
+
+  // Selecting a region elsewhere (a grid cell) shows its page and scrolls it into view.
+  const selected = regions.find((r) => r.selected);
+  // Adjusted while rendering when the selection changes (not in an effect), so there is no extra pass.
+  const [shownSelection, setShownSelection] = useState<string | null>(null);
+  if ((selected?.key ?? null) !== shownSelection) {
+    setShownSelection(selected?.key ?? null);
+    if (selected && isPdf && selected.page !== page) setPage(selected.page);
+  }
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+  }, [selected?.key, page, zoom, measured]);
+
+  const pageSize = pageSizes?.[page - 1] ?? measured;
+  const visible = regions.filter((r) => r.page === page);
+  const overlay =
+    // In percent of the page, so the boxes stay put at every zoom.
+    pageSize && visible.length ? (
+      <div className="pointer-events-none absolute inset-0" aria-hidden={!onRegionClick}>
+        {visible.map((r) => {
+          const [x0, y0, x1, y1] = r.box;
+          const [w, h] = pageSize;
+          const pad = 0.4; // percent of the page around the text, so the box frames it
+          return (
+            <button
+              key={`${r.key}-${x0}-${y0}`}
+              ref={r.selected ? selectedRef : undefined}
+              type="button"
+              tabIndex={-1}
+              aria-label={`Where ${r.label} was read`}
+              onClick={() => onRegionClick?.(r.key)}
+              style={{
+                left: `${(x0 / w) * 100 - pad}%`,
+                top: `${(y0 / h) * 100 - pad}%`,
+                width: `${((x1 - x0) / w) * 100 + 2 * pad}%`,
+                height: `${((y1 - y0) / h) * 100 + 2 * pad}%`,
+              }}
+              className={cn(
+                "pointer-events-auto absolute rounded-sm border-2 transition-colors",
+                r.selected
+                  ? "border-primary bg-primary/15"
+                  : showRegions && r.tone
+                    ? REGION_TONE[r.tone]
+                    : r.warning
+                      ? "border-status-error/70 bg-status-error/5 hover:bg-status-error/15"
+                      : "border-transparent hover:border-primary/40 hover:bg-primary/5",
+              )}
+            />
+          );
+        })}
+      </div>
+    ) : null;
 
   useEffect(() => {
     if (status !== "ready" || !isPdf) return;
@@ -110,17 +360,21 @@ export function DocumentViewer({
 
   return (
     <div
+      ref={tileRef}
       className={cn(
         "relative flex min-h-[480px] flex-col overflow-hidden rounded-lg border bg-surface",
         className,
       )}
+      style={lockedHeight ? { height: lockedHeight, maxHeight: lockedHeight } : undefined}
     >
       {/* Focusable so a zoomed document can be scrolled from the keyboard (UI brief §17). */}
       <div
+        ref={scrollRef}
         tabIndex={0}
         role="region"
         aria-label={`Document: ${fileName}`}
-        className="flex-1 overflow-auto p-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+        data-dragging={dragging || undefined}
+        className="min-h-0 flex-1 cursor-grab overflow-auto p-4 select-none data-[dragging]:cursor-grabbing focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
       >
         {status === "loading" ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -137,20 +391,29 @@ export function DocumentViewer({
             </p>
           </div>
         ) : isPdf ? (
-          <canvas
-            ref={canvasRef}
-            className="mx-auto shadow-sm"
-            aria-label={`${fileName}, page ${page}`}
-          />
+          <div className="relative mx-auto w-fit">
+            <canvas
+              ref={canvasRef}
+              className="shadow-sm"
+              aria-label={`${fileName}, page ${page}`}
+            />
+            {overlay}
+          </div>
         ) : (
-          /* eslint-disable-next-line @next/next/no-img-element -- private, session-authorized bytes */
-          <img
-            src={src}
-            alt={fileName}
-            onError={() => setStatus("error")}
-            style={{ width: `${zoom * 100}%` }}
-            className="mx-auto h-auto max-w-none shadow-sm"
-          />
+          <div className="relative mx-auto" style={{ width: `${zoom * 100}%` }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- private, session-authorized bytes */}
+            <img
+              src={src}
+              alt={fileName}
+              onError={() => setStatus("error")}
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                setMeasured([img.naturalWidth, img.naturalHeight]);
+              }}
+              className="h-auto w-full max-w-none shadow-sm"
+            />
+            {overlay}
+          </div>
         )}
       </div>
 
@@ -161,8 +424,9 @@ export function DocumentViewer({
               variant="ghost"
               size="icon"
               aria-label="Zoom out"
+              title="Zoom out (Ctrl + scroll down)"
               disabled={zoomIndex === 0}
-              onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
+              onClick={() => zoomTo(zoomIndex - 1)}
             >
               <ZoomOut aria-hidden />
             </Button>
@@ -173,8 +437,9 @@ export function DocumentViewer({
               variant="ghost"
               size="icon"
               aria-label="Zoom in"
+              title="Zoom in (Ctrl + scroll up)"
               disabled={zoomIndex === ZOOM_STEPS.length - 1}
-              onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}
+              onClick={() => zoomTo(zoomIndex + 1)}
             >
               <ZoomIn aria-hidden />
             </Button>

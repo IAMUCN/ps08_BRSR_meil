@@ -15,8 +15,9 @@ select results_eq(
   $$select r.field_key || ':' || r.is_required from public.metric_field_requirements r
     join public.esg_metrics m on m.id = r.metric_id
     where m.code = 'GRID_ELECTRICITY' order by r.field_key$$,
-  array['billing_period:true', 'consumption:true', 'source_classification:false', 'unit:true'],
-  'Grid Electricity requires consumption, unit and billing period; source classification is optional');
+  array['billing_period:true', 'consumption:true', 'invoice_number:false', 'source_classification:false',
+        'unit:true'],
+  'Grid Electricity requires consumption, unit and billing period; bill number (0057) and source are optional');
 
 select is(
   (select count(*)::int from public.metric_field_requirements where is_critical),

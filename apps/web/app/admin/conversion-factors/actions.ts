@@ -12,10 +12,16 @@ type VersionValues = {
   outputUnit: string;
   sourceReference: string;
   geography?: string;
-  effectiveFrom: string;
-  effectiveTo?: string | null;
+  /** Financial years, "2027-28"; To defaults to From (owner's decision, 2026-11-11). */
+  fromYear: string;
+  toYear?: string;
   notes?: string;
   gases?: string;
+  sourceUrl?: string;
+  sourcePublisher?: string;
+  sourceRetrievedOn?: string;
+  valueOrigin?: "manual" | "fetched";
+  sourceContentSha256?: string;
 };
 
 export async function createFactorAction(
@@ -51,4 +57,21 @@ export async function setFactorGasesAction(input: { versionId: string; gases: st
   const result = await runAction((api) => api.factors.setGases(input));
   if (result.ok) revalidatePath("/admin/conversion-factors");
   return result;
+}
+
+export async function approveFactorVersionAction(input: { versionId: string; note?: string }) {
+  const result = await runAction((api) => api.factors.approve(input));
+  if (result.ok) revalidatePath("/admin/conversion-factors");
+  return result;
+}
+
+export async function rejectFactorVersionAction(input: { versionId: string; reason: string }) {
+  const result = await runAction((api) => api.factors.reject(input));
+  if (result.ok) revalidatePath("/admin/conversion-factors");
+  return result;
+}
+
+/** Read an official source page and offer its likely values. Nothing is saved. */
+export async function fetchFactorSourceAction(input: { url: string; activityType: string }) {
+  return runAction((api) => api.factors.fetchSource(input));
 }

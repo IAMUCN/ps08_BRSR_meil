@@ -207,8 +207,9 @@ export async function runCalculation(
         -- superseded versions stay selectable for the periods they covered: that is what makes a past
         -- calculation reproducible after a correction. retired and draft versions are never used.
         and v.status in ('active', 'superseded')
+        -- The latest version starting on or before the period. Its last financial year does not stop it: a
+        -- year with no newer version inherits it (owner's decision, 2026-11-11; migration 0064).
         and v.effective_from <= ${record.period_end}::date
-        and (v.effective_to is null or v.effective_to >= ${record.period_end}::date)
       order by v.effective_from desc, v.version_number desc
       limit 1`;
     if (!factor) {

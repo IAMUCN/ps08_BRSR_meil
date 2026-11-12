@@ -84,4 +84,33 @@ test("upload targets: assigned node + active descendants, categories by owning r
     ]).size,
     0,
   );
+  // A role that uploads on behalf of another (migration 0049) is offered that role's categories at its
+  // own org units, nothing else, and only if it holds the upload permission itself.
+  const behalf = new Map([["emp", "pm"]]);
+  const forEmployee = uploadTargets(
+    nodes,
+    [{ orgUnitId: "site", roleId: "emp" }],
+    new Set(["emp"]),
+    categories,
+    behalf,
+  );
+  assert.deepEqual([...forEmployee.keys()], ["site"]);
+  assert.deepEqual(forEmployee.get("site"), ["fuel", "shared"]);
+  assert.equal(
+    uploadTargets(
+      nodes,
+      [{ orgUnitId: "site", roleId: "emp" }],
+      new Set(["pm"]),
+      categories,
+      behalf,
+    ).size,
+    0,
+  );
+  // Without the setting the same role gets only what every role gets.
+  assert.deepEqual(
+    uploadTargets(nodes, [{ orgUnitId: "site", roleId: "emp" }], new Set(["emp"]), categories).get(
+      "site",
+    ),
+    ["shared"],
+  );
 });

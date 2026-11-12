@@ -5,6 +5,7 @@ import { writeAudit } from "@/lib/audit";
 import type { ActiveSession } from "@/lib/auth/session";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
 import {
+  BUSINESS_UNIT_LEVEL,
   canBeChildOf,
   checkAlsoUnder,
   checkMove,
@@ -12,8 +13,12 @@ import {
   importOrder,
   mergeSharedRows,
   isFrozen,
+  levelLabel,
+  misplaced,
+  PROJECT_LEVEL,
   reachableNodeIds,
   ROOT_LEVEL,
+  structureProblem,
   unitByRef,
   type OrgLevel,
   type OrgNode,
@@ -32,10 +37,21 @@ export type OrgExpectation = {
   /** "Scope 1", "Scope 2", "Scope 3", or null for activities outside the three scopes. */
   scopeName: string | null;
   frequency: string;
+  /** Set on this unit itself. */
   expected: boolean;
+  /** Units below this one that must submit it — it then counts as expected here too. */
+  requiredBelow: string[];
 };
 
-export type OrgUnitRow = OrgNodeRow & { activeAssignments: number };
+export type OrgUnitRow = OrgNodeRow & {
+  activeAssignments: number;
+  /** Whether the caller may rename, move, deactivate or delete this unit. */
+  manageable: boolean;
+  /** Whether the caller may add a unit under this one and set what it must submit. */
+  ownable: boolean;
+  /** False for a unit above the caller that is listed only so the tree reads from its group down. */
+  inScope: boolean;
+};
 
 /** What stands in the way of deleting a unit for good, and how many units would go. */
 export type OrgDeleteCheck = { units: number; blockers: string[] };
@@ -55,6 +71,58 @@ const levelLabelSchema = z.string().trim().min(2, "Give the level a name.").max(
 function badRequest(message: string): never {
   throw new TRPCError({ code: "BAD_REQUEST", message });
 }
+
+const OUT_OF_SCOPE = "That part of the organisation isn't in your scope.";
+
+/**
+ * What the caller may do in the tree (.grill/scoped-admin-onboarding-decisions.md). `null`: everything
+ * (Super Admin). Otherwise, from the units they administer:
+ *   own      — those units themselves: a unit can be added under them and their expected submissions set,
+ *              but they are renamed, moved, deactivated and deleted from above;
+ *   managed  — everything managed beneath them (main parents only, as moving and deactivating go);
+ *   visible  — own and everything seen from them, a shared unit's other placements included.
+ */
+function reach(session: ActiveSession, nodes: readonly OrgNode[]) {
+  if (session.isAdmin) return null;
+  const base = session.isOrgAdmin
+    ? session.adminOrgUnitIds
+    : session.assignments.map((a) => a.orgUnitId);
+  const own = new Set(base.filter((id) => nodes.some((n) => n.id === id)));
+  const managed = new Set<string>();
+  const visible = new Set(own);
+  for (const id of own) {
+    for (const d of descendantIds(id, nodes)) managed.add(d);
+    for (const d of descendantIds(id, nodes, "all")) visible.add(d);
+  }
+  return { own, managed, visible };
+}
+type Reach = ReturnType<typeof reach>;
+
+const forbid = (): never => {
+  throw new TRPCError({ code: "FORBIDDEN", message: OUT_OF_SCOPE });
+};
+/** A unit the caller may rename, move, deactivate, delete or re-parent. */
+function assertManaged(r: Reach, id: string) {
+  if (r && !r.managed.has(id)) forbid();
+}
+/** A unit the caller may add units under, place a unit under, or set expected submissions for. */
+function assertOwnable(r: Reach, id: string) {
+  if (r && !r.own.has(id) && !r.managed.has(id)) forbid();
+}
+function assertVisible(r: Reach, id: string) {
+  if (r && !r.visible.has(id)) forbid();
+}
+
+/** Hierarchy levels are group-wide configuration: Super Admin only, whoever else holds org.manage. */
+const levelManage = permissionProcedure("org.manage").use(({ ctx, next }) => {
+  if (!ctx.session.isAdmin) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Only a Super Admin can change the hierarchy levels.",
+    });
+  }
+  return next();
+});
 
 /** Serialises structural tree changes so concurrent moves/creates can't race each other. */
 async function loadTreeForUpdate(tx: Tx): Promise<OrgNodeRow[]> {
@@ -119,6 +187,81 @@ async function subtreeImpact(nodeId: string, nodes: OrgNode[]) {
   };
 }
 
+/**
+ * Sets a unit's further parents to `wanted` (all checked before anything is written) and returns the tree as
+ * it is afterwards. A unit whose main parent breaks the structure rules (`misplaced`) takes the first of
+ * `wanted` as its new main parent. Placements the caller cannot see stay as they are.
+ */
+async function applyParents(
+  tx: Tx,
+  userId: string,
+  r: Reach,
+  nodes: OrgNodeRow[],
+  levels: OrgLevel[],
+  node: OrgNodeRow,
+  requested: readonly string[],
+): Promise<OrgNodeRow[]> {
+  const hidden = node.alsoUnder.filter((id) => r && !r.own.has(id) && !r.managed.has(id));
+  let wanted = [...new Set([...requested, ...hidden])].filter((id) => id !== node.parentId);
+  for (const id of wanted.filter((id) => !node.alsoUnder.includes(id))) assertOwnable(r, id);
+  const wrongMain = misplaced(node, nodes, levels) !== null;
+  let parentId = node.parentId;
+  if (wrongMain) {
+    // Parents the structure refuses (a subsidiary it was also put under) go with the old main parent.
+    const fits = (id: string) => {
+      const p = nodes.find((n) => n.id === id);
+      return !p || structureProblem(levels, p.unitType, node.unitType) === null;
+    };
+    if (wanted.some(fits)) {
+      wanted = wanted.filter(fits);
+      parentId = wanted[0];
+      wanted = wanted.slice(1);
+    }
+  }
+  const removed = node.alsoUnder.filter((id) => !wanted.includes(id));
+  const added = wanted.filter((id) => !node.alsoUnder.includes(id));
+  if (parentId === node.parentId && removed.length + added.length === 0) return nodes;
+  // Checked against the unit as it will be: new main parent first, then each further one.
+  const after: OrgNodeRow = { ...node, parentId, alsoUnder: [] };
+  const nameOf = (id: string) => nodes.find((n) => n.id === id)?.name ?? "A chosen parent";
+  if (parentId !== node.parentId) {
+    const base = nodes.map((n) => (n.id === node.id ? { ...node, alsoUnder: [] } : n));
+    const check = checkMove(node.id, parentId!, base, levels);
+    if (!check.ok) badRequest(`${nameOf(parentId!)}: ${check.reason}`);
+    if (isFrozen(parentId!, nodes)) badRequest(`${nameOf(parentId!)} is inactive.`);
+  }
+  for (const id of wanted) {
+    const others = nodes.map((n) => (n.id === node.id ? after : n));
+    const check = checkAlsoUnder(node.id, id, others, levels);
+    if (!check.ok) badRequest(`${nameOf(id)}: ${check.reason}`);
+    if (!node.alsoUnder.includes(id) && isFrozen(id, nodes))
+      badRequest(`${nameOf(id)} is inactive.`);
+    after.alsoUnder = [...after.alsoUnder, id];
+  }
+  if (parentId !== node.parentId) {
+    await tx`update public.org_units set parent_id = ${parentId} where id = ${node.id}`;
+  }
+  if (removed.length > 0) {
+    await tx`
+      delete from public.org_unit_parents
+      where org_unit_id = ${node.id} and parent_id = any(${removed}::uuid[])`;
+  }
+  for (const id of added) {
+    await tx`
+      insert into public.org_unit_parents (org_unit_id, parent_id, created_by)
+      values (${node.id}, ${id}, ${userId})`;
+  }
+  await writeAudit(tx, {
+    eventType: "org_unit.parents_changed",
+    entityType: "org_unit",
+    entityId: node.id,
+    userId,
+    oldValue: { parent_id: node.parentId, also_under: node.alsoUnder },
+    newValue: { parent_id: parentId, also_under: after.alsoUnder, added, removed },
+  });
+  return nodes.map((n) => (n.id === node.id ? after : n));
+}
+
 export const organizationRouter = router({
   /**
    * The configured hierarchy levels, in order (migration 0037; PRD §11: a level is configuration). Any
@@ -127,7 +270,7 @@ export const organizationRouter = router({
   levels: protectedProcedure.query((): Promise<OrgLevel[]> => loadLevels(db())),
 
   /** A new level, placed directly after an existing one. Nothing moves: existing units keep their levels. */
-  addLevel: orgManage
+  addLevel: levelManage
     .input(z.object({ label: levelLabelSchema, afterCode: levelCode }))
     .mutation(async ({ ctx, input }) => {
       // The code is derived from the name once and never changes; the label can be renamed later.
@@ -166,7 +309,7 @@ export const organizationRouter = router({
       });
     }),
 
-  renameLevel: orgManage
+  renameLevel: levelManage
     .input(z.object({ code: levelCode, label: levelLabelSchema }))
     .mutation(async ({ ctx, input }) => {
       await db().begin(async (tx) => {
@@ -193,7 +336,7 @@ export const organizationRouter = router({
     }),
 
   /** Only a level no org unit uses can go — including deactivated and removed units, whose history stays. */
-  removeLevel: orgManage.input(z.object({ code: levelCode })).mutation(async ({ ctx, input }) => {
+  removeLevel: levelManage.input(z.object({ code: levelCode })).mutation(async ({ ctx, input }) => {
     await db().begin(async (tx) => {
       await tx`select pg_advisory_xact_lock(hashtext('org_units_tree'))`;
       const [level] = await tx<{ id: string; label: string; used: number }[]>`
@@ -218,7 +361,12 @@ export const organizationRouter = router({
     });
   }),
 
-  tree: orgManage.query(async (): Promise<OrgUnitRow[]> => {
+  /**
+   * The tree the caller works in. A Super Admin: all of it. Anyone else: the units they administer and
+   * everything beneath, plus the chain of units above them — by name only, so the tree still reads from
+   * its group down — with no people count and nothing they can change there.
+   */
+  tree: orgManage.query(async ({ ctx }): Promise<OrgUnitRow[]> => {
     const sql = db();
     const [nodes, counts] = await Promise.all([
       loadOrgNodes(sql),
@@ -227,12 +375,44 @@ export const organizationRouter = router({
         where revoked_at is null group by org_unit_id`,
     ]);
     const assigned = new Map(counts.map((c) => [c.org_unit_id, c.n]));
-    return nodes.map((node) => ({ ...node, activeAssignments: assigned.get(node.id) ?? 0 }));
+    const r = reach(ctx.session, nodes);
+    if (!r) {
+      return nodes.map((node) => ({
+        ...node,
+        activeAssignments: assigned.get(node.id) ?? 0,
+        manageable: true,
+        ownable: true,
+        inScope: true,
+      }));
+    }
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+    const above = new Set<string>();
+    for (const id of r.own) {
+      for (let at = byId.get(id)?.parentId; at && !above.has(at); at = byId.get(at)?.parentId) {
+        above.add(at);
+      }
+    }
+    return nodes
+      .filter((node) => r.visible.has(node.id) || above.has(node.id))
+      .map((node) => {
+        const inScope = r.visible.has(node.id);
+        return {
+          ...node,
+          // A parent outside the caller's view is not named.
+          alsoUnder: node.alsoUnder.filter((id) => r.visible.has(id) || above.has(id)),
+          activeAssignments: inScope ? (assigned.get(node.id) ?? 0) : 0,
+          manageable: r.managed.has(node.id),
+          ownable: r.own.has(node.id) || r.managed.has(node.id),
+          inScope,
+        };
+      });
   }),
 
-  impact: orgManage
-    .input(z.object({ id: z.uuid() }))
-    .query(async ({ input }) => subtreeImpact(input.id, await loadOrgNodes(db()))),
+  impact: orgManage.input(z.object({ id: z.uuid() })).query(async ({ ctx, input }) => {
+    const nodes = await loadOrgNodes(db());
+    assertVisible(reach(ctx.session, nodes), input.id);
+    return subtreeImpact(input.id, nodes);
+  }),
 
   /**
    * A unit under a parent, or — with no parent — one more group: a separate organization with its own
@@ -242,6 +422,8 @@ export const organizationRouter = router({
     .input(
       z.object({
         parentId: z.uuid().nullable(),
+        /** Further parents ticked on the form: the new unit also sits under each (migration 0044). */
+        alsoUnder: z.array(z.uuid()).max(50).optional(),
         unitType: levelCode,
         name: nameSchema,
         code: codeSchema,
@@ -253,25 +435,57 @@ export const organizationRouter = router({
           const nodes = await loadTreeForUpdate(tx);
           const parent = input.parentId ? nodes.find((n) => n.id === input.parentId) : null;
           if (input.parentId && !parent) badRequest("Parent node not found.");
+          const r = reach(ctx.session, nodes);
+          if (parent) assertOwnable(r, parent.id);
+          for (const extraId of input.alsoUnder ?? []) assertOwnable(r, extraId);
           if (parent) {
             if (isFrozen(parent.id, nodes)) {
               badRequest(
                 "That node is inactive (or under an inactive node) — reactivate it first.",
               );
             }
-            if (!canBeChildOf(await loadLevels(tx), parent.unitType, input.unitType)) {
-              badRequest("That level can't be placed under the selected parent.");
+            const levels = await loadLevels(tx);
+            if (!canBeChildOf(levels, parent.unitType, input.unitType)) {
+              badRequest(
+                structureProblem(levels, parent.unitType, input.unitType) ??
+                  "That level can't be placed under the selected parent.",
+              );
             }
           } else {
-            if (!ctx.session.isAdmin) badRequest("Only an Admin can add a group.");
+            if (!ctx.session.isAdmin) badRequest("Only a Super Admin can add a group.");
             if (input.unitType !== ROOT_LEVEL) {
               badRequest("Only a group can stand on its own; every other level needs a parent.");
+            }
+          }
+          // All the ticked parents or none: checked before anything is written.
+          const extraIds = [...new Set(input.alsoUnder ?? [])].filter((id) => id !== parent?.id);
+          if (extraIds.length > 0) {
+            if (!parent) badRequest("A group has no parents.");
+            const levels = await loadLevels(tx);
+            const placed: OrgNode = {
+              id: "new",
+              parentId: parent.id,
+              alsoUnder: [],
+              unitType: input.unitType,
+              status: "active",
+            };
+            for (const extraId of extraIds) {
+              const check = checkAlsoUnder("new", extraId, [...nodes, placed], levels);
+              const name = nodes.find((n) => n.id === extraId)?.name ?? "A chosen parent";
+              if (!check.ok) badRequest(`${name}: ${check.reason}`);
+              if (isFrozen(extraId, nodes)) badRequest(`${name} is inactive.`);
+              placed.alsoUnder = [...(placed.alsoUnder ?? []), extraId];
             }
           }
           const [created] = await tx<{ id: string }[]>`
             insert into public.org_units (parent_id, unit_type, name, code)
             values (${parent?.id ?? null}, ${input.unitType}, ${input.name}, ${input.code})
             returning id`;
+          for (const extraId of extraIds) {
+            await tx`
+              insert into public.org_unit_parents (org_unit_id, parent_id, created_by)
+              values (${created.id}, ${extraId}, ${ctx.session.userId})`;
+          }
           await writeAudit(tx, {
             eventType: "org_unit.created",
             entityType: "org_unit",
@@ -279,6 +493,7 @@ export const organizationRouter = router({
             userId: ctx.session.userId,
             newValue: {
               parent_id: parent?.id ?? null,
+              also_under: extraIds,
               unit_type: input.unitType,
               name: input.name,
               code: input.code,
@@ -301,6 +516,7 @@ export const organizationRouter = router({
           const [before] = await tx<{ name: string; code: string | null }[]>`
             select name, code from public.org_units where id = ${input.id} and deleted_at is null for update`;
           if (!before) badRequest("Node not found.");
+          assertManaged(reach(ctx.session, await loadOrgNodes(tx)), input.id);
           await tx`update public.org_units set name = ${input.name}, code = ${input.code} where id = ${input.id}`;
           await writeAudit(tx, {
             eventType: "org_unit.updated",
@@ -325,6 +541,9 @@ export const organizationRouter = router({
       await db().begin(async (tx) => {
         const nodes = await loadTreeForUpdate(tx);
         const node = nodes.find((n) => n.id === input.id);
+        const r = reach(ctx.session, nodes);
+        assertManaged(r, input.id);
+        assertOwnable(r, input.newParentId);
         const check = checkMove(input.id, input.newParentId, nodes, await loadLevels(tx));
         if (!check.ok) badRequest(check.reason);
         if (node!.parentId === input.newParentId)
@@ -355,6 +574,9 @@ export const organizationRouter = router({
     .mutation(async ({ ctx, input }) => {
       await db().begin(async (tx) => {
         const nodes = await loadTreeForUpdate(tx);
+        const r = reach(ctx.session, nodes);
+        assertManaged(r, input.id);
+        assertOwnable(r, input.parentId);
         const check = checkAlsoUnder(input.id, input.parentId, nodes, await loadLevels(tx));
         if (!check.ok) badRequest(check.reason);
         if (isFrozen(input.parentId, nodes)) {
@@ -378,7 +600,9 @@ export const organizationRouter = router({
     .input(z.object({ id: z.uuid(), parentId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
       await db().begin(async (tx) => {
-        await tx`select pg_advisory_xact_lock(hashtext('org_units_tree'))`;
+        const r = reach(ctx.session, await loadTreeForUpdate(tx));
+        assertManaged(r, input.id);
+        assertOwnable(r, input.parentId);
         const removed = await tx`
           delete from public.org_unit_parents
           where org_unit_id = ${input.id} and parent_id = ${input.parentId} returning org_unit_id`;
@@ -394,12 +618,101 @@ export const organizationRouter = router({
       return null;
     }),
 
+  /**
+   * The further parents of a unit, set in one go from the checklist on the Organization page: the ones no
+   * longer ticked are removed, the newly ticked are added, all or nothing. The main parent is not part of it —
+   * except for a unit placed before the structure rules (a project straight under a subsidiary, owner's
+   * request 2026-11-12): the first unit ticked becomes its main parent and the old one is left.
+   */
+  setParents: orgManage
+    .input(z.object({ id: z.uuid(), alsoUnder: z.array(z.uuid()).max(50) }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const nodes = await loadTreeForUpdate(tx);
+        const node = nodes.find((n) => n.id === input.id);
+        if (!node) badRequest("Node not found.");
+        const r = reach(ctx.session, nodes);
+        assertManaged(r, node.id);
+        await applyParents(
+          tx,
+          ctx.session.userId,
+          r,
+          nodes,
+          await loadLevels(tx),
+          node,
+          input.alsoUnder,
+        );
+      });
+      return null;
+    }),
+
+  /**
+   * The projects under a business unit, ticked on its panel (owner's request, 2026-11-12). A newly ticked
+   * project gets the business unit as one more parent — or as its main parent when it sat straight under a
+   * subsidiary; an unticked one loses it. A project the business unit is the main parent of is moved from
+   * the project's own panel, so it cannot be unticked here.
+   */
+  setChildren: orgManage
+    .input(z.object({ id: z.uuid(), childIds: z.array(z.uuid()).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      return db().begin(async (tx) => {
+        const nodes = await loadTreeForUpdate(tx);
+        const unit = nodes.find((n) => n.id === input.id);
+        if (!unit) badRequest("Node not found.");
+        const levels = await loadLevels(tx);
+        if (unit.unitType !== BUSINESS_UNIT_LEVEL) {
+          badRequest(`Projects are ticked on a ${levelLabel(levels, BUSINESS_UNIT_LEVEL)}.`);
+        }
+        const r = reach(ctx.session, nodes);
+        assertOwnable(r, unit.id);
+        if (isFrozen(unit.id, nodes)) badRequest(`${unit.name} is inactive.`);
+        const wanted = new Set(input.childIds);
+        const changes: { id: string; name: string; change: "added" | "moved" | "removed" }[] = [];
+        let current = nodes;
+        for (const child of nodes.filter((n) => n.unitType === PROJECT_LEVEL)) {
+          const main = child.parentId === unit.id;
+          const extra = child.alsoUnder.includes(unit.id);
+          const tick = wanted.has(child.id);
+          if (tick === (main || extra)) continue;
+          if (!tick && main) {
+            badRequest(
+              `${child.name} is managed from ${unit.name}; move it under another ${levelLabel(levels, BUSINESS_UNIT_LEVEL).toLowerCase()} from its own panel.`,
+            );
+          }
+          assertManaged(r, child.id);
+          const latest = current.find((n) => n.id === child.id)!;
+          // The business unit first: it becomes the main parent of a project still under a subsidiary.
+          const alsoUnder = tick
+            ? [unit.id, ...latest.alsoUnder]
+            : latest.alsoUnder.filter((id) => id !== unit.id);
+          const wasMisplaced = tick && misplaced(latest, current, levels) !== null;
+          current = await applyParents(
+            tx,
+            ctx.session.userId,
+            r,
+            current,
+            levels,
+            latest,
+            alsoUnder,
+          );
+          changes.push({
+            id: child.id,
+            name: child.name,
+            change: !tick ? "removed" : wasMisplaced ? "moved" : "added",
+          });
+        }
+        return { changes };
+      });
+    }),
+
   /** Whether a unit can be deleted for good, and what stands in the way if not. */
   deleteCheck: orgManage
     .input(z.object({ id: z.uuid() }))
-    .query(async ({ input }): Promise<OrgDeleteCheck> => {
+    .query(async ({ ctx, input }): Promise<OrgDeleteCheck> => {
       const sql = db();
-      const { units, blockers } = await deleteCheck(sql, input.id, await loadOrgNodes(sql));
+      const nodes = await loadOrgNodes(sql);
+      assertManaged(reach(ctx.session, nodes), input.id);
+      const { units, blockers } = await deleteCheck(sql, input.id, nodes);
       return { units, blockers };
     }),
 
@@ -408,6 +721,7 @@ export const organizationRouter = router({
     try {
       await db().begin(async (tx) => {
         const nodes = await loadTreeForUpdate(tx);
+        assertManaged(reach(ctx.session, nodes), input.id);
         const check = await deleteCheck(tx, input.id, nodes);
         if (check.blockers.length) {
           badRequest(
@@ -454,6 +768,7 @@ export const organizationRouter = router({
         const nodes = await loadTreeForUpdate(tx);
         const node = nodes.find((n) => n.id === input.id);
         if (!node) badRequest("Node not found.");
+        assertManaged(reach(ctx.session, nodes), node.id);
         if (
           node.parentId === null &&
           input.status === "inactive" &&
@@ -479,7 +794,8 @@ export const organizationRouter = router({
   /** Which metrics this node must submit each period (Control Tower denominators, D16). */
   expectations: orgManage
     .input(z.object({ orgUnitId: z.uuid() }))
-    .query(async ({ input }): Promise<OrgExpectation[]> => {
+    .query(async ({ ctx, input }): Promise<OrgExpectation[]> => {
+      assertVisible(reach(ctx.session, await loadOrgNodes(db())), input.orgUnitId);
       const rows = await db()<
         {
           id: string;
@@ -488,6 +804,7 @@ export const organizationRouter = router({
           scope_name: string | null;
           frequency: string;
           expected: boolean;
+          required_below: string[];
         }[]
       >`
         -- A Scope 3 activity sits under its category, whose parent is Scope 3: group by the scope itself
@@ -495,7 +812,15 @@ export const organizationRouter = router({
         select m.id, m.name, case when ps.id is null then c.name else s.name end as category_name,
                coalesce(ps.name, s.name) as scope_name, m.frequency::text,
                exists (select 1 from public.submission_expectations e
-                        where e.org_unit_id = ${input.orgUnitId} and e.metric_id = m.id) as expected
+                        where e.org_unit_id = ${input.orgUnitId} and e.metric_id = m.id) as expected,
+               -- What the units below must submit is expected of this unit as well: the Control Tower
+               -- already counts it here (org_unit_tree also follows a shared unit's other parents).
+               coalesce((select array_agg(distinct o.name order by o.name)
+                         from public.submission_expectations e
+                         join public.org_unit_tree t on t.descendant_id = e.org_unit_id
+                           and t.ancestor_id = ${input.orgUnitId} and t.descendant_id <> t.ancestor_id
+                         join public.org_units o on o.id = e.org_unit_id and o.deleted_at is null
+                         where e.metric_id = m.id), '{}') as required_below
         from public.esg_metrics m join public.esg_categories c on c.id = m.category_id
         left join public.scopes s on s.id = m.scope_id
         left join public.scopes ps on ps.id = s.parent_scope_id
@@ -508,6 +833,7 @@ export const organizationRouter = router({
         scopeName: r.scope_name,
         frequency: r.frequency,
         expected: r.expected,
+        requiredBelow: r.required_below,
       }));
     }),
 
@@ -518,6 +844,7 @@ export const organizationRouter = router({
         const [unit] = await tx<{ id: string }[]>`
           select id from public.org_units where id = ${input.orgUnitId} and deleted_at is null`;
         if (!unit) badRequest("Node not found.");
+        assertOwnable(reach(ctx.session, await loadOrgNodes(tx)), input.orgUnitId);
         const changed = input.expected
           ? await tx`
               insert into public.submission_expectations (org_unit_id, metric_id, created_by)
@@ -733,7 +1060,9 @@ async function importOneOrgUnit(
           row: rowNum,
           ok: false as const,
           name: row.name,
-          error: "That level can't be placed under the selected parent.",
+          error:
+            structureProblem(levels, parent.unitType, row.unitType) ??
+            "That level can't be placed under the selected parent.",
         };
       }
       // All or nothing: a shared unit created under only one of its parents would be a tree nobody meant.

@@ -11,6 +11,8 @@ import type { OcrJobStatus } from "@/lib/ocr/rules";
 import type { Outcome, RuleType } from "@/lib/validation/checks";
 import { runValidation } from "@/lib/validation/engine";
 import { confidenceThreshold, documentAccess } from "@/lib/verification/access";
+import { activityMismatch } from "@/lib/verification/mismatch";
+import { loadUploadOptions, type UploadCategory } from "@/lib/trpc/routers/documents";
 import {
   MANUAL_JUSTIFICATION_MIN,
   REJECT_REASON_MIN,
@@ -34,14 +36,32 @@ export type VerifyDocument = {
   canVerify: boolean;
   documentId: string;
   fileName: string;
+  /** The uploader's optional description (migration 0063). */
+  description: string | null;
+  /** The caller uploaded it and the record is not approved or rejected yet. */
+  canEditDescription: boolean;
+  /** The caller's eye-button choice (migration 0065). */
+  showExtractionBoxes: boolean;
   mimeType: string;
   fileSizeBytes: number;
   uploadedAt: string;
   uploadedByName: string;
   orgUnitName: string;
   periodLabel: string;
+  metricId: string | null;
   metricName: string | null;
   metricUnit: string | null;
+  /**
+   * The activities this person could upload for the record's project, as on the Upload page (owner's
+   * request, 2026-11-12). Empty when the activity can't be changed here: after Confirm, or for someone who
+   * does not upload for this project.
+   */
+  activityOptions: UploadCategory[];
+  /** OCR thinks the document belongs to another activity: the likely right ones, and whether each can be chosen. */
+  activityMismatch: {
+    typeName: string;
+    activities: { id: string; name: string; selectable: boolean }[];
+  } | null;
   recordId: string | null;
   documentTypeId: string | null;
   documentTypeName: string | null;
@@ -113,6 +133,7 @@ async function loadDocument(sql: Sql, documentId: string) {
   const [row] = await sql<
     {
       file_name: string;
+      description: string | null;
       mime_type: string;
       file_size_bytes: number;
       created_at: Date;
@@ -134,9 +155,10 @@ async function loadDocument(sql: Sql, documentId: string) {
       job_status: OcrJobStatus | null;
       error_message: string | null;
       extraction_id: string | null;
+      mismatch_code: string | null;
     }[]
   >`
-    select d.file_name, d.mime_type, d.file_size_bytes, d.created_at, u.display_name as uploaded_by_name,
+    select d.file_name, d.description, d.mime_type, d.file_size_bytes, d.created_at, u.display_name as uploaded_by_name,
            d.org_unit_id, o.name as org_unit_name, d.reporting_period_id, p.label as period_label,
            d.document_type_id, dt.name as document_type_name,
            r.id as record_id, r.metric_id, m.name as metric_name, m.unit as metric_unit,
@@ -144,7 +166,8 @@ async function loadDocument(sql: Sql, documentId: string) {
            coalesce(r.data_quality_state::text, 'incomplete') as data_quality_state,
            coalesce(r.validation_status::text, 'pending') as validation_status,
            coalesce(r.approval_status::text, 'not_submitted') as approval_status,
-           j.status as job_status, j.error_message, e.id as extraction_id
+           j.status as job_status, j.error_message, e.id as extraction_id,
+           e.raw_output #>> '{classification,mismatch,document_type}' as mismatch_code
     from public.documents d
     join public.users u on u.id = d.uploaded_by
     join public.org_units o on o.id = d.org_unit_id
@@ -157,6 +180,32 @@ async function loadDocument(sql: Sql, documentId: string) {
     left join public.ocr_extractions e on e.document_id = d.id
     where d.id = ${documentId} and d.deleted_at is null`;
   return row ?? null;
+}
+
+/**
+ * The activities this person may file this document under: the Upload page's list for the record's project
+ * (their roles, on-behalf uploads, administrators any activity), keeping only activities that take this
+ * file type. Categories left empty are dropped.
+ */
+async function activityChoices(
+  sql: Sql,
+  userId: string,
+  orgUnitId: string,
+  mimeType: string,
+): Promise<UploadCategory[]> {
+  const options = await loadUploadOptions(sql, userId);
+  const target = options.targets.find((t) => t.orgUnitId === orgUnitId);
+  return (target?.categories ?? [])
+    .map((c) => ({
+      ...c,
+      metrics: c.metrics.filter((m) => m.acceptedMimeTypes.includes(mimeType)),
+    }))
+    .filter((c) => c.metrics.length > 0);
+}
+
+/** The activity can still be changed: OCR read it (or failed) and nobody has confirmed values yet. */
+function activityChangeable(state: VerifyState) {
+  return state === "ready" || state === "failed";
 }
 
 /** Confirmed records for the same project + period + metric carrying the same invoice number (§2.3). */
@@ -250,7 +299,63 @@ const fieldEntry = z.object({
   acknowledged: z.boolean().default(false),
 });
 
+/** Where on the document each field was read, and why a field was not (Phase 3, the field grid). */
+export type FieldSources = {
+  /** Width and height of each page image the boxes are measured on; null for uploads read before
+   * rules-14 (the viewer then uses the image's own size, or the PDF page at RENDER_DPI). */
+  pageSizes: [number, number][] | null;
+  renderDpi: number;
+  /** Boxes as [x0, y0, x1, y1] on a 1-based page, per field key. */
+  boxes: Record<string, { page: number; box: [number, number, number, number] }[]>;
+  /** Why a field was not read, in the person's words (only for fields OCR explains). */
+  diagnostics: Record<string, string>;
+};
+
+/** The OCR worker renders PDF pages at this resolution (apps/ocr-worker/worker/files.py). */
+const OCR_RENDER_DPI = 200;
+
+type RawLine = { page?: number; box?: number[] };
+type RawOutput = {
+  lines?: RawLine[];
+  fields?: Record<string, { lines?: number[] } | null>;
+  diagnostics?: Record<string, string>;
+  page_sizes?: [number, number][];
+};
+
 export const verificationRouter = router({
+  /**
+   * Where each field was read on the document: for the grid's highlighting and the eye button. Anyone who may
+   * open the document may see where its values are (owner's request, 2026-11-11); verifying is not needed.
+   */
+  sources: protectedProcedure
+    .input(z.object({ documentId: z.uuid() }))
+    .query(async ({ ctx, input }): Promise<FieldSources> => {
+      if (!(await documentAccess(ctx.session, input.documentId))) notFound();
+      const [row] = await db()<{ raw: RawOutput | null }[]>`
+        select e.raw_output as raw from public.ocr_extractions e
+        where e.document_id = ${input.documentId}
+        order by e.extracted_at desc limit 1`;
+      const raw = row?.raw ?? {};
+      const lines = raw.lines ?? [];
+      const boxes: FieldSources["boxes"] = {};
+      for (const [key, source] of Object.entries(raw.fields ?? {})) {
+        const found = (source?.lines ?? [])
+          .map((i) => lines[i])
+          .filter((l): l is Required<RawLine> => Array.isArray(l?.box) && l.box.length === 4)
+          .map((l) => ({
+            page: l.page ?? 1,
+            box: l.box.map(Number) as [number, number, number, number],
+          }));
+        if (found.length) boxes[key] = found;
+      }
+      return {
+        pageSizes: raw.page_sizes ?? null,
+        renderDpi: OCR_RENDER_DPI,
+        boxes,
+        diagnostics: raw.diagnostics ?? {},
+      };
+    }),
+
   /** Everything the Verify Extraction screen renders. Null when the document isn't visible (§4.4). */
   load: protectedProcedure
     .input(z.object({ documentId: z.uuid() }))
@@ -333,6 +438,17 @@ export const verificationRouter = router({
         row.metric_id ? await activityKeyFor(sql, row.metric_id) : null,
       );
       const activityKey = activity.ok ? activity.valueKey : null;
+
+      // Category mismatch and the activity picker (owner's request, 2026-11-12): only while the activity can
+      // still change; after Confirm the reviewer sees the same mismatch as a validation flag.
+      const changeable = access.canVerify && row.record_id !== null && activityChangeable(state);
+      const activityOptions = changeable
+        ? await activityChoices(sql, ctx.session.userId, row.org_unit_id, row.mime_type)
+        : [];
+      const choosable = new Set(activityOptions.flatMap((c) => c.metrics.map((m) => m.id)));
+      const mismatch =
+        state === "ready" ? await activityMismatch(sql, row.mismatch_code, row.metric_id) : null;
+
       const validationResults = results.map((r) => ({
         ruleType: r.rule_type,
         outcome: r.outcome,
@@ -345,14 +461,35 @@ export const verificationRouter = router({
         canVerify: access.canVerify,
         documentId: input.documentId,
         fileName: row.file_name,
+        description: row.description,
+        canEditDescription:
+          access.uploadedBy === ctx.session.userId &&
+          row.approval_status !== "approved" &&
+          row.data_quality_state !== "rejected",
+        showExtractionBoxes:
+          (
+            await db()<{ show: boolean }[]>`
+            select show_extraction_boxes as show from public.users where id = ${ctx.session.userId}`
+          )[0]?.show ?? false,
         mimeType: row.mime_type,
         fileSizeBytes: Number(row.file_size_bytes),
         uploadedAt: row.created_at.toISOString(),
         uploadedByName: row.uploaded_by_name,
         orgUnitName: row.org_unit_name,
         periodLabel: row.period_label,
+        metricId: row.metric_id,
         metricName: row.metric_name,
         metricUnit: row.metric_unit,
+        activityOptions,
+        activityMismatch: mismatch
+          ? {
+              typeName: mismatch.typeName,
+              activities: mismatch.activities.map((a) => ({
+                ...a,
+                selectable: choosable.has(a.id),
+              })),
+            }
+          : null,
         recordId: row.record_id,
         documentTypeId: row.document_type_id,
         documentTypeName: row.document_type_name,
@@ -423,7 +560,8 @@ export const verificationRouter = router({
           });
         }
         await tx`
-          update public.documents set document_type_id = ${input.documentTypeId}
+          update public.documents
+          set document_type_id = ${input.documentTypeId}, document_type_source = 'person'
           where id = ${input.documentId}`;
         await writeAudit(tx, {
           eventType: "document.type_selected",
@@ -435,6 +573,109 @@ export const verificationRouter = router({
         });
       });
       return null;
+    }),
+
+  /**
+   * File the document under another activity before its values are confirmed (owner's request, 2026-11-12:
+   * e.g. an electricity bill uploaded as CNG). The choices are the Upload page's for this project. A document
+   * OCR read is read again for the new activity's fields (its old values are kept in the audit entry); one
+   * whose reading failed keeps the failure and takes the new activity's fields by hand.
+   */
+  changeActivity: protectedProcedure
+    .input(z.object({ documentId: z.uuid(), metricId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await requireAccess(ctx.session, input.documentId);
+      const doc = await loadDocument(db(), input.documentId);
+      if (!doc?.record_id) notFound();
+      const choices = await activityChoices(
+        db(),
+        ctx.session.userId,
+        doc.org_unit_id,
+        doc.mime_type,
+      );
+      const metric = choices.flatMap((c) => c.metrics).find((m) => m.id === input.metricId);
+      if (!metric) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can't file this document under that activity for this project.",
+        });
+      }
+
+      return db().begin(async (tx) => {
+        const record = await lockPendingRecord(tx, input.documentId);
+        const readFailed =
+          record.verification_status === "document_uploaded" && record.job_status === "failed";
+        if (record.returned || !(record.verification_status === "ocr_completed" || readFailed)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              record.verification_status === "document_uploaded"
+                ? "This document is still being read. Change the activity once it is ready."
+                : "The activity can only be changed before the values are confirmed.",
+          });
+        }
+        if (record.metric_id === input.metricId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "The document is already filed under that activity.",
+          });
+        }
+        const [previous] = await tx<{ name: string }[]>`
+          select name from public.esg_metrics where id = ${record.metric_id}`;
+
+        const reread = !readFailed && record.extraction_id !== null && record.ocr_job_id !== null;
+        let previousValues: Record<string, string | null> = {};
+        if (reread) {
+          const rows = await tx<{ field_key: string; extracted_value: string | null }[]>`
+            select field_key, extracted_value from public.ocr_fields
+            where ocr_extraction_id = ${record.extraction_id}`;
+          previousValues = Object.fromEntries(rows.map((r) => [r.field_key, r.extracted_value]));
+          // Nothing was confirmed yet (lockPendingRecord, the state check above), so no verification row
+          // points at this extraction. The worker writes a fresh one for the new activity's fields.
+          await tx`delete from public.ocr_fields where ocr_extraction_id = ${record.extraction_id}`;
+          await tx`delete from public.ocr_extractions where id = ${record.extraction_id}`;
+          await tx`
+            update public.ocr_jobs
+            set status = 'pending', retry_count = 0, error_message = null, started_at = null,
+                completed_at = null
+            where id = ${record.ocr_job_id}`;
+        }
+        // The new activity's document types: the only one is chosen; several are left to OCR or the person.
+        const types = await tx<{ id: string }[]>`
+          select document_type_id as id from public.document_type_metric_mappings
+          where metric_id = ${input.metricId}`;
+        const onlyType = types.length === 1 ? types[0].id : null;
+        await tx`
+          update public.documents
+          set document_type_id = ${onlyType},
+              document_type_source = ${onlyType ? "person" : null}
+              ${reread ? tx`, upload_status = 'uploaded'` : tx``}
+          where id = ${input.documentId}`;
+        await tx`
+          update public.esg_records
+          set metric_id = ${input.metricId}
+              ${reread ? tx`, verification_status = 'document_uploaded'` : tx``}
+          where id = ${record.id}`;
+        await writeAudit(tx, {
+          eventType: "record.activity_changed",
+          entityType: "esg_record",
+          entityId: record.id,
+          userId: ctx.session.userId,
+          oldValue: {
+            metric_id: record.metric_id,
+            metric_name: previous?.name ?? null,
+            document_type_id: record.document_type_id,
+            extracted_values: reread ? previousValues : null,
+          },
+          newValue: {
+            metric_id: input.metricId,
+            metric_name: metric.name,
+            document_type_id: onlyType,
+            read_again: reread,
+          },
+        });
+        return { reread, metricName: metric.name };
+      });
     }),
 
   /** Live duplicate check while the user edits the invoice number (§2.3). */

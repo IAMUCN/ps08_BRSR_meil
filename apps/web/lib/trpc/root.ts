@@ -16,6 +16,7 @@ import { chatRouter } from "@/lib/trpc/routers/chat";
 import { consolidationRouter } from "@/lib/trpc/routers/consolidation";
 import { recordsRouter } from "@/lib/trpc/routers/records";
 import { reportsRouter } from "@/lib/trpc/routers/reports";
+import { reportForwardingRouter } from "@/lib/trpc/routers/report-forwarding";
 import { validationRouter } from "@/lib/trpc/routers/validation";
 import { verificationRouter } from "@/lib/trpc/routers/verification";
 import { rolesRouter } from "@/lib/trpc/routers/roles";
@@ -25,14 +26,11 @@ import { simulatorRouter } from "@/lib/trpc/routers/simulator";
 import { deadlinesRouter } from "@/lib/trpc/routers/deadlines";
 import { usersRouter } from "@/lib/trpc/routers/users";
 import { carbonCreditsRouter } from "@/lib/trpc/routers/carbonCredits";
-import { featuresRouter } from "@/lib/trpc/routers/features";
-import { rulesRouter } from "@/lib/trpc/routers/rules";
-import { suggestionsRouter } from "@/lib/trpc/routers/suggestions";
-import { risksRouter } from "@/lib/trpc/routers/risks";
-import { recommendationsRouter } from "@/lib/trpc/routers/recommendations";
-import { aiGatewayRouter } from "@/lib/trpc/routers/ai-gateway";
-import { ragRouter } from "@/lib/trpc/routers/rag";
-import { predictiveRouter } from "@/lib/trpc/routers/predictive";
+import { carbonLinksRouter } from "@/lib/trpc/routers/carbon-links";
+import { analyticsRouter } from "@/lib/trpc/routers/analytics";
+import { searchRouter } from "@/lib/trpc/routers/search";
+import { helpRouter } from "@/lib/trpc/routers/help";
+import { demoRequestsRouter } from "@/lib/trpc/routers/demo-requests";
 
 export const appRouter = router({
   session: router({
@@ -61,17 +59,15 @@ export const appRouter = router({
   consolidation: consolidationRouter,
   records: recordsRouter,
   reports: reportsRouter,
+  reportForwarding: reportForwardingRouter,
   audit: auditRouter,
   chat: chatRouter,
   carbonCredits: carbonCreditsRouter,
-  features: featuresRouter,
-  rules: rulesRouter,
-  suggestions: suggestionsRouter,
-  risks: risksRouter,
-  recommendations: recommendationsRouter,
-  aiGateway: aiGatewayRouter,
-  rag: ragRouter,
-  predictive: predictiveRouter,
+  carbonLinks: carbonLinksRouter,
+  analytics: analyticsRouter,
+  search: searchRouter,
+  help: helpRouter,
+  demoRequests: demoRequestsRouter,
 });
 
 export type AppRouter = typeof appRouter;

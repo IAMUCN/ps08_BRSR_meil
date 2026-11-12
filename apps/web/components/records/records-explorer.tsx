@@ -1,12 +1,15 @@
 "use client";
 
 import { rowClick } from "@/components/ui/row-click";
-import { Download } from "lucide-react";
-import Link from "next/link";
+import { Download, RotateCcw, Search, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { OrgTreeSelect } from "@/components/org/org-tree-select";
 import { NativeSelect } from "@/components/ui/native-select";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { csvSafeText } from "@/lib/csv";
 import { formatQuantity } from "@/lib/calculation/trace";
 import type { RecordRow } from "@/lib/records/search";
 import type { ContextOptions } from "@/lib/trpc/routers/records";
@@ -23,6 +26,15 @@ export const ISSUE_LABELS: Record<string, string> = {
   anomaly: "Anomalous values",
   pending_approval: "Pending approvals",
   missing_submissions: "Missing submissions",
+};
+
+/** What OCR made of the document (Phase 3: OCR Monitoring folded in), with its colour. */
+export const OCR_LABELS: Record<string, { label: string; tone: StatusTone }> = {
+  reading: { label: "Reading", tone: "neutral" },
+  read: { label: "Read", tone: "success" },
+  attention: { label: "Needs attention", tone: "warning" },
+  failed: { label: "Failed", tone: "error" },
+  manual: { label: "Manual entry", tone: "warning" },
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -43,22 +55,80 @@ export function ContextFilters({
   context,
   params,
   variant,
+  search = false,
 }: {
   context: ContextOptions;
   params: ExplorerParams;
   variant: "monitoring" | "explorer";
+  /** Show the search box (the table beside it must pass `q` on to the query). */
+  search?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  // The search box (owner's page feedback, 2026-10-11): searched on the server, since the table shows at
+  // most the newest 500 records. It applies shortly after typing stops, or at once on Enter.
+  const [text, setText] = useState(params.q ?? "");
+  const applied = useRef(params.q ?? "");
+  const latest = useRef<(value: string) => void>(() => {});
+  // Anything that differs from what the page shows with no filters (owner's page feedback, 2026-11-11: one
+  // Reset filters button back to the caller's own unit and the current open period).
+  const narrowed =
+    ["fy", "scope", "metric", "doctype", "role", "status", "issue", "q", "ocr", "from", "to"].some(
+      (k) => params[k],
+    ) ||
+    context.orgUnitId !== context.defaultOrgUnitId ||
+    context.periodId !== context.defaultPeriodId;
+  const scopeOf = new Map(context.metrics.map((m) => [m.code, m.scopeCode]));
   const set = (key: string, value: string) => {
     const next = new URLSearchParams();
     const merged = { ...params, org: context.orgUnitId, [key]: value };
     // A financial year replaces the single period, and vice versa.
     if (key === "fy" && value) delete merged.period;
     if (key === "period") delete merged.fy;
+    // An activity belongs to one scope: choosing it sets the scope, and a scope drops an activity outside it.
+    if (key === "metric" && value && scopeOf.get(value)) merged.scope = scopeOf.get(value)!;
+    if (key === "scope" && value && merged.metric && scopeOf.get(merged.metric) !== value)
+      delete merged.metric;
+    // A From after To would match nothing; move the other end along with it.
+    if (key === "from" && value && merged.to && merged.to < value) merged.to = value;
+    if (key === "to" && value && merged.from && merged.from > value) merged.from = value;
     for (const [k, v] of Object.entries(merged)) if (v) next.set(k, v);
     router.push(`${pathname}?${next.toString()}`);
   };
+  const reset = () => {
+    setText("");
+    applied.current = "";
+    router.push(pathname);
+  };
+  // The Activity list follows the Scope (owner's page feedback, 2026-11-11): only that scope's activities, or
+  // every activity grouped by scope when none is chosen.
+  const activityGroups = (
+    params.scope
+      ? [[params.scope, context.metrics.filter((m) => m.scopeCode === params.scope)] as const]
+      : (
+          [
+            ["SCOPE_1", "Scope 1"],
+            ["SCOPE_2", "Scope 2"],
+            ["SCOPE_3", "Scope 3"],
+            [null, "Other activities"],
+          ] as const
+        ).map(
+          ([code, label]) => [label, context.metrics.filter((m) => m.scopeCode === code)] as const,
+        )
+  ).filter(([, list]) => list.length);
+  const applyText = (value: string) => {
+    const wanted = value.trim();
+    if (wanted === applied.current) return;
+    applied.current = wanted;
+    set("q", wanted);
+  };
+  useEffect(() => {
+    latest.current = applyText;
+  });
+  useEffect(() => {
+    const timer = setTimeout(() => latest.current(text), 450);
+    return () => clearTimeout(timer);
+  }, [text]);
   const years = [...new Set(context.periods.map((p) => p.financialYear))];
 
   const select = (
@@ -68,8 +138,10 @@ export function ContextFilters({
     options: [string, string][],
     key: string,
     any = "All",
+    // Flex share: the organization names are long, Period and Scope are short.
+    width = "flex-[1_1_10rem]",
   ) => (
-    <label htmlFor={id} className="flex flex-col gap-1 text-xs text-muted-foreground">
+    <label htmlFor={id} className={`flex flex-col gap-1 text-xs text-muted-foreground ${width}`}>
       {label}
       <NativeSelect id={id} value={value} onChange={(e) => set(key, e.target.value)}>
         {any ? <option value="">{any}</option> : null}
@@ -83,75 +155,207 @@ export function ContextFilters({
   );
 
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3">
-      {select(
-        "f-org",
-        "Organization",
-        context.orgUnitId,
-        context.orgUnits.map((o) => [o.id, `${"  ".repeat(o.depth)}${o.name}`]),
-        "org",
-        "",
-      )}
-      {variant === "explorer"
-        ? select(
-            "f-fy",
-            "Financial year",
-            params.fy ?? "",
-            years.map((y) => [String(y), `FY ${y}-${String((y + 1) % 100).padStart(2, "0")}`]),
-            "fy",
-            "One period",
-          )
-        : null}
-      {!params.fy
-        ? select(
-            "f-period",
-            "Period",
-            context.periodId,
-            context.periods.map((p) => [p.id, p.label]),
-            "period",
-            "",
-          )
-        : null}
-      {select(
-        "f-scope",
-        "Scope",
-        params.scope ?? "",
-        [
-          ["SCOPE_1", "Scope 1"],
-          ["SCOPE_2", "Scope 2"],
-          ["SCOPE_3", "Scope 3"],
-        ],
-        "scope",
-      )}
-      {variant === "explorer"
-        ? select(
-            "f-metric",
-            "Metric",
-            params.metric ?? "",
-            context.metrics.map((m) => [m.code, m.name]),
-            "metric",
-          )
-        : select(
-            "f-role",
-            "Role",
-            params.role ?? "",
-            context.roles.map((r) => [r.code, r.name]),
-            "role",
-          )}
-      {select("f-status", "Status", params.status ?? "", Object.entries(STATUS_LABELS), "status")}
-      {variant === "monitoring"
-        ? select(
-            "f-issue",
-            "Issue",
-            params.issue ?? "",
-            Object.entries(ISSUE_LABELS),
-            "issue",
-            "Any",
-          )
-        : null}
+    <div>
+      <div className="flex flex-wrap items-end gap-3 rounded-md border bg-card p-3">
+        {search ? (
+          <form
+            role="search"
+            className="flex min-w-56 flex-1 basis-full flex-col gap-1 text-xs text-muted-foreground"
+            onSubmit={(event) => {
+              event.preventDefault();
+              applyText(text);
+            }}
+          >
+            <label htmlFor="f-search">Search</label>
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <Input
+                id="f-search"
+                type="search"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                maxLength={100}
+                placeholder="Document, description, metric, org unit, period, person, value or unit…"
+                className="px-8 text-sm text-foreground [&::-webkit-search-cancel-button]:hidden"
+              />
+              {text ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setText("");
+                    applyText("");
+                  }}
+                  className="absolute top-1/2 right-1.5 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <X className="size-4" aria-hidden />
+                  <span className="sr-only">Clear the search</span>
+                </button>
+              ) : null}
+            </div>
+          </form>
+        ) : null}
+        <label
+          htmlFor="f-org"
+          className="flex flex-[4_1_20rem] flex-col gap-1 text-xs text-muted-foreground"
+        >
+          Organization
+          <OrgTreeSelect
+            id="f-org"
+            value={context.orgUnitId}
+            onChange={(id) => set("org", id)}
+            nodes={context.orgUnits.map((o) => ({
+              id: o.id,
+              name: o.name,
+              parentIds: o.parentIds,
+              inactive: o.status === "inactive",
+            }))}
+          />
+        </label>
+        {variant === "explorer"
+          ? select(
+              "f-fy",
+              "Financial year",
+              params.fy ?? "",
+              years.map((y) => [String(y), `FY ${y}-${String((y + 1) % 100).padStart(2, "0")}`]),
+              "fy",
+              "One period",
+            )
+          : null}
+        {!params.fy
+          ? select(
+              "f-period",
+              "Period",
+              context.periodId,
+              context.periods.map((p) => [p.id, p.label]),
+              "period",
+              "",
+              // Wide enough for a label like "September 2026" with the arrow (owner's feedback, 2026-11-11).
+              "flex-[0_0_12rem]",
+            )
+          : null}
+        {/* Upload date (owner's page feedback, 2026-11-11): the same day in both for one day's uploads. */}
+        <label
+          htmlFor="f-from"
+          className="flex flex-[0_0_9.5rem] flex-col gap-1 text-xs text-muted-foreground"
+        >
+          Uploaded from
+          <Input
+            id="f-from"
+            type="date"
+            value={params.from ?? ""}
+            max={params.to || undefined}
+            onChange={(e) => set("from", e.target.value)}
+            className="text-sm text-foreground"
+          />
+        </label>
+        <label
+          htmlFor="f-to"
+          className="flex flex-[0_0_9.5rem] flex-col gap-1 text-xs text-muted-foreground"
+        >
+          Uploaded to
+          <Input
+            id="f-to"
+            type="date"
+            value={params.to ?? ""}
+            min={params.from || undefined}
+            onChange={(e) => set("to", e.target.value)}
+            className="text-sm text-foreground"
+          />
+        </label>
+        {select(
+          "f-scope",
+          "Scope",
+          params.scope ?? "",
+          [
+            ["SCOPE_1", "Scope 1"],
+            ["SCOPE_2", "Scope 2"],
+            ["SCOPE_3", "Scope 3"],
+          ],
+          "scope",
+          "All",
+          "flex-[0_1_7.5rem]",
+        )}
+        {/* The Document type filter was removed (owner's page feedback, 2026-11-11): every activity has
+            exactly one document type, so it repeated this one. A `doctype` in the URL still filters. */}
+        <label
+          htmlFor="f-metric"
+          className="flex flex-[1_1_12rem] flex-col gap-1 text-xs text-muted-foreground"
+        >
+          {variant === "explorer" ? "Metric" : "Activity"}
+          <NativeSelect
+            id="f-metric"
+            value={params.metric ?? ""}
+            onChange={(e) => set("metric", e.target.value)}
+          >
+            <option value="">All</option>
+            {params.scope
+              ? activityGroups.flatMap(([, list]) =>
+                  list.map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.name}
+                    </option>
+                  )),
+                )
+              : activityGroups.map(([label, list]) => (
+                  <optgroup key={label} label={label}>
+                    {list.map((m) => (
+                      <option key={m.code} value={m.code}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+          </NativeSelect>
+        </label>
+        {variant === "monitoring"
+          ? select(
+              "f-role",
+              "Role",
+              params.role ?? "",
+              context.roles.map((r) => [r.code, r.name]),
+              "role",
+            )
+          : null}
+        {select("f-status", "Status", params.status ?? "", Object.entries(STATUS_LABELS), "status")}
+        {variant === "monitoring"
+          ? select(
+              "f-ocr",
+              "OCR",
+              params.ocr ?? "",
+              Object.entries(OCR_LABELS).map(([k, v]) => [k, v.label]),
+              "ocr",
+            )
+          : null}
+        {variant === "monitoring"
+          ? select(
+              "f-issue",
+              "Issue",
+              params.issue ?? "",
+              Object.entries(ISSUE_LABELS),
+              "issue",
+              "Any",
+            )
+          : null}
+        {narrowed ? (
+          <Button type="button" variant="outline" onClick={reset} className="h-10">
+            <RotateCcw aria-hidden />
+            Reset filters
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
+
+/** Who chose a record's document type, in words. */
+export const DOCUMENT_TYPE_SOURCE: Record<"ocr" | "person" | "admin", string> = {
+  ocr: "OCR",
+  person: "Uploader",
+  admin: "Admin",
+};
 
 function valueOf(row: RecordRow) {
   if (row.resultValue !== null && row.resultUnit)
@@ -161,7 +365,7 @@ function valueOf(row: RecordRow) {
 }
 
 const csvCell = (v: string | number | null) => {
-  const text = v === null ? "" : String(v);
+  const text = v === null ? "" : typeof v === "string" ? csvSafeText(v) : String(v);
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 
@@ -169,11 +373,18 @@ const csvCell = (v: string | number | null) => {
 function exportCsv(rows: RecordRow[], name: string) {
   const header = [
     "Document",
+    "Description",
+    "Bill no.",
+    "Document type",
+    "Document type chosen by",
+    "Late",
+    "Possible duplicate",
     "Metric",
     "Category",
     "Org unit",
     "Period",
     "Submitted by",
+    "Submitter role",
     "Submitted at",
     "Verification",
     "Validation",
@@ -186,11 +397,18 @@ function exportCsv(rows: RecordRow[], name: string) {
   const lines = rows.map((r) =>
     [
       r.fileName,
+      r.description,
+      r.billNumber,
+      r.documentTypeName,
+      r.documentTypeSource ? DOCUMENT_TYPE_SOURCE[r.documentTypeSource] : null,
+      r.late ? "Yes" : "No",
+      r.duplicate ? "Yes" : "No",
       r.metricName,
       r.categoryName,
       r.orgUnitName,
       r.periodLabel,
       r.submittedBy,
+      [r.submitterRoles, r.onBehalfOf ? `for ${r.onBehalfOf}` : null].filter(Boolean).join(" · "),
       r.submittedAt,
       r.verificationStatus,
       r.validationStatus,
@@ -223,10 +441,9 @@ export function RecordsTable({
   emptyMessage: string;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const pathname = usePathname();
   const headings =
     variant === "monitoring"
-      ? ["Document", "ESG activity", "Org unit", "Period", "Submitted by", "Status"]
+      ? ["Document", "ESG activity", "Org unit", "Period", "Submitted by", "OCR", "Status"]
       : ["Document", "Metric", "Org unit", "Period", "Value", "Status"];
 
   return (
@@ -247,13 +464,7 @@ export function RecordsTable({
       </div>
       {rows.length === 0 ? (
         <p className="rounded-md border bg-card px-4 py-6 text-sm text-muted-foreground">
-          {emptyMessage}{" "}
-          <Link
-            href={pathname}
-            className="font-medium text-primary-text underline underline-offset-2"
-          >
-            Clear filters
-          </Link>
+          {emptyMessage}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-table-border">
@@ -286,6 +497,23 @@ export function RecordsTable({
                     >
                       {r.fileName ?? "Record without a document"}
                     </button>
+                    {r.description ? (
+                      <span
+                        className="block max-w-80 truncate text-xs text-foreground"
+                        title={r.description}
+                      >
+                        {r.description}
+                      </span>
+                    ) : null}
+                    {r.billNumber || r.documentTypeName ? (
+                      <span className="block text-xs text-muted-foreground">
+                        {r.billNumber ? `Bill no. ${r.billNumber}` : null}
+                        {r.billNumber && r.documentTypeName ? " · " : null}
+                        {r.documentTypeName
+                          ? `${r.documentTypeName}${r.documentTypeSource ? ` (${DOCUMENT_TYPE_SOURCE[r.documentTypeSource]})` : ""}`
+                          : null}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2.5">
                     {r.metricName}
@@ -295,11 +523,36 @@ export function RecordsTable({
                   <td className="px-3 py-2.5">{r.periodLabel}</td>
                   <td className="px-3 py-2.5 font-mono text-xs">
                     {variant === "monitoring" ? (
-                      <span className="font-sans text-sm">{r.submittedBy}</span>
+                      <span className="font-sans text-sm">
+                        {r.submittedBy}
+                        {r.submitterRoles || r.onBehalfOf ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {[r.submitterRoles, r.onBehalfOf ? `for ${r.onBehalfOf}` : null]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        ) : null}
+                      </span>
                     ) : (
                       valueOf(r)
                     )}
                   </td>
+                  {variant === "monitoring" ? (
+                    <td className="px-3 py-2.5">
+                      {OCR_LABELS[r.ocrState] ? (
+                        <StatusBadge tone={OCR_LABELS[r.ocrState].tone}>
+                          {OCR_LABELS[r.ocrState].label}
+                        </StatusBadge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No document</span>
+                      )}
+                      {r.ocrState === "failed" && r.ocrError ? (
+                        <span className="mt-1 block max-w-48 text-xs leading-4 text-muted-foreground">
+                          {r.ocrError}
+                        </span>
+                      ) : null}
+                    </td>
+                  ) : null}
                   <td className="px-3 py-2.5">
                     <StageBadge
                       row={{
@@ -309,6 +562,16 @@ export function RecordsTable({
                         quality: r.dataQualityState,
                       }}
                     />
+                    {r.late ? (
+                      <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                        Late
+                      </span>
+                    ) : null}
+                    {r.duplicate ? (
+                      <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                        Possible duplicate
+                      </span>
+                    ) : null}
                   </td>
                 </tr>
               ))}

@@ -90,3 +90,26 @@ answer; it never produces a figure and never decides who may see what.
 - Admins reading other people's conversations.
 - Questions about people, document text, invoice numbers or written BRSR disclosures.
 - A scheduled purge job; expired conversations are removed when the chat is next opened.
+
+## Out-of-scope questions get a fixed refusal (2026-11-09, owner's request)
+
+Owner: "Make sure my chatbot only answers the user within his scope ... If he questions anything out of his
+scope, tell him that these questions are not answerable in his scope."
+
+- Decision: a lookup that names an org unit outside the person's scope (or one that does not exist: the two are
+  answered alike, so the refusal reveals nothing) ends the question at once with fixed words
+  (`OUT_OF_SCOPE.unit` in `lib/chat/orchestrate.ts`); the model is not asked again, so nothing it might write
+  about that unit reaches the person. Reason: the model's own wording about a unit it cannot see is where a leak
+  or a guess would come from.
+- Decision: an answer made without a single successful lookup is replaced by `OUT_OF_SCOPE.topic` (general
+  knowledge, other topics, writing, invented figures). The one exception is a short question back to the person
+  with no digits ("Which period do you mean?"). Alternative considered: keep the model's text with the
+  "not taken from the records" warning — rejected, the owner wants such questions not answered at all.
+- The system prompt also tells the model to reply "Outside your scope." to anything it has no tool for; the code
+  does not rely on it.
+- Checked: unit tests (chat 35/35, all 288/288; a new test covers general questions, units outside the scope,
+  a figure hidden in a question back, and an in-scope answer unchanged), typecheck, lint, format. Not run:
+  `test:chatbot` (needs the test stack), the real model (the NVIDIA key is refused, below).
+- Found while checking: the "took too long" message came from the configured models (404 / 410 / timeout);
+  on 2026-11-09 NVIDIA also refuses the key itself ("Authorization failed", 403) on every model. A new key
+  is needed before any model can be chosen.

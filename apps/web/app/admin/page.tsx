@@ -19,13 +19,13 @@ import { ContextPicker, ReadinessInfo } from "@/components/dashboard/control-tow
 import { EmptyState } from "@/components/shell/empty-state";
 import { NoticeToast } from "@/components/shell/notice-toast";
 import { PageHeader } from "@/components/shell/page-header";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import type { Fraction } from "@/lib/dashboard/kpis";
 import { readParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
 import { KpiTrendsCard } from "./kpi-trends";
 
-export const metadata: Metadata = { title: "Admin Dashboard · TraceESG" };
+export const metadata: Metadata = { title: "Admin Dashboard · EmeilSG" };
 
 // The Admin Control Tower (UI brief §13.1, Master Approach §33, .grill/phase-16-control-tower-decisions.md):
 // header strip, the completion pipeline, scope and readiness, and the issue panel — for the org node and
@@ -82,7 +82,7 @@ function KpiCard({ card }: { card: Card }) {
 }
 
 export default async function AdminDashboardPage({ searchParams }: PageProps<"/admin">) {
-  const [, raw, caller] = await Promise.all([requireAdminSession(), searchParams, api()]);
+  const [, raw, caller] = await Promise.all([requireAdminAreaSession(), searchParams, api()]);
   const q = readParams(raw);
   const { context, summary } = await caller.records.summary({
     orgUnitId: q.orgUnitId,
@@ -101,6 +101,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
           description="Reporting readiness across the organization."
         />
         <EmptyState
+          nested
           icon={TrendingUp}
           title="No activity yet"
           message="Create a reporting period and the organization hierarchy to start collecting submissions."

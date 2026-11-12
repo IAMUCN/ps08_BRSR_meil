@@ -10,7 +10,7 @@ import { recordTraceAction } from "@/lib/scope/actions";
 import { api } from "@/lib/trpc/server";
 import { MappingTable } from "./mapping-table";
 
-export const metadata: Metadata = { title: "BRSR Mapping · TraceESG" };
+export const metadata: Metadata = { title: "BRSR Mapping · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 BRSR Mapping, UI brief §20–§21 (.grill/phase-14-brsr-mapping-decisions.md): the
 // metric → indicator configuration, and the readiness tree that walks an indicator down to its evidence.
@@ -71,6 +71,7 @@ export default async function BrsrMappingPage({ searchParams }: PageProps<"/admi
         <ReadinessTree view={readiness} loadRecord={recordTraceAction} />
       ) : (
         <EmptyState
+          nested
           icon={ListTree}
           title="No reporting period yet"
           message="Readiness is shown per reporting period. Create one under Reporting Periods."

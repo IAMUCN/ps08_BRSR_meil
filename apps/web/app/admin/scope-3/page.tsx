@@ -3,16 +3,16 @@ import type { Metadata } from "next";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
 import { ScopeDashboard } from "@/components/scope/scope-dashboard";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { recordTraceAction } from "@/lib/scope/actions";
 
-export const metadata: Metadata = { title: "Scope 3 · TraceESG" };
+export const metadata: Metadata = { title: "Scope 3 · EmeilSG" };
 
 // 03_APP_FLOW.md §2.2 Scope 3 Dashboard — the same component again, now leading with the category table
 // (UI brief §13.1: "X of Y categories active" rather than implied completeness).
 export default async function ScopeThreePage({ searchParams }: PageProps<"/admin/scope-3">) {
-  const [, caller, params] = await Promise.all([requireAdminSession(), api(), searchParams]);
+  const [, caller, params] = await Promise.all([requireAdminAreaSession(), api(), searchParams]);
   const orgUnitId = typeof params.org === "string" ? params.org : undefined;
   const periodId = typeof params.period === "string" ? params.period : undefined;
   const view = await caller.scope.getTotal({ scopeCode: "SCOPE_3", orgUnitId, periodId });
@@ -32,6 +32,7 @@ export default async function ScopeThreePage({ searchParams }: PageProps<"/admin
         />
       ) : (
         <EmptyState
+          nested
           icon={Link2}
           title="Nothing to total yet"
           message="Scope 3 figures appear once a reporting period exists and records in an enabled category have been calculated."

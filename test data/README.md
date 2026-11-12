@@ -1,55 +1,50 @@
-# Test data for a full run-through of TraceESG
+# Test data, April 2025 to October 2026
 
-Two sets. Everything in them is **fictitious** and every document is watermarked SAMPLE. The org unit names are
-MEIL's published business units, group companies and landmark projects (meil.in); every figure, vendor and
-person is invented.
+One folder per month, named like `April 2025`. Everything is fictitious and watermarked SAMPLE (org units
+are MEIL's published business units and projects; every figure, vendor and person is invented).
 
-| | `test data 1` | `test data 2` |
-|---|---|---|
-| Reporting period | August 2026 | September 2026 |
-| Org units to import | Irrigation, Transportation and Power with their projects (12) | Drinking Water, Hydrocarbons, Manufacturing and five group companies (11) |
-| Documents | 30 single PDFs, 21 images (JPG / PNG), 6 multi-bill PDFs | 40 single PDFs, 27 images (JPG / PNG), 6 multi-bill PDFs |
-| Who uploads | Polavaram, Zojila, Tuticorin; Gayathri Pump House (multi-bill) | the same four again (next month, about 7% higher) plus Uddanam and the Olectra plant |
+| Months | Status |
+|---|---|
+| April 2025 to March 2026 (FY 2025-26) | Fed into the app |
+| April 2026 to September 2026 | Fed into the app |
+| **October 2026** | **Generated only, not fed.** The reporting period "October 2026" exists and is open; upload these files in front of the jury. |
 
-Set 2 repeats set 1's projects one month later, so comparisons, trends and the chatbot's "this month against last
-month" have two months to work with.
+## What is in a month folder
 
-## What is already on the site (done on 2026-10-11)
+- `documents/<org unit>/<role>/` one bill per ESG activity for three projects (MSRTC e-bus order, BEST Mumbai
+  e-buses, Seetharampur plant), filed by the role that uploads it. In each role's folder a third are single PDFs,
+  a third images (JPG and PNG in turn) and the rest are pages of one `multi-bill (N bills).pdf`
+  (upload it with "A PDF with several bills"). TGSRTC has only a 3-bill PDF.
+- `manifest.csv` which file goes where (period, org unit, role, activity, document type) and the values printed on it.
+- `bills.json` the same, one entry per bill, with the field values the verify screen should hold. Read by
+  `apps/web/scripts/feed-monthly-data.mjs`.
+- `_feed/<month>/` the bills of every multi-bill PDF as one-page PDFs, used only by the feeding script.
 
-- The old test data was cleared. A copy of every deleted row is in `_backup/`.
-- **BRSR Disclosures**, financial year 2026-27: 23 answers about MEIL, each naming its source. The exact text is in
-  `admin answers entered (MEIL, from meil.in).json`. Questions the website does not answer are empty.
-- **Reports → inputs**, financial year 2022-23: turnover Rs 25,837.68 crore (the latest published annual return).
-- **Conversion Factors**: the 29 factors in `conversion factors to enter.csv`, each with its source.
+Quantities follow a gentle seasonal curve (`MONTHS` in `apps/ocr-worker/scripts/make_monthly_data.py`), so
+charts have a shape and no month trips the anomaly check.
 
-## What you do, in order
+## How the months were fed
 
-1. **Reporting periods** (Admin → Reporting Periods): create *August 2026* (1–31 Aug 2026) and *September 2026*
-   (1–30 Sep 2026) and open them.
-2. **Org units** (Admin → Organization → bulk import): choose **MEIL** under "Add under", then upload
-   `test data 1/1 Org units - bulk import.xlsx`. Do the same later with set 2's sheet.
-3. **Users** (Admin → Users → Bulk import): open `2 Employees - bulk import (add emails).xlsx`, type an email
-   address in every row of the **Email** column, save, upload. Import the org units first: the sheet names them.
-4. **Upload the documents.** `manifest.csv` lists every file: the org unit, the role that uploads it, the ESG
-   activity to pick, and the values printed on it (to compare with what OCR reads). The folders follow the same
-   order: `documents/<org unit code>/<role>/`.
-5. **Verify, approve, report** as usual. The Corporate ESG account in the sheet (or the Admin) approves.
+Every bill went in as its own document through the app's own procedures, by the account that owns it (one
+account per role and unit, plus one Corporate ESG account that approves). The people confirmed the values printed on the bill.
+- **July, August and September 2026**: real OCR read every document.
+- **All earlier months**: the OCR engine was not run. The values were loaded directly through the worker's own
+  write path (`apps/ocr-worker/scripts/synthetic_extraction.py`); their extraction is marked
+  `direct-load (no OCR)` with confidence 100. The rest of the pipeline (verify, validate, calculate, approve) ran normally.
+- Six activities have no conversion factor (spend-based travel, freight and commuting, PNG, purchased steam,
+  heat / cooling), so their records stay "awaiting approval, not calculated" in every month. That is by design;
+  enter factors in Admin to calculate them.
 
-## Things built in on purpose
+## Accounts
 
-- `PRJ-POLAVARAM/HR/… WORKFORCE_GENDER.pdf` has a faint **Men** figure. OCR reads it with low confidence and may
-  read it wrong; the verify screen makes the person check it. The right value is in the manifest.
-- `PRJ-GAYATHRI/Project Manager/multi-bill (3 bills in one PDF).pdf`: pick "A PDF with several bills" on Upload.
-- **Three kinds of file in each role's folder**, so every upload path gets tried: single-bill PDFs, single-bill
-  images (JPG and PNG), and one `multi-bill (N bills).pdf` holding the rest (upload it with "A PDF with several
-  bills" and confirm the split). No bill appears twice. The manifest lists a multi-bill PDF as one row, page by
-  page. The split screen may not name the less common activities (coal grades, purchased steam); pick them by hand.
-- PNG, purchased steam, purchased heat / cooling, waste and the three spend-based activities have **no
-  conversion factor** (no published source). Their records show "Not calculated yet"; that is expected.
-- Air emissions, water, safety, workforce, procurement, CSR and fines need no factor.
+Accounts are `<role>.<unit>@emeilsg.test` (and `corporate-esg.meil@emeilsg.test`, the approver), on both
+the local database and hosted Supabase. Passwords are random and kept only in `_backup/` (git-ignored):
+`feed-accounts.local.json` and `feed-accounts.hosted.json`.
 
-## Making the files again
+## Regenerating
 
-    cd apps/ocr-worker
-    PYTHONPATH=. .venv/Scripts/python.exe scripts/make_test_data.py --out "../../test data"
-    cd ../.. && node apps/web/scripts/test-data-sheets.mjs "test data"
+    python apps/ocr-worker/scripts/make_monthly_data.py --out "test data" --feed "test data/_feed"
+    node apps/web/scripts/feed-monthly-data.mjs prepare|feed|close --env <env file> --app <url> --creds <file> ...
+
+Needs `pypdfium2`, `pillow` and `numpy`. Delete a month's folder first if you change the generator and have
+already fed it: the same bill twice is flagged as a duplicate.

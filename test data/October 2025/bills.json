@@ -1,0 +1,1544 @@
+[
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "DIESEL_CONSUMPTION",
+  "activity": "Diesel Consumption",
+  "document_type": "DIESEL_INVOICE",
+  "expected": {
+   "quantity": "1040.00",
+   "unit": "Litres",
+   "reference": "MEIL-202510-001"
+  },
+  "fields": {
+   "quantity": "1040.00",
+   "unit": "Litres",
+   "invoice_number": "MEIL-202510-001",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/Project Manager/001 DIESEL_CONSUMPTION.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/Project Manager/001 DIESEL_CONSUMPTION.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "GRID_ELECTRICITY",
+  "activity": "Grid Electricity Consumption",
+  "document_type": "ELECTRICITY_BILL",
+  "expected": {
+   "consumption": "71885",
+   "unit": "kWh"
+  },
+  "fields": {
+   "consumption": "71885",
+   "unit": "kWh",
+   "invoice_number": "MEIL-202510-002",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/Project Manager/002 GRID_ELECTRICITY.jpg",
+  "mime": "image/jpeg",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/Project Manager/002 GRID_ELECTRICITY.jpg"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "WATER_CONSUMPTION",
+  "activity": "Water consumption",
+  "document_type": "WATER_BILL",
+  "expected": {
+   "withdrawal": "1040.00",
+   "discharge": "332.80",
+   "unit": "KL"
+  },
+  "fields": {
+   "withdrawal": "1040.00",
+   "discharge": "332.80",
+   "unit": "KL",
+   "invoice_number": "MEIL-202510-003",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/EHS - Environment/003 WATER_CONSUMPTION.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/EHS - Environment/003 WATER_CONSUMPTION.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "WASTE_DISPOSED",
+  "activity": "Waste Disposed",
+  "document_type": "WASTE_DISPOSAL_CERTIFICATE",
+  "expected": {
+   "quantity": "2080.00",
+   "unit": "kg",
+   "route": "Landfill"
+  },
+  "fields": {
+   "quantity": "2080.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-004",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/EHS - Environment/004 WASTE_DISPOSED.png",
+  "mime": "image/png",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/EHS - Environment/004 WASTE_DISPOSED.png"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "SAFETY_EMPLOYEES",
+  "activity": "Safety incidents \u2014 employees",
+  "document_type": "SAFETY_INCIDENT_STATEMENT",
+  "expected": {
+   "person_hours": "29952",
+   "lost_time": "0",
+   "recordable": "1"
+  },
+  "fields": {
+   "person_hours": "29952",
+   "lost_time_injuries": "0",
+   "recordable_injuries": "1",
+   "fatalities": "0",
+   "high_consequence_injuries": "0",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/EHS - Environment/006 SAFETY_EMPLOYEES.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/EHS - Environment/006 SAFETY_EMPLOYEES.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "HR",
+  "metric": "WORKFORCE_GENDER",
+  "activity": "Employees by gender",
+  "document_type": "WORKFORCE_STATEMENT",
+  "expected": {
+   "total": "150",
+   "women": "34",
+   "men": "116"
+  },
+  "fields": {
+   "total_employees": "150",
+   "female_employees": "34",
+   "male_employees": "116",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/HR/007 WORKFORCE_GENDER.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/HR/007 WORKFORCE_GENDER.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "HR",
+  "metric": "WORKFORCE_TRAINING",
+  "activity": "Employees trained",
+  "document_type": "TRAINING_RECORD",
+  "expected": {
+   "total": "150",
+   "trained": "123"
+  },
+  "fields": {
+   "total_employees": "150",
+   "trained_employees": "123",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/HR/008 WORKFORCE_TRAINING.jpg",
+  "mime": "image/jpeg",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/HR/008 WORKFORCE_TRAINING.jpg"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "CNG_CONSUMPTION",
+  "activity": "CNG Consumption",
+  "document_type": "FUEL_INVOICE",
+  "expected": {
+   "quantity": "316.16",
+   "unit": "kg",
+   "reference": "MEIL-202510-010"
+  },
+  "fields": {
+   "quantity": "316.16",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-010",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/Project Manager/010 CNG_CONSUMPTION.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/Project Manager/010 CNG_CONSUMPTION.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "LPG_CONSUMPTION",
+  "activity": "LPG Consumption",
+  "document_type": "FUEL_INVOICE",
+  "expected": {
+   "quantity": "189.70",
+   "unit": "kg",
+   "reference": "MEIL-202510-011"
+  },
+  "fields": {
+   "quantity": "189.70",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-011",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/Project Manager/011 LPG_CONSUMPTION.png",
+  "mime": "image/png",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/Project Manager/011 LPG_CONSUMPTION.png"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "Procurement",
+  "metric": "CEMENT_PURCHASED",
+  "activity": "Cement purchased",
+  "document_type": "MATERIAL_INVOICE",
+  "expected": {
+   "quantity": "349440.00",
+   "unit": "kg",
+   "reference": "MEIL-202510-012"
+  },
+  "fields": {
+   "quantity": "349440.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-012",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/Procurement/012 CEMENT_PURCHASED.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/Procurement/012 CEMENT_PURCHASED.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "Procurement",
+  "metric": "STEEL_PURCHASED",
+  "activity": "Steel purchased",
+  "document_type": "MATERIAL_INVOICE",
+  "expected": {
+   "quantity": "79872.00",
+   "unit": "kg",
+   "reference": "MEIL-202510-013"
+  },
+  "fields": {
+   "quantity": "79872.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-013",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/Procurement/013 STEEL_PURCHASED.jpg",
+  "mime": "image/jpeg",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/Procurement/013 STEEL_PURCHASED.jpg"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "Procurement",
+  "metric": "FREIGHT_IN_MDV",
+  "activity": "Supplier logistics \u2014 medium truck (under 12 t)",
+  "document_type": "FREIGHT_INVOICE",
+  "expected": {
+   "quantity": "5158.40",
+   "unit": "km",
+   "reference": "MEIL-202510-015"
+  },
+  "fields": {
+   "quantity": "5158.40",
+   "unit": "km",
+   "invoice_number": "MEIL-202510-015",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/Procurement/015 FREIGHT_IN_MDV.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/Procurement/015 FREIGHT_IN_MDV.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "Procurement",
+  "metric": "FREIGHT_IN_HDV",
+  "activity": "Supplier logistics \u2014 heavy truck (over 12 t)",
+  "document_type": "FREIGHT_INVOICE",
+  "expected": {
+   "quantity": "10316.80",
+   "unit": "km",
+   "reference": "MEIL-202510-016"
+  },
+  "fields": {
+   "quantity": "10316.80",
+   "unit": "km",
+   "invoice_number": "MEIL-202510-016",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/Procurement/016 FREIGHT_IN_HDV.png",
+  "mime": "image/png",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/Procurement/016 FREIGHT_IN_HDV.png"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "HR",
+  "metric": "COMMUTING_SPEND",
+  "activity": "Employee commuting (spend)",
+  "document_type": "EMPLOYEE_TRANSPORT_INVOICE",
+  "expected": {
+   "quantity": "176384.00",
+   "unit": "INR",
+   "reference": "MEIL-202510-019"
+  },
+  "fields": {
+   "quantity": "176384.00",
+   "unit": "INR",
+   "invoice_number": "MEIL-202510-019",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/HR/019 COMMUTING_SPEND.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/HR/019 COMMUTING_SPEND.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "REFRIGERANT_R22",
+  "activity": "Refrigerant top-up \u2014 R-22",
+  "document_type": "REFRIGERANT_RECORD",
+  "expected": {
+   "quantity": "5.41",
+   "unit": "kg",
+   "reference": "MEIL-202510-020"
+  },
+  "fields": {
+   "quantity": "5.41",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-020",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/EHS - Environment/020 REFRIGERANT_R22.jpg",
+  "mime": "image/jpeg",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/EHS - Environment/020 REFRIGERANT_R22.jpg"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "REFRIGERANT_R410A",
+  "activity": "Refrigerant top-up \u2014 R-410A",
+  "document_type": "REFRIGERANT_RECORD",
+  "expected": {
+   "quantity": "10.40",
+   "unit": "kg",
+   "reference": "MEIL-202510-022"
+  },
+  "fields": {
+   "quantity": "10.40",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-022",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/EHS - Environment/022 REFRIGERANT_R410A.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/EHS - Environment/022 REFRIGERANT_R410A.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "REFRIGERANT_R134A",
+  "activity": "Refrigerant top-up \u2014 R-134a",
+  "document_type": "REFRIGERANT_RECORD",
+  "expected": {
+   "quantity": "3.00",
+   "unit": "kg",
+   "reference": "MEIL-202510-023"
+  },
+  "fields": {
+   "quantity": "3.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-023",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/EHS - Environment/023 REFRIGERANT_R134A.png",
+  "mime": "image/png",
+  "feed_file": "October 2025/documents/MSRTC e-bus order/EHS - Environment/023 REFRIGERANT_R134A.png"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "DIESEL_CONSUMPTION",
+  "activity": "Diesel Consumption",
+  "document_type": "DIESEL_INVOICE",
+  "expected": {
+   "quantity": "1820.00",
+   "unit": "Litres",
+   "reference": "MEIL-202510-024"
+  },
+  "fields": {
+   "quantity": "1820.00",
+   "unit": "Litres",
+   "invoice_number": "MEIL-202510-024",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/Project Manager/024 DIESEL_CONSUMPTION.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/Project Manager/024 DIESEL_CONSUMPTION.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "GRID_ELECTRICITY",
+  "activity": "Grid Electricity Consumption",
+  "document_type": "ELECTRICITY_BILL",
+  "expected": {
+   "consumption": "125798",
+   "unit": "kWh"
+  },
+  "fields": {
+   "consumption": "125798",
+   "unit": "kWh",
+   "invoice_number": "MEIL-202510-025",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/Project Manager/025 GRID_ELECTRICITY.jpg",
+  "mime": "image/jpeg",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/Project Manager/025 GRID_ELECTRICITY.jpg"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "WATER_CONSUMPTION",
+  "activity": "Water consumption",
+  "document_type": "WATER_BILL",
+  "expected": {
+   "withdrawal": "1820.00",
+   "discharge": "582.40",
+   "unit": "KL"
+  },
+  "fields": {
+   "withdrawal": "1820.00",
+   "discharge": "582.40",
+   "unit": "KL",
+   "invoice_number": "MEIL-202510-026",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/EHS - Environment/026 WATER_CONSUMPTION.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/EHS - Environment/026 WATER_CONSUMPTION.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "WASTE_DISPOSED",
+  "activity": "Waste Disposed",
+  "document_type": "WASTE_DISPOSAL_CERTIFICATE",
+  "expected": {
+   "quantity": "3640.00",
+   "unit": "kg",
+   "route": "Landfill"
+  },
+  "fields": {
+   "quantity": "3640.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-027",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/EHS - Environment/027 WASTE_DISPOSED.png",
+  "mime": "image/png",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/EHS - Environment/027 WASTE_DISPOSED.png"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "SAFETY_EMPLOYEES",
+  "activity": "Safety incidents \u2014 employees",
+  "document_type": "SAFETY_INCIDENT_STATEMENT",
+  "expected": {
+   "person_hours": "52416",
+   "lost_time": "0",
+   "recordable": "1"
+  },
+  "fields": {
+   "person_hours": "52416",
+   "lost_time_injuries": "0",
+   "recordable_injuries": "1",
+   "fatalities": "0",
+   "high_consequence_injuries": "0",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/EHS - Environment/029 SAFETY_EMPLOYEES.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/EHS - Environment/029 SAFETY_EMPLOYEES.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "HR",
+  "metric": "WORKFORCE_GENDER",
+  "activity": "Employees by gender",
+  "document_type": "WORKFORCE_STATEMENT",
+  "expected": {
+   "total": "262",
+   "women": "60",
+   "men": "202"
+  },
+  "fields": {
+   "total_employees": "262",
+   "female_employees": "60",
+   "male_employees": "202",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/HR/030 WORKFORCE_GENDER.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/HR/030 WORKFORCE_GENDER.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "HR",
+  "metric": "WORKFORCE_TRAINING",
+  "activity": "Employees trained",
+  "document_type": "TRAINING_RECORD",
+  "expected": {
+   "total": "262",
+   "trained": "215"
+  },
+  "fields": {
+   "total_employees": "262",
+   "trained_employees": "215",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/HR/031 WORKFORCE_TRAINING.jpg",
+  "mime": "image/jpeg",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/HR/031 WORKFORCE_TRAINING.jpg"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "COAL_BITUMINOUS",
+  "activity": "Coal \u2014 Bituminous",
+  "document_type": "FUEL_INVOICE",
+  "expected": {
+   "quantity": "451360.00",
+   "unit": "kg",
+   "reference": "MEIL-202510-033"
+  },
+  "fields": {
+   "quantity": "451360.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-033",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/Project Manager/033 COAL_BITUMINOUS.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/Project Manager/033 COAL_BITUMINOUS.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "COAL_SUB_BITUMINOUS",
+  "activity": "Coal \u2014 Sub-bituminous",
+  "document_type": "FUEL_INVOICE",
+  "expected": {
+   "quantity": "269360.00",
+   "unit": "kg",
+   "reference": "MEIL-202510-034"
+  },
+  "fields": {
+   "quantity": "269360.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-034",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/Project Manager/034 COAL_SUB_BITUMINOUS.png",
+  "mime": "image/png",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/Project Manager/034 COAL_SUB_BITUMINOUS.png"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "LNG_CONSUMPTION",
+  "activity": "LNG Consumption",
+  "document_type": "FUEL_INVOICE",
+  "expected": {
+   "quantity": "12230.40",
+   "unit": "kg",
+   "reference": "MEIL-202510-036"
+  },
+  "fields": {
+   "quantity": "12230.40",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-036",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/Project Manager/036 LNG_CONSUMPTION.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/Project Manager/036 LNG_CONSUMPTION.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "PNG_CONSUMPTION",
+  "activity": "PNG Consumption",
+  "document_type": "FUEL_INVOICE",
+  "expected": {
+   "quantity": "4659.20",
+   "unit": "SCM",
+   "reference": "MEIL-202510-037"
+  },
+  "fields": {
+   "quantity": "4659.20",
+   "unit": "SCM",
+   "invoice_number": "MEIL-202510-037",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/Project Manager/037 PNG_CONSUMPTION.jpg",
+  "mime": "image/jpeg",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/Project Manager/037 PNG_CONSUMPTION.jpg"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "PURCHASED_HEAT_COOLING",
+  "activity": "Purchased heat / cooling",
+  "document_type": "STEAM_HEAT_INVOICE",
+  "expected": {
+   "quantity": "18200.00",
+   "unit": "kWh",
+   "reference": "MEIL-202510-039"
+  },
+  "fields": {
+   "quantity": "18200.00",
+   "unit": "kWh",
+   "invoice_number": "MEIL-202510-039",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/Project Manager/039 PURCHASED_HEAT_COOLING.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/Project Manager/039 PURCHASED_HEAT_COOLING.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "PROCESS_CO2",
+  "activity": "Process emissions \u2014 CO2",
+  "document_type": "PROCESS_EMISSION_STATEMENT",
+  "expected": {
+   "quantity": "26572.00",
+   "unit": "kg",
+   "reference": "MEIL-202510-040"
+  },
+  "fields": {
+   "quantity": "26572.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-040",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/EHS - Environment/040 PROCESS_CO2.png",
+  "mime": "image/png",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/EHS - Environment/040 PROCESS_CO2.png"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "SOX_EMISSIONS",
+  "activity": "Air emissions \u2014 SOx",
+  "document_type": "STACK_MONITORING_REPORT",
+  "expected": {
+   "quantity": "953.97",
+   "unit": "kg",
+   "reference": "MEIL-202510-042"
+  },
+  "fields": {
+   "quantity": "953.97",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-042",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/EHS - Environment/042 SOX_EMISSIONS.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/EHS - Environment/042 SOX_EMISSIONS.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "PM_EMISSIONS",
+  "activity": "Air emissions \u2014 Particulate matter",
+  "document_type": "STACK_MONITORING_REPORT",
+  "expected": {
+   "quantity": "128.71",
+   "unit": "kg",
+   "reference": "MEIL-202510-043"
+  },
+  "fields": {
+   "quantity": "128.71",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-043",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/EHS - Environment/043 PM_EMISSIONS.jpg",
+  "mime": "image/jpeg",
+  "feed_file": "October 2025/documents/BEST Mumbai e-buses/EHS - Environment/043 PM_EMISSIONS.jpg"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "DIESEL_CONSUMPTION",
+  "activity": "Diesel Consumption",
+  "document_type": "DIESEL_INVOICE",
+  "expected": {
+   "quantity": "1300.00",
+   "unit": "Litres",
+   "reference": "MEIL-202510-045"
+  },
+  "fields": {
+   "quantity": "1300.00",
+   "unit": "Litres",
+   "invoice_number": "MEIL-202510-045",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Project Manager/045 DIESEL_CONSUMPTION.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/Project Manager/045 DIESEL_CONSUMPTION.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "GRID_ELECTRICITY",
+  "activity": "Grid Electricity Consumption",
+  "document_type": "ELECTRICITY_BILL",
+  "expected": {
+   "consumption": "89856",
+   "unit": "kWh"
+  },
+  "fields": {
+   "consumption": "89856",
+   "unit": "kWh",
+   "invoice_number": "MEIL-202510-046",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Project Manager/046 GRID_ELECTRICITY.png",
+  "mime": "image/png",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/Project Manager/046 GRID_ELECTRICITY.png"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "WATER_CONSUMPTION",
+  "activity": "Water consumption",
+  "document_type": "WATER_BILL",
+  "expected": {
+   "withdrawal": "1300.00",
+   "discharge": "416.00",
+   "unit": "KL"
+  },
+  "fields": {
+   "withdrawal": "1300.00",
+   "discharge": "416.00",
+   "unit": "KL",
+   "invoice_number": "MEIL-202510-047",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/EHS - Environment/047 WATER_CONSUMPTION.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/EHS - Environment/047 WATER_CONSUMPTION.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "WASTE_DISPOSED",
+  "activity": "Waste Disposed",
+  "document_type": "WASTE_DISPOSAL_CERTIFICATE",
+  "expected": {
+   "quantity": "2600.00",
+   "unit": "kg",
+   "route": "Landfill"
+  },
+  "fields": {
+   "quantity": "2600.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-048",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/EHS - Environment/048 WASTE_DISPOSED.jpg",
+  "mime": "image/jpeg",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/EHS - Environment/048 WASTE_DISPOSED.jpg"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "SAFETY_EMPLOYEES",
+  "activity": "Safety incidents \u2014 employees",
+  "document_type": "SAFETY_INCIDENT_STATEMENT",
+  "expected": {
+   "person_hours": "37440",
+   "lost_time": "0",
+   "recordable": "1"
+  },
+  "fields": {
+   "person_hours": "37440",
+   "lost_time_injuries": "0",
+   "recordable_injuries": "1",
+   "fatalities": "0",
+   "high_consequence_injuries": "0",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/EHS - Environment/050 SAFETY_EMPLOYEES.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/EHS - Environment/050 SAFETY_EMPLOYEES.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "HR",
+  "metric": "WORKFORCE_GENDER",
+  "activity": "Employees by gender",
+  "document_type": "WORKFORCE_STATEMENT",
+  "expected": {
+   "total": "187",
+   "women": "43",
+   "men": "144"
+  },
+  "fields": {
+   "total_employees": "187",
+   "female_employees": "43",
+   "male_employees": "144",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/HR/051 WORKFORCE_GENDER.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/HR/051 WORKFORCE_GENDER.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "HR",
+  "metric": "WORKFORCE_TRAINING",
+  "activity": "Employees trained",
+  "document_type": "TRAINING_RECORD",
+  "expected": {
+   "total": "187",
+   "trained": "153"
+  },
+  "fields": {
+   "total_employees": "187",
+   "trained_employees": "153",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/HR/052 WORKFORCE_TRAINING.png",
+  "mime": "image/png",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/HR/052 WORKFORCE_TRAINING.png"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Finance - CSR",
+  "metric": "BUSINESS_TRAVEL_AIR",
+  "activity": "Business Travel \u2014 Air",
+  "document_type": "TRAVEL_INVOICE",
+  "expected": {
+   "quantity": "50544.00",
+   "unit": "km",
+   "reference": "MEIL-202510-054"
+  },
+  "fields": {
+   "quantity": "50544.00",
+   "unit": "km",
+   "invoice_number": "MEIL-202510-054",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Finance - CSR/054 BUSINESS_TRAVEL_AIR.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/Finance - CSR/054 BUSINESS_TRAVEL_AIR.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Finance - CSR",
+  "metric": "BUSINESS_TRAVEL_RAIL",
+  "activity": "Business Travel \u2014 Rail",
+  "document_type": "TRAVEL_INVOICE",
+  "expected": {
+   "quantity": "22152.00",
+   "unit": "km",
+   "reference": "MEIL-202510-055"
+  },
+  "fields": {
+   "quantity": "22152.00",
+   "unit": "km",
+   "invoice_number": "MEIL-202510-055",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Finance - CSR/055 BUSINESS_TRAVEL_RAIL.jpg",
+  "mime": "image/jpeg",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/Finance - CSR/055 BUSINESS_TRAVEL_RAIL.jpg"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Finance - CSR",
+  "metric": "BUSINESS_TRAVEL_SPEND",
+  "activity": "Business Travel \u2014 other modes (spend)",
+  "document_type": "TRAVEL_INVOICE",
+  "expected": {
+   "quantity": "46800.00",
+   "unit": "INR",
+   "reference": "MEIL-202510-057"
+  },
+  "fields": {
+   "quantity": "46800.00",
+   "unit": "INR",
+   "invoice_number": "MEIL-202510-057",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Finance - CSR/057 BUSINESS_TRAVEL_SPEND.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/Finance - CSR/057 BUSINESS_TRAVEL_SPEND.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Procurement",
+  "metric": "FREIGHT_OUT_LDV",
+  "activity": "Downstream logistics \u2014 light truck (under 3.5 t)",
+  "document_type": "FREIGHT_INVOICE",
+  "expected": {
+   "quantity": "2184.00",
+   "unit": "km",
+   "reference": "MEIL-202510-058"
+  },
+  "fields": {
+   "quantity": "2184.00",
+   "unit": "km",
+   "invoice_number": "MEIL-202510-058",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Procurement/058 FREIGHT_OUT_LDV.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/Procurement/058 FREIGHT_OUT_LDV.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Procurement",
+  "metric": "FREIGHT_OUT_MDV",
+  "activity": "Downstream logistics \u2014 medium truck (under 12 t)",
+  "document_type": "FREIGHT_INVOICE",
+  "expected": {
+   "quantity": "4888.00",
+   "unit": "km",
+   "reference": "MEIL-202510-059"
+  },
+  "fields": {
+   "quantity": "4888.00",
+   "unit": "km",
+   "invoice_number": "MEIL-202510-059",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Procurement/059 FREIGHT_OUT_MDV.png",
+  "mime": "image/png",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/Procurement/059 FREIGHT_OUT_MDV.png"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Procurement",
+  "metric": "MSME_PROCUREMENT",
+  "activity": "MSME share of procurement",
+  "document_type": "PROCUREMENT_STATEMENT",
+  "expected": {
+   "total_spend": "24960000",
+   "msme_spend": "6240000",
+   "unit": "INR"
+  },
+  "fields": {
+   "total_spend": "24960000",
+   "msme_spend": "6240000",
+   "unit": "INR",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Procurement/061 MSME_PROCUREMENT.pdf",
+  "mime": "application/pdf",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/Procurement/061 MSME_PROCUREMENT.pdf"
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Finance - CSR",
+  "metric": "CSR_EXPENDITURE",
+  "activity": "CSR expenditure",
+  "document_type": "CSR_PAYMENT_RECORD",
+  "expected": {
+   "amount": "520000",
+   "unit": "INR"
+  },
+  "fields": {
+   "amount": "520000",
+   "unit": "INR",
+   "invoice_number": "MEIL-202510-062",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Finance - CSR/062 CSR_EXPENDITURE.jpg",
+  "mime": "image/jpeg",
+  "feed_file": "October 2025/documents/Seetharampur plant, Telangana/Finance - CSR/062 CSR_EXPENDITURE.jpg"
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "SAFETY_WORKERS",
+  "activity": "Safety incidents \u2014 workers",
+  "document_type": "SAFETY_INCIDENT_STATEMENT",
+  "expected": {
+   "person_hours": "199680",
+   "lost_time": "1",
+   "recordable": "3"
+  },
+  "fields": {
+   "person_hours": "199680",
+   "lost_time_injuries": "1",
+   "recordable_injuries": "3",
+   "fatalities": "0",
+   "high_consequence_injuries": "0",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/EHS - Environment/multi-bill (2 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/MSRTC e-bus order - SAFETY_WORKERS (page 1).pdf",
+  "page": 1
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "REFRIGERANT_R32",
+  "activity": "Refrigerant top-up \u2014 R-32",
+  "document_type": "REFRIGERANT_RECORD",
+  "expected": {
+   "quantity": "3.49",
+   "unit": "kg",
+   "reference": "MEIL-202510-021"
+  },
+  "fields": {
+   "quantity": "3.49",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-021",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/EHS - Environment/multi-bill (2 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/MSRTC e-bus order - REFRIGERANT_R32 (page 2).pdf",
+  "page": 2
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "PETROL_CONSUMPTION",
+  "activity": "Petrol Consumption",
+  "document_type": "FUEL_INVOICE",
+  "expected": {
+   "quantity": "532.48",
+   "unit": "Litres",
+   "reference": "MEIL-202510-009"
+  },
+  "fields": {
+   "quantity": "532.48",
+   "unit": "Litres",
+   "invoice_number": "MEIL-202510-009",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/Project Manager/Petrol Consumption.pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/MSRTC e-bus order - PETROL_CONSUMPTION (page 1).pdf",
+  "page": 1
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "Procurement",
+  "metric": "FREIGHT_IN_LDV",
+  "activity": "Supplier logistics \u2014 light truck (under 3.5 t)",
+  "document_type": "FREIGHT_INVOICE",
+  "expected": {
+   "quantity": "3161.60",
+   "unit": "km",
+   "reference": "MEIL-202510-014"
+  },
+  "fields": {
+   "quantity": "3161.60",
+   "unit": "km",
+   "invoice_number": "MEIL-202510-014",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/Procurement/multi-bill (2 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/MSRTC e-bus order - FREIGHT_IN_LDV (page 1).pdf",
+  "page": 1
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "Procurement",
+  "metric": "FREIGHT_SPEND",
+  "activity": "Supplier logistics (spend)",
+  "document_type": "FREIGHT_INVOICE",
+  "expected": {
+   "quantity": "320320.00",
+   "unit": "INR",
+   "reference": "MEIL-202510-017"
+  },
+  "fields": {
+   "quantity": "320320.00",
+   "unit": "INR",
+   "invoice_number": "MEIL-202510-017",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/Procurement/multi-bill (2 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/MSRTC e-bus order - FREIGHT_SPEND (page 2).pdf",
+  "page": 2
+ },
+ {
+  "month": "October 2025",
+  "unit": "MSRTC e-bus order",
+  "unit_code": "",
+  "role": "HR",
+  "metric": "COMMUTING_BUS",
+  "activity": "Employee commuting \u2014 bus (distance)",
+  "document_type": "EMPLOYEE_TRANSPORT_INVOICE",
+  "expected": {
+   "quantity": "123136.00",
+   "unit": "km",
+   "reference": "MEIL-202510-018"
+  },
+  "fields": {
+   "quantity": "123136.00",
+   "unit": "km",
+   "invoice_number": "MEIL-202510-018",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/MSRTC e-bus order/HR/Employee commuting \u2014 bus (distance).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/MSRTC e-bus order - COMMUTING_BUS (page 1).pdf",
+  "page": 1
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "SAFETY_WORKERS",
+  "activity": "Safety incidents \u2014 workers",
+  "document_type": "SAFETY_INCIDENT_STATEMENT",
+  "expected": {
+   "person_hours": "349440",
+   "lost_time": "1",
+   "recordable": "3"
+  },
+  "fields": {
+   "person_hours": "349440",
+   "lost_time_injuries": "1",
+   "recordable_injuries": "3",
+   "fatalities": "0",
+   "high_consequence_injuries": "0",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/EHS - Environment/multi-bill (3 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/BEST Mumbai e-buses - SAFETY_WORKERS (page 1).pdf",
+  "page": 1
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "NOX_EMISSIONS",
+  "activity": "Air emissions \u2014 NOx",
+  "document_type": "STACK_MONITORING_REPORT",
+  "expected": {
+   "quantity": "600.75",
+   "unit": "kg",
+   "reference": "MEIL-202510-041"
+  },
+  "fields": {
+   "quantity": "600.75",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-041",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/EHS - Environment/multi-bill (3 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/BEST Mumbai e-buses - NOX_EMISSIONS (page 2).pdf",
+  "page": 2
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "SF6_TOPUP",
+  "activity": "SF6 top-up",
+  "document_type": "REFRIGERANT_RECORD",
+  "expected": {
+   "quantity": "2.62",
+   "unit": "kg",
+   "reference": "MEIL-202510-044"
+  },
+  "fields": {
+   "quantity": "2.62",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-044",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/EHS - Environment/multi-bill (3 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/BEST Mumbai e-buses - SF6_TOPUP (page 3).pdf",
+  "page": 3
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "COAL_ANTHRACITE",
+  "activity": "Coal \u2014 Anthracite",
+  "document_type": "FUEL_INVOICE",
+  "expected": {
+   "quantity": "61152.00",
+   "unit": "kg",
+   "reference": "MEIL-202510-032"
+  },
+  "fields": {
+   "quantity": "61152.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-032",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/Project Manager/multi-bill (3 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/BEST Mumbai e-buses - COAL_ANTHRACITE (page 1).pdf",
+  "page": 1
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "PURCHASED_STEAM",
+  "activity": "Purchased steam",
+  "document_type": "STEAM_HEAT_INVOICE",
+  "expected": {
+   "quantity": "61152.00",
+   "unit": "kg",
+   "reference": "MEIL-202510-038"
+  },
+  "fields": {
+   "quantity": "61152.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-038",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/Project Manager/multi-bill (3 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/BEST Mumbai e-buses - PURCHASED_STEAM (page 2).pdf",
+  "page": 2
+ },
+ {
+  "month": "October 2025",
+  "unit": "BEST Mumbai e-buses",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "COAL_LIGNITE",
+  "activity": "Coal \u2014 Lignite",
+  "document_type": "FUEL_INVOICE",
+  "expected": {
+   "quantity": "139776.00",
+   "unit": "kg",
+   "reference": "MEIL-202510-035"
+  },
+  "fields": {
+   "quantity": "139776.00",
+   "unit": "kg",
+   "invoice_number": "MEIL-202510-035",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/BEST Mumbai e-buses/Project Manager/multi-bill (3 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/BEST Mumbai e-buses - COAL_LIGNITE (page 3).pdf",
+  "page": 3
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "EHS - Environment",
+  "metric": "SAFETY_WORKERS",
+  "activity": "Safety incidents \u2014 workers",
+  "document_type": "SAFETY_INCIDENT_STATEMENT",
+  "expected": {
+   "person_hours": "249600",
+   "lost_time": "1",
+   "recordable": "3"
+  },
+  "fields": {
+   "person_hours": "249600",
+   "lost_time_injuries": "1",
+   "recordable_injuries": "3",
+   "fatalities": "0",
+   "high_consequence_injuries": "0",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/EHS - Environment/Safety incidents \u2014 workers.pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/Seetharampur plant, Telangana - SAFETY_WORKERS (page 1).pdf",
+  "page": 1
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "RENEWABLE_ELECTRICITY",
+  "activity": "Renewable Electricity",
+  "document_type": "RENEWABLE_CERTIFICATE",
+  "expected": {
+   "consumption": "19136",
+   "unit": "kWh",
+   "source": "Solar"
+  },
+  "fields": {
+   "consumption": "19136",
+   "unit": "kWh",
+   "source_classification": "Solar",
+   "invoice_number": "MEIL-202510-053",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Project Manager/Renewable Electricity.pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/Seetharampur plant, Telangana - RENEWABLE_ELECTRICITY (page 1).pdf",
+  "page": 1
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Finance - CSR",
+  "metric": "BUSINESS_TRAVEL_ROAD",
+  "activity": "Business Travel \u2014 Bus / Road",
+  "document_type": "TRAVEL_INVOICE",
+  "expected": {
+   "quantity": "9828.00",
+   "unit": "km",
+   "reference": "MEIL-202510-056"
+  },
+  "fields": {
+   "quantity": "9828.00",
+   "unit": "km",
+   "invoice_number": "MEIL-202510-056",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Finance - CSR/multi-bill (2 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/Seetharampur plant, Telangana - BUSINESS_TRAVEL_ROAD (page 1).pdf",
+  "page": 1
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Finance - CSR",
+  "metric": "FINES_PENALTIES",
+  "activity": "Fines and penalties",
+  "document_type": "PENALTY_ORDER",
+  "expected": {
+   "amount": "25000",
+   "unit": "INR"
+  },
+  "fields": {
+   "amount": "25000",
+   "unit": "INR",
+   "invoice_number": "MEIL-202510-063",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Finance - CSR/multi-bill (2 bills).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/Seetharampur plant, Telangana - FINES_PENALTIES (page 2).pdf",
+  "page": 2
+ },
+ {
+  "month": "October 2025",
+  "unit": "Seetharampur plant, Telangana",
+  "unit_code": "",
+  "role": "Procurement",
+  "metric": "FREIGHT_OUT_HDV",
+  "activity": "Downstream logistics \u2014 heavy truck (over 12 t)",
+  "document_type": "FREIGHT_INVOICE",
+  "expected": {
+   "quantity": "9256.00",
+   "unit": "km",
+   "reference": "MEIL-202510-060"
+  },
+  "fields": {
+   "quantity": "9256.00",
+   "unit": "km",
+   "invoice_number": "MEIL-202510-060",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/Seetharampur plant, Telangana/Procurement/Downstream logistics \u2014 heavy truck (over 12 t).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/Seetharampur plant, Telangana - FREIGHT_OUT_HDV (page 1).pdf",
+  "page": 1
+ },
+ {
+  "month": "October 2025",
+  "unit": "TGSRTC Telangana",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "DIESEL_CONSUMPTION",
+  "activity": "Diesel Consumption",
+  "document_type": "DIESEL_INVOICE",
+  "expected": {
+   "quantity": "520.00",
+   "unit": "Litres",
+   "reference": "MEIL-202510-064"
+  },
+  "fields": {
+   "quantity": "520.00",
+   "unit": "Litres",
+   "invoice_number": "MEIL-202510-064",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/TGSRTC Telangana/Project Manager/multi-bill (3 bills in one PDF).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/TGSRTC Telangana - DIESEL_CONSUMPTION (page 1).pdf",
+  "page": 1
+ },
+ {
+  "month": "October 2025",
+  "unit": "TGSRTC Telangana",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "GRID_ELECTRICITY",
+  "activity": "Grid Electricity Consumption",
+  "document_type": "ELECTRICITY_BILL",
+  "expected": {
+   "consumption": "35942",
+   "unit": "kWh"
+  },
+  "fields": {
+   "consumption": "35942",
+   "unit": "kWh",
+   "invoice_number": "MEIL-202510-065",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/TGSRTC Telangana/Project Manager/multi-bill (3 bills in one PDF).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/TGSRTC Telangana - GRID_ELECTRICITY (page 2).pdf",
+  "page": 2
+ },
+ {
+  "month": "October 2025",
+  "unit": "TGSRTC Telangana",
+  "unit_code": "",
+  "role": "Project Manager",
+  "metric": "PETROL_CONSUMPTION",
+  "activity": "Petrol Consumption",
+  "document_type": "FUEL_INVOICE",
+  "expected": {
+   "quantity": "266.24",
+   "unit": "Litres",
+   "reference": "MEIL-202510-066"
+  },
+  "fields": {
+   "quantity": "266.24",
+   "unit": "Litres",
+   "invoice_number": "MEIL-202510-066",
+   "billing_period": "01-Oct-2025 to 31-Oct-2025"
+  },
+  "file": "documents/TGSRTC Telangana/Project Manager/multi-bill (3 bills in one PDF).pdf",
+  "mime": "application/pdf",
+  "feed_file": "_feed/October 2025/TGSRTC Telangana - PETROL_CONSUMPTION (page 3).pdf",
+  "page": 3
+ }
+]

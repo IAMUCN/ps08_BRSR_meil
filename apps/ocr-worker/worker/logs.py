@@ -30,7 +30,15 @@ def setup(sentry_dsn: str) -> logging.Logger:
     if sentry_dsn:
         import sentry_sdk
 
-        sentry_sdk.init(dsn=sentry_dsn, send_default_pii=False)
+        # An error report carries the error and where it happened, nothing a document or a
+        # setting held: by default the SDK also sends each stack frame's local variables, which
+        # here can be the text read from an uploaded document or the database address.
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            send_default_pii=False,
+            include_local_variables=False,
+            max_request_body_size="never",
+        )
     return logging.getLogger("ocr_worker")
 
 

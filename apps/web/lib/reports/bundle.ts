@@ -288,8 +288,8 @@ export async function generateAuditEvidenceBundle(
            r.validation_status::text as validation_status,
            r.approval_status::text as approval_status,
            r.data_quality_state::text as data_quality_state,
-           r.source, u_v.display_name as verified_by, r.verified_at,
-           u_a.display_name as approved_by, r.approved_at, r.created_at
+           ver.source, u_v.display_name as verified_by, ver.verified_at,
+           ap.approved_by, ap.approved_at, r.created_at
     from public.esg_records r
     join public.esg_metrics m on m.id = r.metric_id
     left join public.scopes sc on sc.id = m.scope_id
@@ -297,7 +297,18 @@ export async function generateAuditEvidenceBundle(
     join public.org_units o on o.id = r.org_unit_id
     join public.reporting_periods p on p.id = r.reporting_period_id
     left join public.users u_v on u_v.id = r.verified_by
-    left join public.users u_a on u_a.id = r.approved_by
+    left join lateral (
+      select v.verified_at,
+             case when v.is_manual_exception then 'manual exception' else 'document, verified by a person' end as source
+      from public.verifications v where v.esg_record_id = r.id
+      order by v.verified_at desc limit 1
+    ) ver on true
+    left join lateral (
+      select u.display_name as approved_by, a.decided_at as approved_at
+      from public.approvals a left join public.users u on u.id = a.decided_by
+      where a.esg_record_id = r.id and a.action::text = 'approved'
+      order by a.decided_at desc limit 1
+    ) ap on true
     where r.org_unit_id in ${sql(orgUnitIds)}
       ${periodIds.length > 0 ? sql`and r.reporting_period_id in ${sql(periodIds)}` : sql``}
     order by p.start_date, o.name, m.name`;
@@ -360,11 +371,16 @@ export async function generateAuditEvidenceBundle(
       : await sql<CalculationRow[]>`
           select c.id, c.esg_record_id, f.formula_type::text as formula_type,
                  c.result_value::float as result_value, c.result_unit,
-                 c.version, c.calculated_at, u.display_name as calculated_by,
-                 c.trace_log
+                 coalesce(f.version, 1) as version, c.calculated_at,
+                 c.engine_version as calculated_by,
+                 jsonb_build_object(
+                   'engine_version', c.engine_version,
+                   'input_value', c.input_value, 'input_unit', c.input_unit,
+                   'normalized_value', c.normalized_value, 'normalized_unit', c.normalized_unit,
+                   'factor_value', c.factor_value_snapshot,
+                   'conversion_factor_version_id', c.conversion_factor_version_id) as trace_log
           from public.calculations c
-          left join public.calculation_formulas f on f.id = c.formula_id
-          left join public.users u on u.id = c.calculated_by
+          left join public.calculation_formulas f on f.id = c.calculation_formula_id
           where c.esg_record_id in ${sql(recordIds)} and c.is_current`;
 
   const calculationIds = calculations.map((c) => c.id);
@@ -373,15 +389,23 @@ export async function generateAuditEvidenceBundle(
     calculationIds.length === 0
       ? []
       : await sql<CalcInputRow[]>`
-          select ci.calculation_id, ci.input_key, ci.input_value::float, ci.unit,
-                 ci.conversion_factor_version_id as factor_version_id,
-                 cf.name as factor_name, cfv.factor_value::float as factor_value,
-                 cfv.factor_unit, cfv.version as factor_version,
-                 cfv.source_reference, cfv.source_url
-          from public.calculation_inputs ci
-          left join public.conversion_factor_versions cfv on cfv.id = ci.conversion_factor_version_id
-          left join public.conversion_factors cf on cf.id = cfv.factor_id
-          where ci.calculation_id in ${sql(calculationIds)}`;
+          select c.id as calculation_id, coalesce(ci.input_key, 'activity') as input_key,
+                 coalesce(ci.input_value, c.normalized_value)::float as input_value,
+                 coalesce(ci.input_unit, c.normalized_unit) as unit,
+                 c.conversion_factor_version_id as factor_version_id,
+                 cf.name as factor_name, c.factor_value_snapshot::float as factor_value,
+                 case when cfv.id is null then null
+                      else cfv.output_unit || ' per ' || cfv.input_unit end as factor_unit,
+                 cfv.version_number as factor_version,
+                 cfv.source_reference, null::text as source_url
+          from public.calculations c
+          left join public.calculation_inputs ci on ci.calculation_id = c.id
+          left join public.conversion_factor_versions cfv on cfv.id = c.conversion_factor_version_id
+          left join public.conversion_factors cf on cf.id = cfv.conversion_factor_id
+          -- A calculation that multiplies one activity value by a factor stores no input rows: it is
+          -- listed once, with its normalised value, so every factor used appears in the bundle.
+          where c.id in ${sql(calculationIds)}
+            and (ci.id is not null or c.conversion_factor_version_id is not null)`;
 
   // 5. Collect documents, joins and OCR extractions
   const documents: DocumentRow[] =
@@ -397,7 +421,7 @@ export async function generateAuditEvidenceBundle(
           join public.users u on u.id = d.uploaded_by
           left join lateral (
             select status, model_version from public.ocr_jobs
-            where document_id = d.id order by created_at desc limit 1
+            where document_id = d.id order by started_at desc nulls last limit 1
           ) j on true
           where erd.esg_record_id in ${sql(recordIds)}`;
 
@@ -407,11 +431,11 @@ export async function generateAuditEvidenceBundle(
     documentIds.length === 0
       ? []
       : await sql<ExtractionRow[]>`
-          select j.document_id, e.field_key, e.extracted_value,
-                 e.confidence_score::float, e.page_number
-          from public.ocr_extractions e
-          join public.ocr_jobs j on j.id = e.job_id
-          where j.document_id in ${sql(documentIds)}`;
+          select e.document_id, f.field_key, coalesce(f.extracted_value, '') as extracted_value,
+                 coalesce(f.confidence, 0)::float as confidence_score, null::int as page_number
+          from public.ocr_fields f
+          join public.ocr_extractions e on e.id = f.ocr_extraction_id
+          where e.document_id in ${sql(documentIds)}`;
 
   // 6. Collect BRSR metric mappings
   const brsrMappings = await sql<
@@ -424,11 +448,11 @@ export async function generateAuditEvidenceBundle(
       is_applicable: boolean;
     }[]
   >`
-    select m.code as metric_code, ind.code as indicator_code, ind.name as indicator_name,
+    select m.code as metric_code, ind.code as indicator_code, ind.question_text as indicator_name,
            ind.principle, ind.indicator_type::text as indicator_type, bmm.is_applicable
     from public.brsr_metric_mappings bmm
-    join public.esg_metrics m on m.id = bmm.metric_id
-    join public.brsr_indicators ind on ind.id = bmm.indicator_id
+    join public.esg_metrics m on m.id = bmm.esg_metric_id
+    join public.brsr_indicators ind on ind.id = bmm.brsr_indicator_id
     order by ind.code`;
 
   // 7. Collect audit events for these records and documents
@@ -449,7 +473,7 @@ export async function generateAuditEvidenceBundle(
         >`
           select a.id, a.event_type, a.entity_type, a.entity_id::text,
                  u.display_name as user_name, a.created_at, a.new_value
-          from public.audit_log a
+          from public.audit_logs a
           left join public.users u on u.id = a.user_id
           where a.entity_id in ${sql(allEntityIds)}
           order by a.created_at asc`;
@@ -977,7 +1001,7 @@ export async function generateAuditEvidenceBundle(
 
   const safeOrg = sanitizeFilename(targetUnit.code || targetUnit.name);
   const safePeriod = sanitizeFilename(coverageLabel);
-  const filename = `traceesg-evidence-bundle-${safeOrg}-${safePeriod}.zip`;
+  const filename = `emeilsg-evidence-bundle-${safeOrg}-${safePeriod}.zip`;
 
   return {
     buffer: zipBuffer,
