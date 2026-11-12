@@ -573,6 +573,13 @@ export function methodology(s: Snapshot, years: Year[]) {
           "₹ crore",
           years.map((y) => input(y.inputs?.turnoverCr, 2)),
         ) +
+          // BRSR Section A, CSR details (A-24) asks for net worth beside turnover. Reports saved before the
+          // field existed have no value for it and print "Not provided".
+          row(
+            "Net worth",
+            "₹ crore",
+            years.map((y) => input(y.inputs?.netWorthCr, 2)),
+          ) +
           row(
             "Purchasing Power Parity conversion rate",
             "₹ per international dollar",
@@ -600,7 +607,7 @@ export function methodology(s: Snapshot, years: Year[]) {
     ${factors}
     <p><strong>Intensity.</strong> Per rupee of turnover = quantity ÷ revenue from operations. Adjusted for
     PPP = quantity ÷ (revenue from operations ÷ PPP conversion rate), in million international dollars. The
-    figures used:</p>
+    figures used (net worth is not used for intensity; it is stated for BRSR Section A, CSR details):</p>
     ${inputs}
     <p><strong>Assurance.</strong> ${
       s.inputs?.current.assurance ? escapeHtml(s.inputs.current.assurance) : "Not provided."

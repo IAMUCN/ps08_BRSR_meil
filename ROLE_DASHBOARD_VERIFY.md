@@ -42,7 +42,7 @@ Run on the machine that has the local Supabase stack (`D:\Non Newtonian Things\B
 
 - `evidence.read` exists but no page or procedure uses it yet (Auditor dashboard phase).
 - The Auditor's audit-trail view with emails and IPs masked is not built.
-- The net-worth value is stored with the other yearly inputs but not printed in the report yet.
+- Net worth is stored with the yearly inputs and printed in the report's methodology table (unit-tested); not yet in the Excel workbook or the A-24 answer.
 - Not started: the employee register, the dashboard itself.
 
 ## Capture fields and certificates (migration 0069, OCR `rules-15`)
