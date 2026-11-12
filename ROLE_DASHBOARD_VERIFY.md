@@ -174,3 +174,23 @@ these (they are a functional role's own work); each role's tile covers only the 
    certificate, so an old one is not matched to its successor: expired ones older than 90 days are not shown. Please confirm that reading with EHS.
 5. Not built: an Administrator's people-and-access tile (the Super Admin one counts everyone); the Finance disclosure-answers tile; the hierarchy
    configuration tile; collapsible hierarchy rows; the removal of the old `/admin` cards.
+
+## Tiles follow the org picker; duplicate `/admin` cards removed (Phase 5)
+
+Written without a database or a browser; **not run, not seen**. Typecheck, ESLint, Prettier, the production build and the unit tests (356) pass.
+
+1. `dashboard.tiles` takes an optional `orgUnitId`. On `/admin` the unit and period chosen in the picker now narrow every unit-based tile (approvals, flagged
+   for review, missing submissions, emissions, completion, hierarchy, readiness...) to that unit and everything beneath it. It is only ever an **intersection**
+   with what each tile's own permission covers, so choosing a unit outside someone's scope removes those tiles instead of showing them (unit-tested in
+   `narrowScope`; the isolation test calls `dashboard.tiles({ orgUnitId: Q })` for every persona). System tiles (system health, factors, people and
+   access, reports and audit activity) and tiles about the person's own records ignore the choice.
+2. Removed from `/admin` because a tile now carries them and follows the picker: the four pipeline cards (Submission, Evidence, Validation, Approval
+   completion: the Reporting completion rings), the BRSR Readiness card (the BRSR readiness tile, which lists the parts; the weights popover is gone from the
+   dashboard), and the Issues rows "Projects with missing submissions" and "Pending approvals". Check the numbers still agree: the Pending approvals tile
+   does not count the viewer's own records, the old Issues row did; the Missing submissions tile counts expected submissions, the old row counted projects.
+   Kept: Scope 1/2/3 completion cards, the other Issues rows, the KPI trends card, the header counts.
+3. Check on `/admin` as a Super Admin, as an Administrator and as Corporate ESG: change the unit picker and watch the tiles change scope caption; pick the
+   whole group and nothing should differ from before the change.
+4. Not built: a chatbot tile (the Ask panel opens from the top bar and needs a client action; a link-only tile would be a placeholder), the Deadlines engine
+   as the third source of "overdue" (the band counts missing submissions after the due date and a period past due only), a unit picker on `/app` for Corporate
+   ESG (their tiles use their whole scope).

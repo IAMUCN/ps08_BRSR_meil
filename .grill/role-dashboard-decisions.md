@@ -261,3 +261,9 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
 - Certificates: expired within 90 days or expiring within 60 days (the owner's window) are listed; older expired ones are history.
 - Not done: Administrator's people-and-access tile, Finance disclosure answers tile, hierarchy configuration tile (Super Admin only), collapsible
   hierarchy rows, removing the old `/admin` cards, EHS and Procurement typed-answer permissions (the owner has not decided).
+
+## Phase 5 built (2026-11-13): tiles follow the org picker; duplicates removed (unverified)
+- `dashboard.tiles({ periodId, orgUnitId })`: the chosen unit narrows each unit-based tile by intersection with its own scope (`narrowScope`, pure,
+  tested). Tiles marked `global` (system health, factors, people and access, reports and audit activity) and own-record tiles do not narrow.
+- Removed on `/admin`: pipeline cards, BRSR Readiness card, two Issues rows, all of which a tile now carries. The owner asked for the duplicates to go.
+- Left for the owner: a chatbot tile, the Deadlines engine as a source of "overdue", and a picker on `/app`.

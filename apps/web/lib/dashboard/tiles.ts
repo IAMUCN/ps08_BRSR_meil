@@ -42,12 +42,20 @@ export type TileDef = {
   rank: number;
   /** "kpi" is a small figure card (the default); "wide" holds a chart or list and has its own heading. */
   size?: "kpi" | "wide";
+  /** About the system, not about org units: choosing a unit on the dashboard does not narrow it. */
+  global?: boolean;
 };
 
 /** The tiles built so far. Later phases add rows here and a loader in lib/dashboard/loaders.ts. */
 export const TILES: TileDef[] = [
   { id: "period", title: "Reporting period", requires: { kind: "self" }, rank: 10 },
-  { id: "system-health", title: "System health", requires: { kind: "super_admin" }, rank: 20 },
+  {
+    id: "system-health",
+    title: "System health",
+    requires: { kind: "super_admin" },
+    rank: 20,
+    global: true,
+  },
   {
     id: "approval-queue",
     title: "Pending approvals",
@@ -179,18 +187,21 @@ export const TILES: TileDef[] = [
     title: "Conversion factors",
     requires: { kind: "super_admin" },
     rank: 70,
+    global: true,
   },
   {
     id: "users-access",
     title: "People and access",
     requires: { kind: "super_admin" },
     rank: 75,
+    global: true,
   },
   {
     id: "activity",
     title: "Reports and audit activity",
     requires: { kind: "super_admin" },
     rank: 80,
+    global: true,
   },
 ];
 
@@ -271,6 +282,41 @@ export function visibleTiles(tiles: TileDef[], facts: Facts): ResolvedTile[] {
     out.push({ ...tile, scope });
   }
   return out;
+}
+
+/**
+ * Narrows a tile's scope to the units in `within` (a unit chosen on the dashboard and everything beneath it).
+ * Only ever an intersection, so a tile can never cover a unit its permission does not: the Super Admin's whole
+ * group becomes the chosen unit, anyone else keeps the part of their own scope inside it, and a tile left with
+ * nothing is dropped (null). `within` null means no choice was made.
+ */
+export function narrowScope(scope: TileScope, within: string[] | null): TileScope | null {
+  if (within === null) return scope;
+  const keep = new Set(within);
+  switch (scope.kind) {
+    case "self":
+      return scope;
+    case "all":
+      return within.length > 0 ? { kind: "units", units: within } : null;
+    case "units": {
+      const units = scope.units.filter((u) => keep.has(u));
+      return units.length > 0 ? { kind: "units", units } : null;
+    }
+    case "roles": {
+      const grants = scope.grants
+        .map((g) => ({ ...g, units: g.units.filter((u) => keep.has(u)) }))
+        .filter((g) => g.units.length > 0);
+      return grants.length > 0 ? { kind: "roles", grants } : null;
+    }
+  }
+}
+
+export function narrowTiles(tiles: ResolvedTile[], within: string[] | null): ResolvedTile[] {
+  return tiles.flatMap((t) => {
+    if (t.global) return [t];
+    const scope = narrowScope(t.scope, within);
+    return scope ? [{ ...t, scope }] : [];
+  });
 }
 
 function scopeFor(requires: Requirement, facts: Facts): TileScope | null {

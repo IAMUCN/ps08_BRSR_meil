@@ -4,6 +4,8 @@ import {
   arrange,
   buildFacts,
   mapLimit,
+  narrowScope,
+  narrowTiles,
   TILES,
   visibleTiles,
   type TileData,
@@ -231,4 +233,49 @@ test("mapLimit never has more than the limit in flight and keeps the order", asy
   });
   assert.deepEqual(out, [2, 4, 6, 8, 10, 12, 14]);
   assert.ok(peak <= 3);
+});
+
+test("narrowing to a chosen unit only ever intersects: nobody gains a unit their permission does not cover", () => {
+  const within = ["subS", "projS"];
+  assert.deepEqual(narrowScope({ kind: "all" }, within), { kind: "units", units: within });
+  assert.deepEqual(narrowScope({ kind: "units", units: ["subS", "projS", "projA"] }, within), {
+    kind: "units",
+    units: ["subS", "projS"],
+  });
+  // A unit outside the person's scope leaves nothing, so the tile goes.
+  assert.equal(narrowScope({ kind: "units", units: ["projA"] }, within), null);
+  assert.equal(narrowScope({ kind: "all" }, []), null);
+  // No choice made: unchanged. Own records are not about units.
+  assert.deepEqual(narrowScope({ kind: "units", units: ["projA"] }, null), {
+    kind: "units",
+    units: ["projA"],
+  });
+  assert.deepEqual(narrowScope({ kind: "self" }, within), { kind: "self" });
+  assert.deepEqual(
+    narrowScope(
+      {
+        kind: "roles",
+        grants: [
+          { role: "hr", units: ["subS", "projS"] },
+          { role: "ehs", units: ["projA"] },
+        ],
+      },
+      ["projS"],
+    ),
+    { kind: "roles", grants: [{ role: "hr", units: ["projS"] }] },
+  );
+});
+
+test("narrowTiles: units-based tiles follow the choice, system tiles and own-record tiles do not", () => {
+  const tiles = visibleTiles(TILES, superAdmin);
+  const narrowed = narrowTiles(tiles, ["projA"]);
+  const byId = (id: string) => narrowed.find((t) => t.id === id);
+  assert.deepEqual(byId("approval-queue")?.scope, { kind: "units", units: ["projA"] });
+  assert.deepEqual(byId("system-health")?.scope, { kind: "all" });
+  assert.deepEqual(byId("factors")?.scope, { kind: "all" });
+  assert.deepEqual(byId("period")?.scope, { kind: "self" });
+  // A Corporate ESG user choosing a unit outside theirs keeps only the tiles that are not about units.
+  const outside = narrowTiles(visibleTiles(TILES, corporateEsg), ["projA"]).map((t) => t.id);
+  assert.ok(!outside.includes("approval-queue"));
+  assert.ok(outside.includes("period"));
 });

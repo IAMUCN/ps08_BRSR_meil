@@ -292,6 +292,7 @@ try {
     await p("bundles.discard(PDF of Q)", () => c.bundles.discard({ documentId: QBUNDLE }));
     await p("ocr.submissions()", () => c.ocr.submissions({}));
     await p("dashboard.tiles()", () => c.dashboard.tiles());
+    await p("dashboard.tiles(org unit Q)", () => c.dashboard.tiles({ orgUnitId: QUNIT }));
     await p("ocr.jobs()", () => c.ocr.jobs({}));
     await p("notifications.list()", () => c.notifications.list({}));
     await p("notifications.markRead(B's notification)", async () => {

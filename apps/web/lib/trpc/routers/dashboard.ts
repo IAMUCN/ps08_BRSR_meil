@@ -1,7 +1,14 @@
 import "server-only";
 import { z } from "zod";
 import { createMemo, loadFacts, loadTile } from "@/lib/dashboard/loaders";
-import { arrange, mapLimit, TILES, visibleTiles, type TileData } from "@/lib/dashboard/tiles";
+import {
+  arrange,
+  mapLimit,
+  narrowTiles,
+  TILES,
+  visibleTiles,
+  type TileData,
+} from "@/lib/dashboard/tiles";
 import { db } from "@/lib/db";
 import { protectedProcedure, router } from "@/lib/trpc/init";
 import { resolvePeriod } from "@/lib/trpc/routers/scope";
@@ -26,7 +33,7 @@ export const dashboardRouter = router({
    * a time so the connection pool is never swamped.
    */
   tiles: protectedProcedure
-    .input(z.object({ periodId: z.uuid().optional() }).optional())
+    .input(z.object({ periodId: z.uuid().optional(), orgUnitId: z.uuid().optional() }).optional())
     .query(async ({ ctx, input }): Promise<{ band: TileData[]; grid: TileData[] }> => {
       const sql = db();
       const viewer = {
@@ -38,7 +45,16 @@ export const dashboardRouter = router({
         loadFacts(sql, viewer),
         resolvePeriod(input?.periodId),
       ]);
-      const visible = visibleTiles(TILES, facts);
+      // A unit chosen on the Control Tower narrows the tiles to it and what is beneath it, never beyond what
+      // each tile's own permission already covers (an intersection in narrowTiles).
+      const within = input?.orgUnitId
+        ? (
+            await sql<{ id: string }[]>`
+              select descendant_id::text as id from public.org_unit_tree
+              where ancestor_id = ${input.orgUnitId}`
+          ).map((r) => r.id)
+        : null;
+      const visible = narrowTiles(visibleTiles(TILES, facts), within);
       const memo = createMemo();
       const data = await mapLimit(visible, 3, (tile) =>
         loadTile(tile, { sql, viewer, scope: tile.scope, periodId, memo }),
