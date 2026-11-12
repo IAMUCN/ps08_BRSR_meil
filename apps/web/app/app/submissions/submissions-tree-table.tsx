@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  ChevronDown,
-  ExternalLink,
-  Eye,
-  FileStack,
-  FileText,
-  FolderTree,
-} from "lucide-react";
+import { ChevronDown, ExternalLink, Eye, FileStack, FileText, FolderTree } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { cn } from "cn";
@@ -88,7 +81,8 @@ export function SubmissionsTreeTable({ rows, tabLabel }: SubmissionsTreeTablePro
   };
 
   const allExpanded = bundleGroups.every((b) => isExpanded(b.bundleDocumentId));
-  const noneExpanded = bundleGroups.length > 0 && bundleGroups.every((b) => !isExpanded(b.bundleDocumentId));
+  const noneExpanded =
+    bundleGroups.length > 0 && bundleGroups.every((b) => !isExpanded(b.bundleDocumentId));
 
   return (
     <div className="space-y-2">
@@ -97,7 +91,8 @@ export function SubmissionsTreeTable({ rows, tabLabel }: SubmissionsTreeTablePro
           <div className="flex items-center gap-1.5 font-medium">
             <FolderTree className="size-3.5 text-primary" aria-hidden />
             <span>
-              Tree view active · {bundleGroups.length} multi-bill {bundleGroups.length === 1 ? "PDF" : "PDFs"}
+              Tree view active · {bundleGroups.length} multi-bill{" "}
+              {bundleGroups.length === 1 ? "PDF" : "PDFs"}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -299,7 +294,10 @@ export function SubmissionsTreeTable({ rows, tabLabel }: SubmissionsTreeTablePro
                                 title="Open combined main PDF with all recorded bills"
                               >
                                 <span>{group.bundleFileName}</span>
-                                <ExternalLink className="size-3 text-muted-foreground" aria-hidden />
+                                <ExternalLink
+                                  className="size-3 text-muted-foreground"
+                                  aria-hidden
+                                />
                               </a>
                               <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary whitespace-nowrap">
                                 Combined PDF · {group.records.length}{" "}
@@ -377,9 +375,7 @@ export function SubmissionsTreeTable({ rows, tabLabel }: SubmissionsTreeTablePro
                                   ? attentionLabel(row.attention)
                                   : null;
                         const pageLabelText =
-                          row.pageFrom && row.pageTo
-                            ? pagesLabel(row.pageFrom, row.pageTo)
-                            : null;
+                          row.pageFrom && row.pageTo ? pagesLabel(row.pageFrom, row.pageTo) : null;
 
                         return (
                           <SubmissionRow
