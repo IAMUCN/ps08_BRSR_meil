@@ -79,6 +79,8 @@ const PAGE_PURPOSE: Record<string, string> = {
   "/admin/scope-2": "Scope 2 emissions, from the group down to the document.",
   "/admin/scope-3": "Scope 3 emissions by category, down to the document.",
   "/admin/data-explorer": "Search and filter every record with its value.",
+  "/admin/carbon-intelligence":
+    "Unified carbon analytics, trajectory forecasting and reduction simulations.",
   "/admin/carbon-analytics": "Emissions year on year, suggested actions and alerts.",
   "/admin/forecast": "Projected emissions. Not official BRSR data.",
   "/admin/simulator": "What-if reductions. Not official BRSR data.",
@@ -113,6 +115,7 @@ const AREA_OF: Record<string, number> = {
   "/admin/scope-2": 2,
   "/admin/scope-3": 2,
   "/admin/data-explorer": 2,
+  "/admin/carbon-intelligence": 2,
   "/admin/carbon-analytics": 2,
   "/admin/forecast": 2,
   "/admin/simulator": 2,

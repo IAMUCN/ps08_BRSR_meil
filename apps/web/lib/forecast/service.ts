@@ -208,24 +208,15 @@ export async function getEmissionsForecast(
   const targetMeta = targetDefs.find((t) => t.code === selectedTarget) ?? targetDefs[0];
   const selectedBucket = scopeMap.get(selectedTarget)!;
 
-  // Build sorted historical observations for all periods that have records
+  // Build sorted historical observations for all periods that have records.
+  // Note: Only periods that actually have recorded data (approved or pending) are included.
+  // Unobserved/future periods must NEVER be converted to zero, as that corrupts the OLS trendline
+  // and causes predictions to collapse into repeated zero values with inflated error intervals.
   const historicalObservations: HistoricalObservation[] = [];
 
   for (const p of periods) {
     const pData = selectedBucket.periods.get(p.id);
-    if (!pData && consolidationRows.length > 0) {
-      // Period exists in calendar but no emissions recorded for this scope
-      historicalObservations.push({
-        periodId: p.id,
-        periodLabel: p.label,
-        startDate: p.start_date,
-        endDate: p.end_date,
-        valueTco2e: 0,
-        approvedRecordCount: 0,
-        pendingRecordCount: 0,
-        uncalculatedRecordCount: 0,
-      });
-    } else if (pData) {
+    if (pData && (pData.appRecords > 0 || pData.approvedTco2e > 0 || pData.pendRecords > 0)) {
       historicalObservations.push({
         periodId: p.id,
         periodLabel: p.label,

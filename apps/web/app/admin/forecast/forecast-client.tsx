@@ -29,10 +29,24 @@ export type ForecastOptions = {
   defaultOrgUnitId: string | null;
 };
 
-export function ForecastClient({ options }: { options: ForecastOptions }) {
+export function ForecastClient({
+  options,
+  initialOrgUnitId,
+  onOrgChange,
+}: {
+  options: ForecastOptions;
+  initialOrgUnitId?: string;
+  onOrgChange?: (id: string) => void;
+}) {
   const [orgUnitId, setOrgUnitId] = useState(
-    options.defaultOrgUnitId ?? options.orgUnits[0]?.id ?? "",
+    initialOrgUnitId ?? options.defaultOrgUnitId ?? options.orgUnits[0]?.id ?? "",
   );
+
+  useEffect(() => {
+    if (initialOrgUnitId && initialOrgUnitId !== orgUnitId) {
+      setOrgUnitId(initialOrgUnitId);
+    }
+  }, [initialOrgUnitId]);
   const [scopeTarget, setScopeTarget] = useState<ForecastScopeTarget>("SCOPE_1");
   const [horizon, setHorizon] = useState<number>(2);
 
@@ -123,7 +137,10 @@ export function ForecastClient({ options }: { options: ForecastOptions }) {
               <NativeSelect
                 id="forecast-org"
                 value={orgUnitId}
-                onChange={(e) => setOrgUnitId(e.target.value)}
+                onChange={(e) => {
+                  setOrgUnitId(e.target.value);
+                  onOrgChange?.(e.target.value);
+                }}
                 className="h-8 text-xs font-medium"
               >
                 {options.orgUnits.map((u) => (
@@ -651,6 +668,8 @@ function ForecastTrajectoryChart({
     confidenceInterval95: { lower: number; upper: number };
   }>;
 }) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
   const allPoints = useMemo(() => {
     const list: Array<{
       label: string;
@@ -661,6 +680,7 @@ function ForecastTrajectoryChart({
       ci95Lower: number | null;
       ci95Upper: number | null;
       isForecast: boolean;
+      approvedRecords?: number;
     }> = [];
 
     for (const h of historical) {
@@ -673,6 +693,7 @@ function ForecastTrajectoryChart({
         ci95Lower: null,
         ci95Upper: null,
         isForecast: false,
+        approvedRecords: h.approvedRecordCount,
       });
     }
 
@@ -692,7 +713,7 @@ function ForecastTrajectoryChart({
     return list;
   }, [historical, predictions]);
 
-  // Compute scale boundaries
+  // Compute scale boundaries with appropriate headroom
   const maxVal = useMemo(() => {
     let max = 1;
     for (const p of allPoints) {
@@ -703,12 +724,12 @@ function ForecastTrajectoryChart({
     return Math.ceil(max * 1.15); // 15% headroom
   }, [allPoints]);
 
-  const svgWidth = 800;
-  const svgHeight = 280;
-  const paddingLeft = 60;
-  const paddingRight = 40;
-  const paddingTop = 30;
-  const paddingBottom = 45;
+  const svgWidth = 860;
+  const svgHeight = 290;
+  const paddingLeft = 65;
+  const paddingRight = 45;
+  const paddingTop = 35;
+  const paddingBottom = 55;
 
   const chartW = svgWidth - paddingLeft - paddingRight;
   const chartH = svgHeight - paddingTop - paddingBottom;
@@ -723,7 +744,7 @@ function ForecastTrajectoryChart({
     .map((x, i) => `${i === 0 ? "M" : "L"} ${getX(x.idx)} ${getY(x.p.actual!)}`)
     .join(" ");
 
-  // Build forecast path (connect from last actual point if available)
+  // Build forecast path (seamlessly connects from last actual point)
   const lastActual = actualIndices[actualIndices.length - 1];
   const forecastIndices = allPoints
     .map((p, idx) => ({ p, idx }))
@@ -741,15 +762,47 @@ function ForecastTrajectoryChart({
     }
   }
 
-  // Build 95% Confidence Band polygon
+  // Build 95% Confidence Band polygon (cone of uncertainty originating at last actual)
   let ci95Polygon = "";
-  if (forecastIndices.length > 0) {
+  if (forecastIndices.length > 0 && lastActual) {
+    const originPoint = `${getX(lastActual.idx)},${getY(lastActual.p.actual!)}`;
+    const topPoints = [
+      originPoint,
+      ...forecastIndices.map((f) => `${getX(f.idx)},${getY(f.p.ci95Upper!)}`),
+    ];
+    const bottomPoints = [...forecastIndices]
+      .reverse()
+      .map((f) => `${getX(f.idx)},${getY(f.p.ci95Lower!)}`);
+    bottomPoints.push(originPoint);
+    ci95Polygon = topPoints.join(" ") + " " + bottomPoints.join(" ");
+  } else if (forecastIndices.length > 0) {
     const topPoints = forecastIndices.map((f) => `${getX(f.idx)},${getY(f.p.ci95Upper!)}`);
     const bottomPoints = [...forecastIndices]
       .reverse()
       .map((f) => `${getX(f.idx)},${getY(f.p.ci95Lower!)}`);
     ci95Polygon = topPoints.join(" ") + " " + bottomPoints.join(" ");
   }
+
+  // Decimate X-axis labels when points exceed 8 to avoid collision
+  const visibleTicks = (() => {
+    const n = allPoints.length;
+    const set = new Set<number>();
+    if (n <= 8) {
+      for (let i = 0; i < n; i++) set.add(i);
+      return set;
+    }
+    const step = Math.ceil(n / 6);
+    set.add(0);
+    for (let i = step; i < n - 1; i += step) {
+      set.add(i);
+    }
+    if (lastActual) set.add(lastActual.idx);
+    if (forecastIndices.length > 0) set.add(forecastIndices[0].idx);
+    set.add(n - 1);
+    return set;
+  })();
+
+  const activePoint = hoveredIdx !== null ? allPoints[hoveredIdx] : null;
 
   return (
     <div className="rounded-lg border border-border bg-card p-5 shadow-xs">
@@ -760,7 +813,7 @@ function ForecastTrajectoryChart({
           </h3>
           <p className="text-xs text-muted-foreground">
             Solid line shows approved historical calculations; dashed line with shaded band shows
-            predicted estimates and uncertainty intervals.
+            predicted estimates and uncertainty intervals. Hover points for exact details.
           </p>
         </div>
 
@@ -768,24 +821,85 @@ function ForecastTrajectoryChart({
         <div className="flex flex-wrap items-center gap-4 text-xs">
           <div className="flex items-center gap-1.5">
             <span className="size-3 rounded-full bg-[var(--chart-primary)]" aria-hidden />
-            <span className="font-medium">Historical Actual</span>
+            <span className="font-medium text-foreground">Historical Actual</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="h-0.5 w-4 border-t-2 border-dashed border-amber-500" aria-hidden />
-            <span className="font-medium text-status-warning">Forecast Estimate</span>
+            <span className="font-medium text-amber-600 dark:text-amber-400">
+              Forecast Estimate
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="size-3 rounded bg-amber-500/20" aria-hidden />
+            <span
+              className="size-3 rounded bg-amber-500/20 border border-amber-500/40"
+              aria-hidden
+            />
             <span className="text-muted-foreground">95% Prediction Interval</span>
           </div>
         </div>
+      </div>
+
+      {/* Interactive Tooltip Card */}
+      <div className="mb-3 min-h-[38px] rounded-md border border-border/70 bg-muted/30 px-3 py-1.5 text-xs">
+        {activePoint ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-foreground">{activePoint.label}</span>
+              <StatusBadge tone={activePoint.isForecast ? "warning" : "success"}>
+                {activePoint.isForecast ? "Statistical Forecast" : "Approved Actual"}
+              </StatusBadge>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <div>
+                <span className="text-muted-foreground">Emissions: </span>
+                <span className="font-mono font-bold text-foreground">
+                  {(activePoint.actual ?? activePoint.predicted ?? 0).toFixed(2)} tCO₂e
+                </span>
+              </div>
+              {activePoint.isForecast && (
+                <>
+                  <div className="text-muted-foreground">
+                    <span>80% CI: </span>
+                    <span className="font-mono text-foreground">
+                      {activePoint.ci80Lower?.toFixed(1)} – {activePoint.ci80Upper?.toFixed(1)}{" "}
+                      tCO₂e
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground">
+                    <span>95% CI: </span>
+                    <span className="font-mono text-foreground">
+                      {activePoint.ci95Lower?.toFixed(1)} – {activePoint.ci95Upper?.toFixed(1)}{" "}
+                      tCO₂e
+                    </span>
+                  </div>
+                </>
+              )}
+              {!activePoint.isForecast && activePoint.approvedRecords !== undefined && (
+                <div className="text-muted-foreground">
+                  <span>Records: </span>
+                  <span className="font-mono font-medium text-foreground">
+                    {activePoint.approvedRecords} approved
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Info className="size-3.5 text-muted-foreground" aria-hidden />
+            <span>
+              Hover over any historical observation or forecast point on the chart to inspect
+              verified values and confidence bounds.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* SVG Canvas */}
       <div className="w-full overflow-x-auto">
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          className="h-auto w-full min-w-[650px] overflow-visible font-sans"
+          className="h-auto w-full min-w-[650px] overflow-visible font-sans select-none"
         >
           {/* Y Axis Grid Lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
@@ -814,6 +928,16 @@ function ForecastTrajectoryChart({
             );
           })}
 
+          {/* Y Axis Unit Label */}
+          <text
+            x={paddingLeft - 8}
+            y={paddingTop - 12}
+            textAnchor="end"
+            className="fill-muted-foreground text-[9px] font-medium uppercase"
+          >
+            tCO₂e
+          </text>
+
           {/* Forecast Transition Vertical Divider */}
           {lastActual && forecastIndices.length > 0 && (
             <g>
@@ -828,8 +952,8 @@ function ForecastTrajectoryChart({
                 strokeDasharray="4,4"
               />
               <text
-                x={getX(lastActual.idx) + 4}
-                y={paddingTop + 12}
+                x={getX(lastActual.idx) + 6}
+                y={paddingTop + 14}
                 className="fill-muted-foreground text-[9px] font-semibold tracking-wide uppercase"
               >
                 Forecast Horizon →
@@ -837,11 +961,14 @@ function ForecastTrajectoryChart({
             </g>
           )}
 
-          {/* 95% Confidence Interval Shaded Band */}
+          {/* 95% Confidence Interval Shaded Band (Fan Chart Cone) */}
           {ci95Polygon && (
             <polygon
               points={ci95Polygon}
-              fill="rgba(245, 158, 11, 0.15)"
+              fill="rgba(245, 158, 11, 0.12)"
+              stroke="rgba(245, 158, 11, 0.35)"
+              strokeWidth={1}
+              strokeDasharray="4,2"
               className="transition-all duration-300"
             />
           )}
@@ -872,65 +999,92 @@ function ForecastTrajectoryChart({
           )}
 
           {/* Historical Markers */}
-          {actualIndices.map((x) => (
-            <g key={`act-${x.idx}`}>
-              <circle
-                cx={getX(x.idx)}
-                cy={getY(x.p.actual!)}
-                r={4.5}
-                fill="var(--chart-primary)"
-                stroke="var(--card)"
-                strokeWidth={2}
-              />
-              <text
-                x={getX(x.idx)}
-                y={getY(x.p.actual!) - 8}
-                textAnchor="middle"
-                className="fill-foreground text-[10px] font-mono font-semibold"
+          {actualIndices.map((x) => {
+            const isHovered = hoveredIdx === x.idx;
+            return (
+              <g
+                key={`act-${x.idx}`}
+                onMouseEnter={() => setHoveredIdx(x.idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+                className="cursor-pointer"
               >
-                {x.p.actual!.toFixed(1)}
-              </text>
-            </g>
-          ))}
+                {/* Invisible larger hover target */}
+                <circle cx={getX(x.idx)} cy={getY(x.p.actual!)} r={12} fill="transparent" />
+                {isHovered && (
+                  <circle
+                    cx={getX(x.idx)}
+                    cy={getY(x.p.actual!)}
+                    r={9}
+                    fill="var(--chart-primary)"
+                    opacity={0.25}
+                    className="animate-ping"
+                  />
+                )}
+                <circle
+                  cx={getX(x.idx)}
+                  cy={getY(x.p.actual!)}
+                  r={isHovered ? 6 : 4.5}
+                  fill="var(--chart-primary)"
+                  stroke="var(--card)"
+                  strokeWidth={2}
+                />
+              </g>
+            );
+          })}
 
           {/* Forecast Markers */}
-          {forecastIndices.map((f) => (
-            <g key={`pred-${f.idx}`}>
-              <circle
-                cx={getX(f.idx)}
-                cy={getY(f.p.predicted!)}
-                r={5}
-                fill="#f59e0b"
-                stroke="var(--card)"
-                strokeWidth={2}
-              />
-              <text
-                x={getX(f.idx)}
-                y={getY(f.p.predicted!) - 8}
-                textAnchor="middle"
-                className="fill-amber-600 dark:fill-amber-400 text-[10px] font-mono font-bold"
+          {forecastIndices.map((f) => {
+            const isHovered = hoveredIdx === f.idx;
+            return (
+              <g
+                key={`pred-${f.idx}`}
+                onMouseEnter={() => setHoveredIdx(f.idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+                className="cursor-pointer"
               >
-                {f.p.predicted!.toFixed(1)}
-              </text>
-            </g>
-          ))}
+                {/* Invisible larger hover target */}
+                <circle cx={getX(f.idx)} cy={getY(f.p.predicted!)} r={12} fill="transparent" />
+                {isHovered && (
+                  <circle
+                    cx={getX(f.idx)}
+                    cy={getY(f.p.predicted!)}
+                    r={10}
+                    fill="#f59e0b"
+                    opacity={0.25}
+                    className="animate-ping"
+                  />
+                )}
+                <circle
+                  cx={getX(f.idx)}
+                  cy={getY(f.p.predicted!)}
+                  r={isHovered ? 6.5 : 5}
+                  fill="#f59e0b"
+                  stroke="var(--card)"
+                  strokeWidth={2}
+                />
+              </g>
+            );
+          })}
 
-          {/* X Axis Labels */}
-          {allPoints.map((p, idx) => (
-            <text
-              key={idx}
-              x={getX(idx)}
-              y={svgHeight - paddingBottom + 18}
-              textAnchor="middle"
-              className={`text-[10px] ${
-                p.isForecast
-                  ? "fill-amber-600 dark:fill-amber-400 font-semibold"
-                  : "fill-muted-foreground"
-              }`}
-            >
-              {p.label}
-            </text>
-          ))}
+          {/* X Axis Labels (Decimated cleanly to avoid overlap) */}
+          {allPoints.map((p, idx) => {
+            if (!visibleTicks.has(idx)) return null;
+            return (
+              <text
+                key={idx}
+                x={getX(idx)}
+                y={svgHeight - paddingBottom + 20}
+                textAnchor="middle"
+                className={`text-[10px] ${
+                  p.isForecast
+                    ? "fill-amber-600 dark:fill-amber-400 font-semibold"
+                    : "fill-muted-foreground"
+                }`}
+              >
+                {p.label}
+              </text>
+            );
+          })}
         </svg>
       </div>
     </div>
