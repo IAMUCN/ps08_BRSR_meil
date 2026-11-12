@@ -34,6 +34,7 @@ const callerFor = (session) =>
 const ID = (n) => `1d0e1d0e-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const A = ID(1),
   B = ID(2),
+  C = ID(3),
   QUNIT = ID(10),
   QDOC = ID(20),
   QREC = ID(30),
@@ -51,6 +52,7 @@ const MARKERS = [
   "IDOR Project Q",
   "idor-secret",
   "idor.b@traceesg.test",
+  "idor.c@traceesg.test",
   "IDOR User B",
   "IDOR private",
 ];
@@ -66,9 +68,9 @@ async function cleanup() {
   await sql`delete from public.esg_record_documents where esg_record_id = ${QREC}`;
   await sql`delete from public.esg_records where id = ${QREC}`;
   await sql`delete from public.documents where id in (${QDOC}, ${QBUNDLE})`;
-  await sql`delete from public.user_org_assignments where user_id in (${A}, ${B})`;
-  await sql`delete from public.users where id in (${A}, ${B})`;
-  await sql`delete from auth.users where id in (${A}, ${B})`;
+  await sql`delete from public.user_org_assignments where user_id in (${A}, ${B}, ${C})`;
+  await sql`delete from public.users where id in (${A}, ${B}, ${C})`;
+  await sql`delete from auth.users where id in (${A}, ${B}, ${C})`;
   await sql`delete from public.org_units where id = ${QUNIT}`;
 }
 
@@ -118,20 +120,24 @@ try {
     await sql`select id, scope_id from public.esg_metrics where code = 'DIESEL_CONSUMPTION'`;
   const [pmRole] = await sql`select id from public.roles where code = 'project_manager'`;
   const [adminRole] = await sql`select id from public.roles where code = 'org_admin'`;
-  if (!sub || !prjX || !period || !metric || !adminRole) throw new Error("local seed data missing");
+  const [esgRole] = await sql`select id from public.roles where code = 'corporate_esg'`;
+  if (!sub || !prjX || !period || !metric || !adminRole || !esgRole)
+    throw new Error("local seed data missing");
   const [{ n: levelsBefore }] = await sql`select count(*)::int as n from public.org_levels`;
 
   await sql`insert into public.org_units (id, parent_id, unit_type, name, code) values (${QUNIT}, ${sub.id}, 'project', 'IDOR Project Q', 'IDOR-Q')`;
   for (const [id, mail, name] of [
     [A, "idor.a@traceesg.test", "IDOR User A"],
     [B, "idor.b@traceesg.test", "IDOR User B"],
+    [C, "idor.c@traceesg.test", "IDOR User C"],
   ]) {
     await sql`insert into auth.users (id, email, aud, role) values (${id}, ${mail}, 'authenticated', 'authenticated')`;
     await sql`insert into public.users (id, display_name, email) values (${id}, ${name}, ${mail})`;
   }
   await sql`insert into public.user_org_assignments (user_id, org_unit_id, role_id, assigned_by) values
     (${A}, ${prjX.id}, ${pmRole.id}, ${A}), (${B}, ${QUNIT}, ${pmRole.id}, ${B}),
-    (${A}, ${prjX.id}, ${adminRole.id}, ${A})`;
+    (${A}, ${prjX.id}, ${adminRole.id}, ${A}),
+    (${C}, ${prjX.id}, ${esgRole.id}, ${C}), (${C}, ${QUNIT}, ${pmRole.id}, ${C})`;
   const [bAssignment] = await sql`
     select id from public.user_org_assignments where user_id = ${B} and org_unit_id = ${QUNIT}`;
   for (const [id, file] of [
@@ -285,6 +291,8 @@ try {
     await p("bundles.review(PDF of Q)", () => c.bundles.review({ documentId: QBUNDLE }));
     await p("bundles.discard(PDF of Q)", () => c.bundles.discard({ documentId: QBUNDLE }));
     await p("ocr.submissions()", () => c.ocr.submissions({}));
+    await p("dashboard.tiles()", () => c.dashboard.tiles());
+    await p("dashboard.tiles(org unit Q)", () => c.dashboard.tiles({ orgUnitId: QUNIT }));
     await p("ocr.jobs()", () => c.ocr.jobs({}));
     await p("notifications.list()", () => c.notifications.list({}));
     await p("notifications.markRead(B's notification)", async () => {
@@ -520,6 +528,121 @@ try {
       "Administrator: reads the expected submissions of their own unit",
       `${expectations.length} activities`,
     );
+  }
+
+  // Corporate ESG at Project X who is also a Project Manager at Project Q (role-wise dashboard, Phase 0).
+  // Q is among this person's assignments, but the role that holds monitoring.view and report.generate is held
+  // at Project X only: the read-only monitoring pages and Reports must stop at Project X, and the actions on
+  // those pages stay refused even there. Not part of the loop above, which assumes no tie to Q at all.
+  {
+    const permissionsOf = async (roleId) =>
+      (
+        await sql`
+        select p.code from public.role_permissions rp join public.permissions p on p.id = rp.permission_id
+        where rp.role_id = ${roleId}`
+      ).map((r) => r.code);
+    const session = {
+      ...base,
+      userId: C,
+      email: "idor.c@traceesg.test",
+      displayName: "IDOR User C",
+      roleCodes: ["corporate_esg", "project_manager"],
+      assignments: [
+        { ...base.assignments[0], roleCode: "corporate_esg", roleName: "Corporate ESG" },
+        {
+          orgUnitId: QUNIT,
+          orgUnitName: "IDOR Project Q",
+          orgUnitType: "project",
+          roleCode: "project_manager",
+          roleName: "Project Manager",
+        },
+      ],
+      permissions: [
+        ...new Set([...(await permissionsOf(esgRole.id)), ...(await permissionsOf(pmRole.id))]),
+      ].sort(),
+    };
+    const c = callerFor(session);
+    lines.push("\n### Corporate ESG at Project X, Project Manager at Project Q");
+    const expectRefused = async (name, call) => {
+      try {
+        await call();
+        note("FAIL", name, "was allowed");
+      } catch (error) {
+        if (error?.name === "TRPCError" && ["FORBIDDEN", "NOT_FOUND"].includes(error.code))
+          note("PASS", name, `refused: ${error.code}`);
+        else note("FAIL", name, `unexpected error: ${String(error?.message).slice(0, 90)}`);
+      }
+    };
+    // Where they hold the permission: refused for Q although Q is one of their assignments.
+    await probe("records.detail(record of Q)", () => c.records.detail({ recordId: QREC }));
+    await probe("records.search(org unit Q)", () => c.records.search({ orgUnitId: QUNIT }));
+    await probe("records.missing(org unit Q)", () => c.records.missing({ orgUnitId: QUNIT }));
+    await probe("records.summary(org unit Q)", () => c.records.summary({ orgUnitId: QUNIT }));
+    await probe("records.kpiTrends(org unit Q)", () => c.records.kpiTrends({ orgUnitId: QUNIT }));
+    await probe("scope.getTotal(org unit Q)", () =>
+      c.scope.getTotal({ scopeCode: "SCOPE_1", orgUnitId: QUNIT }),
+    );
+    await probe("analytics.overview(org unit Q)", () => c.analytics.overview({ orgUnitId: QUNIT }));
+    await probe("analytics.alerts(org unit Q)", () => c.analytics.alerts({ orgUnitId: QUNIT }));
+    await probe("reports.get(report of Q)", () => c.reports.get({ id: QRUN }));
+    await probe("reports.generate(org unit Q)", () =>
+      c.reports.generate({ orgUnitId: QUNIT, periodId: period.id }),
+    );
+    await probe("reports.bundlePreview(org unit Q)", () =>
+      c.reports.bundlePreview({ orgUnitId: QUNIT, financialYear: 2026 }),
+    );
+    // Where they do hold it: Project X works.
+    const own = await c.records.summary({ orgUnitId: prjX.id, periodId: period.id });
+    note(
+      own.context.orgUnitId === prjX.id && own.context.orgUnits.every((o) => o.id !== QUNIT)
+        ? "PASS"
+        : "FAIL",
+      "records.summary(own project) opens, and the picker offers no unit of Q",
+      `${own.context.orgUnits.length} unit(s) offered`,
+    );
+    const totals = await c.scope.getTotal({ scopeCode: "SCOPE_1", orgUnitId: prjX.id });
+    note(
+      totals !== null && totals.node.id === prjX.id ? "PASS" : "FAIL",
+      "scope.getTotal(own project) opens",
+      totals ? totals.node.name : "null",
+    );
+    const units = await c.analytics.units();
+    note(
+      units.some((u) => u.id === prjX.id) && !units.some((u) => u.id === QUNIT) ? "PASS" : "FAIL",
+      "analytics.units() lists Project X and not Project Q",
+      `${units.length} unit(s)`,
+    );
+    const tiles = await c.dashboard.tiles();
+    const all = tiles.band.concat(tiles.grid);
+    // Role tiles (the Project Manager's own work) rightly cover Project Q, where that role is assigned; every
+    // tile that depends on a permission must not.
+    const ROLE_TILES = ["my-area", "my-missing", "unit-emissions", "certificates"];
+    const named = JSON.stringify(all.filter((t) => !ROLE_TILES.includes(t.id)));
+    note(
+      all.some((t) => ROLE_TILES.includes(t.id)) ? "PASS" : "FAIL",
+      "dashboard.tiles() offers the Project Manager's own-work tiles, from the role assigned at Project Q",
+      "",
+    );
+    note(
+      !named.includes("IDOR Project Q") && !named.includes(QUNIT) ? "PASS" : "FAIL",
+      "dashboard.tiles() never covers Project Q through a permission tile, where the role holding the permissions is not assigned",
+      `${tiles.band.length + tiles.grid.length} tile(s)`,
+    );
+    note(
+      tiles.band.concat(tiles.grid).some((t) => t.id === "approval-queue") ? "PASS" : "FAIL",
+      "dashboard.tiles() offers the approval tile, from the Corporate ESG role at Project X",
+      "",
+    );
+    // Read only: the actions on those pages stay an administrator's, even inside Project X.
+    await expectRefused("records.remindMissing(own project)", () =>
+      c.records.remindMissing({ orgUnitId: prjX.id, periodId: period.id }),
+    );
+    await expectRefused("analytics.alertSettings()", () => c.analytics.alertSettings());
+    await expectRefused("analytics.acknowledge(any alert)", () =>
+      c.analytics.acknowledge({ id: ID(99), note: "attempt" }),
+    );
+    const detail = await c.records.detail({ recordId: QREC }).catch(() => null);
+    note(detail === null ? "PASS" : "FAIL", "records.detail(record of Q) returns nothing", "");
   }
 
   // Nothing may have changed in Project Q.

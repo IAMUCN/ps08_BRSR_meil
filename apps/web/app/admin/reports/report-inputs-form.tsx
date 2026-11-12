@@ -51,6 +51,7 @@ export function ReportInputsForm({
     const next: FyInputs = {
       turnoverCr: number("turnoverCr"),
       pppRate: number("pppRate"),
+      netWorthCr: number("netWorthCr"),
       physicalOutput: number("physicalOutput"),
       physicalOutputUnit: text("physicalOutputUnit"),
       assurance: text("assurance"),
@@ -107,6 +108,17 @@ export function ReportInputsForm({
             min="0"
             step="any"
             defaultValue={values.turnoverCr ?? ""}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="inputs-networth">Net worth (₹ crore, audited balance sheet)</Label>
+          <Input
+            id="inputs-networth"
+            name="netWorthCr"
+            type="number"
+            min="0"
+            step="any"
+            defaultValue={values.netWorthCr ?? ""}
           />
         </div>
         <div className="space-y-2">

@@ -152,16 +152,20 @@ export function deadlineReminderEmailHtml(input: {
   lines: string[];
   link: string;
   digest: boolean;
+  /** The submissions are past their due date: says why an Administrator is being told. */
+  overdue?: boolean;
 }): string {
   const shown = input.lines.slice(0, 25);
   const more = input.lines.length - shown.length;
   return `<p>Hi ${escapeHtml(input.displayName)},</p>
-<p>${escapeHtml(input.title)} (due ${escapeHtml(input.dueOn)}).</p>
+<p>${escapeHtml(input.title)} (${input.overdue ? "was due" : "due"} ${escapeHtml(input.dueOn)}).</p>
 <ul>${shown.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}${more > 0 ? `<li>and ${more} more</li>` : ""}</ul>
 <p><a href="${escapeHtml(input.link)}">${input.digest ? "See what is missing" : "Upload the documents"}</a></p>
 <p>${
     input.digest
-      ? "You receive this summary as an Administrator of these units, until nothing is missing."
+      ? input.overdue
+        ? "These submissions are overdue. You are told because you administer these units, or as a Super Admin; the longer they stay missing, the higher it is escalated."
+        : "You receive this summary as an Administrator of these units, until nothing is missing."
       : "Reminders stop for each item as soon as its document is uploaded."
   }</p>`;
 }

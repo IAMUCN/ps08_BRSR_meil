@@ -58,13 +58,21 @@ const submitted = (sql: Sql, periodId: string, approvedOnly = false) => sql`
 export async function summary(sql: Sql, orgUnitId: string, periodId: string): Promise<Summary> {
   const f: RecordFilters = { orgUnitId, periodIds: [periodId] };
 
+  // Counted inside the chosen node's subtree only: an Administrator or Corporate ESG must not learn how big
+  // the rest of the group is (role-wise dashboard audit, 2026-11-12). People are those assigned in it.
   const [header] = await sql<{ organizations: number; projects: number; active_users: number }[]>`
     select
-      (select count(*) from public.org_units where unit_type = 'subsidiary' and deleted_at is null)::int
-        as organizations,
-      (select count(*) from public.org_units where unit_type = 'project' and deleted_at is null)::int
-        as projects,
-      (select count(*) from public.users where is_active and deleted_at is null)::int as active_users`;
+      (select count(distinct o.id) from public.org_unit_tree t
+         join public.org_units o on o.id = t.descendant_id and o.deleted_at is null
+         where t.ancestor_id = ${orgUnitId} and o.unit_type = 'subsidiary')::int as organizations,
+      (select count(distinct o.id) from public.org_unit_tree t
+         join public.org_units o on o.id = t.descendant_id and o.deleted_at is null
+         where t.ancestor_id = ${orgUnitId} and o.unit_type = 'project')::int as projects,
+      (select count(distinct u.id) from public.org_unit_tree t
+         join public.user_org_assignments uoa
+           on uoa.org_unit_id = t.descendant_id and uoa.revoked_at is null
+         join public.users u on u.id = uoa.user_id and u.is_active and u.deleted_at is null
+         where t.ancestor_id = ${orgUnitId})::int as active_users`;
 
   const [records, readable, verified, passed, approved] = await Promise.all([
     count(sql, f),

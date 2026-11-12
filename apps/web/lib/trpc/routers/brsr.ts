@@ -3,9 +3,11 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { indicatorStatus, type IndicatorStatus } from "@/lib/brsr/readiness";
+import { holdsPermissionAtGroup } from "@/lib/auth/scope";
+import { canEditDisclosures, canEnterFinancialInputs } from "@/lib/auth/workspace";
 import { financialYearOf } from "@/lib/consolidation/aggregate";
 import { db } from "@/lib/db";
-import { adminProcedure, permissionProcedure, router } from "@/lib/trpc/init";
+import { adminProcedure, permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 import { resolvePeriod } from "@/lib/trpc/routers/scope";
 
 // BRSR mapping (03_APP_FLOW.md §2.2, PRD §27, TRD §26; .grill/phase-14-brsr-mapping-decisions.md). The
@@ -163,12 +165,42 @@ export type DisclosureSection = BrsrSection & {
 
 const financialYear = z.number().int().min(2000).max(2100);
 
+const FORBIDDEN = new TRPCError({
+  code: "FORBIDDEN",
+  message: "You don't have permission to do that.",
+});
+
+/**
+ * Which written answers the caller may type: null = every one (Super Admin), else the owning permissions
+ * (brsr_indicators.owning_permission) they hold through an assignment at a group-level org unit. The answers
+ * have one value per financial year for the whole group, so a project-level assignment does not count.
+ */
+async function disclosureRights(
+  sql: ReturnType<typeof db>,
+  session: { userId: string; isAdmin: boolean; permissions: string[] },
+): Promise<string[] | null> {
+  if (session.isAdmin) return null;
+  const held: string[] = [];
+  for (const permission of ["disclosure.finance", "disclosure.hr"]) {
+    if (
+      session.permissions.includes(permission) &&
+      (await holdsPermissionAtGroup(sql, session, permission))
+    )
+      held.push(permission);
+  }
+  if (held.length === 0) throw FORBIDDEN;
+  return held;
+}
+
 export const brsrRouter = router({
   /** Every question of SEBI's format in its order, with the answer typed for one financial year. */
-  disclosures: adminProcedure
+  disclosures: protectedProcedure
     .input(z.object({ financialYear }))
-    .query(async ({ input }): Promise<DisclosureSection[]> => {
-      const rows = await db()<
+    .query(async ({ ctx, input }): Promise<DisclosureSection[]> => {
+      const sql = db();
+      // A Super Admin sees every question; Finance and HR only the ones their permission owns.
+      const rights = await disclosureRights(sql, ctx.session);
+      const rows = await sql<
         (IndicatorRow & {
           answer_kind: "data" | "statement";
           principle: number | null;
@@ -184,6 +216,7 @@ export const brsrRouter = router({
         left join public.brsr_disclosures d
           on d.brsr_indicator_id = i.id and d.financial_year = ${input.financialYear}
         where i.deleted_at is null
+          and ${rights === null ? sql`true` : sql`i.owning_permission = any(${rights}::text[])`}
         order by s.code, i.sort_order, i.code`;
       const sections: DisclosureSection[] = [];
       for (const row of rows) {
@@ -206,19 +239,41 @@ export const brsrRouter = router({
       return sections;
     }),
 
+  /** The financial years the Disclosures page offers, for people who cannot open Reports to read them. */
+  disclosureYears: protectedProcedure.query(
+    async ({ ctx }): Promise<{ years: number[]; defaultYear: number | null }> => {
+      if (!canEditDisclosures(ctx.session) && !canEnterFinancialInputs(ctx.session))
+        throw FORBIDDEN;
+      const periods = await db()<{ start_date: string; status: string }[]>`
+        select start_date::text, status::text from public.reporting_periods order by start_date desc`;
+      const years = [...new Set(periods.map((p) => financialYearOf(p.start_date)))];
+      const open = periods.find((p) => p.status === "open") ?? periods[0];
+      return { years, defaultYear: open ? financialYearOf(open.start_date) : null };
+    },
+  ),
+
   /** Type, change or (with an empty answer) clear one question's answer for one financial year. */
-  saveDisclosure: adminProcedure
+  saveDisclosure: protectedProcedure
     .input(z.object({ indicatorId: z.uuid(), financialYear, answer: z.string().trim().max(20000) }))
     .mutation(async ({ ctx, input }) => {
+      const rights = await disclosureRights(db(), ctx.session);
       await db().begin(async (tx) => {
-        const [indicator] = await tx<{ id: string; code: string }[]>`
-          select id, code from public.brsr_indicators
+        const [indicator] = await tx<
+          { id: string; code: string; owning_permission: string | null }[]
+        >`
+          select id, code, owning_permission from public.brsr_indicators
           where id = ${input.indicatorId} and deleted_at is null`;
         if (!indicator) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "That BRSR question doesn't exist.",
           });
+        }
+        if (
+          rights !== null &&
+          !(indicator.owning_permission && rights.includes(indicator.owning_permission))
+        ) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "That answer isn't yours to change." });
         }
         const [before] = await tx<{ answer: string }[]>`
           select answer from public.brsr_disclosures

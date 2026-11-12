@@ -1,25 +1,17 @@
 import { redirect } from "next/navigation";
-import { CalendarRange, Factory, FileSearch, FolderX, RotateCcw, Upload } from "lucide-react";
+import { Factory, FolderX, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { NoticeToast } from "@/components/shell/notice-toast";
+import { NeedsActionBand, TileGrid } from "@/components/dashboard/tile-views";
 import { requireAppSession } from "@/lib/auth/session";
-import { submissionTab } from "@/lib/ocr/rules";
 import { formatTotal } from "@/lib/scope/display";
 import { api } from "@/lib/trpc/server";
 
 export const metadata: Metadata = { title: "Dashboard · EmeilSG" };
-
-function formatDate(iso: string) {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 export default async function UserDashboardPage({ searchParams }: PageProps<"/app">) {
   const [session, params, caller] = await Promise.all([requireAppSession(), searchParams, api()]);
@@ -42,9 +34,8 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
     );
   }
 
-  const [openPeriods, submissions, myTotals] = await Promise.all([
-    caller.dashboard.openPeriods(),
-    caller.ocr.submissions(),
+  const [tiles, myTotals] = await Promise.all([
+    caller.dashboard.tiles(),
     // Phases 10–12: this user's own project totals for every configured scope — never an
     // organisation-wide figure, and never a hard-coded list of scopes.
     caller.scope.topLevel().then((all) =>
@@ -57,8 +48,6 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
     ),
   ]);
   const scopes = myTotals.filter((s) => s.view !== null);
-  const toVerify = submissions.filter((s) => submissionTab(s) === "needs_verification").length;
-  const returned = submissions.filter((s) => submissionTab(s) === "returned").length;
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -78,62 +67,10 @@ export default async function UserDashboardPage({ searchParams }: PageProps<"/ap
         }
       />
 
-      <section aria-labelledby="period-heading" className="rounded-md border bg-card p-4">
-        <div className="flex items-center gap-2">
-          <CalendarRange className="size-5 text-primary-text" strokeWidth={1.5} aria-hidden />
-          <h2 id="period-heading" className="text-base leading-6 font-semibold">
-            {openPeriods.length > 1 ? "Open reporting periods" : "Current reporting period"}
-          </h2>
-        </div>
-        {openPeriods.length > 0 ? (
-          <ul className="mt-2 space-y-1 text-sm leading-5">
-            {openPeriods.map((period) => (
-              <li key={period.id}>
-                <span className="font-medium">{period.label}</span>
-                <span className="text-muted-foreground">
-                  {period.late
-                    ? ` · was due ${formatDate(period.dueOn)}; late uploads until ${formatDate(period.lastUploadDay)}`
-                    : ` · submissions due by ${formatDate(period.dueOn)}`}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-2 text-sm leading-5 text-muted-foreground">
-            No reporting period is open — contact your Admin.
-          </p>
-        )}
-      </section>
-
-      {/* UI brief §20: task-card-first; a card opens My Submissions pre-filtered (§2.3). */}
-      <section aria-label="Tasks" className="grid gap-4 sm:grid-cols-2">
-        <Link
-          href="/app/submissions?tab=needs_verification"
-          className="rounded-md border bg-card p-4 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <div className="flex items-center gap-2">
-            <FileSearch className="size-5 text-primary-text" strokeWidth={1.5} aria-hidden />
-            <h2 className="text-sm leading-5 font-semibold">Documents to verify</h2>
-          </div>
-          <p className="mt-2 text-2xl leading-8 font-semibold tabular-nums">{toVerify}</p>
-          <p className="mt-1 text-xs leading-4 text-muted-foreground">
-            Extracted or failed documents waiting for you
-          </p>
-        </Link>
-        <Link
-          href="/app/submissions?tab=returned"
-          className="rounded-md border bg-card p-4 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <div className="flex items-center gap-2">
-            <RotateCcw className="size-5 text-status-error" strokeWidth={1.5} aria-hidden />
-            <h2 className="text-sm leading-5 font-semibold">Returned for correction</h2>
-          </div>
-          <p className="mt-2 text-2xl leading-8 font-semibold tabular-nums">{returned}</p>
-          <p className="mt-1 text-xs leading-4 text-muted-foreground">
-            Records that failed validation or were sent back by a reviewer
-          </p>
-        </Link>
-      </section>
+      {/* Role-wise dashboard: the tiles this person's permissions earn. Period, documents to verify and
+          returned records are tiles now; the cards below are what the tiles do not cover yet. */}
+      <NeedsActionBand tiles={tiles.band} />
+      <TileGrid tiles={tiles.grid} />
 
       {scopes.length > 0 ? (
         <section aria-labelledby="scopes-heading" className="rounded-md border bg-card p-4">

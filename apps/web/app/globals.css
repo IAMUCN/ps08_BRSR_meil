@@ -88,6 +88,12 @@
   --color-scope-1: var(--scope-1);
   --color-scope-2: var(--scope-2);
   --color-scope-3: var(--scope-3);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
 }
 
 /*
@@ -165,6 +171,15 @@
   --scope-2: #f76463; /* #ff6766, 3% darker for 3:1 (A19) */
   --scope-3: #c28757; /* #ffb173, 24% darker for 3:1 (A19) */
 
+  /* Chart series colours: 3:1 on the card and the page, tested in tests/chart-tokens.test.ts. Never the only
+     cue: charts also label and tabulate their values. */
+  --chart-1: #ca2851;
+  --chart-2: #1f6f8b;
+  --chart-3: #9a5b00;
+  --chart-4: #5b4aa8;
+  --chart-5: #2f7d4f;
+  --chart-6: #6b5b4a;
+
   /* §6.9 status colors, never substituted with brand colors. The supplied #1e8e5a / #b8860b / #d92d20 are
      darkened for 4.5:1 text on the light themes and lightened in Theme 3 (A19). */
   --status-success: #19764b;
@@ -228,6 +243,15 @@
   --scope-1: #37358f;
   --scope-2: #ef102d;
   --scope-3: #6b6b6b;
+
+  /* Chart series colours: 3:1 on the card and the page, tested in tests/chart-tokens.test.ts. Never the only
+     cue: charts also label and tabulate their values. */
+  --chart-1: #37358f;
+  --chart-2: #0e7490;
+  --chart-3: #b45309;
+  --chart-4: #be185d;
+  --chart-5: #4d7c0f;
+  --chart-6: #6b7280;
 
   /* §6.9 status colors, never substituted with brand colors. The supplied #1e8e5a / #b8860b / #d92d20 are
      darkened for 4.5:1 text on the light themes and lightened in Theme 3 (A19). */
@@ -293,6 +317,15 @@
   --scope-1: #76757a;
   --scope-2: #96666f; /* #550916 → 3:1 (A19) */
   --scope-3: #797170; /* #5e5453 → 3:1 (A19) */
+
+  /* Chart series colours: 3:1 on the card and the page, tested in tests/chart-tokens.test.ts. Never the only
+     cue: charts also label and tabulate their values. */
+  --chart-1: #9a98e8;
+  --chart-2: #4cc3d9;
+  --chart-3: #e0a84a;
+  --chart-4: #f08bb5;
+  --chart-5: #8fcf6a;
+  --chart-6: #c9c3bf;
 
   --status-success: #76ba9a;
   --status-warning: #cca84f;

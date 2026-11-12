@@ -11,6 +11,8 @@ export type FyInputs = {
   turnoverCr: number | null;
   /** Purchasing power parity conversion rate: ₹ per international dollar (IMF). */
   pppRate: number | null;
+  /** Net worth at the end of the year, in ₹ crore (BRSR Section A, CSR details; from the audited balance sheet). */
+  netWorthCr: number | null;
   /** Physical output for the year, in physicalOutputUnit — the entity chooses the measure. */
   physicalOutput: number | null;
   physicalOutputUnit: string | null;
@@ -23,6 +25,7 @@ export type FyInputs = {
 export const EMPTY_INPUTS: FyInputs = {
   turnoverCr: null,
   pppRate: null,
+  netWorthCr: null,
   physicalOutput: null,
   physicalOutputUnit: null,
   assurance: null,

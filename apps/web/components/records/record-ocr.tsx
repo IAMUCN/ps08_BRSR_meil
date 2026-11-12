@@ -54,10 +54,16 @@ export function RecordOcr({ detail, onChanged }: { detail: RecordDetail; onChang
       {ocr.status === "failed" ? (
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {ocr.error ? <span className="text-status-error">{ocr.error}</span> : null}
-          <Button variant="outline" size="sm" disabled={pending} onClick={() => void retry()}>
-            {pending ? <Loader2 className="animate-spin" aria-hidden /> : <RotateCw aria-hidden />}
-            Retry
-          </Button>
+          {detail.viewer.canAct ? (
+            <Button variant="outline" size="sm" disabled={pending} onClick={() => void retry()}>
+              {pending ? (
+                <Loader2 className="animate-spin" aria-hidden />
+              ) : (
+                <RotateCw aria-hidden />
+              )}
+              Retry
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </section>

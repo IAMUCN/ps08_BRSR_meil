@@ -6,6 +6,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mustChangePassword } from "@/lib/auth/initial-password";
 import { ADMIN_ROLE, ORG_ADMIN_ROLE } from "@/lib/auth/redirects";
 import { currentSessionId, touchSession } from "@/lib/auth/session-limits";
+import {
+  canEditDisclosures,
+  canEnterAdminWorkspace,
+  canEnterFinancialInputs,
+  canMonitor,
+  canUseReports,
+} from "@/lib/auth/workspace";
 import { DEFAULT_THEME, isTheme, type ThemeId } from "@/lib/theme";
 
 // Data Access Layer (Next.js 16 authentication guide): the authoritative per-request session check.
@@ -164,6 +171,39 @@ export async function requireActiveSession(): Promise<ActiveSession> {
 export async function requireAdminAreaSession(): Promise<ActiveSession> {
   const session = await requireActiveSession();
   if (!session.isAdmin && !session.isOrgAdmin) redirect("/app?notice=forbidden");
+  return session;
+}
+
+/**
+ * The /admin layout: anyone with at least one page under /admin (an administrator, or a holder of
+ * monitoring.view or report.generate). Every page still guards itself — this only lets them through the door.
+ */
+export async function requireAdminWorkspaceSession(): Promise<ActiveSession> {
+  const session = await requireActiveSession();
+  if (!canEnterAdminWorkspace(session)) redirect("/app?notice=forbidden");
+  return session;
+}
+
+/** The read-only monitoring pages (Scope 1/2/3, Data Explorer, Submission Monitoring, Carbon Analytics). */
+export async function requireMonitoringSession(): Promise<ActiveSession> {
+  const session = await requireActiveSession();
+  if (!canMonitor(session)) redirect("/app?notice=forbidden");
+  return session;
+}
+
+/** The Reports pages: anyone holding report.generate. */
+export async function requireReportsSession(): Promise<ActiveSession> {
+  const session = await requireActiveSession();
+  if (!canUseReports(session)) redirect("/app?notice=forbidden");
+  return session;
+}
+
+/** BRSR Disclosures: a Super Admin, or someone who may type finance or HR answers or the yearly inputs. */
+export async function requireDisclosureSession(): Promise<ActiveSession> {
+  const session = await requireActiveSession();
+  if (!canEditDisclosures(session) && !canEnterFinancialInputs(session)) {
+    redirect("/app?notice=forbidden");
+  }
   return session;
 }
 

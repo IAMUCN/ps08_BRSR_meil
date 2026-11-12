@@ -5,7 +5,8 @@ import { ContextFilters, ISSUE_LABELS, RecordsTable } from "@/components/records
 import { AutoRefresh } from "@/components/shell/auto-refresh";
 import { PageHeader } from "@/components/shell/page-header";
 import { workerStallMinutes } from "@/lib/ocr/rules";
-import { requireAdminAreaSession } from "@/lib/auth/session";
+import { requireMonitoringSession } from "@/lib/auth/session";
+import { canAdminister } from "@/lib/auth/workspace";
 import { readParams, stringParams } from "@/lib/records/params";
 import { api } from "@/lib/trpc/server";
 
@@ -24,7 +25,13 @@ const QUEUE: Record<string, { href: string; label: string }> = {
 export default async function SubmissionMonitoringPage({
   searchParams,
 }: PageProps<"/admin/submissions">) {
-  const [, caller, raw] = await Promise.all([requireAdminAreaSession(), api(), searchParams]);
+  const [session, caller, raw] = await Promise.all([
+    requireMonitoringSession(),
+    api(),
+    searchParams,
+  ]);
+  // Reminders and the Organization page are an administrator's; Corporate ESG reads the list.
+  const canAct = canAdminister(session);
   const q = readParams(raw);
   const params = stringParams(raw);
 
@@ -45,7 +52,7 @@ export default async function SubmissionMonitoringPage({
             {rows.length} expected submission(s) missing across{" "}
             {new Set(rows.map((r) => r.orgUnitId)).size} org unit(s).
           </p>
-          {rows.length > 0 ? (
+          {rows.length > 0 && canAct ? (
             <RemindButton orgUnitId={context.orgUnitId} periodId={context.periodId} />
           ) : null}
         </div>
@@ -71,12 +78,16 @@ export default async function SubmissionMonitoringPage({
                   className="border-t border-table-border bg-table-row"
                 >
                   <td className="px-3 py-2.5">
-                    <Link
-                      href={`/admin/organization?node=${r.orgUnitId}`}
-                      className="font-medium underline-offset-2 hover:underline"
-                    >
-                      {r.orgUnitName}
-                    </Link>
+                    {canAct ? (
+                      <Link
+                        href={`/admin/organization?node=${r.orgUnitId}`}
+                        className="font-medium underline-offset-2 hover:underline"
+                      >
+                        {r.orgUnitName}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{r.orgUnitName}</span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5">{r.metricName}</td>
                   <td className="px-3 py-2.5 text-muted-foreground">{r.categoryName}</td>

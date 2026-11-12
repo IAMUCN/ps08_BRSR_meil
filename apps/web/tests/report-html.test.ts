@@ -115,7 +115,13 @@ const ghg = (overrides: Partial<Snapshot> = {}) => {
     sections,
     previous: { label: "FY 2025-26", scopes: scopes(603953, 282341), sections },
     inputs: {
-      current: { ...EMPTY_INPUTS, turnoverCr: 153680, pppRate: 20.343, assurance: "Yes, by <BDO>" },
+      current: {
+        ...EMPTY_INPUTS,
+        turnoverCr: 153680,
+        netWorthCr: 52340.5,
+        pppRate: 20.343,
+        assurance: "Yes, by <BDO>",
+      },
       previous: EMPTY_INPUTS,
     },
     ...overrides,
@@ -140,6 +146,14 @@ test("an input nobody entered prints as not provided, never as a number", () => 
   assert.match(
     html,
     /physical output<\/td><td>[^<]*<\/td><td class="num"><span class="none">Not provided/,
+  );
+});
+
+test("net worth is printed beside turnover, and an older year without it says not provided", () => {
+  const html = renderReportHtml(ghg());
+  assert.match(
+    html,
+    /Net worth<\/td><td>₹ crore<\/td><td class="num">52,340\.5<\/td><td class="num"><span class="none">Not provided/,
   );
 });
 

@@ -3,7 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { after } from "next/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
-import { assertOrgScope, scopedOrgUnitIds } from "@/lib/auth/scope";
+import { assertOrgScope, holdsPermissionAtGroup, scopedOrgUnitIds } from "@/lib/auth/scope";
+import { canEnterFinancialInputs } from "@/lib/auth/workspace";
 import { loadCalculationsById } from "@/lib/calculation/lookup";
 import type { CalculationState } from "@/lib/calculation/trace";
 import {
@@ -17,7 +18,7 @@ import { expireStaleRuns, runReport } from "@/lib/reports/generate";
 import { REPORT_INPUTS_KEY, type FyInputs } from "@/lib/reports/inputs";
 import { loadReportInputs, type Snapshot } from "@/lib/reports/snapshot";
 import { getBundlePreview, type BundlePreview } from "@/lib/reports/bundle";
-import { adminProcedure, permissionProcedure, router } from "@/lib/trpc/init";
+import { permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 import { isTemplate, REPORT_TEMPLATES, type ReportTemplate } from "@/lib/reports/templates";
 
 // Reports (03_APP_FLOW.md §2.2 Reports / Report Detail, §4.10; .grill/phase-17-reporting-decisions.md).
@@ -25,6 +26,23 @@ import { isTemplate, REPORT_TEMPLATES, type ReportTemplate } from "@/lib/reports
 // assignments, and reads past runs under the same limit. The job runs after the response.
 
 const generateProcedure = permissionProcedure("report.generate");
+
+/**
+ * The yearly inputs have one value per financial year for the whole group: a Super Admin, or someone holding
+ * financial_inputs.manage through an assignment at a group-level org unit (Finance / CSR; migration 0067).
+ */
+async function assertFinancialInputs(session: {
+  userId: string;
+  isAdmin: boolean;
+  permissions: string[];
+}) {
+  if (
+    !canEnterFinancialInputs(session) ||
+    !(await holdsPermissionAtGroup(db(), session, "financial_inputs.manage"))
+  ) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that." });
+  }
+}
 
 export type ReportRunRow = {
   id: string;
@@ -91,16 +109,20 @@ export const coverageOf = (r: {
 
 export const reportsRouter = router({
   /** Turnover, PPP rate, output and assurance for one financial year (D26); null where nothing was entered. */
-  inputs: adminProcedure
+  inputs: protectedProcedure
     .input(z.object({ financialYear }))
-    .query(({ input }): Promise<FyInputs> => loadReportInputs(db(), input.financialYear)),
+    .query(async ({ ctx, input }): Promise<FyInputs> => {
+      await assertFinancialInputs(ctx.session);
+      return loadReportInputs(db(), input.financialYear);
+    }),
 
-  saveInputs: adminProcedure
+  saveInputs: protectedProcedure
     .input(
       z.object({
         financialYear,
         turnoverCr: amount,
         pppRate: amount,
+        netWorthCr: amount,
         physicalOutput: amount,
         physicalOutputUnit: text(40),
         assurance: text(500),
@@ -108,6 +130,7 @@ export const reportsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await assertFinancialInputs(ctx.session);
       const { financialYear: year, ...values } = input;
       await db().begin(async (tx) => {
         // Lock the one settings row so two Admins saving different years cannot overwrite each other.
@@ -137,7 +160,7 @@ export const reportsRouter = router({
     .query(async ({ ctx, input }): Promise<EvidenceFile[]> => {
       const { from, to } = financialYearRange(input.financialYear);
       // Evidence of the caller's own org units only; every unit for a Super Admin.
-      const scope = await scopedOrgUnitIds(db(), ctx.session);
+      const scope = await scopedOrgUnitIds(db(), ctx.session, "report.generate");
       const rows = await db()<
         {
           document_id: string;
@@ -196,7 +219,7 @@ export const reportsRouter = router({
       sql<{ id: string; label: string; start_date: string; end_date: string; status: string }[]>`
         select id, label, start_date::text, end_date::text, status::text from public.reporting_periods
         order by start_date desc`,
-      scopedOrgUnitIds(sql, ctx.session),
+      scopedOrgUnitIds(sql, ctx.session, "report.generate"),
     ]);
     // Only the units the caller may report on, indented from their own top unit.
     const inScope = allOrgUnits.filter((o) => scope === null || scope.includes(o.id));
@@ -290,7 +313,7 @@ export const reportsRouter = router({
 
   list: generateProcedure.query(async ({ ctx }): Promise<ReportRunRow[]> => {
     await expireStaleRuns();
-    const scope = await scopedOrgUnitIds(db(), ctx.session);
+    const scope = await scopedOrgUnitIds(db(), ctx.session, "report.generate");
     const rows = await db()<
       {
         id: string;
@@ -336,7 +359,7 @@ export const reportsRouter = router({
   get: generateProcedure
     .input(z.object({ id: z.uuid() }))
     .query(async ({ ctx, input }): Promise<ReportRunRow & { snapshot: Snapshot | null }> => {
-      const scope = await scopedOrgUnitIds(db(), ctx.session);
+      const scope = await scopedOrgUnitIds(db(), ctx.session, "report.generate");
       const runs = await db()<
         {
           id: string;
@@ -399,7 +422,7 @@ export const reportsRouter = router({
         recalculatedSince: boolean;
       }> => {
         const sql = db();
-        const scope = await scopedOrgUnitIds(sql, ctx.session);
+        const scope = await scopedOrgUnitIds(sql, ctx.session, "report.generate");
         const [record] = await sql<{ current: string | null }[]>`
           select (select id from public.calculations where esg_record_id = r.id and is_current) as current
           from public.esg_records r where r.id = ${input.recordId}
@@ -430,7 +453,7 @@ export const reportsRouter = router({
       }),
     )
     .query(async ({ ctx, input }): Promise<BundlePreview> => {
-      await assertOrgScope(db(), ctx.session, input.orgUnitId);
+      await assertOrgScope(db(), ctx.session, input.orgUnitId, "report.generate");
       return getBundlePreview(input);
     }),
 });

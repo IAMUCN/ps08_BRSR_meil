@@ -205,19 +205,23 @@ export function RecordDrawer({
 
                 <RecordOcr detail={detail} onChanged={() => setVersion((v) => v + 1)} />
 
-                <RecordCorrections detail={detail} onChanged={() => setVersion((v) => v + 1)} />
+                {detail.viewer.canAct ? (
+                  <RecordCorrections detail={detail} onChanged={() => setVersion((v) => v + 1)} />
+                ) : null}
 
                 <EvidenceFiles recordId={detail.recordId} />
 
                 <section className="space-y-2">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                     <h3 className="text-sm font-semibold">Audit trail</h3>
-                    <Link
-                      href={`/admin/audit-trail?record=${detail.recordId}`}
-                      className="text-sm font-medium underline underline-offset-2"
-                    >
-                      View audit history
-                    </Link>
+                    {detail.viewer.canViewAudit ? (
+                      <Link
+                        href={`/admin/audit-trail?record=${detail.recordId}`}
+                        className="text-sm font-medium underline underline-offset-2"
+                      >
+                        View audit history
+                      </Link>
+                    ) : null}
                   </div>
                   <ol className="space-y-1 text-sm">
                     {detail.audit.map((a, i) => (

@@ -1,13 +1,10 @@
 import {
-  AlertTriangle,
-  ClipboardCheck,
   FileWarning,
   Flame,
   Link2,
   ListTree,
   ScanText,
   ShieldAlert,
-  ShieldCheck,
   TrendingUp,
   Zap,
   type LucideIcon,
@@ -15,7 +12,8 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cn } from "cn";
-import { ContextPicker, ReadinessInfo } from "@/components/dashboard/control-tower-parts";
+import { ContextPicker } from "@/components/dashboard/control-tower-parts";
+import { NeedsActionBand, TileGrid } from "@/components/dashboard/tile-views";
 import { EmptyState } from "@/components/shell/empty-state";
 import { NoticeToast } from "@/components/shell/notice-toast";
 import { PageHeader } from "@/components/shell/page-header";
@@ -88,7 +86,13 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
     orgUnitId: q.orgUnitId,
     periodId: q.periodId,
   });
-  const trends = await caller.records.kpiTrends({ orgUnitId: context.orgUnitId });
+  const [trends, tiles] = await Promise.all([
+    caller.records.kpiTrends({ orgUnitId: context.orgUnitId }),
+    caller.dashboard.tiles({
+      periodId: context.periodId || undefined,
+      orgUnitId: context.orgUnitId,
+    }),
+  ]);
   const ctx = `org=${context.orgUnitId}&period=${context.periodId}`;
   const notice = typeof raw.notice === "string" ? raw.notice : undefined;
 
@@ -111,34 +115,6 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
     );
   }
 
-  const noExpectations = "No expected submissions configured — set them on the Organization page.";
-  const noRecords = `No records in ${context.periodLabel} yet.`;
-  const pipeline: Card[] = [
-    {
-      title: "Submission Completion",
-      fraction: summary.pipeline.submission,
-      href: `/admin/submissions?${ctx}&issue=missing_submissions`,
-      empty: noExpectations,
-    },
-    {
-      title: "Evidence Coverage",
-      fraction: summary.pipeline.evidence,
-      href: `/admin/submissions?${ctx}&issue=missing_evidence`,
-      empty: noRecords,
-    },
-    {
-      title: "Validation Completion",
-      fraction: summary.pipeline.validation,
-      href: `/admin/submissions?${ctx}&status=not_validated`,
-      empty: "No verified records yet.",
-    },
-    {
-      title: "Approval Completion",
-      fraction: summary.pipeline.approval,
-      href: `/admin/submissions?${ctx}&issue=pending_approval`,
-      empty: "No records have passed validation yet.",
-    },
-  ];
   const scopeLook = {
     SCOPE_1: { icon: Flame, accent: "text-scope-1", href: "/admin/scope-1" },
     SCOPE_2: { icon: Zap, accent: "text-scope-2", href: "/admin/scope-2" },
@@ -157,29 +133,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
       ? `${s.completion.numerator} / ${s.completion.denominator} approved · ${s.categories.active} of ${s.categories.total} categories active`
       : `${s.completion.numerator} / ${s.completion.denominator} expected submissions approved`,
   }));
-  scopes.push({
-    title: "BRSR Readiness",
-    fraction: {
-      numerator: 0,
-      denominator: 0,
-      value: summary.readiness.value,
-    },
-    href: `/admin/brsr-mapping?tab=readiness&period=${context.periodId}`,
-    icon: ShieldCheck,
-    accent: "text-kpi-important",
-    important: true,
-    empty: "Nothing to measure yet this period.",
-    support: "Internal indicator, not an official score",
-    extra: <ReadinessInfo readiness={summary.readiness} />,
-  });
-
   const issues: { key: string; icon: LucideIcon; label: string; href: string }[] = [
-    {
-      key: "missing_submissions",
-      icon: AlertTriangle,
-      label: "Projects with missing submissions",
-      href: `/admin/submissions?${ctx}&issue=missing_submissions`,
-    },
     {
       key: "missing_evidence",
       icon: FileWarning,
@@ -203,12 +157,6 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
       icon: TrendingUp,
       label: "Anomalous values awaiting review",
       href: `/admin/submissions?${ctx}&issue=anomaly`,
-    },
-    {
-      key: "pending_approval",
-      icon: ClipboardCheck,
-      label: "Pending approvals",
-      href: `/admin/submissions?${ctx}&issue=pending_approval`,
     },
     {
       key: "incomplete_indicators",
@@ -243,14 +191,12 @@ export default async function AdminDashboardPage({ searchParams }: PageProps<"/a
         ))}
       </dl>
 
-      <section
-        aria-label="Completion pipeline"
-        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
-      >
-        {pipeline.map((card) => (
-          <KpiCard key={card.title} card={card} />
-        ))}
-      </section>
+      {/* Role-wise dashboard: the tiles this person's permissions earn, narrowed to the unit and period chosen
+          above. Pipeline completion, readiness, missing submissions and pending approvals are tiles now; the
+          cards below are what the tiles do not cover. */}
+      <NeedsActionBand tiles={tiles.band} />
+      <TileGrid tiles={tiles.grid} />
+
       <section
         aria-label="Scope and readiness"
         className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"

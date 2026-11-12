@@ -30,7 +30,7 @@ export async function GET(
   }
   const search = new URL(request.url).searchParams;
   const workbook = search.get("format") === "xlsx";
-  const scope = await scopedOrgUnitIds(db(), session.session);
+  const scope = await scopedOrgUnitIds(db(), session.session, "report.generate");
   const [run] = await db()<
     {
       storage_path: string | null;

@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   const { isAdmin, permissions } = session.session;
   if (
     (!isAdmin && !permissions.includes("report.generate")) ||
-    !(await inOrgScope(sql, session.session, orgUnitId))
+    !(await inOrgScope(sql, session.session, orgUnitId, "report.generate"))
   ) {
     return NextResponse.json(
       { error: "Forbidden: You are not authorized to export evidence for this organization." },
