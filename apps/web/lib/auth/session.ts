@@ -6,7 +6,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mustChangePassword } from "@/lib/auth/initial-password";
 import { ADMIN_ROLE, ORG_ADMIN_ROLE } from "@/lib/auth/redirects";
 import { currentSessionId, touchSession } from "@/lib/auth/session-limits";
-import { canEnterAdminWorkspace, canMonitor, canUseReports } from "@/lib/auth/workspace";
+import {
+  canEditDisclosures,
+  canEnterAdminWorkspace,
+  canEnterFinancialInputs,
+  canMonitor,
+  canUseReports,
+} from "@/lib/auth/workspace";
 import { DEFAULT_THEME, isTheme, type ThemeId } from "@/lib/theme";
 
 // Data Access Layer (Next.js 16 authentication guide): the authoritative per-request session check.
@@ -189,6 +195,15 @@ export async function requireMonitoringSession(): Promise<ActiveSession> {
 export async function requireReportsSession(): Promise<ActiveSession> {
   const session = await requireActiveSession();
   if (!canUseReports(session)) redirect("/app?notice=forbidden");
+  return session;
+}
+
+/** BRSR Disclosures: a Super Admin, or someone who may type finance or HR answers or the yearly inputs. */
+export async function requireDisclosureSession(): Promise<ActiveSession> {
+  const session = await requireActiveSession();
+  if (!canEditDisclosures(session) && !canEnterFinancialInputs(session)) {
+    redirect("/app?notice=forbidden");
+  }
   return session;
 }
 

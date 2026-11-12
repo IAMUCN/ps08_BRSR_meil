@@ -20,6 +20,20 @@ export const canUseReports = (s: Pick<Who, "isAdmin" | "permissions">) =>
 export const canViewAudit = (s: Pick<Who, "isAdmin" | "permissions">) =>
   s.isAdmin || s.permissions.includes("audit.view");
 
+/** Type the written BRSR answers that belong to finance or to HR (which ones: brsr_indicators.owning_permission). */
+export const canEditDisclosures = (s: Pick<Who, "isAdmin" | "permissions">) =>
+  s.isAdmin ||
+  s.permissions.includes("disclosure.finance") ||
+  s.permissions.includes("disclosure.hr");
+
+/** Enter the yearly financial inputs of the report: turnover, PPP rate, net worth, output. */
+export const canEnterFinancialInputs = (s: Pick<Who, "isAdmin" | "permissions">) =>
+  s.isAdmin || s.permissions.includes("financial_inputs.manage");
+
 /** Anyone who has at least one page under /admin to open; everyone else lives in /app. */
 export const canEnterAdminWorkspace = (s: Who) =>
-  canAdminister(s) || canMonitor(s) || canUseReports(s);
+  canAdminister(s) ||
+  canMonitor(s) ||
+  canUseReports(s) ||
+  canEditDisclosures(s) ||
+  canEnterFinancialInputs(s);

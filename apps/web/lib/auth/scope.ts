@@ -82,6 +82,28 @@ export async function defaultOrgUnitId(
   return unit?.id ?? null;
 }
 
+/**
+ * True for a Super Admin, or for someone who holds `permission` through an assignment at a group-level org
+ * unit. Group-wide data (the yearly financial inputs, the written BRSR answers) has one value per financial
+ * year, so a person assigned at a single project must not be able to change it.
+ */
+export async function holdsPermissionAtGroup(
+  sql: Sql,
+  caller: Caller,
+  permission: string,
+): Promise<boolean> {
+  if (caller.isAdmin) return true;
+  const [row] = await sql<{ ok: boolean }[]>`
+    select exists (
+      select 1 from public.user_org_assignments uoa
+      join public.role_permissions rp on rp.role_id = uoa.role_id
+      join public.permissions p on p.id = rp.permission_id and p.code = ${permission}
+      join public.org_units o on o.id = uoa.org_unit_id and o.deleted_at is null
+      where uoa.user_id = ${caller.userId} and uoa.revoked_at is null
+        and o.unit_type::text = 'group') as ok`;
+  return row?.ok ?? false;
+}
+
 /** Refuses an org unit outside the caller's scope. Out of scope and missing read the same (§4.4). */
 export async function assertOrgScope(
   sql: Sql,

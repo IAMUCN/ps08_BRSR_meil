@@ -10,10 +10,10 @@ create function pg_temp.perms(role_code text) returns text language sql as $$
   where r.code = role_code
 $$;
 
-select is((select count(*)::int from public.permissions), 20, 'the catalogue still has 20 permissions');
+select is((select count(*)::int from public.permissions), 24, 'the catalogue has 24 permissions (0067 added four)');
 select is(
   (select count(*)::int from public.role_permissions rp join public.roles r on r.id = rp.role_id
-   where r.code = 'admin'), 20, 'Admin holds every permission');
+   where r.code = 'admin'), 24, 'Admin holds every permission');
 select is(pg_temp.perms('corporate_esg'),
   'approval.decide,carbon_credit.manage,carbon_credit.view,chat.use,document.upload,icp.manage,monitoring.view,record.verify,report.generate,validation.review',
   'Corporate ESG: review, approve, monitor, report, carbon credits');
@@ -22,11 +22,11 @@ select is(pg_temp.perms('project_manager'), 'carbon_credit.view,chat.use,documen
 select is(pg_temp.perms('ehs'), 'chat.use,document.upload,record.verify', 'EHS: upload and verify');
 select is(pg_temp.perms('procurement'), 'chat.use,document.upload,record.verify',
   'Procurement: upload and verify');
-select is(pg_temp.perms('hr'), 'chat.use,document.upload,record.verify,user.bulk_import',
-  'HR: upload, verify and bulk import of employees');
+select is(pg_temp.perms('hr'), 'chat.use,disclosure.hr,document.upload,record.verify,user.bulk_import',
+  'HR: upload, verify, bulk import of employees, and the workforce answers (0067)');
 select is(pg_temp.perms('finance_csr'),
-  'carbon_credit.view,chat.use,document.upload,icp.manage,record.verify',
-  'Finance / CSR: upload, verify, carbon price');
+  'carbon_credit.view,chat.use,disclosure.finance,document.upload,financial_inputs.manage,icp.manage,record.verify',
+  'Finance / CSR: upload, verify, carbon price, the financial inputs and finance answers (0067)');
 -- Organisation-wide configuration stays with the Admin role.
 select is(
   (select count(*)::int from public.role_permissions rp

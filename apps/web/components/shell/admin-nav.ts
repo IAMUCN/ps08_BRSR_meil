@@ -1,5 +1,10 @@
 import type { NavItem } from "@/components/shell/sidebar";
-import { canMonitor, canUseReports } from "../../lib/auth/workspace.ts";
+import {
+  canEditDisclosures,
+  canEnterFinancialInputs,
+  canMonitor,
+  canUseReports,
+} from "../../lib/auth/workspace.ts";
 
 // The /admin sidebar (built pages only, .grill/phase-4-admin-foundation-decisions.md). A Super Admin sees
 // all of it; an Administrator sees the pages that are about their own org units — group-wide configuration
@@ -110,6 +115,14 @@ export function workspaceNavFor(session: {
       label: "Reports",
       icon: "reports",
       startsGroup: !canMonitor(session),
+    });
+  // Finance and HR type their own part of the BRSR answers (migration 0067).
+  if (canEditDisclosures(session) || canEnterFinancialInputs(session))
+    nav.push({
+      href: "/admin/disclosures",
+      label: "BRSR Disclosures",
+      icon: "reports",
+      startsGroup: !canMonitor(session) && !canUseReports(session),
     });
   // A20: bulk-import items appear only for whichever role(s) an Admin has granted the permission to.
   if (session.permissions.includes("user.bulk_import"))

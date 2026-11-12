@@ -60,10 +60,10 @@ select ok(not has_column_privilege('authenticated', 'public.user_display_names',
 -- Seed data
 ------------------------------------------------------------------------------------------------
 
-select is((select count(*)::int from public.roles where is_system_role), 8, '8 system roles');
-select is((select count(*)::int from public.permissions), 20, '20 permissions');
+select is((select count(*)::int from public.roles where is_system_role), 9, '9 system roles (0067 adds the Assurance Reviewer)');
+select is((select count(*)::int from public.permissions), 24, '24 permissions (0067 adds four)');
 select is((select count(*)::int from public.role_permissions rp join public.roles r on r.id = rp.role_id
-           where r.code = 'admin'), 20, 'admin holds every permission');
+           where r.code = 'admin'), 24, 'admin holds every permission');
 select set_eq(
   $$select p.code from public.role_permissions rp join public.roles r on r.id = rp.role_id
     join public.permissions p on p.id = rp.permission_id where r.code = 'corporate_esg'$$,

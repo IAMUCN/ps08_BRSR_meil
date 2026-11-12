@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   assertOrgScope,
   defaultOrgUnitId,
+  holdsPermissionAtGroup,
   inOrgScope,
   scopedOrgUnitIds,
 } from "../lib/auth/scope.ts";
@@ -60,4 +61,22 @@ test("the default unit comes from the assignments that hold the permission", asy
   assert.ok(calls[0].text.includes("role_permissions"));
   const none = standIn([]);
   assert.equal(await defaultOrgUnitId(none.sql, user, "monitoring.view"), null);
+});
+
+test("group-level permission: a Super Admin always, else only through a group assignment", async () => {
+  const none = standIn([]);
+  assert.equal(await holdsPermissionAtGroup(none.sql, admin, "financial_inputs.manage"), true);
+  assert.equal(none.calls.length, 0);
+
+  // The stand-in returns one row with ok = true or false, as the real exists() query does.
+  const yes = standIn([{ ok: true }] as never);
+  assert.equal(await holdsPermissionAtGroup(yes.sql, user, "financial_inputs.manage"), true);
+  assert.ok(yes.calls[0].text.includes("role_permissions"));
+  assert.ok(yes.calls[0].text.includes("'group'"));
+  assert.ok(yes.calls[0].values.includes("financial_inputs.manage"));
+
+  const no = standIn([{ ok: false }] as never);
+  assert.equal(await holdsPermissionAtGroup(no.sql, user, "financial_inputs.manage"), false);
+  const empty = standIn([]);
+  assert.equal(await holdsPermissionAtGroup(empty.sql, user, "financial_inputs.manage"), false);
 });

@@ -3,7 +3,9 @@ import { test } from "node:test";
 import { workspaceNavFor } from "../components/shell/admin-nav.ts";
 import {
   canAdminister,
+  canEditDisclosures,
   canEnterAdminWorkspace,
+  canEnterFinancialInputs,
   canMonitor,
   canUseReports,
   canViewAudit,
@@ -114,4 +116,50 @@ test("the Super Admin and Administrator sidebars are unchanged by this", () => {
   const adminHrefs = workspaceNavFor(administrator).map((i) => i.href);
   assert.ok(adminHrefs.includes("/admin/users"));
   assert.ok(!adminHrefs.includes("/admin/conversion-factors"));
+});
+
+// Finance / CSR and HR type their own part of the BRSR answers (migration 0067).
+const finance = {
+  isAdmin: false,
+  isOrgAdmin: false,
+  permissions: ["document.upload", "record.verify", "disclosure.finance", "financial_inputs.manage"],
+};
+const hr = {
+  isAdmin: false,
+  isOrgAdmin: false,
+  permissions: ["document.upload", "record.verify", "disclosure.hr", "user.bulk_import"],
+};
+
+test("Finance enters the yearly inputs and finance answers, HR the workforce answers, nobody else", () => {
+  assert.equal(canEnterFinancialInputs(finance), true);
+  assert.equal(canEditDisclosures(finance), true);
+  assert.equal(canEnterFinancialInputs(hr), false);
+  assert.equal(canEditDisclosures(hr), true);
+  for (const other of [projectManager, corporateEsg, auditor, administrator]) {
+    assert.equal(canEditDisclosures(other), false);
+    assert.equal(canEnterFinancialInputs(other), false);
+  }
+  assert.equal(canEditDisclosures(superAdmin), true);
+  assert.equal(canEnterFinancialInputs(superAdmin), true);
+});
+
+test("Finance and HR reach the BRSR Disclosures page and nothing else under /admin", () => {
+  for (const person of [finance, hr]) {
+    assert.equal(canEnterAdminWorkspace(person), true);
+    assert.equal(canMonitor(person), false);
+    assert.equal(canUseReports(person), false);
+    const hrefs = workspaceNavFor(person).map((i) => i.href);
+    assert.ok(hrefs.includes("/admin/disclosures"));
+    assert.ok(!hrefs.includes("/admin/reports"));
+    assert.ok(!hrefs.includes("/admin/scope-1"));
+    assert.ok(!hrefs.includes("/admin/conversion-factors"));
+  }
+});
+
+test("the Assurance Reviewer is offered the monitoring pages and no editing page", () => {
+  const hrefs = workspaceNavFor(auditor).map((i) => i.href);
+  assert.ok(hrefs.includes("/admin/scope-1"));
+  assert.ok(!hrefs.includes("/admin/disclosures"));
+  assert.ok(!hrefs.includes("/admin/reports"));
+  assert.ok(!hrefs.includes("/app/upload"));
 });
