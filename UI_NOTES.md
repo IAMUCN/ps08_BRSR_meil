@@ -460,3 +460,18 @@ Built by the feature session at the owner's request; no restyle.
   beneath; screen-reader names, the introduction ("I'm Tracey. Ask me about …") and the question box say Tracey.
 - `lib/chat/orchestrate.ts`: the instructions start "You are Tracey, the ESG data analyst inside EmeilSG"; she
   answers to her name. `tests/e2e/ui-phase8.mjs` expects "Ask Tracey".
+
+## ui, 2026-11-12 (Help page: animated questions; owner's request)
+
+- `components/help/faq.tsx` (new, client): `FaqList` and `FaqItem` replace the `<details>` blocks in the Help page's
+  Questions section. An answer opens and closes with a height and fade animation (`motion/react`, 0.26 s), the
+  chevron turns, the open item takes a tinted background, and the questions arrive one after another the first time
+  the list scrolls into view. Each question is a button in an `h3` with `aria-expanded` / `aria-controls`; the
+  answer is a labelled region. With reduced motion the timings are zero and the slide is dropped; the markup is the
+  same either way (rendering it differently caused a hydration error, caught in the browser check).
+- `app/app/help/page.tsx`: uses the new components; three questions added (own account, where the document is read,
+  the same bill twice). No migration, no new dependency, no server procedure.
+- Checked: format, lint, typecheck, web unit tests; the component in Chromium on a temporary page (since removed) at
+  1280 and 390 px and with reduced motion: opens, closes, Enter key, no sideways scroll, no page error. **Not run:**
+  the Help page itself signed in (no database in that session), the three themes, the production build, the
+  accessibility suite.

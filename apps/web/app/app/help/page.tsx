@@ -2,6 +2,7 @@ import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { FaqItem as Faq, FaqList } from "@/components/help/faq";
 import { PageHeader } from "@/components/shell/page-header";
 import { adminNavFor, workspaceNavFor } from "@/components/shell/admin-nav";
 import { requireAppSession } from "@/lib/auth/session";
@@ -54,15 +55,6 @@ function Flow({ steps }: { steps: { title: string; detail: string }[] }) {
         </li>
       ))}
     </ol>
-  );
-}
-
-function Faq({ q, children }: { q: string; children: ReactNode }) {
-  return (
-    <details className="rounded-md border border-border p-3">
-      <summary className="cursor-pointer font-medium">{q}</summary>
-      <div className="mt-2 space-y-2">{children}</div>
-    </details>
   );
 }
 
@@ -485,33 +477,53 @@ export default async function HelpPage() {
       </Section>
 
       <Section id="faq" title="Questions">
-        <Faq q="Do I type ESG figures into forms?">
-          <p>
-            No. Figures come from uploaded documents. Only BRSR&apos;s written answers and a few
-            yearly inputs (turnover, assurance) are typed by administrators.
-          </p>
-        </Faq>
-        <Faq q="Does the AI decide anything?">
-          <p>
-            No. OCR proposes values and a person confirms them; calculations are fixed formulas;
-            suggestions are decision support. The assistant only reads.
-          </p>
-        </Faq>
-        <Faq q="Can I change a value after it is approved?">
-          <p>
-            Not directly. An administrator can return it while it is still in review; after approval
-            a correction is a new upload. Every change is in the audit trail.
-          </p>
-        </Faq>
-        <Faq q="Who can see my uploads?">
-          <p>
-            You, and people assigned to your unit or a unit above it, as far as their role allows.
-            Nobody in a sibling unit.
-          </p>
-        </Faq>
-        <Faq q="Is the BRSR readiness score official?">
-          <p>No. It is an internal management indicator of how complete the evidence is.</p>
-        </Faq>
+        <FaqList>
+          <Faq q="Do I type ESG figures into forms?">
+            <p>
+              No. Figures come from uploaded documents. Only BRSR&apos;s written answers and a few
+              yearly inputs (turnover, assurance) are typed by administrators.
+            </p>
+          </Faq>
+          <Faq q="Does the AI decide anything?">
+            <p>
+              No. OCR proposes values and a person confirms them; calculations are fixed formulas;
+              suggestions are decision support. The assistant only reads.
+            </p>
+          </Faq>
+          <Faq q="Can I change a value after it is approved?">
+            <p>
+              Not directly. An administrator can return it while it is still in review; after
+              approval a correction is a new upload. Every change is in the audit trail.
+            </p>
+          </Faq>
+          <Faq q="Who can see my uploads?">
+            <p>
+              You, and people assigned to your unit or a unit above it, as far as their role allows.
+              Nobody in a sibling unit.
+            </p>
+          </Faq>
+          <Faq q="Is the BRSR readiness score official?">
+            <p>No. It is an internal management indicator of how complete the evidence is.</p>
+          </Faq>
+          <Faq q="Can I create my own account?">
+            <p>
+              No. An administrator invites you, and the email link lets you choose your password.
+              Use Forgot password on the sign-in page if you lose it.
+            </p>
+          </Faq>
+          <Faq q="Does my document leave EmeilSG to be read?">
+            <p>
+              No. OCR runs on EmeilSG&apos;s own worker, and the file stays in private storage that
+              only signed-in people in your scope can open.
+            </p>
+          </Faq>
+          <Faq q="What happens if I upload the same bill twice?">
+            <p>
+              It is accepted and flagged as a duplicate, naming the earlier record. A reviewer
+              accepts it or returns it; nothing is counted twice without a person deciding.
+            </p>
+          </Faq>
+        </FaqList>
       </Section>
     </div>
   );
