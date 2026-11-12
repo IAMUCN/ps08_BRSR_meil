@@ -127,7 +127,7 @@ test("cells: Excel serial dates, day-first dates, wages and employment words", (
 });
 
 test("a sheet is read by header, whatever the spelling, and every bad row is named", () => {
-  const sheet = [
+  const sheet: Record<string, string>[] = [
     {
       "Emp ID": "E1",
       Name: "Asha",
