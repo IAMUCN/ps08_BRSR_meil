@@ -19,7 +19,41 @@ const orderOf = (levels: readonly OrgLevel[], code: string) =>
 export const levelLabel = (levels: readonly OrgLevel[], code: string) =>
   levels.find((l) => l.code === code)?.label ?? code;
 
-/** Skip levels, never invert: a child's level must come strictly later than its parent's. */
+/**
+ * MEIL's structure (owner's request, 2026-11-12): business units sit directly under a subsidiary, one
+ * subsidiary each, and projects sit under business units. Keyed on the level codes seeded in migration 0037
+ * (a level's code never changes); a rule applies only while both of its levels exist.
+ */
+export const BUSINESS_UNIT_LEVEL = "business_unit";
+export const SUBSIDIARY_LEVEL = "subsidiary";
+export const PROJECT_LEVEL = "project";
+
+/** Levels whose units belong to one parent only: no "also under" (owner's request, 2026-11-12). */
+export const singleParent = (unitType: OrgUnitType) => unitType === BUSINESS_UNIT_LEVEL;
+
+/** Why MEIL's structure refuses this placement, or null when it allows it. Level order is checked apart. */
+export function structureProblem(
+  levels: readonly OrgLevel[],
+  parentType: OrgUnitType,
+  childType: OrgUnitType,
+): string | null {
+  const has = (code: string) => levels.some((l) => l.code === code);
+  if (
+    childType === BUSINESS_UNIT_LEVEL &&
+    has(SUBSIDIARY_LEVEL) &&
+    parentType !== SUBSIDIARY_LEVEL
+  ) {
+    return `A ${levelLabel(levels, BUSINESS_UNIT_LEVEL)} sits directly under a ${levelLabel(levels, SUBSIDIARY_LEVEL)}.`;
+  }
+  const parent = orderOf(levels, parentType);
+  const unit = orderOf(levels, BUSINESS_UNIT_LEVEL);
+  if (childType === PROJECT_LEVEL && unit !== undefined && parent !== undefined && parent < unit) {
+    return `A ${levelLabel(levels, PROJECT_LEVEL)} sits under a ${levelLabel(levels, BUSINESS_UNIT_LEVEL)}, not directly under a ${levelLabel(levels, parentType)}.`;
+  }
+  return null;
+}
+
+/** Skip levels, never invert: a child's level must come strictly later than its parent's; and MEIL's structure. */
 export function canBeChildOf(
   levels: readonly OrgLevel[],
   parentType: OrgUnitType,
@@ -28,7 +62,28 @@ export function canBeChildOf(
   const parent = orderOf(levels, parentType);
   const child = orderOf(levels, childType);
   if (childType === ROOT_LEVEL || parent === undefined || child === undefined) return false;
-  return child > parent;
+  return child > parent && structureProblem(levels, parentType, childType) === null;
+}
+
+/** Why a parent can't take a child: the structure's own words, else the ordering rule. */
+function placementReason(
+  levels: readonly OrgLevel[],
+  parentType: OrgUnitType,
+  childType: OrgUnitType,
+) {
+  return (
+    structureProblem(levels, parentType, childType) ??
+    "That parent's level must come before this node's level."
+  );
+}
+
+/**
+ * A unit placed before the structure rules existed (a project straight under a subsidiary): its main parent
+ * would be refused today. Shown on the Organization page so it can be put under a business unit.
+ */
+export function misplaced(node: OrgNode, nodes: readonly OrgNode[], levels: readonly OrgLevel[]) {
+  const parent = node.parentId ? nodes.find((n) => n.id === node.parentId) : undefined;
+  return parent ? structureProblem(levels, parent.unitType, node.unitType) : null;
 }
 
 /** Levels allowed under a parent, in hierarchy order. */
@@ -242,7 +297,7 @@ export function checkMove(
     return { ok: false, reason: "The node already sits under that parent as well." };
   }
   if (!canBeChildOf(levels, newParent.unitType, node.unitType)) {
-    return { ok: false, reason: "That parent's level must come before this node's level." };
+    return { ok: false, reason: placementReason(levels, newParent.unitType, node.unitType) };
   }
   return { ok: true };
 }
@@ -280,8 +335,14 @@ export function checkAlsoUnder(
   if (node.parentId === parentId || node.alsoUnder?.includes(parentId)) {
     return { ok: false, reason: "The node already sits under that parent." };
   }
+  if (singleParent(node.unitType)) {
+    return {
+      ok: false,
+      reason: `A ${levelLabel(levels, node.unitType)} belongs to one ${levelLabel(levels, SUBSIDIARY_LEVEL)} only.`,
+    };
+  }
   if (!canBeChildOf(levels, parent.unitType, node.unitType)) {
-    return { ok: false, reason: "That parent's level must come before this node's level." };
+    return { ok: false, reason: placementReason(levels, parent.unitType, node.unitType) };
   }
   if (rootOf(nodeId, nodes) !== rootOf(parentId, nodes)) {
     return { ok: false, reason: "Both must belong to the same group." };

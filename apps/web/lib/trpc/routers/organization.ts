@@ -5,6 +5,7 @@ import { writeAudit } from "@/lib/audit";
 import type { ActiveSession } from "@/lib/auth/session";
 import { db, pgErrorCode, type Tx } from "@/lib/db";
 import {
+  BUSINESS_UNIT_LEVEL,
   canBeChildOf,
   checkAlsoUnder,
   checkMove,
@@ -12,8 +13,12 @@ import {
   importOrder,
   mergeSharedRows,
   isFrozen,
+  levelLabel,
+  misplaced,
+  PROJECT_LEVEL,
   reachableNodeIds,
   ROOT_LEVEL,
+  structureProblem,
   unitByRef,
   type OrgLevel,
   type OrgNode,
@@ -180,6 +185,81 @@ async function subtreeImpact(nodeId: string, nodes: OrgNode[]) {
     activeAssignments: assignments,
     inProgressRecords: records,
   };
+}
+
+/**
+ * Sets a unit's further parents to `wanted` (all checked before anything is written) and returns the tree as
+ * it is afterwards. A unit whose main parent breaks the structure rules (`misplaced`) takes the first of
+ * `wanted` as its new main parent. Placements the caller cannot see stay as they are.
+ */
+async function applyParents(
+  tx: Tx,
+  userId: string,
+  r: Reach,
+  nodes: OrgNodeRow[],
+  levels: OrgLevel[],
+  node: OrgNodeRow,
+  requested: readonly string[],
+): Promise<OrgNodeRow[]> {
+  const hidden = node.alsoUnder.filter((id) => r && !r.own.has(id) && !r.managed.has(id));
+  let wanted = [...new Set([...requested, ...hidden])].filter((id) => id !== node.parentId);
+  for (const id of wanted.filter((id) => !node.alsoUnder.includes(id))) assertOwnable(r, id);
+  const wrongMain = misplaced(node, nodes, levels) !== null;
+  let parentId = node.parentId;
+  if (wrongMain) {
+    // Parents the structure refuses (a subsidiary it was also put under) go with the old main parent.
+    const fits = (id: string) => {
+      const p = nodes.find((n) => n.id === id);
+      return !p || structureProblem(levels, p.unitType, node.unitType) === null;
+    };
+    if (wanted.some(fits)) {
+      wanted = wanted.filter(fits);
+      parentId = wanted[0];
+      wanted = wanted.slice(1);
+    }
+  }
+  const removed = node.alsoUnder.filter((id) => !wanted.includes(id));
+  const added = wanted.filter((id) => !node.alsoUnder.includes(id));
+  if (parentId === node.parentId && removed.length + added.length === 0) return nodes;
+  // Checked against the unit as it will be: new main parent first, then each further one.
+  const after: OrgNodeRow = { ...node, parentId, alsoUnder: [] };
+  const nameOf = (id: string) => nodes.find((n) => n.id === id)?.name ?? "A chosen parent";
+  if (parentId !== node.parentId) {
+    const base = nodes.map((n) => (n.id === node.id ? { ...node, alsoUnder: [] } : n));
+    const check = checkMove(node.id, parentId!, base, levels);
+    if (!check.ok) badRequest(`${nameOf(parentId!)}: ${check.reason}`);
+    if (isFrozen(parentId!, nodes)) badRequest(`${nameOf(parentId!)} is inactive.`);
+  }
+  for (const id of wanted) {
+    const others = nodes.map((n) => (n.id === node.id ? after : n));
+    const check = checkAlsoUnder(node.id, id, others, levels);
+    if (!check.ok) badRequest(`${nameOf(id)}: ${check.reason}`);
+    if (!node.alsoUnder.includes(id) && isFrozen(id, nodes))
+      badRequest(`${nameOf(id)} is inactive.`);
+    after.alsoUnder = [...after.alsoUnder, id];
+  }
+  if (parentId !== node.parentId) {
+    await tx`update public.org_units set parent_id = ${parentId} where id = ${node.id}`;
+  }
+  if (removed.length > 0) {
+    await tx`
+      delete from public.org_unit_parents
+      where org_unit_id = ${node.id} and parent_id = any(${removed}::uuid[])`;
+  }
+  for (const id of added) {
+    await tx`
+      insert into public.org_unit_parents (org_unit_id, parent_id, created_by)
+      values (${node.id}, ${id}, ${userId})`;
+  }
+  await writeAudit(tx, {
+    eventType: "org_unit.parents_changed",
+    entityType: "org_unit",
+    entityId: node.id,
+    userId,
+    oldValue: { parent_id: node.parentId, also_under: node.alsoUnder },
+    newValue: { parent_id: parentId, also_under: after.alsoUnder, added, removed },
+  });
+  return nodes.map((n) => (n.id === node.id ? after : n));
 }
 
 export const organizationRouter = router({
@@ -364,8 +444,12 @@ export const organizationRouter = router({
                 "That node is inactive (or under an inactive node) — reactivate it first.",
               );
             }
-            if (!canBeChildOf(await loadLevels(tx), parent.unitType, input.unitType)) {
-              badRequest("That level can't be placed under the selected parent.");
+            const levels = await loadLevels(tx);
+            if (!canBeChildOf(levels, parent.unitType, input.unitType)) {
+              badRequest(
+                structureProblem(levels, parent.unitType, input.unitType) ??
+                  "That level can't be placed under the selected parent.",
+              );
             }
           } else {
             if (!ctx.session.isAdmin) badRequest("Only a Super Admin can add a group.");
@@ -536,7 +620,9 @@ export const organizationRouter = router({
 
   /**
    * The further parents of a unit, set in one go from the checklist on the Organization page: the ones no
-   * longer ticked are removed, the newly ticked are added, all or nothing. The main parent is not part of it.
+   * longer ticked are removed, the newly ticked are added, all or nothing. The main parent is not part of it —
+   * except for a unit placed before the structure rules (a project straight under a subsidiary, owner's
+   * request 2026-11-12): the first unit ticked becomes its main parent and the old one is left.
    */
   setParents: orgManage
     .input(z.object({ id: z.uuid(), alsoUnder: z.array(z.uuid()).max(50) }))
@@ -547,47 +633,76 @@ export const organizationRouter = router({
         if (!node) badRequest("Node not found.");
         const r = reach(ctx.session, nodes);
         assertManaged(r, node.id);
-        // A placement the caller cannot see was not on their checklist: it stays as it is.
-        const hidden = node.alsoUnder.filter((id) => r && !r.own.has(id) && !r.managed.has(id));
-        const wanted = [...new Set([...input.alsoUnder, ...hidden])];
-        const removed = node.alsoUnder.filter((id) => !wanted.includes(id));
-        const added = wanted.filter((id) => !node.alsoUnder.includes(id));
-        for (const id of added) assertOwnable(r, id);
-        if (removed.length + added.length === 0) return;
-        const levels = await loadLevels(tx);
-        // Checked against the unit as it will be once the removals are done.
-        const after: OrgNode = {
-          ...node,
-          alsoUnder: node.alsoUnder.filter((id) => wanted.includes(id)),
-        };
-        for (const parentId of added) {
-          const others = nodes.map((n) => (n.id === node.id ? after : n));
-          const check = checkAlsoUnder(node.id, parentId, others, levels);
-          const name = nodes.find((n) => n.id === parentId)?.name ?? "A chosen parent";
-          if (!check.ok) badRequest(`${name}: ${check.reason}`);
-          if (isFrozen(parentId, nodes)) badRequest(`${name} is inactive.`);
-          after.alsoUnder = [...(after.alsoUnder ?? []), parentId];
-        }
-        if (removed.length > 0) {
-          await tx`
-            delete from public.org_unit_parents
-            where org_unit_id = ${node.id} and parent_id = any(${removed}::uuid[])`;
-        }
-        for (const parentId of added) {
-          await tx`
-            insert into public.org_unit_parents (org_unit_id, parent_id, created_by)
-            values (${node.id}, ${parentId}, ${ctx.session.userId})`;
-        }
-        await writeAudit(tx, {
-          eventType: "org_unit.parents_changed",
-          entityType: "org_unit",
-          entityId: node.id,
-          userId: ctx.session.userId,
-          oldValue: { also_under: node.alsoUnder },
-          newValue: { also_under: after.alsoUnder, added, removed },
-        });
+        await applyParents(
+          tx,
+          ctx.session.userId,
+          r,
+          nodes,
+          await loadLevels(tx),
+          node,
+          input.alsoUnder,
+        );
       });
       return null;
+    }),
+
+  /**
+   * The projects under a business unit, ticked on its panel (owner's request, 2026-11-12). A newly ticked
+   * project gets the business unit as one more parent — or as its main parent when it sat straight under a
+   * subsidiary; an unticked one loses it. A project the business unit is the main parent of is moved from
+   * the project's own panel, so it cannot be unticked here.
+   */
+  setChildren: orgManage
+    .input(z.object({ id: z.uuid(), childIds: z.array(z.uuid()).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      return db().begin(async (tx) => {
+        const nodes = await loadTreeForUpdate(tx);
+        const unit = nodes.find((n) => n.id === input.id);
+        if (!unit) badRequest("Node not found.");
+        const levels = await loadLevels(tx);
+        if (unit.unitType !== BUSINESS_UNIT_LEVEL) {
+          badRequest(`Projects are ticked on a ${levelLabel(levels, BUSINESS_UNIT_LEVEL)}.`);
+        }
+        const r = reach(ctx.session, nodes);
+        assertOwnable(r, unit.id);
+        if (isFrozen(unit.id, nodes)) badRequest(`${unit.name} is inactive.`);
+        const wanted = new Set(input.childIds);
+        const changes: { id: string; name: string; change: "added" | "moved" | "removed" }[] = [];
+        let current = nodes;
+        for (const child of nodes.filter((n) => n.unitType === PROJECT_LEVEL)) {
+          const main = child.parentId === unit.id;
+          const extra = child.alsoUnder.includes(unit.id);
+          const tick = wanted.has(child.id);
+          if (tick === (main || extra)) continue;
+          if (!tick && main) {
+            badRequest(
+              `${child.name} is managed from ${unit.name}; move it under another ${levelLabel(levels, BUSINESS_UNIT_LEVEL).toLowerCase()} from its own panel.`,
+            );
+          }
+          assertManaged(r, child.id);
+          const latest = current.find((n) => n.id === child.id)!;
+          // The business unit first: it becomes the main parent of a project still under a subsidiary.
+          const alsoUnder = tick
+            ? [unit.id, ...latest.alsoUnder]
+            : latest.alsoUnder.filter((id) => id !== unit.id);
+          const wasMisplaced = tick && misplaced(latest, current, levels) !== null;
+          current = await applyParents(
+            tx,
+            ctx.session.userId,
+            r,
+            current,
+            levels,
+            latest,
+            alsoUnder,
+          );
+          changes.push({
+            id: child.id,
+            name: child.name,
+            change: !tick ? "removed" : wasMisplaced ? "moved" : "added",
+          });
+        }
+        return { changes };
+      });
     }),
 
   /** Whether a unit can be deleted for good, and what stands in the way if not. */
@@ -945,7 +1060,9 @@ async function importOneOrgUnit(
           row: rowNum,
           ok: false as const,
           name: row.name,
-          error: "That level can't be placed under the selected parent.",
+          error:
+            structureProblem(levels, parent.unitType, row.unitType) ??
+            "That level can't be placed under the selected parent.",
         };
       }
       // All or nothing: a shared unit created under only one of its parents would be a tree nobody meant.

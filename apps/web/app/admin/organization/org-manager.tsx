@@ -39,8 +39,13 @@ import {
   isFrozen,
   levelLabel,
   canBeChildOf,
+  BUSINESS_UNIT_LEVEL,
+  misplaced,
+  PROJECT_LEVEL,
   rootOf,
   ROOT_LEVEL,
+  singleParent,
+  SUBSIDIARY_LEVEL,
   type OrgLevel,
   type OrgUnitType,
 } from "@/lib/org/rules";
@@ -53,6 +58,7 @@ import {
   moveOrgUnitAction,
   orgUnitDeleteCheckAction,
   orgUnitImpactAction,
+  setOrgUnitChildrenAction,
   setOrgUnitParentsAction,
   setOrgUnitStatusAction,
   updateOrgUnitAction,
@@ -334,7 +340,7 @@ export function OrgManager({
         </section>
         {selected ? (
           <NodeDetail
-            key={selected.id}
+            key={`${selected.id}:${selected.parentId}`}
             node={selected}
             nodes={nodes}
             levels={levels}
@@ -404,6 +410,9 @@ function ParentChecklist({
   levels,
   disabled,
   onToggle,
+  note,
+  locked,
+  emptyText,
 }: {
   legend: string;
   hint: string;
@@ -414,6 +423,11 @@ function ParentChecklist({
   levels: OrgLevel[];
   disabled: boolean;
   onToggle: (id: string, on: boolean) => void;
+  /** Shown beside a choice in place of its level, e.g. where a project sits today. */
+  note?: (choice: OrgUnitRow) => string;
+  /** Choices that stay ticked and can't be changed here, with the reason as a tooltip. */
+  locked?: Map<string, string>;
+  emptyText?: string;
 }) {
   const [filter, setFilter] = useState("");
   const wanted = filter.trim().toLowerCase();
@@ -429,7 +443,7 @@ function ParentChecklist({
   return (
     <fieldset className="space-y-2">
       <legend className="text-sm leading-5 font-medium">
-        {legend} ({checked.size + (fixed ? 1 : 0)} ticked)
+        {legend} ({checked.size + (locked?.size ?? 0) + (fixed ? 1 : 0)} included)
       </legend>
       <p className="text-xs leading-4 text-muted-foreground">{hint}</p>
       {choices.length > 8 ? (
@@ -453,20 +467,21 @@ function ParentChecklist({
             <input
               type="checkbox"
               className="size-4"
-              checked={checked.has(choice.id)}
-              disabled={disabled}
+              checked={checked.has(choice.id) || locked?.has(choice.id) === true}
+              disabled={disabled || locked?.has(choice.id) === true}
+              title={locked?.get(choice.id)}
               onChange={(e) => onToggle(choice.id, e.target.checked)}
             />
             <span className="truncate">{choice.name}</span>
-            <span className="text-xs text-muted-foreground">
-              {levelLabel(levels, choice.unitType)}
+            <span className="truncate text-xs text-muted-foreground">
+              {note ? note(choice) : levelLabel(levels, choice.unitType)}
             </span>
           </label>
         ))}
         {choices.length === 0 ? (
           <p className="px-3 py-2 text-xs leading-4 text-muted-foreground">
-            No other unit can be a parent here: a parent must be at an earlier level, active and in
-            the same group.
+            {emptyText ??
+              "No other unit can be a parent here: a parent must be at an earlier level, active and in the same group."}
           </p>
         ) : shown.length === 0 ? (
           <p className="px-3 py-2 text-xs leading-4 text-muted-foreground">Nothing matches.</p>
@@ -584,7 +599,12 @@ function AddChildren({
   const frozen = isFrozen(node.id, nodes);
   const frozenByAncestor = frozen && node.status === "active";
   const childTypes = allowedChildTypes(levels, node.unitType);
-  const [childType, setChildType] = useState<OrgUnitType | "">(childTypes[0] ?? "");
+  const [childType, setChildType] = useState<OrgUnitType | "">(
+    // Under a business unit the new unit is usually a project (owner's structure, 2026-11-12).
+    childTypes.includes(PROJECT_LEVEL) && node.unitType === BUSINESS_UNIT_LEVEL
+      ? PROJECT_LEVEL
+      : (childTypes[0] ?? ""),
+  );
   const [childName, setChildName] = useState("");
   const [childCode, setChildCode] = useState("");
   // A new group has no parent: a separate organization with its own tree (owner's decision 2026-10-11).
@@ -709,10 +729,22 @@ function AddChildren({
               className="font-mono"
             />
           </div>
-          {asGroup ? null : (
+          {/* No parent to choose around business units (owner's request, 2026-11-12). */}
+          {asGroup ? null : singleParent(childType) ? (
+            <p className="text-xs leading-4 text-muted-foreground">
+              A {levelLabel(levels, childType).toLowerCase()} belongs to {node.name} only. Include
+              its projects on its own panel once it is added.
+            </p>
+          ) : node.unitType === BUSINESS_UNIT_LEVEL ? (
+            <p className="text-xs leading-4 text-muted-foreground">
+              The new unit goes under {node.name}. To share a project with another{" "}
+              {levelLabel(levels, BUSINESS_UNIT_LEVEL).toLowerCase()}, include it in that one&apos;s
+              Projects list.
+            </p>
+          ) : (
             <ParentChecklist
               legend="Parents"
-              hint={`Tick every unit the new one belongs to. Leave only ${node.name} ticked for an ordinary unit; tick more for one that several units share, such as a project two subsidiaries run.`}
+              hint={`Tick every unit the new one belongs to. Leave only ${node.name} included for an ordinary unit; tick more for one that several units share, such as a project two business units run.`}
               fixed={node}
               fixedNote="selected in the tree"
               choices={parentChoices}
@@ -736,6 +768,109 @@ function AddChildren({
         </form>
       )}
     </>
+  );
+}
+
+/**
+ * The projects under a business unit (owner's request, 2026-11-12), ticked like a unit's parents: every
+ * project of the same group the caller may change, with where it sits today. Saved together.
+ */
+function ProjectsCard({
+  node,
+  nodes,
+  levels,
+  onChanged,
+}: {
+  node: OrgUnitRow;
+  nodes: OrgUnitRow[];
+  levels: OrgLevel[];
+  onChanged: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const group = rootOf(node.id, nodes);
+  const projects = nodes.filter(
+    (n) =>
+      n.unitType === PROJECT_LEVEL &&
+      n.manageable &&
+      rootOf(n.id, nodes) === group &&
+      (n.parentId === node.id || n.alsoUnder.includes(node.id) || !isFrozen(n.id, nodes)),
+  );
+  // Projects managed from this business unit stay ticked; they are moved from their own panel.
+  const locked = new Map(
+    projects
+      .filter((p) => p.parentId === node.id)
+      .map((p) => [p.id, `Managed from ${node.name}: move it from its own panel`]),
+  );
+  const saved = projects.filter((p) => p.alsoUnder.includes(node.id)).map((p) => p.id);
+  const [ticked, setTicked] = useState<Set<string>>(new Set(saved));
+  const changed = ticked.size !== saved.length || saved.some((id) => !ticked.has(id));
+  const name = (id: string | null) => nodes.find((n) => n.id === id)?.name;
+  const unitLabel = levelLabel(levels, BUSINESS_UNIT_LEVEL).toLowerCase();
+  const projectLabel = levelLabel(levels, PROJECT_LEVEL).toLowerCase();
+  const sorted = [...projects].sort(
+    (a, b) =>
+      Number(misplaced(b, nodes, levels) !== null) - Number(misplaced(a, nodes, levels) !== null) ||
+      a.name.localeCompare(b.name),
+  );
+
+  return (
+    <div className="rounded-md border bg-card p-6">
+      <h3 className="text-base leading-6 font-semibold">Projects under {node.name}</h3>
+      <p className="mt-1 text-sm leading-5 text-muted-foreground">
+        Tick each existing {projectLabel} that belongs to this {unitLabel}, then save. A{" "}
+        {projectLabel} still straight under a {levelLabel(levels, SUBSIDIARY_LEVEL).toLowerCase()}{" "}
+        moves here; one already under another {unitLabel} is shared by both, and its figures count
+        in each.
+      </p>
+      <div className="mt-4 space-y-3">
+        <ParentChecklist
+          legend={levelLabel(levels, PROJECT_LEVEL) + "s"}
+          hint={`Projects of this group. Beside each: where it sits today.`}
+          fixed={undefined}
+          fixedNote=""
+          choices={sorted}
+          checked={ticked}
+          locked={locked}
+          levels={levels}
+          disabled={pending}
+          note={(p) => {
+            const under = [p.parentId, ...p.alsoUnder].map(name).filter(Boolean).join(", ");
+            return misplaced(p, nodes, levels)
+              ? `under ${under} — needs a ${unitLabel}`
+              : `under ${under}`;
+          }}
+          emptyText={`No ${projectLabel} in this group yet.`}
+          onToggle={(id, on) =>
+            setTicked((prev) => {
+              const next = new Set(prev);
+              if (on) next.add(id);
+              else next.delete(id);
+              return next;
+            })
+          }
+        />
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending || !changed}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await setOrgUnitChildrenAction({ id: node.id, childIds: [...ticked] });
+              if (!result.ok) {
+                toast.error(result.error);
+                return;
+              }
+              const n = result.data.changes.length;
+              toast.success(n === 1 ? "1 project updated" : `${n} projects updated`);
+              onChanged();
+            })
+          }
+        >
+          {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+          Save projects
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -779,6 +914,9 @@ function NodeDetail({
     tickedParents.size !== node.alsoUnder.length ||
     node.alsoUnder.some((id) => !tickedParents.has(id));
   const alsoUnder = node.alsoUnder.flatMap((id) => nodes.find((n) => n.id === id) ?? []);
+  // Placed before the structure rules (a project straight under a subsidiary): the first ticked parent
+  // becomes its main one when the parents are saved.
+  const wrongPlace = misplaced(node, nodes, levels);
   const extraParentTargets = nodes.filter(
     (candidate) =>
       checkAlsoUnder(node.id, candidate.id, nodes, levels).ok && !isFrozen(candidate.id, nodes),
@@ -949,7 +1087,7 @@ function NodeDetail({
         ) : null}
       </div>
 
-      {node.parentId && node.manageable ? (
+      {node.parentId && node.manageable && !singleParent(node.unitType) ? (
         <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">Move to a different parent</h3>
           <p className="mt-1 text-sm leading-5 text-muted-foreground">
@@ -985,22 +1123,44 @@ function NodeDetail({
         </div>
       ) : null}
 
-      {node.parentId && node.manageable ? (
+      {node.unitType === BUSINESS_UNIT_LEVEL && node.ownable ? (
+        <ProjectsCard
+          // Starts afresh when the saved placements change, so the ticks match what was written.
+          key={nodes
+            .filter((n) => n.parentId === node.id || n.alsoUnder.includes(node.id))
+            .map((n) => n.id + (n.parentId === node.id ? ":main" : ""))
+            .join(",")}
+          node={node}
+          nodes={nodes}
+          levels={levels}
+          onChanged={onChanged}
+        />
+      ) : null}
+
+      {node.parentId && node.manageable && singleParent(node.unitType) ? null : node.parentId &&
+        node.manageable ? (
         <div className="rounded-md border bg-card p-6">
           <h3 className="text-base leading-6 font-semibold">
             {alsoUnder.length > 0 ? `Parents (${alsoUnder.length + 1})` : "Parents"}
           </h3>
+          {wrongPlace ? (
+            <p className="mt-2 rounded-md border border-status-warning px-3 py-2 text-sm leading-5 text-foreground">
+              {wrongPlace} {node.name} still sits straight under {parent?.name}. Tick the{" "}
+              {levelLabel(levels, BUSINESS_UNIT_LEVEL).toLowerCase()} it belongs to and save: the
+              first one ticked becomes its main parent and {parent?.name} is left out.
+            </p>
+          ) : null}
           <p className="mt-1 text-sm leading-5 text-muted-foreground">
-            For a unit that belongs to more than one parent, such as a project two subsidiaries run.{" "}
-            {node.name} then appears under each of them, their people can see it, and its figures
-            count in full in each parent and once in the group above them — so those parents add up
-            to more than the group.
+            For a unit that belongs to more than one parent, such as a project two business units
+            run. {node.name} then appears under each of them, their people can see it, and its
+            figures count in full in each parent and once in the group above them — so those parents
+            add up to more than the group.
           </p>
           <div className="mt-4 space-y-3">
             <ParentChecklist
               legend="Parents"
               hint="Tick every unit this one belongs to, then save."
-              fixed={parent}
+              fixed={wrongPlace ? undefined : parent}
               fixedNote="moved and deactivated from here"
               choices={[...alsoUnder, ...extraParentTargets]}
               checked={tickedParents}

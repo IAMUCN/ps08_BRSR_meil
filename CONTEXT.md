@@ -743,6 +743,8 @@ _Last updated: 2026-11-11._
   Local backup before the switch: `test data/_backup/local-backup-2026-11-11/`. The owner's 5 October test uploads
   existed only on local; the two files are in `test data/_backup/your-october-uploads/` to re-upload. **The owner
   restarts the dev server.** Never write to the local server now. Migration `0066` is on hosted.
+- **Category mismatch and activity list on Verify (2026-11-12, owner's request), uncommitted on `feature-upload-description-progress`, no migration** (A56, `.grill/verify-activity-change-decisions.md`): before Confirm, Verify lists every activity the Upload page offers and flags a Category mismatch naming the likely activity (hosted has two CNG records that are electricity bills); changing it re-queues OCR for the new fields. Checked: typecheck, lint, unit 292/292, the mismatch query read-only on hosted. **Not run:** a change through the app, a browser view, the build, the e2e suite.
+- **Subsidiary → business unit → project (2026-11-12, owner's request), uncommitted on `feature-upload-description-progress`, no migration** (A57, `.grill/org-structure-decisions.md`): a business unit sits under one subsidiary and is never shared; projects sit under business units (`lib/org/rules.ts`, every add / move / parents / bulk-import path); a business unit's panel ticks its projects (`organization.setChildren`); a project still straight under a subsidiary is marked and moves to the first business unit ticked. Checked: typecheck, lint, unit 293/293 (new structure test). **Not run:** the page in a browser, the procedures against a database, the e2e suite (`feedback-2026-11.mjs` updated), the build. **Hosted tree not rearranged:** Olectra has BU Transport (no projects) and BEST, MSRTC, Seetharampur straight under it; EVEY has TGSRTC straight under it.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -789,7 +791,7 @@ _Last updated: 2026-11-11._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D57** and **A56**; the next migration is `0067`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D57** and **A58**; the next migration is `0067`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on

@@ -3,6 +3,7 @@ import "server-only";
 import { submitForApproval } from "../approvals/workflow.ts";
 import { writeAudit } from "../audit.ts";
 import type { Tx } from "../db.ts";
+import { activityMismatch } from "../verification/mismatch.ts";
 import {
   aggregate,
   checkAllowedUnits,
@@ -158,20 +159,10 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
   );
 
   // --- The document's kind (Phase 3): OCR thinks it is another activity's document ------------------
-  let suggestion: { typeName: string; activities: string[] } | null = null;
-  if (record.mismatch_code) {
-    const [type] = await tx<{ name: string; activities: string[] | null }[]>`
-      select dt.name, array_agg(m.name order by m.name) filter (where m.id is not null) as activities
-      from public.document_types dt
-      left join public.document_type_metric_mappings map on map.document_type_id = dt.id
-      left join public.esg_metrics m on m.id = map.metric_id and m.deleted_at is null
-      where dt.code = ${record.mismatch_code}
-        -- Still another activity's type: a mapping added since the upload makes it this one's.
-        and not exists (select 1 from public.document_type_metric_mappings own
-                        where own.document_type_id = dt.id and own.metric_id = ${record.metric_id})
-      group by dt.name`;
-    if (type) suggestion = { typeName: type.name.toLowerCase(), activities: type.activities ?? [] };
-  }
+  const mismatch = await activityMismatch(tx, record.mismatch_code, record.metric_id);
+  const suggestion = mismatch
+    ? { typeName: mismatch.typeName, activities: mismatch.activities.map((a) => a.name) }
+    : null;
   builtIn("evidence", checkDocumentKind(suggestion, record.metric_name));
 
   // --- Late and duplicate checks (feature_enhancement.md Phase 2, migration 0056) ---------------------

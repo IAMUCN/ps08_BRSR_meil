@@ -9,6 +9,8 @@ import {
   importOrder,
   isFrozen,
   mergeSharedRows,
+  misplaced,
+  structureProblem,
   reachableNodeIds,
   rootOf,
   treeOrder,
@@ -46,14 +48,11 @@ const tree: OrgNode[] = [
   { id: "dept-1", parentId: "site-1", unitType: "department", status: "active" },
   { id: "sub-b", parentId: "meil", unitType: "subsidiary", status: "inactive" },
   { id: "prj-y", parentId: "sub-b", unitType: "project", status: "active" },
+  { id: "bu-b", parentId: "sub-b", unitType: "business_unit", status: "active" },
 ];
 
 test("org ordering: skip levels, never invert, no second group", () => {
-  assert.equal(
-    canBeChildOf(LEVELS, "subsidiary", "project"),
-    true,
-    "skipping BU and Region is allowed",
-  );
+  assert.equal(canBeChildOf(LEVELS, "subsidiary", "region"), true, "skipping a level is allowed");
   assert.equal(canBeChildOf(LEVELS, "project", "department"), true);
   assert.equal(canBeChildOf(LEVELS, "project", "subsidiary"), false, "inversion rejected");
   assert.equal(canBeChildOf(LEVELS, "project", "project"), false, "same level rejected");
@@ -85,7 +84,7 @@ test("org descendants and freezing", () => {
 });
 
 test("org moves: cycles, root, ordering", () => {
-  assert.deepEqual(checkMove("prj-x", "sub-b", tree, LEVELS), { ok: true });
+  assert.deepEqual(checkMove("prj-x", "bu-b", tree, LEVELS), { ok: true });
   assert.equal(checkMove("meil", "sub-a", tree, LEVELS).ok, false, "root cannot move");
   assert.equal(
     checkMove("sub-a", "dept-1", tree, LEVELS).ok,
@@ -487,4 +486,56 @@ test("period window: defaults, late uploads and where an upload stands (migratio
     }).ok,
     false,
   );
+});
+
+test("MEIL structure: business units under one subsidiary, projects under business units", () => {
+  assert.equal(canBeChildOf(LEVELS, "subsidiary", "business_unit"), true);
+  assert.equal(
+    canBeChildOf(LEVELS, "group", "business_unit"),
+    false,
+    "not straight under the group",
+  );
+  assert.equal(
+    canBeChildOf(LEVELS, "subsidiary", "project"),
+    false,
+    "a project needs a business unit",
+  );
+  assert.equal(canBeChildOf(LEVELS, "group", "project"), false);
+  assert.equal(canBeChildOf(LEVELS, "business_unit", "project"), true);
+  assert.equal(
+    canBeChildOf(LEVELS, "region", "project"),
+    true,
+    "a level after business unit is fine",
+  );
+  assert.match(structureProblem(LEVELS, "subsidiary", "project") ?? "", /under a Business Unit/);
+  assert.deepEqual(allowedChildTypes(LEVELS, "subsidiary"), [
+    "business_unit",
+    "region",
+    "package",
+    "site",
+    "department",
+  ]);
+  // Without a business-unit level the rules have nothing to hold on to.
+  const plain = LEVELS.filter((l) => l.code !== "business_unit");
+  assert.equal(canBeChildOf(plain, "subsidiary", "project"), true);
+
+  const t: OrgNode[] = [
+    { id: "g", parentId: null, unitType: "group", status: "active" },
+    { id: "s1", parentId: "g", unitType: "subsidiary", status: "active" },
+    { id: "s2", parentId: "g", unitType: "subsidiary", status: "active" },
+    { id: "b1", parentId: "s1", unitType: "business_unit", status: "active" },
+    { id: "b2", parentId: "s2", unitType: "business_unit", status: "active" },
+    { id: "p", parentId: "b1", unitType: "project", status: "active" },
+    { id: "old", parentId: "s1", unitType: "project", status: "active" },
+  ];
+  const also = (node: string, parent: string) => checkAlsoUnder(node, parent, t, LEVELS);
+  assert.deepEqual(also("p", "b2"), { ok: true }, "a project shared by two business units");
+  assert.equal(also("b1", "s2").ok, false, "a business unit has one subsidiary");
+  assert.match((also("b1", "s2") as { reason: string }).reason, /one Subsidiary/);
+  assert.equal(also("p", "s2").ok, false, "a project is not shared with a subsidiary");
+  assert.deepEqual(checkMove("b1", "s2", t, LEVELS), { ok: true }, "moved to another subsidiary");
+  assert.equal(checkMove("b1", "g", t, LEVELS).ok, false);
+  assert.equal(misplaced(t[6], t, LEVELS) !== null, true, "placed before the rules");
+  assert.equal(misplaced(t[5], t, LEVELS), null);
+  assert.deepEqual(checkMove("old", "b2", t, LEVELS), { ok: true }, "and put right by a move");
 });

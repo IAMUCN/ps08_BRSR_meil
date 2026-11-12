@@ -73,3 +73,8 @@ export async function renameLevelAction(input: { code: string; label: string }) 
 export async function removeLevelAction(input: { code: string }) {
   return runAction((api) => api.organization.removeLevel(input));
 }
+
+/** The projects under a business unit, ticked on its panel (owner's request, 2026-11-12). */
+export async function setOrgUnitChildrenAction(input: { id: string; childIds: string[] }) {
+  return runAction((api) => api.organization.setChildren(input));
+}

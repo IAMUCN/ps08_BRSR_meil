@@ -10,6 +10,19 @@ export async function setDocumentTypeAction(documentId: string, documentTypeId: 
   return runAction((api) => api.verification.setDocumentType({ documentId, documentTypeId }));
 }
 
+/** File the document under another activity before Confirm (owner's request, 2026-11-12). */
+export async function changeActivityAction(documentId: string, metricId: string) {
+  const result = await runAction((api) =>
+    api.verification.changeActivity({ documentId, metricId }),
+  );
+  if (result.ok) {
+    revalidatePath(`/app/verify/${documentId}`);
+    revalidatePath("/app/submissions");
+    revalidatePath("/app/upload");
+  }
+  return result;
+}
+
 export async function checkInvoiceDuplicatesAction(documentId: string, invoiceNumber: string) {
   return runAction((api) => api.verification.invoiceDuplicates({ documentId, invoiceNumber }));
 }

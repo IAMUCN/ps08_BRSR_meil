@@ -207,10 +207,13 @@ export function checkDocumentKind(
   const activities = suggestion.activities.length
     ? ` (used for ${suggestion.activities.join(", ")})`
     : "";
+  const likely = suggestion.activities.length
+    ? ` It may belong to ${suggestion.activities.join(" or ")}.`
+    : "";
   return {
     ok: false,
     forceFlag: true,
-    message: `This looks like ${/^[aeiou]/i.test(suggestion.typeName) ? "an" : "a"} ${suggestion.typeName}${activities}, suggested by OCR, but it was uploaded as ${chosenActivity}. If the activity is wrong, return it as the wrong activity.`,
+    message: `Category mismatch: this looks like ${/^[aeiou]/i.test(suggestion.typeName) ? "an" : "a"} ${suggestion.typeName}${activities}, suggested by OCR, but it was uploaded as ${chosenActivity}.${likely} If the activity is wrong, return it as the wrong activity.`,
   };
 }
 

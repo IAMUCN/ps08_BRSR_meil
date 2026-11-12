@@ -4,7 +4,7 @@
 import type { Worksheet } from "exceljs";
 import * as XLSX from "xlsx";
 import { csvSafeText } from "../csv.ts";
-import { tidy } from "../org/rules.ts";
+import { singleParent, tidy } from "../org/rules.ts";
 
 function triggerDownload(bytes: BlobPart, filename: string) {
   const blob = new Blob([bytes], { type: "application/octet-stream" });
@@ -299,8 +299,8 @@ export async function downloadOrgUnitTemplate(
     'Fill the "New org units" sheet, one org unit per row, starting on row 2. Keep the headings as they are.',
     `Parent code left empty: the row is created directly under "${parent.name}" (${parent.level}), the unit chosen on screen.`,
     "Parent code filled in: pick an org unit that exists already from the cell's dropdown list, or type the Code of another row in this sheet (the list is only a suggestion, so typing is allowed). An org unit that has no code can be picked from the list too; it is listed by its name. That is how one sheet builds several levels at once; the order of the rows does not matter.",
-    "A unit with more than one parent, such as a project two subsidiaries run: write every parent in the one Parent code cell, separated by commas, for example SUB-A, SUB-B. As many as it has. Spaces before or after a name do not matter. (The dropdown fills in one value; type a comma and the next code after it.) The unit then sits under each of them, and its figures count in full in every parent and once in the group above them. Moving or deactivating it later is done from the first parent listed.",
-    "Level is a dropdown of the levels configured today. A unit's level must come after its parent's level; levels may be skipped.",
+    "A unit with more than one parent, such as a project two business units run: write every parent in the one Parent code cell, separated by commas, for example BU-A, BU-B. As many as it has. Spaces before or after a name do not matter. (The dropdown fills in one value; type a comma and the next code after it.) The unit then sits under each of them, and its figures count in full in every parent and once in the group above them. Moving or deactivating it later is done from the first parent listed.",
+    "Level is a dropdown of the levels configured today. A unit's level must come after its parent's level; levels may be skipped, except that a business unit sits directly under a subsidiary (one subsidiary only, never shared) and a project sits under a business unit.",
     "Code is letters, numbers, hyphens and underscores, and must be new. It is required for a row that other rows name as their parent.",
     `At most ${MAX_IMPORT_ROWS} rows per sheet. A row whose parent could not be created is not created either; the results say which.`,
     "",
@@ -329,13 +329,14 @@ export async function downloadOrgUnitTemplate(
         `A ${below.label} under the row above`,
       ]);
       help.addRow(["EX-C", `Second ${first.label}`, first.code, "", "Another row of the sheet"]);
-      help.addRow([
-        "EX-A-2",
-        `Shared ${below.label}`,
-        below.code,
-        "EX-A, EX-C",
-        `A ${below.label} with two parents: EX-A and EX-C`,
-      ]);
+      if (!singleParent(below.code))
+        help.addRow([
+          "EX-A-2",
+          `Shared ${below.label}`,
+          below.code,
+          "EX-A, EX-C",
+          `A ${below.label} with two parents: EX-A and EX-C`,
+        ]);
     }
     const deeper = existing.find((u) => u.code && u.code !== parent.code);
     if (deeper?.code && second) {

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
 import { ValidationResult } from "@/components/validation/validation-result";
+import { ActivityPicker } from "@/components/verification/activity-picker";
 import { FieldRow } from "@/components/verification/field-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -227,7 +228,8 @@ export function VerifyWorkspace({
         <div className="space-y-4 border-b p-4">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
             {[
-              ["ESG activity", doc.metricName ?? "—"],
+              // With a picker below, the activity is shown (and changed) there.
+              ...(doc.activityOptions.length ? [] : [["ESG activity", doc.metricName ?? "—"]]),
               ["Project / site", doc.orgUnitName],
               ["Reporting period", doc.periodLabel],
               ["Uploaded by", doc.uploadedByName],
@@ -238,6 +240,8 @@ export function VerifyWorkspace({
               </div>
             ))}
           </dl>
+
+          <ActivityPicker doc={doc} disabled={pending} />
 
           {/* Master Approach §12: no document type, no verification. */}
           {doc.documentTypeId && doc.documentTypeName ? (

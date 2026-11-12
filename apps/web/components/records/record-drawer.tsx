@@ -45,6 +45,7 @@ const EVENT_LABELS: Record<string, string> = {
   "approval.returned": "Returned by the approver",
   "document.type_corrected": "Document type corrected",
   "record.returned_wrong_activity": "Returned as the wrong activity",
+  "record.activity_changed": "Activity changed before confirming",
 };
 
 /** Where this record can be acted on, if anywhere. */

@@ -419,9 +419,23 @@ const subB = await admin.mutate("organization.create", {
   name: `FB Subsidiary ${stamp}`,
   code: "",
 });
+// Projects sit under business units, one subsidiary each (owner's request, 2026-11-12): a project two
+// subsidiaries run is shared by a business unit of each.
+const unitOf = async (parentId, name) =>
+  (
+    await admin.mutate("organization.create", {
+      parentId,
+      alsoUnder: [],
+      unitType: "business_unit",
+      name: `${name} ${stamp}`,
+      code: "",
+    })
+  ).data?.id;
+const buA = await unitOf(await orgId("SUB-A"), "FB Unit A");
+const buB = await unitOf(subB.data?.id, "FB Unit B");
 const sharedUnit = await admin.mutate("organization.create", {
-  parentId: await orgId("SUB-A"),
-  alsoUnder: [subB.data?.id],
+  parentId: buA,
+  alsoUnder: [buB],
   unitType: "project",
   name: `FB Shared ${stamp}`,
   code: "",

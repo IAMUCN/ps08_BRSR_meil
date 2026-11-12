@@ -854,3 +854,26 @@ in the suggestion's financial year, largest first with tCO2e, share and record c
 The three "Request a demo" links on the landing page (they opened a blank email) open a form (name, email, phone);
 after it is sent the demo video plays in a window on the page. Super Admins see the requests on Admin -> Demo
 Requests and are notified in the app. `.grill/demo-requests-decisions.md`.
+
+## A56 — Category mismatch and the activity list on Verify Extraction (2026-11-12)
+
+Before Confirm, Verify Extraction shows an "ESG activity" list with every activity the Upload page offers this
+person for the record's project (grouped by category, only activities that take the file's type). When OCR found
+the document is clearly another activity's (Phase 3's mismatch), a "Category mismatch" box says what it looks like
+and which activity it may belong to, with a "Change to …" button. Changing the activity moves the record and reads
+the document again for the new activity's fields (old values kept in the audit entry `record.activity_changed`);
+a document whose reading failed keeps the failure and takes the new fields by hand. After Confirm the mismatch is
+still the reviewer's flag, now worded "Category mismatch: … It may belong to …".
+`.grill/verify-activity-change-decisions.md`.
+
+## A57 — Subsidiary, business unit, project: the structure rules and the projects checklist (2026-11-12)
+
+MEIL's tree is Group -> Subsidiary -> Business Unit -> Project. A business unit sits directly under one subsidiary
+and is never shared (no "also under"); a project sits under a business unit (or a level after it), and may be shared
+by several business units. Enforced in `canBeChildOf` / `checkAlsoUnder` (`lib/org/rules.ts`), so the add form,
+Move, the Parents checklist and bulk import all follow; the rules apply only while the `subsidiary`,
+`business_unit` and `project` levels exist. A business unit's panel has "Projects under …": every project of the
+group with where it sits today; ticking one adds the business unit as a parent (`organization.setChildren`). A
+project placed before these rules (straight under a subsidiary) is marked, and its first ticked business unit
+becomes its main parent. Units already in the database are not changed by the rules. No migration.
+`.grill/org-structure-decisions.md`.

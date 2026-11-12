@@ -151,6 +151,8 @@ export function VerifySplit({
       </div>
       {workable ? (
         <VerifyWorkspace
+          // A new activity brings new fields and document types: start the panel afresh.
+          key={doc.metricId ?? ""}
           doc={doc}
           selectedKey={selectedKey}
           onSelectKey={setSelectedKey}
