@@ -35,7 +35,7 @@ function StatePanel({ doc }: { doc: VerifyDocument }) {
     ["Project / site", doc.orgUnitName],
     ["Reporting period", doc.periodLabel],
     ["Uploaded by", doc.uploadedByName],
-    ["Uploaded", formatDateTime(doc.uploadedAt)],
+    ["Submitted on", formatDateTime(doc.uploadedAt)],
     ["Document type", doc.documentTypeName ?? "Not identified"],
   ];
 

@@ -766,3 +766,10 @@ browser grants, listed for Super Admins. `org_settings.demo_video` holds the You
 request. Owner's request; `.grill/demo-requests-decisions.md`.
 
 **Undo:** in the header of `0066_demo_requests.sql`.
+
+## D57 — One upload for every bill: bill identifiers, per-bill period, original files (migration `0067`, 2026-11-12)
+
+`document_bundle_parts` gains `billing_period` and `bill_number` (what OCR read on each proposed bill) and
+`reporting_period_id` (the period the uploader filed it in). New `document_bundle_sources`: the files of one
+upload in order, with name, type, size, SHA-256, storage path and the upload pages each one is. Server-only (RLS on,
+no browser grants). `.grill/merged-upload-decisions.md`.

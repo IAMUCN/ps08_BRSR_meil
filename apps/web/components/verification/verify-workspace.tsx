@@ -30,6 +30,7 @@ import {
   setDocumentTypeAction,
 } from "@/app/app/verify/[documentId]/actions";
 import { EvidenceFiles } from "@/components/records/evidence-files";
+import { submittedLabel } from "@/lib/documents/bundle";
 
 const INVOICE_FIELD = "invoice_number";
 
@@ -233,6 +234,7 @@ export function VerifyWorkspace({
               ["Project / site", doc.orgUnitName],
               ["Reporting period", doc.periodLabel],
               ["Uploaded by", doc.uploadedByName],
+              ["Submitted on", submittedLabel(doc.uploadedAt)],
             ].map(([term, value]) => (
               <div key={term}>
                 <dt className="text-xs leading-4 text-muted-foreground">{term}</dt>

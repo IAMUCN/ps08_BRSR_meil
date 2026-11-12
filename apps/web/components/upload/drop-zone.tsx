@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, FileText, Upload, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Camera, FileText, Upload, X } from "lucide-react";
 import { useId, useRef, useState, type DragEvent } from "react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,14 @@ import { formatMegabytes } from "@/lib/storage/evidence";
 
 /**
  * UI brief §12.1 drop-zone: idle, drag-active, and uploading (progress bar, filename, cancel).
- * The browse button is the keyboard/screen-reader path; dropping is a shortcut.
+ * The browse button is the keyboard/screen-reader path; dropping is a shortcut. With `multiple`, files
+ * dropped or chosen are added to the list (owner's request, 2026-11-12: several bills or pages at once),
+ * which can be reordered — the pages are read in that order.
  */
 export function DropZone({
-  file,
-  onFile,
+  files,
+  onFiles,
+  multiple = false,
   accept,
   hint,
   error,
@@ -21,8 +24,10 @@ export function DropZone({
   onCancel,
   disabled,
 }: {
-  file: File | null;
-  onFile: (file: File) => void;
+  files: File[];
+  /** The whole list after a change. */
+  onFiles: (files: File[]) => void;
+  multiple?: boolean;
   accept: string;
   hint: string;
   error: string | null;
@@ -42,12 +47,23 @@ export function DropZone({
   const hintId = useId();
   const errorId = useId();
   const uploading = progress !== null;
+  const file = files[0] ?? null;
+
+  function add(picked: FileList | null | undefined) {
+    const list = Array.from(picked ?? []);
+    if (list.length === 0 || disabled) return;
+    onFiles(multiple ? [...files, ...list] : list.slice(0, 1));
+  }
+  function move(index: number, by: -1 | 1) {
+    const next = [...files];
+    [next[index], next[index + by]] = [next[index + by], next[index]];
+    onFiles(next);
+  }
 
   function onDrop(event: DragEvent) {
     event.preventDefault();
     setDragActive(false);
-    const dropped = event.dataTransfer.files[0];
-    if (dropped && !disabled) onFile(dropped);
+    add(event.dataTransfer.files);
   }
 
   return (
@@ -78,7 +94,9 @@ export function DropZone({
             </div>
             <p className="flex items-center justify-center gap-2 text-sm font-medium">
               <FileText className="size-4 shrink-0" aria-hidden />
-              <span className="truncate">{file?.name}</span>
+              <span className="truncate">
+                {files.length > 1 ? `${files.length} files` : file?.name}
+              </span>
             </p>
             <div
               role="progressbar"
@@ -118,16 +136,22 @@ export function DropZone({
         ) : (
           <>
             <Upload className="size-10 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-            {file ? (
+            {files.length === 1 && !multiple ? (
               <p className="flex items-center gap-2 text-sm font-medium">
                 <FileText className="size-4 shrink-0" aria-hidden />
-                <span className="max-w-xs truncate">{file.name}</span>
+                <span className="max-w-xs truncate">{file!.name}</span>
                 <span className="font-normal text-muted-foreground">
-                  · {formatMegabytes(file.size)}
+                  · {formatMegabytes(file!.size)}
                 </span>
               </p>
             ) : (
-              <p className="text-sm font-medium">Drag a document here or click to browse</p>
+              <p className="text-sm font-medium">
+                {multiple
+                  ? files.length
+                    ? "Drag more files here, or click to add"
+                    : "Drag your bills here (PDFs or photos, one or many) or click to browse"
+                  : "Drag a document here or click to browse"}
+              </p>
             )}
             <p id={hintId} className="text-xs text-muted-foreground">
               {hint}
@@ -139,7 +163,13 @@ export function DropZone({
               onClick={() => inputRef.current?.click()}
               aria-describedby={`${hintId}${error ? ` ${errorId}` : ""}`}
             >
-              {file ? "Choose a different file" : "Browse files"}
+              {multiple
+                ? files.length
+                  ? "Add files"
+                  : "Browse files"
+                : file
+                  ? "Choose a different file"
+                  : "Browse files"}
             </Button>
             {takesImages ? (
               // Touch screens only: elsewhere a camera input opens a file dialog, which Browse already does.
@@ -164,8 +194,7 @@ export function DropZone({
                 tabIndex={-1}
                 aria-hidden
                 onChange={(event) => {
-                  const picked = event.target.files?.[0];
-                  if (picked) onFile(picked);
+                  add(event.target.files);
                   event.target.value = "";
                 }}
               />
@@ -174,18 +203,67 @@ export function DropZone({
               ref={inputRef}
               type="file"
               accept={accept}
+              multiple={multiple}
               className="sr-only"
               tabIndex={-1}
               aria-hidden
               onChange={(event) => {
-                const picked = event.target.files?.[0];
-                if (picked) onFile(picked);
+                add(event.target.files);
                 event.target.value = "";
               }}
             />
           </>
         )}
       </div>
+      {multiple && files.length > 0 && !uploading ? (
+        <ol aria-label="Files to upload, in reading order" className="divide-y rounded-md border">
+          {files.map((f, index) => (
+            <li
+              key={`${f.name}-${f.size}-${index}`}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm"
+            >
+              <span className="w-5 shrink-0 text-xs text-muted-foreground tabular-nums">
+                {index + 1}.
+              </span>
+              <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{f.name}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {formatMegabytes(f.size)}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={disabled || index === 0}
+                onClick={() => move(index, -1)}
+                aria-label={`Move ${f.name} up`}
+              >
+                <ArrowUp aria-hidden />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={disabled || index === files.length - 1}
+                onClick={() => move(index, 1)}
+                aria-label={`Move ${f.name} down`}
+              >
+                <ArrowDown aria-hidden />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={disabled}
+                onClick={() => onFiles(files.filter((_, i) => i !== index))}
+                aria-label={`Remove ${f.name}`}
+              >
+                <X aria-hidden />
+              </Button>
+            </li>
+          ))}
+        </ol>
+      ) : null}
       {error ? (
         <p id={errorId} role="alert" className="text-sm leading-5 text-status-error">
           {error}

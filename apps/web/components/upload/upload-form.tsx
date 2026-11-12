@@ -21,13 +21,16 @@ import {
   prepareBundleUploadAction,
   prepareUploadAction,
 } from "@/app/app/upload/actions";
-import { BUNDLE_MAX_PAGES } from "@/lib/documents/bundle";
+import { BUNDLE_MAX_PAGES, MAX_UPLOAD_FILES, UPLOAD_MIME_TYPES } from "@/lib/documents/bundle";
 import { DropZone } from "./drop-zone";
 
 type Phase = "idle" | "checking" | "uploading" | "finishing";
-/** One bill for one activity, or one PDF holding several bills (split and confirmed after OCR). */
-type Mode = "single" | "bundle";
-type Uploaded = { documentId: string; reportingPeriodId: string };
+type Uploaded = {
+  documentId: string;
+  reportingPeriodId: string;
+  /** Each file's place in storage, in the order dropped (an upload of bills). */
+  sources?: { id: string; fileName: string; mimeType: string }[];
+};
 
 const UPLOAD_FAILED = "The upload failed — check your connection and try again.";
 
@@ -95,14 +98,16 @@ export function UploadForm({
   const periodFieldId = useId();
   const xhrRef = useRef<XMLHttpRequest | null>(null);
 
-  const [mode, setMode] = useState<Mode>("single");
   const [periodId, setPeriodId] = useState(periods[0].id);
   const period = periods.find((p) => p.id === periodId) ?? periods[0];
   const [orgUnitId, setOrgUnitId] = useState(replaces?.orgUnitId ?? targets[0].orgUnitId);
   // A rejected record may come back as another activity (it was the wrong one); a failed read may not.
   const activityFixed = replaces?.reason === "ocr_failed";
   const [metricId, setMetricId] = useState(activityFixed ? replaces.metricId : "");
-  const [file, setFile] = useState<File | null>(null);
+  // One upload for every bill (owner's request, 2026-11-12): any number of PDFs and photos; the app finds
+  // the bills in them and the person checks the split. Replacing a failed document stays one file.
+  const [files, setFiles] = useState<File[]>([]);
+  const file = files[0] ?? null;
   /** Optional description (migration 0063), kept with the document. */
   const [description, setDescription] = useState("");
   const descriptionId = useId();
@@ -125,9 +130,9 @@ export function UploadForm({
     () => target.categories.flatMap((c) => c.metrics).find((m) => m.id === metricId),
     [target, metricId],
   );
-  const bundle = mode === "bundle" && !replaces;
+  const bundle = !replaces;
   const acceptedTypes = bundle
-    ? ["application/pdf"]
+    ? UPLOAD_MIME_TYPES
     : (metric?.acceptedMimeTypes ?? ["application/pdf", "image/jpeg", "image/png"]);
   const busy = phase !== "idle";
 
@@ -152,30 +157,27 @@ export function UploadForm({
     setPhase("finishing");
     if (bundle) {
       const outcome = await completeBundleUploadAction({
-        ...done,
+        documentId: done.documentId,
+        reportingPeriodId: done.reportingPeriodId,
+        sources: done.sources ?? [],
         orgUnitId,
-        fileName: chosen.name,
         acknowledgeDuplicates: acknowledge,
         description,
       });
-      setPhase("idle");
       if (!outcome.ok) {
+        setPhase("idle");
         setFailure(outcome.error);
         return;
       }
       if (outcome.data.status === "confirm") {
+        setPhase("idle");
         setUploaded(done);
         setWarnings(outcome.data.warnings);
         return;
       }
-      setFile(null);
-      setDescription("");
-      setUploaded(null);
       onUploaded?.();
-      setReceived({
-        fileName: chosen.name,
-        splitHref: `/app/upload/split/${outcome.data.documentId}`,
-      });
+      // Straight to the page where the bills found in the upload are checked.
+      router.push(`/app/upload/split/${outcome.data.documentId}`);
       return;
     }
     const result = await completeUploadAction({
@@ -204,15 +206,96 @@ export function UploadForm({
       router.push("/app/submissions?tab=processing");
       return;
     }
-    setFile(null);
+    setFiles([]);
     setDescription("");
     setUploaded(null);
     onUploaded?.();
     setReceived({ fileName: chosen.name });
   }
 
+  /** Several files go up one after another; the bar shows the bytes of all of them. */
+  async function submitBundle(acknowledge: boolean) {
+    const total = files.reduce((n, f) => n + f.size, 0);
+    const invalid =
+      files.length === 0
+        ? "Attach the bills to upload."
+        : files.length > MAX_UPLOAD_FILES
+          ? `At most ${MAX_UPLOAD_FILES} files in one upload.`
+          : (files.map((f) => checkFile(f, acceptedTypes)).find(Boolean) ??
+            (total > maxBytes
+              ? `These files are ${formatMegabytes(total)} together; the limit is ${formatMegabytes(maxBytes)}. Upload them in two goes.`
+              : null));
+    setFileError(invalid);
+    if (invalid) return;
+    setFailure(null);
+    setWarnings(null);
+    if (uploaded) return complete(uploaded, acknowledge, files[0]);
+    try {
+      setPhase("checking");
+      const described = await Promise.all(
+        files.map(async (f) => ({
+          fileSize: f.size,
+          sha256: await sha256Hex(f),
+          mimeType: f.type,
+        })),
+      );
+      const prepared = await prepareBundleUploadAction({
+        reportingPeriodId: period.id,
+        orgUnitId,
+        files: described,
+        acknowledgeDuplicates: acknowledge,
+      });
+      if (!prepared.ok) {
+        setPhase("idle");
+        setFailure(prepared.error);
+        return;
+      }
+      if (prepared.data.status === "confirm") {
+        setPhase("idle");
+        setWarnings(prepared.data.warnings);
+        return;
+      }
+      const { uploads } = prepared.data;
+      let sent = 0;
+      setProgress(0);
+      setPhase("uploading");
+      for (const [index, f] of files.entries()) {
+        const outcome = await putFile(
+          uploads[index].signedUrl,
+          f,
+          (percent) => setProgress(Math.round(((sent + (f.size * percent) / 100) / total) * 100)),
+          xhrRef,
+        );
+        xhrRef.current = null;
+        if (outcome === "aborted") {
+          setPhase("idle");
+          return;
+        }
+        sent += f.size;
+      }
+      await complete(
+        {
+          documentId: prepared.data.documentId,
+          reportingPeriodId: prepared.data.reportingPeriodId,
+          sources: uploads.map((u, i) => ({
+            id: u.sourceId,
+            fileName: files[i].name,
+            mimeType: files[i].type,
+          })),
+        },
+        acknowledge,
+        files[0],
+      );
+    } catch {
+      xhrRef.current = null;
+      setPhase("idle");
+      setFailure(UPLOAD_FAILED);
+    }
+  }
+
   async function submit(acknowledge: boolean) {
-    const metricMissing = bundle || metricId ? null : "Choose what this document is evidence for.";
+    if (bundle) return submitBundle(acknowledge);
+    const metricMissing = metricId ? null : "Choose what this document is evidence for.";
     const invalidFile = checkFile(file, acceptedTypes);
     setMetricError(metricMissing);
     setFileError(invalidFile);
@@ -226,24 +309,16 @@ export function UploadForm({
     try {
       setPhase("checking");
       const sha256 = await sha256Hex(file);
-      const prepared = bundle
-        ? await prepareBundleUploadAction({
-            reportingPeriodId: period.id,
-            orgUnitId,
-            fileSize: file.size,
-            sha256,
-            acknowledgeDuplicates: acknowledge,
-          })
-        : await prepareUploadAction({
-            reportingPeriodId: period.id,
-            orgUnitId,
-            metricId,
-            mimeType: file.type,
-            fileSize: file.size,
-            sha256,
-            acknowledgeDuplicates: acknowledge,
-            replacesDocumentId: replaces?.documentId,
-          });
+      const prepared = await prepareUploadAction({
+        reportingPeriodId: period.id,
+        orgUnitId,
+        metricId,
+        mimeType: file.type,
+        fileSize: file.size,
+        sha256,
+        acknowledgeDuplicates: acknowledge,
+        replacesDocumentId: replaces?.documentId,
+      });
       if (!prepared.ok) {
         setPhase("idle");
         setFailure(prepared.error);
@@ -279,7 +354,9 @@ export function UploadForm({
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-6">
       <div className="space-y-2">
-        {periods.length > 1 ? (
+        {/* Always a choice (owner's request, 2026-11-12); the newest period comes first. Each bill can
+            still be moved to another period on the next page when its billing period says so. */}
+        {periods.length > 0 ? (
           <>
             <Label htmlFor={periodFieldId} className="flex items-center gap-2">
               <CalendarRange className="size-4 text-primary-text" strokeWidth={1.5} aria-hidden />
@@ -330,45 +407,12 @@ export function UploadForm({
         </div>
       ) : null}
 
-      {!replaces ? (
-        <fieldset className="space-y-2" disabled={busy}>
-          <legend className="text-sm leading-5 font-medium">What are you uploading?</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(
-              [
-                ["single", "One bill", "A bill or invoice for one activity."],
-                [
-                  "bundle",
-                  "A PDF with several bills",
-                  `Different bills in one PDF (up to ${BUNDLE_MAX_PAGES} pages). You'll check how it's split.`,
-                ],
-              ] as const
-            ).map(([value, title, hint]) => (
-              <label
-                key={value}
-                className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface-elevated p-3 text-sm leading-5 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:[&_.text-muted-foreground]:text-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
-              >
-                <input
-                  type="radio"
-                  name="upload-mode"
-                  value={value}
-                  checked={mode === value}
-                  onChange={() => {
-                    setMode(value);
-                    setMetricError(null);
-                    setFileError(null);
-                    resetAttempt();
-                  }}
-                  className="mt-0.5 accent-[var(--primary)]"
-                />
-                <span>
-                  <span className="block font-medium">{title}</span>
-                  <span className="block text-muted-foreground">{hint}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
+      {bundle ? (
+        <p className="text-sm leading-5 text-muted-foreground">
+          Add one bill or many: PDFs and photos, a bill over several pages or several bills in one
+          PDF (up to {BUNDLE_MAX_PAGES} pages in all). EmeilSG reads them, finds where each bill
+          starts, what it is for and its reporting period, and you check that on the next page.
+        </p>
       ) : null}
 
       {targets.length > 1 && !replaces ? (
@@ -441,9 +485,10 @@ export function UploadForm({
       )}
 
       <DropZone
-        file={file}
+        files={files}
+        multiple={bundle}
         accept={acceptedTypes.join(",")}
-        hint={`${acceptedTypesLabel(acceptedTypes)} · up to ${formatMegabytes(maxBytes)}${bundle ? ` · at most ${BUNDLE_MAX_PAGES} pages` : ""}`}
+        hint={`${acceptedTypesLabel(acceptedTypes)} · up to ${formatMegabytes(maxBytes)}${bundle ? ` in all · at most ${BUNDLE_MAX_PAGES} pages` : ""}`}
         error={fileError}
         progress={phase === "idle" ? null : phase === "checking" ? 0 : progress}
         stage={
@@ -455,10 +500,10 @@ export function UploadForm({
         }
         disabled={busy}
         onCancel={phase === "uploading" ? () => xhrRef.current?.abort() : undefined}
-        onFile={(picked) => {
+        onFiles={(picked) => {
           setReceived(null);
-          setFile(picked);
-          setFileError(checkFile(picked, acceptedTypes));
+          setFiles(picked);
+          setFileError(picked.map((f) => checkFile(f, acceptedTypes)).find(Boolean) ?? null);
           resetAttempt();
         }}
       />
@@ -569,7 +614,9 @@ export function UploadForm({
               : phase === "finishing"
                 ? "Saving…"
                 : bundle
-                  ? "Upload PDF"
+                  ? files.length > 1
+                    ? `Upload ${files.length} files`
+                    : "Upload"
                   : "Upload document"}
         </Button>
       </div>

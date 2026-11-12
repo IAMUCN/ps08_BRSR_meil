@@ -180,13 +180,15 @@ export default async function HelpPage() {
             {facts.uploadWindowMinutes} minutes.
           </li>
           <li>
-            Choose the project or site, the ESG activity and, when more than one is open, the
-            reporting period. You are offered only the activities your role files.
+            Choose the project or site and the reporting period (the newest is chosen for you), then
+            add your bills: one or many, PDFs or photos, up to {BUNDLE_MAX_PAGES} pages in all.
           </li>
           <li>
-            <strong>A PDF with several bills</strong> (up to {BUNDLE_MAX_PAGES} pages): EmeilSG
-            proposes how it splits into bills; you check the split, and each bill becomes its own
-            record.
+            EmeilSG reads every page and proposes where each bill starts (a bill over several pages
+            stays together), what it is for and, from its billing period, its reporting period. You
+            check that and confirm; each bill becomes its own record. A bill whose billing period is
+            outside its reporting period is marked, and flagged for review. You are offered only the
+            activities your role files.
           </li>
           <li>
             OCR reads the document within a minute or two. Values it reads with less than{" "}

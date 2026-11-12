@@ -124,7 +124,8 @@ export const ocrRouter = router({
       }[]
     >`
       select r.id, r.verification_status, r.validation_status, r.approval_status,
-             r.data_quality_state, r.created_at, m.name as metric_name, o.name as org_unit_name,
+             r.data_quality_state, coalesce(bd.created_at, r.created_at) as created_at,
+             m.name as metric_name, o.name as org_unit_name,
              p.label as period_label, d.id as document_id, d.file_name, d.description, j.status as job_status,
              j.error_message, fs.attention,
              (select a.reason from public.audit_logs a
@@ -153,6 +154,8 @@ export const ocrRouter = router({
       join public.reporting_periods p on p.id = r.reporting_period_id
       left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
       left join public.documents d on d.id = erd.document_id and d.deleted_at is null
+      -- A bill cut from an upload was submitted when the upload arrived.
+      left join public.documents bd on bd.id = d.bundle_document_id
       left join public.ocr_jobs j on j.document_id = d.id
       ${fieldStats(sql)}
       where r.submitted_by = ${ctx.session.userId}

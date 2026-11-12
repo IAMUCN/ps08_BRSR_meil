@@ -71,6 +71,44 @@ class SplitPagesTest(unittest.TestCase):
         self.assertEqual(spans(parts), [(1, 2, "WATER_BILL")])
 
 
+class SameKindBillsTest(unittest.TestCase):
+    """Two bills of the same kind one after the other (owner's request, 2026-11-12)."""
+
+    def bill(self, number, period="01-08-2026 to 31-08-2026", extra=()):
+        return [*ELECTRICITY, f"BILL NO {number}", f"BILLING PERIOD {period}", *extra]
+
+    def test_a_different_bill_number_starts_a_new_bill(self):
+        parts = split_pages(lines(self.bill("TP-1001"), self.bill("TP-1002")), 2, CANDIDATES)
+        self.assertEqual(spans(parts), [(1, 1, "ELECTRICITY_BILL"), (2, 2, "ELECTRICITY_BILL")])
+        self.assertEqual([p.bill_number for p in parts], ["TP-1001", "TP-1002"])
+
+    def test_the_same_bill_number_on_two_pages_is_one_bill(self):
+        parts = split_pages(lines(self.bill("TP-1001"), self.bill("TP-1001")), 2, CANDIDATES)
+        self.assertEqual(spans(parts), [(1, 2, "ELECTRICITY_BILL")])
+
+    def test_without_bill_numbers_a_different_billing_period_starts_a_new_bill(self):
+        aug = [*ELECTRICITY, "BILLING PERIOD 01-08-2026 to 31-08-2026"]
+        sep = [*ELECTRICITY, "BILLING PERIOD 01-09-2026 to 30-09-2026"]
+        parts = split_pages(lines(aug, sep, sep), 3, CANDIDATES)
+        self.assertEqual(spans(parts), [(1, 1, "ELECTRICITY_BILL"), (2, 3, "ELECTRICITY_BILL")])
+        self.assertEqual(parts[1].billing_period, "01-09-2026 to 30-09-2026")
+
+    def test_page_markers_decide(self):
+        first = self.bill("TP-1001", extra=["Page 1 of 2"])
+        second = [*ELECTRICITY, "BILL NO TP-9999", "Page 2 of 2"]  # a misread number, same bill
+        nxt = self.bill("TP-1002", extra=["Page 1 of 1"])
+        parts = split_pages(lines(first, second, nxt), 3, CANDIDATES)
+        self.assertEqual(spans(parts), [(1, 2, "ELECTRICITY_BILL"), (3, 3, "ELECTRICITY_BILL")])
+
+    def test_a_continuation_page_without_the_number_stays(self):
+        parts = split_pages(
+            lines(self.bill("TP-1001"), ["Payment history", "Thank you"], self.bill("TP-1002")),
+            3,
+            CANDIDATES,
+        )
+        self.assertEqual(spans(parts), [(1, 2, "ELECTRICITY_BILL"), (3, 3, "ELECTRICITY_BILL")])
+
+
 class ProposeMetricTest(unittest.TestCase):
     FUELS = [("p", "Petrol Consumption"), ("c", "CNG Consumption"), ("l", "LPG Consumption")]
 

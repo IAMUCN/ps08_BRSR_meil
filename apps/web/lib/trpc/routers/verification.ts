@@ -158,7 +158,9 @@ async function loadDocument(sql: Sql, documentId: string) {
       mismatch_code: string | null;
     }[]
   >`
-    select d.file_name, d.description, d.mime_type, d.file_size_bytes, d.created_at, u.display_name as uploaded_by_name,
+    select d.file_name, d.description, d.mime_type, d.file_size_bytes,
+           -- When the upload arrived: a bill cut from an upload was submitted with it (2026-11-12).
+           coalesce(bd.created_at, d.created_at) as created_at, u.display_name as uploaded_by_name,
            d.org_unit_id, o.name as org_unit_name, d.reporting_period_id, p.label as period_label,
            d.document_type_id, dt.name as document_type_name,
            r.id as record_id, r.metric_id, m.name as metric_name, m.unit as metric_unit,
@@ -169,6 +171,7 @@ async function loadDocument(sql: Sql, documentId: string) {
            j.status as job_status, j.error_message, e.id as extraction_id,
            e.raw_output #>> '{classification,mismatch,document_type}' as mismatch_code
     from public.documents d
+    left join public.documents bd on bd.id = d.bundle_document_id
     join public.users u on u.id = d.uploaded_by
     join public.org_units o on o.id = d.org_unit_id
     join public.reporting_periods p on p.id = d.reporting_period_id
