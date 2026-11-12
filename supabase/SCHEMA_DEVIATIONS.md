@@ -773,3 +773,17 @@ request. Owner's request; `.grill/demo-requests-decisions.md`.
 `reporting_period_id` (the period the uploader filed it in). New `document_bundle_sources`: the files of one
 upload in order, with name, type, size, SHA-256, storage path and the upload pages each one is. Server-only (RLS on,
 no browser grants). `.grill/merged-upload-decisions.md`.
+
+## D58 — Decision intelligence, AI security, RAG, and what-if simulation (migrations `0068`–`0076`, 2026-11-12)
+
+Adds operational decision intelligence and audit infrastructure:
+- `decision_rules` and `decision_rule_evaluations`: versioned threshold rules and append-only evaluations.
+- `decarbonization_suggestions` and `decarbonization_roadmaps`: quantified decarbonization recommendations and strategic roadmaps.
+- `risk_evaluation_reports` and `recommendations_reports`: 6-vector risk scores and transparent multicriteria ranked suggestions.
+- `ai_providers` and `ai_security_policies`: AI gateway provider credentials, data classification access matrices, and emergency kill switches.
+- `rag_knowledge_chunks`: permission-filtered vector chunks (768-dim embeddings) for grounded statutory RAG search.
+- `predictive_forecast_snapshots`: backtested chronological forecasts and GBDT model snapshots.
+- `what_if_scenario_simulations`: multi-vector decarbonization scenario parameters and carbon-adjusted financial payback projections.
+
+All 11 tables have RLS enabled, strict tenant isolation by `org_unit_id`, and zero direct browser write permissions.
+
