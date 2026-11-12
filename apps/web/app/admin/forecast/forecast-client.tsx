@@ -12,11 +12,12 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { computeVisibleTicks, formatAxisDate } from "@/lib/forecast/chart";
 import type {
   ForecastResult,
   ForecastScopeTarget,
@@ -655,7 +656,7 @@ function InsufficientDataState({
  * with visually distinct actuals (solid) and predicted (dashed) series,
  * plus 80% and 95% uncertainty interval bands!
  */
-function ForecastTrajectoryChart({
+export function ForecastTrajectoryChart({
   historical,
   predictions,
 }: {
@@ -668,7 +669,22 @@ function ForecastTrajectoryChart({
     confidenceInterval95: { lower: number; upper: number };
   }>;
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(860);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
+  // Responsive container width tracking
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry && entry.contentRect.width > 0) {
+        setContainerWidth(Math.round(entry.contentRect.width));
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const allPoints = useMemo(() => {
     const list: Array<{
@@ -726,8 +742,8 @@ function ForecastTrajectoryChart({
 
   const svgWidth = 860;
   const svgHeight = 290;
-  const paddingLeft = 65;
-  const paddingRight = 45;
+  const paddingLeft = 70;
+  const paddingRight = 55;
   const paddingTop = 35;
   const paddingBottom = 55;
 
@@ -783,29 +799,20 @@ function ForecastTrajectoryChart({
     ci95Polygon = topPoints.join(" ") + " " + bottomPoints.join(" ");
   }
 
-  // Decimate X-axis labels when points exceed 8 to avoid collision
-  const visibleTicks = (() => {
-    const n = allPoints.length;
-    const set = new Set<number>();
-    if (n <= 8) {
-      for (let i = 0; i < n; i++) set.add(i);
-      return set;
-    }
-    const step = Math.ceil(n / 6);
-    set.add(0);
-    for (let i = step; i < n - 1; i += step) {
-      set.add(i);
-    }
-    if (lastActual) set.add(lastActual.idx);
-    if (forecastIndices.length > 0) set.add(forecastIndices[0].idx);
-    set.add(n - 1);
-    return set;
-  })();
+  // Intelligently compute non-overlapping readable ticks
+  const visibleTicks = computeVisibleTicks({
+    totalPoints: count,
+    chartWidth: chartW,
+    containerWidth,
+    minLabelSpacingPx: 85,
+    lastActualIndex: lastActual?.idx,
+    firstForecastIndex: forecastIndices[0]?.idx,
+  });
 
   const activePoint = hoveredIdx !== null ? allPoints[hoveredIdx] : null;
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5 shadow-xs">
+    <div ref={containerRef} className="rounded-lg border border-border bg-card p-5 shadow-xs">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
         <div>
           <h3 className="text-sm font-semibold tracking-tight text-foreground">
@@ -938,28 +945,80 @@ function ForecastTrajectoryChart({
             tCO₂e
           </text>
 
-          {/* Forecast Transition Vertical Divider */}
-          {lastActual && forecastIndices.length > 0 && (
-            <g>
-              <line
-                x1={getX(lastActual.idx)}
-                y1={paddingTop}
-                x2={getX(lastActual.idx)}
-                y2={paddingTop + chartH}
-                stroke="currentColor"
-                className="text-border"
-                strokeWidth={1.5}
-                strokeDasharray="4,4"
-              />
-              <text
-                x={getX(lastActual.idx) + 6}
-                y={paddingTop + 14}
-                className="fill-muted-foreground text-[9px] font-semibold tracking-wide uppercase"
-              >
-                Forecast Horizon →
-              </text>
-            </g>
+          {/* X Axis Baseline Line */}
+          <line
+            x1={paddingLeft}
+            y1={paddingTop + chartH}
+            x2={svgWidth - paddingRight}
+            y2={paddingTop + chartH}
+            stroke="currentColor"
+            className="text-border/70"
+            strokeWidth={1}
+          />
+
+          {/* Hover Guideline Cursor */}
+          {activePoint !== null && hoveredIdx !== null && (
+            <line
+              x1={getX(hoveredIdx)}
+              y1={paddingTop}
+              x2={getX(hoveredIdx)}
+              y2={paddingTop + chartH}
+              stroke="currentColor"
+              className={
+                activePoint.isForecast
+                  ? "text-amber-500/50 pointer-events-none"
+                  : "text-[var(--chart-primary)]/40 pointer-events-none"
+              }
+              strokeWidth={1.5}
+              strokeDasharray="3,3"
+            />
           )}
+
+          {/* Forecast Transition Vertical Divider */}
+          {lastActual &&
+            forecastIndices.length > 0 &&
+            (() => {
+              const dividerX = getX(lastActual.idx);
+              const badgeW = 104;
+              const badgeH = 18;
+              const placeRight = dividerX + badgeW + 8 <= svgWidth - paddingRight;
+              const badgeX = placeRight ? dividerX + 6 : dividerX - badgeW - 6;
+
+              return (
+                <g className="pointer-events-none select-none">
+                  {/* Vertical dashed divider */}
+                  <line
+                    x1={dividerX}
+                    y1={paddingTop}
+                    x2={dividerX}
+                    y2={paddingTop + chartH}
+                    stroke="currentColor"
+                    className="text-border"
+                    strokeWidth={1.5}
+                    strokeDasharray="4,4"
+                  />
+
+                  {/* Forecast Horizon Badge Pill */}
+                  <rect
+                    x={badgeX}
+                    y={paddingTop + 4}
+                    width={badgeW}
+                    height={badgeH}
+                    rx={4}
+                    className="fill-card/95 stroke-border/70"
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={badgeX + badgeW / 2}
+                    y={paddingTop + 16}
+                    textAnchor="middle"
+                    className="fill-amber-600 dark:fill-amber-400 text-[8.5px] font-bold tracking-wider uppercase"
+                  >
+                    Forecast Horizon →
+                  </text>
+                </g>
+              );
+            })()}
 
           {/* 95% Confidence Interval Shaded Band (Fan Chart Cone) */}
           {ci95Polygon && (
@@ -1066,23 +1125,41 @@ function ForecastTrajectoryChart({
             );
           })}
 
-          {/* X Axis Labels (Decimated cleanly to avoid overlap) */}
+          {/* X Axis Ticks and Labels (Intelligently spaced, collision-free) */}
           {allPoints.map((p, idx) => {
             if (!visibleTicks.has(idx)) return null;
+            const x = getX(idx);
+            const isFirst = idx === 0;
+            const isLast = idx === count - 1;
+            const anchor = isFirst ? "start" : isLast ? "end" : "middle";
+
             return (
-              <text
-                key={idx}
-                x={getX(idx)}
-                y={svgHeight - paddingBottom + 20}
-                textAnchor="middle"
-                className={`text-[10px] ${
-                  p.isForecast
-                    ? "fill-amber-600 dark:fill-amber-400 font-semibold"
-                    : "fill-muted-foreground"
-                }`}
-              >
-                {p.label}
-              </text>
+              <g key={idx}>
+                {/* Tick Notch */}
+                <line
+                  x1={x}
+                  y1={paddingTop + chartH}
+                  x2={x}
+                  y2={paddingTop + chartH + 5}
+                  stroke="currentColor"
+                  className={p.isForecast ? "text-amber-500" : "text-border"}
+                  strokeWidth={p.isForecast ? 1.5 : 1}
+                />
+
+                {/* Tick Label */}
+                <text
+                  x={x}
+                  y={paddingTop + chartH + 19}
+                  textAnchor={anchor}
+                  className={`text-[10px] font-mono tracking-tight select-none ${
+                    p.isForecast
+                      ? "fill-amber-600 dark:fill-amber-400 font-bold"
+                      : "fill-muted-foreground font-medium"
+                  }`}
+                >
+                  {formatAxisDate(p.label)}
+                </text>
+              </g>
             );
           })}
         </svg>
