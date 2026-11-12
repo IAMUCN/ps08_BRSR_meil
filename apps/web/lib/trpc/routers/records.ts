@@ -6,6 +6,7 @@ import type { CalculationState } from "@/lib/calculation/trace";
 import { financialYearOf, financialYearRange } from "@/lib/consolidation/aggregate";
 import { writeAudit } from "@/lib/audit";
 import { assertOrgScope, inOrgScope, scopedOrgUnitIds } from "@/lib/auth/scope";
+import { canAdminister, canViewAudit } from "@/lib/auth/workspace";
 import {
   missingSubmissionOwners,
   missingSubmissions,
@@ -94,10 +95,10 @@ async function resolveContext(
       where m.deleted_at is null order by m.name`,
     sql<{ code: string; name: string }[]>`
       select code, name from public.document_types order by name`,
-    scopedOrgUnitIds(sql, caller),
+    scopedOrgUnitIds(sql, caller, "monitoring.view"),
     loadOrgNodes(sql),
   ]);
-  if (orgUnitId) await assertOrgScope(sql, caller, orgUnitId);
+  if (orgUnitId) await assertOrgScope(sql, caller, orgUnitId, "monitoring.view");
   const inScope = allOrgUnits.filter((o) => scope === null || scope.includes(o.id));
   // Indent from the caller's own top unit, not from a group they cannot open.
   const top = Math.min(...inScope.map((o) => o.depth));
@@ -202,6 +203,11 @@ export type RecordDetail = {
   } | null;
   /** Each field's OCR confidence (0–100), by label, for the panel's values. */
   confidences: Record<string, number | null>;
+  /**
+   * What the viewer may do from here, decided on the server. Corporate ESG reads a record (monitoring.view)
+   * but corrects, retries OCR and opens the audit trail only with the rights that earn them.
+   */
+  viewer: { canAct: boolean; canViewAudit: boolean };
 };
 
 /** A reason an Admin gives for a correction or a return; the same length as other review reasons. */
@@ -263,7 +269,7 @@ export const recordsRouter = router({
   kpiTrends: permissionProcedure("monitoring.view")
     .input(z.object({ orgUnitId: z.uuid() }))
     .query(async ({ ctx, input }): Promise<KpiTrends> => {
-      await assertOrgScope(db(), ctx.session, input.orgUnitId);
+      await assertOrgScope(db(), ctx.session, input.orgUnitId, "monitoring.view");
       const rows = await db()<
         {
           financial_year: number;
@@ -384,57 +390,59 @@ export const recordsRouter = router({
     };
   }),
 
-  search: adminAreaProcedure.input(searchInput).query(
-    async ({
-      ctx,
-      input,
-    }): Promise<{
-      context: ContextOptions;
-      rows: RecordRow[];
-      truncated: boolean;
-      /** The oldest document still waiting for OCR, for the stalled-worker banner (Phase 3). */
-      oldestPendingSince: string | null;
-    }> => {
-      const context = await resolveContext(ctx.session, input.orgUnitId, input.periodId);
-      let periodIds = context.periodId ? [context.periodId] : [];
-      if (input.financialYear !== undefined) {
-        const { from, to } = financialYearRange(input.financialYear);
-        const periods = await db()<{ id: string }[]>`
+  search: permissionProcedure("monitoring.view")
+    .input(searchInput)
+    .query(
+      async ({
+        ctx,
+        input,
+      }): Promise<{
+        context: ContextOptions;
+        rows: RecordRow[];
+        truncated: boolean;
+        /** The oldest document still waiting for OCR, for the stalled-worker banner (Phase 3). */
+        oldestPendingSince: string | null;
+      }> => {
+        const context = await resolveContext(ctx.session, input.orgUnitId, input.periodId);
+        let periodIds = context.periodId ? [context.periodId] : [];
+        if (input.financialYear !== undefined) {
+          const { from, to } = financialYearRange(input.financialYear);
+          const periods = await db()<{ id: string }[]>`
           select id from public.reporting_periods where start_date >= ${from} and end_date <= ${to}`;
-        periodIds = periods.map((p) => p.id);
-      }
-      const filters: RecordFilters = {
-        orgUnitId: context.orgUnitId,
-        periodIds,
-        scopeCode: input.scopeCode,
-        metricCode: input.metricCode,
-        documentTypeCode: input.documentTypeCode,
-        roleCode: input.roleCode,
-        status: input.status,
-        issue: input.issue,
-        text: input.text,
-        ocr: input.ocr,
-        uploadedFrom: input.uploadedFrom,
-        uploadedTo: input.uploadedTo,
-      };
-      const [rows, [pending]] = await Promise.all([
-        searchRecords(db(), filters),
-        db()<{ since: Date | null }[]>`
+          periodIds = periods.map((p) => p.id);
+        }
+        const filters: RecordFilters = {
+          orgUnitId: context.orgUnitId,
+          periodIds,
+          scopeCode: input.scopeCode,
+          metricCode: input.metricCode,
+          documentTypeCode: input.documentTypeCode,
+          roleCode: input.roleCode,
+          status: input.status,
+          issue: input.issue,
+          text: input.text,
+          ocr: input.ocr,
+          uploadedFrom: input.uploadedFrom,
+          uploadedTo: input.uploadedTo,
+        };
+        const [rows, [pending]] = await Promise.all([
+          searchRecords(db(), filters),
+          db()<{ since: Date | null }[]>`
             select min(d.created_at) as since
             from public.ocr_jobs j join public.documents d on d.id = j.document_id
             where j.status = 'pending' and d.deleted_at is null`,
-      ]);
-      return {
-        context,
-        rows,
-        truncated: rows.length === RECORD_LIMIT,
-        oldestPendingSince: pending?.since?.toISOString() ?? null,
-      };
-    },
-  ),
+        ]);
+        return {
+          context,
+          rows,
+          truncated: rows.length === RECORD_LIMIT,
+          oldestPendingSince: pending?.since?.toISOString() ?? null,
+        };
+      },
+    ),
 
   /** Expected submissions with nothing filed for the period (Control Tower "missing submissions"). */
-  missing: adminAreaProcedure
+  missing: permissionProcedure("monitoring.view")
     .input(contextInput)
     .query(
       async ({ ctx, input }): Promise<{ context: ContextOptions; rows: MissingSubmission[] }> => {
@@ -449,14 +457,14 @@ export const recordsRouter = router({
     ),
 
   /** The shared record detail (App Flow §2.2): evidence, extracted values, validation, calculation, audit. */
-  detail: adminAreaProcedure
+  detail: permissionProcedure("monitoring.view")
     .input(z.object({ recordId: z.uuid() }))
     .query(async ({ ctx, input }): Promise<RecordDetail> => {
       const sql = db();
       // Out of scope and missing read the same (§4.4).
       const [owner] = await sql<{ org_unit_id: string }[]>`
         select org_unit_id from public.esg_records where id = ${input.recordId}`;
-      if (!owner || !(await inOrgScope(sql, ctx.session, owner.org_unit_id))) {
+      if (!owner || !(await inOrgScope(sql, ctx.session, owner.org_unit_id, "monitoring.view"))) {
         throw new TRPCError({ code: "NOT_FOUND", message: "That record isn't available." });
       }
       const [r] = await sql<
@@ -592,6 +600,7 @@ export const recordsRouter = router({
             ? { id: r.document_type_id, name: r.document_type_name, source: r.document_type_source }
             : null,
         documentTypeOptions: typeOptions,
+        viewer: { canAct: canAdminister(ctx.session), canViewAudit: canViewAudit(ctx.session) },
         ocr: job
           ? {
               jobId: job.id,

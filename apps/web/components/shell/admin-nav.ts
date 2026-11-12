@@ -1,4 +1,10 @@
 import type { NavItem } from "@/components/shell/sidebar";
+import {
+  canEditDisclosures,
+  canEnterFinancialInputs,
+  canMonitor,
+  canUseReports,
+} from "../../lib/auth/workspace.ts";
 
 // The /admin sidebar (built pages only, .grill/phase-4-admin-foundation-decisions.md). A Super Admin sees
 // all of it; an Administrator sees the pages that are about their own org units — group-wide configuration
@@ -50,6 +56,8 @@ const ADMIN_NAV: AdminNavItem[] = [
   // Configured once, rarely touched.
   { href: "/admin/organization", label: "Organization", icon: "organization", startsGroup: true },
   { href: "/admin/users", label: "Users", icon: "users" },
+  // The workforce register HR uploads (migration 0070); the Super Admin holds the permission.
+  { href: "/app/employee-register", label: "Employee Register", icon: "users", superOnly: true },
   // Landing-page demo requests (migration 0066, A55).
   { href: "/admin/demo-requests", label: "Demo Requests", icon: "users", superOnly: true },
   { href: "/admin/roles", label: "Roles & Permissions", icon: "roles", superOnly: true },
@@ -92,10 +100,48 @@ export function workspaceNavFor(session: {
   permissions: string[];
 }): NavItem[] {
   if (session.isAdmin || session.isOrgAdmin) return adminNavFor(session);
-  const nav = [...APP_NAV];
+  // Upload and My Submissions are for people who can upload; a read-only role (the Assurance Reviewer) is
+  // not offered them (role-wise dashboard: no upload actions for the Auditor).
+  const canUpload = session.permissions.includes("document.upload");
+  const nav = APP_NAV.filter(
+    (item) => canUpload || (item.href !== "/app/upload" && item.href !== "/app/submissions"),
+  );
   // A1: the Approvals item appears only for approvers (Corporate ESG/Sustainability).
   if (session.permissions.includes("approval.decide"))
     nav.push({ href: "/app/approvals", label: "Approvals", icon: "approvals" });
+  // Role-wise dashboard: the read-only monitoring pages and Reports open to the permissions that earn them.
+  if (canMonitor(session)) {
+    nav.push(
+      { href: "/admin/scope-1", label: "Scope 1", icon: "scope1", startsGroup: true },
+      { href: "/admin/scope-2", label: "Scope 2", icon: "scope2" },
+      { href: "/admin/scope-3", label: "Scope 3", icon: "scope3" },
+      { href: "/admin/data-explorer", label: "Data Explorer", icon: "explorer" },
+      { href: "/admin/submissions", label: "Submission Monitoring", icon: "submissions" },
+      { href: "/admin/carbon-analytics", label: "Carbon Analytics", icon: "analytics" },
+    );
+  }
+  if (canUseReports(session))
+    nav.push({
+      href: "/admin/reports",
+      label: "Reports",
+      icon: "reports",
+      startsGroup: !canMonitor(session),
+    });
+  // HR uploads the workforce register; approvers and the Super Admin see and decide (migration 0070).
+  if (
+    ["employee_register.manage", "employee_register.view", "approval.decide"].some((p) =>
+      session.permissions.includes(p),
+    )
+  )
+    nav.push({ href: "/app/employee-register", label: "Employee Register", icon: "users" });
+  // Finance and HR type their own part of the BRSR answers (migration 0067).
+  if (canEditDisclosures(session) || canEnterFinancialInputs(session))
+    nav.push({
+      href: "/admin/disclosures",
+      label: "BRSR Disclosures",
+      icon: "reports",
+      startsGroup: !canMonitor(session) && !canUseReports(session),
+    });
   // A20: bulk-import items appear only for whichever role(s) an Admin has granted the permission to.
   if (session.permissions.includes("user.bulk_import"))
     nav.push({ href: "/app/users/bulk-import", label: "Add Employees", icon: "users" });

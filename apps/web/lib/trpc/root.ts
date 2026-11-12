@@ -1,6 +1,7 @@
 import "server-only";
 import { protectedProcedure, router } from "@/lib/trpc/init";
 import { dashboardRouter } from "@/lib/trpc/routers/dashboard";
+import { registerRouter } from "@/lib/trpc/routers/register";
 import { bundlesRouter } from "@/lib/trpc/routers/bundles";
 import { documentsRouter } from "@/lib/trpc/routers/documents";
 import { factorsRouter } from "@/lib/trpc/routers/factors";
@@ -47,6 +48,7 @@ export const appRouter = router({
     me: protectedProcedure.query(({ ctx }) => ctx.session),
   }),
   dashboard: dashboardRouter,
+  register: registerRouter,
   organization: organizationRouter,
   users: usersRouter,
   roles: rolesRouter,

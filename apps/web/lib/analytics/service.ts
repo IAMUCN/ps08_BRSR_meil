@@ -1,5 +1,6 @@
 import "server-only";
 import { TRPCError } from "@trpc/server";
+import { scopedOrgUnitIds } from "@/lib/auth/scope";
 import type { db, Tx } from "@/lib/db";
 import { loadOrgNodes } from "@/lib/org/nodes";
 import { recommend, type Recommendation } from "./recommend";
@@ -14,8 +15,8 @@ import {
 
 // Reads for Carbon Analytics (feature_enhancement.md Phase 7; A47). Approved figures come from
 // consolidation_records (the same roll-up the scope pages and reports use), in tCO2e. lib/db.ts bypasses RLS,
-// so the org scope is checked here: a Super Admin reaches every unit, an Administrator the units they
-// administer and everything beneath them.
+// so the org scope is checked here: a Super Admin reaches every unit; anyone else the units they administer
+// and the units where a role of theirs holds monitoring.view (Corporate ESG), with everything beneath them.
 
 type Sql = Tx | ReturnType<typeof db>;
 type Caller = { userId: string; isAdmin: boolean; adminOrgUnitIds: string[] };
@@ -23,11 +24,15 @@ type Caller = { userId: string; isAdmin: boolean; adminOrgUnitIds: string[] };
 /** Units the caller may analyse; null means all of them. */
 export async function analyticsUnitIds(sql: Sql, caller: Caller): Promise<string[] | null> {
   if (caller.isAdmin) return null;
-  if (caller.adminOrgUnitIds.length === 0) return [];
-  const rows = await sql<{ id: string }[]>`
-    select distinct descendant_id as id from public.org_unit_tree
-    where ancestor_id = any(${caller.adminOrgUnitIds}::uuid[])`;
-  return rows.map((r) => r.id);
+  const [byPermission, administered] = await Promise.all([
+    scopedOrgUnitIds(sql, caller, "monitoring.view"),
+    caller.adminOrgUnitIds.length === 0
+      ? Promise.resolve([] as { id: string }[])
+      : sql<{ id: string }[]>`
+          select distinct descendant_id as id from public.org_unit_tree
+          where ancestor_id = any(${caller.adminOrgUnitIds}::uuid[])`,
+  ]);
+  return [...new Set([...(byPermission ?? []), ...administered.map((r) => r.id)])];
 }
 
 export async function assertAnalyticsScope(sql: Sql, caller: Caller, orgUnitId: string) {

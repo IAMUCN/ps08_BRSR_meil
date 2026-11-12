@@ -20,7 +20,8 @@ import { chatConfig } from "@/lib/chat/data";
 import { createModelCaller, ProviderError } from "@/lib/chat/nim";
 import { db } from "@/lib/db";
 import { bucket, count, exceeded, rateLimits } from "@/lib/security/rate-limit";
-import { adminAreaProcedure, adminProcedure, router } from "@/lib/trpc/init";
+import { canAdminister } from "@/lib/auth/workspace";
+import { adminAreaProcedure, adminProcedure, permissionProcedure, router } from "@/lib/trpc/init";
 
 // Carbon Analytics (feature_enhancement.md Phase 7, requirements 33 and 34; A47). Open to Super Admins (every
 // unit) and Administrators (their units and below); the threshold settings and "Check now" are Super Admin only.
@@ -64,11 +65,11 @@ async function loadSettings(): Promise<AlertSettings> {
 }
 
 export const analyticsRouter = router({
-  units: adminAreaProcedure.query(async ({ ctx }): Promise<AnalyticsUnit[]> =>
+  units: permissionProcedure("monitoring.view").query(async ({ ctx }): Promise<AnalyticsUnit[]> =>
     analyticsUnits(db(), ctx.session),
   ),
 
-  overview: adminAreaProcedure
+  overview: permissionProcedure("monitoring.view")
     .input(z.object({ orgUnitId: z.uuid() }))
     .query(async ({ ctx, input }): Promise<AnalyticsOverview & { aiAvailable: boolean }> => {
       const sql = db();
@@ -76,7 +77,11 @@ export const analyticsRouter = router({
       const overview = await analyticsOverview(sql, input.orgUnitId);
       return {
         ...overview,
-        aiAvailable: chatConfig() !== null && ctx.session.permissions.includes(AI_PERMISSION),
+        // The wording button is an Administrator's; Corporate ESG reads the suggestions as they stand.
+        aiAvailable:
+          canAdminister(ctx.session) &&
+          chatConfig() !== null &&
+          ctx.session.permissions.includes(AI_PERMISSION),
       };
     }),
 
@@ -88,7 +93,7 @@ export const analyticsRouter = router({
    * Which units (projects, sites) a suggestion's emissions come from, largest first (owner's request,
    * 2026-11-11). Same scope rule as the page; read-only, so not audited.
    */
-  byUnit: adminAreaProcedure
+  byUnit: permissionProcedure("monitoring.view")
     .input(z.object({ orgUnitId: z.uuid(), recommendationId: z.string().min(3).max(80) }))
     .query(async ({ ctx, input }): Promise<{ financialYear: number; units: UnitEmission[] }> => {
       const sql = db();
@@ -179,7 +184,7 @@ export const analyticsRouter = router({
       return { text: checked.text, model: reply.model };
     }),
 
-  alerts: adminAreaProcedure
+  alerts: permissionProcedure("monitoring.view")
     .input(z.object({ orgUnitId: z.uuid().optional() }).optional())
     .query(async ({ ctx, input }): Promise<EmissionAlert[]> => {
       const sql = db();

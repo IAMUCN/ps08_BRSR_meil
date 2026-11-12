@@ -6,7 +6,7 @@ import type { CalculationState } from "@/lib/calculation/trace";
 import { db } from "@/lib/db";
 import { scopeBreakdown, type ScopeBreakdown } from "@/lib/scope/totals";
 import { assertOrgScope, defaultOrgUnitId } from "@/lib/auth/scope";
-import { adminAreaProcedure, protectedProcedure, router } from "@/lib/trpc/init";
+import { permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 
 // Scope dashboards (03_APP_FLOW.md §2.2; 06_IMPLEMENTATION_PLAN.md Phase 10). `getTotal` is parameterised
 // by scope code so Scope 2 and Scope 3 reuse it unchanged. Admin-only for the organisation-wide view;
@@ -81,17 +81,21 @@ export const scopeRouter = router({
     }),
 
   /**
-   * Totals for a scope, one org level at a time: the whole organisation for a Super Admin, their own
-   * units and everything beneath for an Administrator.
+   * Totals for a scope, one org level at a time: the whole organisation for a Super Admin, the units where
+   * the caller holds monitoring.view and everything beneath them for anyone else (an Administrator, or
+   * Corporate ESG). Read only.
    */
-  getTotal: adminAreaProcedure
+  getTotal: permissionProcedure("monitoring.view")
     .input(input)
     .query(async ({ ctx, input }): Promise<ScopeView | null> => {
       const sql = db();
       const periodId = await resolvePeriod(input.periodId);
       if (!periodId) return null;
-      if (input.orgUnitId) await assertOrgScope(sql, ctx.session, input.orgUnitId);
-      const orgUnitId = input.orgUnitId ?? (await defaultOrgUnitId(sql, ctx.session));
+      if (input.orgUnitId) {
+        await assertOrgScope(sql, ctx.session, input.orgUnitId, "monitoring.view");
+      }
+      const orgUnitId =
+        input.orgUnitId ?? (await defaultOrgUnitId(sql, ctx.session, "monitoring.view"));
       if (!orgUnitId) return null;
       return view(input.scopeCode, orgUnitId, periodId);
     }),

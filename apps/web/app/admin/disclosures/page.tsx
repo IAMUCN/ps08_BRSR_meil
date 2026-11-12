@@ -4,10 +4,12 @@ import Link from "next/link";
 import { cn } from "cn";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
-import { requireAdminSession } from "@/lib/auth/session";
+import { requireDisclosureSession } from "@/lib/auth/session";
+import { canEditDisclosures, canEnterFinancialInputs } from "@/lib/auth/workspace";
 import { financialYearLabel } from "@/lib/consolidation/aggregate";
 import { PRINCIPLE_TITLES } from "@/lib/brsr/principles";
 import { api } from "@/lib/trpc/server";
+import { ReportInputsForm } from "../reports/report-inputs-form";
 import { DisclosureAnswer } from "./disclosure-answer";
 
 export const metadata: Metadata = { title: "BRSR Disclosures · EmeilSG" };
@@ -16,11 +18,15 @@ export const metadata: Metadata = { title: "BRSR Disclosures · EmeilSG" };
 // Sections A, B and C, with the answer an Admin types for one financial year. Figures the app measures are
 // never typed here — they come from approved records.
 export default async function DisclosuresPage({ searchParams }: PageProps<"/admin/disclosures">) {
-  const [, caller, params] = await Promise.all([requireAdminSession(), api(), searchParams]);
-  const options = await caller.reports.options();
-  const years = options.financialYears.map((y) => y.startYear);
+  const [session, caller, params] = await Promise.all([
+    requireDisclosureSession(),
+    api(),
+    searchParams,
+  ]);
+  // Finance and HR open this page without the Reports permission, so the years come from here.
+  const { years, defaultYear } = await caller.brsr.disclosureYears();
   const asked = Number(params.year);
-  const year = years.includes(asked) ? asked : (options.defaultFinancialYear ?? years[0] ?? null);
+  const year = years.includes(asked) ? asked : (defaultYear ?? years[0] ?? null);
 
   if (year === null) {
     return (
@@ -33,7 +39,14 @@ export default async function DisclosuresPage({ searchParams }: PageProps<"/admi
     );
   }
 
-  const sections = await caller.brsr.disclosures({ financialYear: year });
+  // The yearly financial inputs sit here for whoever may enter them; the written answers for whoever may type
+  // them. Each procedure checks again, and a person sees only the questions their permission owns.
+  const inputs = canEnterFinancialInputs(session)
+    ? await caller.reports.inputs({ financialYear: year })
+    : null;
+  const sections = canEditDisclosures(session)
+    ? await caller.brsr.disclosures({ financialYear: year })
+    : [];
   const all = sections.flatMap((s) => s.indicators);
   const typed = all.filter((i) => i.kind === "statement");
   const answered = typed.filter((i) => i.answer).length;
@@ -64,10 +77,15 @@ export default async function DisclosuresPage({ searchParams }: PageProps<"/admi
           </Link>
         ))}
       </nav>
-      <p className="text-sm leading-5 text-muted-foreground">
-        {answered} of {typed.length} written answers entered for {financialYearLabel(year)}.{" "}
-        {all.length - typed.length} more questions are filled from approved records.
-      </p>
+      {inputs ? <ReportInputsForm years={years} initialYear={year} initial={inputs} /> : null}
+      {sections.length > 0 ? (
+        <p className="text-sm leading-5 text-muted-foreground">
+          {answered} of {typed.length} written answers entered for {financialYearLabel(year)}.
+          {session.isAdmin
+            ? ` ${all.length - typed.length} more questions are filled from approved records.`
+            : " You see the questions your role answers; a Super Admin answers the rest."}
+        </p>
+      ) : null}
 
       {sections.map((section) => {
         const done = section.indicators.filter((i) => i.answer).length;
