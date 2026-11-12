@@ -11,7 +11,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", label: "Dashboard", icon: "dashboard" },
   // Daily work: file evidence, then review and approve what comes in.
   { href: "/app/upload", label: "Upload", icon: "upload", startsGroup: true },
-  { href: "/app/submissions", label: "My Uploads", icon: "submissions" },
+  { href: "/app/submissions", label: "My Submissions", icon: "submissions" },
   { href: "/app/activity", label: "My Activity", icon: "audit" },
   { href: "/admin/submissions", label: "Submission Monitoring", icon: "submissions" },
   { href: "/admin/validation-queue", label: "Validation Queue", icon: "validation" },

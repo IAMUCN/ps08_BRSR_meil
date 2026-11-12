@@ -3,6 +3,18 @@
 Decisions and deviations recorded by the **ui** role (see `CLAUDE.md`, rule 5); the feature role folds them
 into `PROGRESS.md`, `CONTEXT.md` and the deviation files.
 
+## 2026-11-13 — Tracey AI custom chatbot avatar integration & FAB floating positioning
+
+Integrated designer vector asset `C:\Users\dines\Desktop\New folder\EmeilSG_Logo\chatbot_logo.svg` as the official Tracey AI brand mark:
+- Saved optimized vector asset with centered character crop (`viewBox="180 160 660 660"`) at `apps/web/public/brand/chatbot-logo.svg`.
+- Updated `apps/web/components/brand/tracey-mark.tsx` (`TraceyMark`) to use Next.js `<Image>` component with `priority`, responsive sizing, and `pointer-events-none select-none`.
+- Floating Action Button (`.ask-fab` in `apps/web/components/chat/chat-launcher.tsx`) positioned consistently:
+  - **Desktop (md+):** `md:right-6 md:bottom-6 md:size-14` (56×56px FAB, 36×36px icon), smooth hover scale (`hover:scale-105`) and elevation.
+  - **Mobile (<md):** `right-4 bottom-[calc(4rem+0.75rem+env(safe-area-inset-bottom,0px))] size-12` (48×48px FAB, 32×32px icon). Floats 12px above the fixed 64px (`h-16`) bottom navigation bar, eliminating all overlap or cutoffs.
+  - **Chat Pane Header:** Crisp 28×28px badge in the top bar beside the `Tracey` title mark.
+- Verified visual output across desktop and mobile viewports with Puppeteer screenshots. All 367 tests passing.
+
+
 ## 2026-10-11 — Chat panel built by the feature role (for the ui role to restyle)
 
 The owner asked the feature session to build the chatbot's screen as well, so that it could be tried at once.
@@ -460,3 +472,110 @@ Built by the feature session at the owner's request; no restyle.
   beneath; screen-reader names, the introduction ("I'm Tracey. Ask me about …") and the question box say Tracey.
 - `lib/chat/orchestrate.ts`: the instructions start "You are Tracey, the ESG data analyst inside EmeilSG"; she
   answers to her name. `tests/e2e/ui-phase8.mjs` expects "Ask Tracey".
+
+## 2026-11-12 — Mobile view refinements on Landing Page (owner feedback)
+
+Feedback on mobile viewport (427×952):
+- **Navbar mobile reorganization (`components/landing/navbar.tsx`):**
+  - Moved the mobile hamburger button to the far left of the navbar, using the requested Font Awesome 3-bar SVG icon (`viewBox="0 0 640 640"`, sized to `h-6 w-6`).
+  - Positioned the brand mark and wordmark beside the hamburger on the left.
+  - Removed "Request a demo" button from the mobile navbar (`hidden sm:inline-flex`).
+  - Replaced it with a prominent, larger "Sign in" button (`px-5 py-2 text-sm font-bold bg-[#E91029] text-white`) on the right side of the navbar.
+  - In the expanded mobile drawer, both "Sign in" (red) and "Request a demo" are available as full-width actions.
+- **Admin & authenticated top-bar / mobile navigation refinements (`/admin`, `/app`):**
+  - **Menu button & EmeilSG title:** Mobile top-left corner features the menu trigger button and ONLY the EmeilSG title text SVG (`EmeilSG_title.svg`, `LogoWordmark` with red and indigo fills), with `LogoMark` removed per owner feedback.
+  - **Profile & Log out:** Consolidated the separate "Log out" button into a unified `ProfileMenu` popover attached to the profile avatar/button (`components/shell/profile-menu.tsx`), containing user details, "View profile", and "Log out".
+  - **"Ask Tracey" AI button:** Removed text button from mobile top bar (`hidden md:inline-flex`) and enabled the hovering floating action button in the bottom-right corner (`ask-fab fixed right-4 bottom-20 z-40`) on mobile screens.
+  - **BottomBar:** Cleared the 5th "Menu" tab so the primary quick action links evenly share the bar.
+- **Landing page mobile responsiveness:**
+  - `HeroSection`: Reduced top and bottom padding (`pt-8 sm:pt-14`), tightened mobile heading size (`text-3xl sm:text-5xl`), and ensured capability cards fit within narrow mobile viewports.
+  - `HeroCapabilityCard`: Adjusted card height and bounds for mobile screens to eliminate horizontal scroll anomalies.
+  - `TrustBadgesSection`: Converted grid to `grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5` so badges have ample text width and don't cramp.
+  - `ProductInActionSection`: Converted the dark mock sidebar to a horizontal scrollable strip on mobile (`md:hidden`) with no scrollbars, preventing an excessively tall stack before the document preview.
+  - `InfrastructureSection`: Added touch swipe handlers (`onTouchStart`/`onTouchEnd`) for mobile card switching and responsive card heights.
+  - General section spacing: Optimized `py-14 sm:py-20 px-3 sm:px-6 lg:px-8` across all sections to improve mobile readability and eliminate vertical dead space.
+
+## 2026-11-13 — Mobile view top-bar polish on `/admin` and `/app` (owner feedback)
+
+Feedback on mobile viewport (427×952) for "fix this bar at the top":
+- **Sticky top-bar header (`components/shell/top-bar.tsx`):** Added `sticky top-0 z-30 w-full bg-header/95 backdrop-blur` so the top bar remains pinned while scrolling through admin tables and dashboard cards.
+- **EmeilSG title text prominence (`components/brand/logo-mark.tsx`, `components/shell/top-bar.tsx`):**
+  - Added `width="556" height="130"` and `aspect-[556/130]` directly on `LogoWordmark` SVG to prevent intrinsic ratio collapse in flexbox layouts.
+  - Sized wordmark to `h-8 w-auto shrink-0` next to the menu trigger for clear legibility and visual weight.
+- **Menu icon consistency (`components/shell/sidebar.tsx`):** Updated `MobileMenuTrigger` to use the owner-supplied Font Awesome solid 3-bar SVG (`viewBox="0 0 640 640"`), matching the landing page navbar.
+- **Touch target uniformity across right-side controls:**
+  - `GlobalSearch`: Configured `size-9 p-0 shrink-0 sm:size-auto sm:h-8 sm:px-2.5 sm:gap-2` so on mobile screens it displays as a clean 36×36px square button matching `ThemeToggle` and `NotificationBell`.
+  - `ProfileMenu`: Configured trigger as `size-9 p-0 shrink-0 sm:size-auto sm:h-8 sm:px-2 sm:gap-1.5` with centered 28px avatar on mobile, expanding to display name on larger viewports.
+
+## 2026-11-13 — Disable desktop view when opened in mobile (owner feedback)
+
+Feedback: "When i open the app in mobile in many time it open in deskotop view (desktop view shoudld be off when the website is open in mobile)"
+- **Viewport tag explicit scaling (`app/layout.tsx`):**
+  - Updated `viewport` export to explicitly set `width: "device-width", initialScale: 1, maximumScale: 5` alongside `viewportFit: "cover"`, preventing mobile browsers from defaulting to a 980px unscaled desktop layout canvas.
+- **Synchronous mobile detection boot script (`app/layout.tsx`):**
+  - Added `MOBILE_BOOT_SCRIPT` running in `<head>` before first paint. Detects smartphone devices via touch capabilities (`navigator.maxTouchPoints > 0`) combined with physical screen dimensions (`Math.min(screen.width, screen.height) < 768`) and mobile user agent patterns.
+  - Dynamically enforces `<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">` and marks `<html>` with `.is-mobile-device`. This forces mobile viewport scaling even if the mobile browser had "Desktop site" toggled or cached.
+- **Shell layout overrides for mobile phones and landscape phones (`app/globals.css`):**
+  - Enforced that for `html.is-mobile-device` and for phones in landscape (`@media (max-height: 500px) and (pointer: coarse)`):
+    - Desktop sidebar rail is hidden (`[data-shell="sidebar-rail"]:not([data-expanded="true"]) { display: none !important; }`).
+    - Sidebar placeholder width is zeroed (`[data-shell="sidebar-placeholder"] { display: none !important; width: 0 !important; }`).
+    - Mobile bottom navigation bar is always active (`[data-shell="bottom-bar"] { display: block !important; }`).
+    - Mobile header menu button + title wordmark are always active (`[data-shell="mobile-top-bar"] { display: flex !important; }`).
+    - Chat floating button (`ask-fab`) is always active while desktop top-bar chat button is hidden.
+  - Standard desktop monitors and tablets (width >= 768px and height >= 768px with fine pointer) remain on the standard desktop/tablet rail.
+
+## 2026-11-13 — Tracey AI floating button repositioning and mobile horizontal scroll prevention (owner feedback)
+
+Feedback: "the teacy ai icon is not hovering at their right place both in the desktop and mobile view and fix all horizontal scroll in the website in the mobile view"
+- **Tracey AI floating action button (`components/chat/chat-launcher.tsx`, `components/shell/top-bar.tsx`, `app/admin/layout.tsx`, `app/app/layout.tsx`):**
+  - **Root cause:** `<ChatLauncher />` was previously mounted inside `<header className="... backdrop-blur">`. Under W3C CSS specifications, `backdrop-filter` creates a new containing block and stacking context for all descendants—including elements with `position: fixed`—causing the fixed button to be positioned relative to the 56px header rather than the viewport window.
+  - **Fix:** Moved `<ChatLauncher />` directly to root layout containers in `AdminLayout` and `WorkspaceLayout`, outside of any backdrop-filter containing blocks.
+  - **Unified Floating Action Button:** Configured `.ask-fab` to be the primary floating launcher across both desktop and mobile:
+    - Desktop: `md:bottom-6 md:right-6 md:size-14` (56×56px, 24px from bottom and right screen edges).
+    - Mobile: `right-4 bottom-[calc(4rem+0.75rem+env(safe-area-inset-bottom,0px))] size-12` (48×48px, 16px from right, hovering 12px directly above the fixed bottom navigation bar).
+    - Removed the static button inside top-bar header on desktop to maintain a unified floating experience.
+- **Mobile horizontal scroll elimination (`app/globals.css`, `app/admin/layout.tsx`, `app/app/layout.tsx`):**
+  - Added strict global overflow rules on `html` and `body`: `max-width: 100vw; overflow-x: hidden;`.
+  - Added `max-w-full overflow-x-clip` on root flex containers and main content elements in `AdminLayout` and `WorkspaceLayout`.
+  - Decoupled `BottomBar` from inside `[data-shell="sidebar-placeholder"]` in `components/shell/sidebar.tsx`, ensuring proper display and zero layout disruption.
+  - Verified across all core pages (`/admin`, `/admin/submissions`, `/admin/approval-queue`, `/admin/data-explorer`, `/admin/reports`, `/admin/carbon-analytics`, `/admin/users`, `/admin/organization`, `/admin/audit-trail`, `/app`, `/app/submissions`, `/app/upload`, `/app/notifications`, `/app/activity`, `/login`): `scrollWidth === clientWidth` on mobile viewport (427×952).
+
+## 2026-11-13 — Unfreeze table columns on mobile view and enable free horizontal scrolling (owner feedback)
+
+Feedback on `/app/submissions` (viewport 427×952): "this column is frixed it should not in the mobile view , also all the tables should be horizontally scrollable , without any column fixed"
+- **Unpinned columns on mobile (`app/globals.css`):**
+  - **Root cause:** `.overflow-x-auto > table > :is(thead, tbody) > tr > :first-child` previously had unconditional `position: sticky; left: 0; z-index: 1;`. On narrow mobile screens (390-427px), this locked the first column in place, obscuring subsequent columns and disrupting natural swipe scrolling.
+  - **Scoped to Desktop:** Constrained the sticky first column rule to `@media (min-width: 768px)` only (preserving UI brief §16 pinned column for wide desktop viewports).
+  - **Enforced Mobile Freedom:** Under `@media (max-width: 767.98px)`, `html.is-mobile-device`, and landscape phones (`@media (max-height: 500px) and (pointer: coarse)`), explicitly set `.overflow-x-auto > table > :is(thead, tbody) > tr > :first-child` and all `table :is(th, td)` to `position: static !important; left: auto !important;`.
+  - **Natural Horizontal Scrolling:** Enforced `width: max-content; min-width: 100%;` and `-webkit-overflow-scrolling: touch;` on `.overflow-x-auto > table` for mobile viewports, allowing all tables to expand to their natural readable width and scroll horizontally as a cohesive unit with zero frozen columns.
+
+## 2026-11-13 — Full site mobile responsiveness polish & field row card layout (owner feedback)
+
+Feedback: "make the website responsivness in mobile view for every page" (with uploaded screenshots of `/app/verify/[documentId]` and `/admin/approval-queue` drawer).
+- **Verify Document field rows (`components/verification/field-row.tsx`):**
+  - **Problem (Image 1):** Field row previously forced a rigid 3-column inline flex layout (`w-36` label, `flex-1` value, `w-28` confidence score, plus `pl-[9.75rem]` actions). On narrow phone viewports (390–427px), this left only ~80-110px for extracted values, causing text ("Not found — enter it from the document", dates, and invoice numbers) to break character-by-character into single syllables across 5–9 lines.
+  - **Mobile Card Layout (`< sm`):** Re-architected `FieldRow` on mobile screens to stack vertically:
+    - Header row: Field label on left, confidence badge ("99%", "No OCR value") on right.
+    - Value row: Full width (`w-full`) input/button with clean border and padding, accommodating long invoice numbers, dates, and placeholder messages on 1 line without word fragmentation.
+    - Action row: Removed the 156px indent (`pl-0 sm:pl-[9.75rem]`) so errors, diagnostics, and "Looks correct" buttons utilize the full width of the card.
+    - Desktop (`>= sm`) retains the exact 3-column table alignment.
+- **Verify workspace split height on mobile (`components/verification/verify-split.tsx`, `components/verification/verify-workspace.tsx`):**
+  - Adjusted `DocumentViewer` height on mobile to `h-[340px] sm:h-[460px] xl:h-auto xl:max-h-[calc(100vh-10rem)]` so the document preview sits comfortably above the fields without pushing them off-screen.
+  - Removed inner nested viewport clamping (`xl:max-h-[calc(100vh-10rem)]`) on `VerifyWorkspace` on mobile, avoiding nested scroll traps.
+- **Record Detail / Sheet drawer full-width on mobile (`components/ui/sheet.tsx`, `components/approvals/approval-queue.tsx`, `components/records/record-drawer.tsx`):**
+  - **Problem (Image 2):** `SheetContent` previously had `data-[side=right]:w-3/4`, restricting drawers to 75% width on mobile and rendering them as narrow cards with huge empty margins, causing step tracker tags ("Checked by uplo...") and validation rows to clip.
+  - **Full-Width Mobile Drawers:** Updated `SheetContent` to `data-[side=right]:w-full data-[side=right]:sm:w-3/4` and `data-[side=left]:w-full data-[side=left]:sm:w-3/4`, giving detail sheets 100% of the mobile viewport.
+  - Made `StageTracker` steps `shrink-0 whitespace-nowrap` to prevent awkward word clipping.
+  - Sized document previews inside sheet drawers on mobile to `h-[320px] sm:h-[480px] @4xl:h-[calc(100vh-9rem)]`.
+- **Sitewide Responsiveness Verification:**
+  - Automated headless browser scan tested all 37 pages on mobile viewport (427×952):
+    - All 37 pages passed with zero sideways scrolling (`scrollWidth === clientWidth`).
+    - Zero fixed/sticky cells on mobile across all tables.
+
+
+
+
+
+
+
+

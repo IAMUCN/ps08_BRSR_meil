@@ -28,7 +28,7 @@ const Node = forwardRef<HTMLDivElement, { item: (typeof CHAIN)[number]; last?: b
     return (
       <div
         ref={ref}
-        className={`relative z-10 flex items-center gap-4 rounded-xl border bg-white p-4 shadow-xs ${
+        className={`relative z-10 flex items-center gap-3 sm:gap-4 rounded-xl border bg-white p-3 sm:p-4 shadow-xs ${
           last ? "border-emerald-300 ring-2 ring-emerald-100" : "border-slate-200"
         }`}
       >
@@ -40,10 +40,12 @@ const Node = forwardRef<HTMLDivElement, { item: (typeof CHAIN)[number]; last?: b
           <Icon className="h-5 w-5" />
         </span>
         <span className="min-w-0">
-          <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          <span className="block text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             {item.label}
           </span>
-          <span className="block truncate text-sm font-medium text-slate-900">{item.value}</span>
+          <span className="block text-xs sm:text-sm font-medium text-slate-900 leading-snug">
+            {item.value}
+          </span>
         </span>
       </div>
     );
@@ -55,7 +57,7 @@ export function TraceabilitySection() {
   const refs = useMemo(() => CHAIN.map(() => createRef<HTMLDivElement>()), []);
 
   return (
-    <section id="traceability" className="bg-white px-4 py-20 sm:px-6 lg:px-8">
+    <section id="traceability" className="bg-white px-3 sm:px-6 lg:px-8 py-14 sm:py-20">
       <div className="mx-auto max-w-6xl">
         <SectionHeading
           eyebrow="Traceability"

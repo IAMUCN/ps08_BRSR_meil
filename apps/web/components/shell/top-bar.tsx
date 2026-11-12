@@ -1,15 +1,11 @@
-import { LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
-import { ChatLauncher } from "@/components/chat/chat-launcher";
+import { LogoWordmark } from "@/components/brand/logo-mark";
+import { MobileMenuTrigger } from "@/components/shell/sidebar";
+import { ProfileMenu } from "@/components/shell/profile-menu";
 import { GlobalSearch } from "@/components/search/global-search";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
-import { Button } from "@/components/ui/button";
-import { signOutAction } from "@/lib/auth/actions";
 import type { ActiveSession } from "@/lib/auth/session";
-import { chatConfig } from "@/lib/chat/data";
-import { LogoMark } from "@/components/brand/logo-mark";
-import { LogoWordmarkOnBar } from "@/components/brand/logo-wordmark-on-bar";
 
 /**
  * Top bar (03_APP_FLOW.md §1). The org/period context switcher arrives with its data (Phase 16) —
@@ -24,39 +20,27 @@ export function TopBar({
   profileHref: string;
   notificationsHref?: string;
 }) {
-  const roles = [...new Set(session.assignments.map((a) => a.roleName))].join(", ");
-
   return (
-    <header className="flex h-14 shrink-0 items-center justify-end gap-1 border-b bg-header px-3 text-header-foreground sm:gap-2 sm:px-4 md:gap-4 md:px-6">
-      {/* Phones have no sidebar rail, so the name sits here (feature_enhancement.md 9.1). */}
-      <Link
-        href={profileHref.startsWith("/admin") ? "/admin" : "/app"}
-        className="mr-auto flex items-center gap-1.5 md:hidden"
-        aria-label="EmeilSG home"
-      >
-        <LogoMark className="size-11 shrink-0" />
-        <LogoWordmarkOnBar className="h-5 w-auto text-header-foreground" />
-      </Link>
-      <GlobalSearch />
-      <ThemeToggle current={session.theme} />
-      {session.permissions.includes("chat.use") && chatConfig() ? <ChatLauncher /> : null}
-      <NotificationBell viewAllHref={notificationsHref} />
-      <p className="hidden text-right text-sm leading-5 md:block">
-        <span className="font-semibold">{session.displayName}</span>
-        {roles ? <span className="block text-xs leading-4">{roles}</span> : null}
-      </p>
-      <Button asChild variant="ghost" size="sm">
-        <Link href={profileHref}>
-          <UserRound aria-hidden />
-          <span className="sr-only sm:not-sr-only">Profile</span>
+    <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center justify-between gap-2 border-b bg-header/95 px-3 text-header-foreground backdrop-blur sm:px-4 md:justify-end md:gap-4 md:px-6">
+      {/* Mobile top-left: Menu button + EmeilSG title text only (owner feedback 2026-11-13) */}
+      <div data-shell="mobile-top-bar" className="flex shrink-0 items-center gap-2 md:hidden">
+        <MobileMenuTrigger />
+        <Link
+          href={profileHref.startsWith("/admin") ? "/admin" : "/app"}
+          className="flex shrink-0 items-center"
+          aria-label="EmeilSG home"
+        >
+          <LogoWordmark className="h-8 w-auto shrink-0" />
         </Link>
-      </Button>
-      <form action={signOutAction}>
-        <Button type="submit" variant="outline" size="sm">
-          <LogOut aria-hidden />
-          <span className="sr-only sm:not-sr-only">Log out</span>
-        </Button>
-      </form>
+      </div>
+
+      {/* Right controls: search, theme, notifications, profile */}
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2 md:gap-3">
+        <GlobalSearch />
+        <ThemeToggle current={session.theme} />
+        <NotificationBell viewAllHref={notificationsHref} />
+        <ProfileMenu session={session} profileHref={profileHref} />
+      </div>
     </header>
   );
 }

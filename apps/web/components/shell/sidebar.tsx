@@ -100,6 +100,17 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
+    const handleToggle = () => setExpanded((v) => !v);
+    const handleOpen = () => setExpanded(true);
+    window.addEventListener("emeilsg:toggle-nav", handleToggle);
+    window.addEventListener("emeilsg:open-nav", handleOpen);
+    return () => {
+      window.removeEventListener("emeilsg:toggle-nav", handleToggle);
+      window.removeEventListener("emeilsg:open-nav", handleOpen);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!expanded) return;
     const close = (event: KeyboardEvent) => event.key === "Escape" && setExpanded(false);
     window.addEventListener("keydown", close);
@@ -108,9 +119,10 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
 
   const shown = (collapsed: string) => (expanded ? "" : collapsed);
   return (
-    // The placeholder keeps the page clear of the fixed rail. On phones there is no rail: a bottom bar and a
-    // Menu drawer instead (feature_enhancement.md 9.1, requirement 3).
-    <div className="shrink-0 md:w-16 xl:w-60">
+    <>
+      {/* The placeholder keeps the page clear of the fixed rail. On phones there is no rail: a bottom bar and a
+          Menu drawer instead (feature_enhancement.md 9.1, requirement 3). */}
+      <div data-shell="sidebar-placeholder" className="hidden shrink-0 md:block md:w-16 xl:w-60" aria-hidden="true" />
       {expanded ? (
         <div
           aria-hidden
@@ -120,6 +132,8 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
       ) : null}
       <nav
         aria-label={label}
+        data-shell="sidebar-rail"
+        data-expanded={expanded ? "true" : undefined}
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex flex-col overflow-hidden bg-sidebar text-sidebar-foreground xl:w-60 xl:shadow-none",
           expanded ? "w-60 shadow-lg" : "w-16 max-md:hidden",
@@ -197,13 +211,35 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
           })}
         </ul>
       </nav>
-      <BottomBar
-        items={items}
-        isActive={isActive}
-        onMenu={() => setExpanded(true)}
-        menuOpen={expanded}
-      />
-    </div>
+      <BottomBar items={items} isActive={isActive} />
+    </>
+  );
+}
+
+/**
+ * Mobile-only hamburger button positioned in the top-left corner of the header (user feedback 2026-11-12).
+ * Triggers the expanded sidebar navigation drawer via custom event.
+ */
+export function MobileMenuTrigger({ className }: { className?: string }) {
+  return (
+    <button
+      type="button"
+      aria-label="Open navigation menu"
+      onClick={() => window.dispatchEvent(new CustomEvent("emeilsg:toggle-nav"))}
+      className={cn(
+        "flex size-9 shrink-0 items-center justify-center rounded-md text-header-foreground hover:bg-header-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden",
+        className,
+      )}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 640 640"
+        className="size-5 fill-current"
+        aria-hidden="true"
+      >
+        <path d="M96 160C96 142.3 110.3 128 128 128L512 128C529.7 128 544 142.3 544 160C544 177.7 529.7 192 512 192L128 192C110.3 192 96 177.7 96 160zM96 320C96 302.3 110.3 288 128 288L512 288C529.7 288 544 302.3 544 320C544 337.7 529.7 352 512 352L128 352C110.3 352 96 337.7 96 320zM544 480C544 497.7 529.7 512 512 512L128 512C110.3 512 96 497.7 96 480C96 462.3 110.3 448 128 448L512 448C529.7 448 544 462.3 544 480z" />
+      </svg>
+    </button>
   );
 }
 
@@ -211,7 +247,9 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
 const SHORT: Record<string, string> = {
   "/admin": "Home",
   "/app": "Home",
-  "/app/submissions": "Uploads",
+  "/app/upload": "Upload",
+  "/app/submissions": "My submissions",
+  "/admin/submissions": "My submissions",
   "/admin/approval-queue": "Approvals",
   "/app/approvals": "Approvals",
   "/app/activity": "Activity",
@@ -221,78 +259,84 @@ const SHORT: Record<string, string> = {
 const BOTTOM_PREFERENCE = [
   ["/admin", "/app"],
   ["/app/upload"],
-  ["/app/submissions"],
+  ["/app/submissions", "/admin/submissions"],
   ["/admin/approval-queue", "/app/approvals", "/app/activity"],
 ];
 
 /**
- * Phones only (below 768px): the four most-used pages and Menu, which opens the full navigation as a drawer.
- * Upload (the import of documents) sits in the middle, as the main action.
+ * Phones only (below 768px): the four most-used pages.
+ * Menu was moved to the top-left corner header (user feedback 2026-11-12).
+ * Active tab indicated with blue background on icon and primary text (user feedback 2026-11-13).
  */
 function BottomBar({
   items,
   isActive,
-  onMenu,
-  menuOpen,
 }: {
   items: NavItem[];
   isActive: (item: NavItem) => boolean;
-  onMenu: () => void;
-  menuOpen: boolean;
 }) {
+  const pathname = usePathname();
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
+
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    setOptimisticHref(null);
+  }
+
   const picked = BOTTOM_PREFERENCE.flatMap((hrefs) => {
     const found = hrefs.map((h) => items.find((i) => i.href === h)).find(Boolean);
     return found ? [found] : [];
   });
+
   return (
     <nav
       aria-label="Quick navigation"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      data-shell="bottom-bar"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur select-none touch-manipulation md:hidden"
     >
       <ul
         className="grid h-16"
-        style={{ gridTemplateColumns: `repeat(${picked.length + 1}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${picked.length}, minmax(0, 1fr))` }}
       >
         {picked.map((item) => {
           const Icon = ICONS[item.icon];
-          const active = isActive(item);
-          const upload = item.href === "/app/upload";
+          const isCurrentActive =
+            item.href === "/app/submissions" || item.href === "/admin/submissions"
+              ? pathname.startsWith("/app/submissions") || pathname.startsWith("/admin/submissions")
+              : isActive(item);
+          const active = optimisticHref ? item.href === optimisticHref : isCurrentActive;
+
           return (
             <li key={item.href} className="flex">
               <Link
                 href={item.href}
+                prefetch={true}
                 aria-current={active ? "page" : undefined}
+                onClick={() => setOptimisticHref(item.href)}
+                onTouchStart={() => setOptimisticHref(item.href)}
                 className={cn(
-                  "flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  active ? "text-primary-text" : "text-muted-foreground",
+                  "flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  active
+                    ? "text-primary font-semibold"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <span
                   className={cn(
-                    "flex size-8 items-center justify-center rounded-full",
-                    upload && "bg-primary text-primary-foreground",
+                    "flex size-8 items-center justify-center rounded-full transition-colors",
+                    active
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground",
                   )}
                 >
-                  <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+                  <Icon className="size-5" strokeWidth={active ? 2 : 1.75} aria-hidden />
                 </span>
                 <span className="max-w-full truncate px-1">{SHORT[item.href] ?? item.label}</span>
               </Link>
             </li>
           );
         })}
-        <li className="flex">
-          <button
-            type="button"
-            onClick={onMenu}
-            aria-expanded={menuOpen}
-            className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            <span className="flex size-8 items-center justify-center">
-              <Menu className="size-5" strokeWidth={1.75} aria-hidden />
-            </span>
-            Menu
-          </button>
-        </li>
       </ul>
     </nav>
   );

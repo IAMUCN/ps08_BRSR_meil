@@ -215,13 +215,13 @@ export function HeroCapabilityCard() {
       role="region"
       aria-roledescription="carousel"
       aria-label="Platform capabilities"
-      className="relative h-[460px] w-full max-w-[500px] select-none"
+      className="relative h-[430px] sm:h-[460px] w-full max-w-[500px] select-none mx-auto"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
-      <div className="pointer-events-none absolute -left-8 -right-4 top-1/2 -z-10 h-[380px] -translate-y-1/2 rounded-full bg-gradient-to-tr from-indigo-100/50 via-sky-50/40 to-transparent blur-3xl" />
+      <div className="pointer-events-none absolute -left-4 -right-4 top-1/2 -z-10 h-[340px] sm:h-[380px] -translate-y-1/2 rounded-full bg-gradient-to-tr from-indigo-100/50 via-sky-50/40 to-transparent blur-3xl" />
 
       {CAPABILITIES.map((item, idx) => {
         const diff = getDiff(idx);
@@ -243,13 +243,15 @@ export function HeroCapabilityCard() {
                 >
                   {item.category}
                 </span>
-                <h2 className="text-lg font-bold leading-snug tracking-tight text-slate-900">
+                <h2 className="text-base sm:text-lg font-bold leading-snug tracking-tight text-slate-900">
                   {item.title}
                 </h2>
               </div>
             </div>
 
-            <p className="text-sm leading-relaxed text-slate-600">{item.description}</p>
+            <p className="text-xs sm:text-sm leading-relaxed text-slate-600 line-clamp-2">
+              {item.description}
+            </p>
 
             <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-slate-50/90 px-3 py-2 text-xs">
               <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-slate-500">

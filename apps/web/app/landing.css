@@ -117,6 +117,15 @@ body:has(.landing-page) {
   }
 }
 
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .landing-page section[id] {
   scroll-margin-top: 5rem;
 }

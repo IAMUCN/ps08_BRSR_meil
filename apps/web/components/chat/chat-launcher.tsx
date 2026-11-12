@@ -11,7 +11,6 @@ import {
   type KeyboardEvent,
 } from "react";
 import { ChatBlocks } from "@/components/chat/chat-blocks";
-import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import {
   deleteConversationAction,
@@ -178,27 +177,16 @@ export function ChatLauncher() {
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => toggle(!open)}
-        aria-controls="chat-pane"
-        aria-expanded={open}
-        title="Ask Tracey a question about your ESG data"
-        className={cn("ask-button gap-1.5 px-3", open && "bg-white/15")}
-      >
-        <TraceyMark className="size-5" />
-        <span className="sr-only sm:not-sr-only">Ask Tracey</span>
-      </Button>
       {open ? null : (
         <button
           type="button"
           onClick={() => toggle(true)}
           aria-controls="chat-pane"
           aria-expanded={false}
-          className="ask-fab fixed right-4 bottom-20 z-40 max-md:hidden inline-flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform outline-none hover:scale-105 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:right-6 md:bottom-6"
+          title="Ask Tracey, the ESG data analyst"
+          className="ask-fab fixed z-40 flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200 outline-none hover:scale-105 active:scale-95 focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 right-4 bottom-[calc(4rem+0.75rem+env(safe-area-inset-bottom,0px))] size-12 md:right-6 md:bottom-6 md:size-14"
         >
-          <TraceyMark className="size-8" />
+          <TraceyMark className="size-8 md:size-9" />
           <span className="sr-only">Ask Tracey, the ESG data analyst</span>
         </button>
       )}

@@ -10,15 +10,17 @@ export function SectionHeading({
   children?: React.ReactNode;
 }) {
   return (
-    <BlurFade inView className="mx-auto mb-12 max-w-2xl text-center">
-      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#313490]">
+    <BlurFade inView className="mx-auto mb-8 sm:mb-12 max-w-2xl text-center">
+      <p className="mb-2 sm:mb-3 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.14em] text-[#313490]">
         {eyebrow}
       </p>
-      <h2 className="font-display text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+      <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 leading-tight">
         {title}
       </h2>
       {children && (
-        <p className="mt-3 text-base leading-relaxed text-slate-600 sm:text-lg">{children}</p>
+        <p className="mt-2.5 sm:mt-3 text-sm sm:text-base lg:text-lg leading-relaxed text-slate-600">
+          {children}
+        </p>
       )}
     </BlurFade>
   );

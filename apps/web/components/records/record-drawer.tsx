@@ -113,7 +113,7 @@ export function RecordDrawer({
                     src={`/api/documents/${detail.documentId}/file`}
                     mimeType={detail.mimeType}
                     fileName={detail.fileName ?? "Evidence"}
-                    className="@4xl:h-[calc(100vh-9rem)]"
+                    className="h-[320px] sm:h-[480px] @4xl:h-[calc(100vh-9rem)]"
                   />
                 ) : (
                   <p className="text-sm text-muted-foreground">No evidence document is attached.</p>
