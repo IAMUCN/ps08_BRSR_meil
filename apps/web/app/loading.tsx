@@ -9,9 +9,7 @@ export default function RootLoading() {
     >
       <div className="flex flex-col items-center gap-3">
         <Loader2 className="size-8 animate-spin text-primary" aria-hidden />
-        <p className="text-sm font-medium text-muted-foreground animate-pulse">
-          Loading...
-        </p>
+        <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading...</p>
       </div>
       <span className="sr-only">Loading...</span>
     </div>

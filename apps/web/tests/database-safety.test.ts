@@ -78,13 +78,13 @@ test("Database safety rule 4: Separate migrations for AI functionality with RLS 
   const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
   const aiMigrations = [
-    "../../../supabase/migrations/0047_decision_rules_engine.sql",
-    "../../../supabase/migrations/0048_decarbonization_suggestions.sql",
-    "../../../supabase/migrations/0049_risk_evaluations.sql",
-    "../../../supabase/migrations/0050_database_safety_invariants.sql",
-    "../../../supabase/migrations/0051_recommendation_engine_and_ranking.sql",
-    "../../../supabase/migrations/0052_ai_security_and_privacy_architecture.sql",
-    "../../../supabase/migrations/0053_pgvector_and_rag_indexes.sql",
+    "../../../supabase/migrations/0067_decision_rules_engine.sql",
+    "../../../supabase/migrations/0068_decarbonization_suggestions.sql",
+    "../../../supabase/migrations/0069_risk_evaluations.sql",
+    "../../../supabase/migrations/0070_database_safety_invariants.sql",
+    "../../../supabase/migrations/0071_recommendation_engine_and_ranking.sql",
+    "../../../supabase/migrations/0072_ai_security_and_privacy_architecture.sql",
+    "../../../supabase/migrations/0073_pgvector_and_rag_indexes.sql",
   ];
 
   for (const mig of aiMigrations) {
@@ -96,18 +96,18 @@ test("Database safety rule 4: Separate migrations for AI functionality with RLS 
     assert.doesNotMatch(sql, /alter\s+table\s+public\.esg_records\s+drop\s+constraint/i);
   }
 
-  // 0047 must enforce append-only evaluations
-  const mig0047 = read("../../../supabase/migrations/0047_decision_rules_engine.sql");
-  assert.match(mig0047, /prevent_decision_evaluations_change/);
-  assert.match(mig0047, /before\s+update\s+or\s+delete\s+on\s+public\.decision_rule_evaluations/i);
-  assert.match(mig0047, /before\s+truncate\s+on\s+public\.decision_rule_evaluations/i);
+  // 0067 must enforce append-only evaluations
+  const mig0067 = read("../../../supabase/migrations/0067_decision_rules_engine.sql");
+  assert.match(mig0067, /prevent_decision_evaluations_change/);
+  assert.match(mig0067, /before\s+update\s+or\s+delete\s+on\s+public\.decision_rule_evaluations/i);
+  assert.match(mig0067, /before\s+truncate\s+on\s+public\.decision_rule_evaluations/i);
 
   // All AI tables must be isolated by org_unit_id
-  const mig0048 = read("../../../supabase/migrations/0048_decarbonization_suggestions.sql");
-  assert.match(mig0048, /org_unit_id\s+uuid\s+not\s+null\s+references\s+public\.org_units\(id\)/i);
+  const mig0068 = read("../../../supabase/migrations/0068_decarbonization_suggestions.sql");
+  assert.match(mig0068, /org_unit_id\s+uuid\s+not\s+null\s+references\s+public\.org_units\(id\)/i);
 
-  const mig0049 = read("../../../supabase/migrations/0049_risk_evaluations.sql");
-  assert.match(mig0049, /org_unit_id\s+uuid\s+not\s+null\s+references\s+public\.org_units\(id\)/i);
+  const mig0069 = read("../../../supabase/migrations/0069_risk_evaluations.sql");
+  assert.match(mig0069, /org_unit_id\s+uuid\s+not\s+null\s+references\s+public\.org_units\(id\)/i);
 });
 
 test("Database safety rule 5: No changes to existing calculation formulas, units, or validation triggers", () => {

@@ -2,16 +2,18 @@
 
     python scripts/make_monthly_data.py --out "../../test data" --feed "../../test data/_feed"
 
-Each month folder ("April 2025", "May 2025", ...) is laid out like the earlier two sets: one document per
-ESG activity for the projects in the app (in each role's folder a third are single PDFs, a third images and
-the rest pages of one multi-bill PDF), a multi-bill PDF for the small project, `manifest.csv` (what to upload
-where, by which role, and the values printed) and `bills.json` (the same, one entry per bill, read by the
-feeding script). `--feed` also gets every bill that sits inside a multi-bill PDF as its own one-page PDF, so
-a script can upload every bill on its own.
+Each month folder ("April 2025", "May 2025", ...) is laid out like the earlier two sets:
+one document per ESG activity for the projects in the app (in each role's folder a third
+are single PDFs, a third images and the rest pages of one multi-bill PDF), a multi-bill
+PDF for the small project, `manifest.csv` (what to upload where, by which role, and the
+values printed) and `bills.json` (the same, one entry per bill, read by the feeding
+script). `--feed` also gets every bill that sits inside a multi-bill PDF as its own
+one-page PDF, so a script can upload every bill on its own.
 
-The hierarchy is the one in the web app (`make_test_data.TREE_1`): nothing to import. Quantities follow a
-gentle seasonal curve (`MONTHS`) so month-on-month charts have a shape, and no month differs from the one
-before by enough to trip the anomaly check (x2 or x0.5 of the median).
+The hierarchy is the one in the web app (`make_test_data.TREE_1`): nothing to import.
+Quantities follow a gentle seasonal curve (`MONTHS`) so month-on-month charts have a
+shape, and no month differs from the one before by enough to trip the anomaly check
+(x2 or x0.5 of the median).
 
 Everything is fictitious and watermarked SAMPLE.
 """
@@ -25,11 +27,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import make_test_data as m  # noqa: E402
 import pypdfium2 as pdfium  # noqa: E402
 
-import make_test_data as m  # noqa: E402
-
-# (year, month, size of the month against the base). April 2025 to September 2026 are fed into the app;
+# (year, month, size of the month against the base).
+# April 2025 to September 2026 are fed into the app;
 # October 2026 is kept back for the demonstration.
 MONTHS = [
     (2025, 4, 0.92),
@@ -86,7 +88,11 @@ def fields_of(metric: str, expected: dict, ref: str, period: str) -> dict:
         fields["total_employees"] = str(expected["total"])
     if metric.startswith("SAFETY_"):
         fields.update({"fatalities": "0", "high_consequence_injuries": "0"})
-    if metric not in ("WORKFORCE_GENDER", "WORKFORCE_TRAINING", "MSME_PROCUREMENT") and not metric.startswith("SAFETY_"):
+    if metric not in (
+        "WORKFORCE_GENDER",
+        "WORKFORCE_TRAINING",
+        "MSME_PROCUREMENT",
+    ) and not metric.startswith("SAFETY_"):
         fields["invoice_number"] = ref
     fields["billing_period"] = period
     return fields
@@ -176,7 +182,14 @@ def write_month(root: Path, feed: Path | None, year: int, month: int, factor: fl
             }
             if position % 3 == 2:
                 held.setdefault(group, []).append(
-                    {**row, "data": data, "unit": unit, "activity": activity, "expected": expected, "ref": ctx["ref"]}
+                    {
+                        **row,
+                        "data": data,
+                        "unit": unit,
+                        "activity": activity,
+                        "expected": expected,
+                        "ref": ctx["ref"],
+                    }
                 )
                 continue
             extension, mime = "pdf", "application/pdf"
@@ -194,9 +207,17 @@ def write_month(root: Path, feed: Path | None, year: int, month: int, factor: fl
             (folder / path).parent.mkdir(parents=True, exist_ok=True)
             (folder / path).write_bytes(data)
             manifest.append({**row, "File": path.as_posix()})
-            # A single document is uploaded from where it sits (paths in feed_file are relative to `--out`).
+            # A single document is uploaded from where it sits (paths relative to `--out`).
             bills.append(
-                bill(unit, activity, expected, path.as_posix(), mime, f"{label}/{path.as_posix()}", ctx["ref"])
+                bill(
+                    unit,
+                    activity,
+                    expected,
+                    path.as_posix(),
+                    mime,
+                    f"{label}/{path.as_posix()}",
+                    ctx["ref"],
+                )
             )
 
     for (code, role), items in held.items():
@@ -209,7 +230,11 @@ def write_month(root: Path, feed: Path | None, year: int, month: int, factor: fl
         data = items[0]["data"] if single else m.bundle([b["data"] for b in items])
         (folder / path).parent.mkdir(parents=True, exist_ok=True)
         (folder / path).write_bytes(data)
-        first = {k: v for k, v in items[0].items() if k not in ("data", "unit", "activity", "expected", "ref")}
+        first = {
+            k: v
+            for k, v in items[0].items()
+            if k not in ("data", "unit", "activity", "expected", "ref")
+        }
         if single:
             manifest.append({**first, "File": path.as_posix()})
         else:
@@ -226,7 +251,15 @@ def write_month(root: Path, feed: Path | None, year: int, month: int, factor: fl
                 }
             )
         for n, item in enumerate(items):
-            entry = bill(item["unit"], item["activity"], item["expected"], path.as_posix(), "application/pdf", path.as_posix(), item["ref"])
+            entry = bill(
+                item["unit"],
+                item["activity"],
+                item["expected"],
+                path.as_posix(),
+                "application/pdf",
+                path.as_posix(),
+                item["ref"],
+            )
             entry["page"] = n + 1
             if feed is not None:
                 entry["feed_file"] = write_feed(
@@ -257,7 +290,9 @@ def write_month(root: Path, feed: Path | None, year: int, month: int, factor: fl
             f"page {len(pages)}: {activity.name} "
             f"({'; '.join(f'{k}={v}' for k, v in expected.items())})"
         )
-    path = Path("documents") / small.ref / m.ROLE_NAMES[m.PM] / "multi-bill (3 bills in one PDF).pdf"
+    path = (
+        Path("documents") / small.ref / m.ROLE_NAMES[m.PM] / "multi-bill (3 bills in one PDF).pdf"
+    )
     (folder / path).parent.mkdir(parents=True, exist_ok=True)
     pdf = m.bundle(pages)
     (folder / path).write_bytes(pdf)
@@ -273,7 +308,15 @@ def write_month(root: Path, feed: Path | None, year: int, month: int, factor: fl
         }
     )
     for n, (activity, expected, ref) in enumerate(entries):
-        entry = bill(small, activity, expected, path.as_posix(), "application/pdf", path.as_posix(), ref)
+        entry = bill(
+            small,
+            activity,
+            expected,
+            path.as_posix(),
+            "application/pdf",
+            path.as_posix(),
+            ref,
+        )
         entry["page"] = n + 1
         if feed is not None:
             entry["feed_file"] = write_feed(
@@ -301,7 +344,8 @@ def main() -> None:
         if args.only and args.only != label:
             continue
         # October 2026 is for the demonstration: its bills are never fed by script.
-        count = write_month(Path(args.out), None if (year, month) == (2026, 10) else feed, year, month, factor)
+        feed_target = None if (year, month) == (2026, 10) else feed
+        count = write_month(Path(args.out), feed_target, year, month, factor)
         print(f"{label}: {count} bills", flush=True)
 
 
