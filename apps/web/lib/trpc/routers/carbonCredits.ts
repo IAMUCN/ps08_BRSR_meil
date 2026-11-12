@@ -5,11 +5,16 @@ import { writeAudit } from "@/lib/audit";
 import { assertOrgScope, inOrgScope as inScope, scopedOrgUnitIds } from "@/lib/auth/scope";
 import { registryEnum, creditStatusEnum, targetScopeEnum } from "@/lib/carbon-credits/engine";
 import { db } from "@/lib/db";
-import { permissionProcedure, router } from "@/lib/trpc/init";
+import {
+  carbonManageProcedure,
+  carbonViewProcedure,
+  icpManageProcedure,
+  router,
+} from "@/lib/trpc/init";
 
-const view = permissionProcedure("carbon_credit.view");
-const manage = permissionProcedure("carbon_credit.manage");
-const icpManage = permissionProcedure("icp.manage");
+const view = carbonViewProcedure;
+const manage = carbonManageProcedure;
+const icpManage = icpManageProcedure;
 
 // These procedures read and write through lib/db.ts, which bypasses RLS, and the three permissions are held
 // below the group (a Project Manager holds carbon_credit.view): every one stays inside the caller's org scope.

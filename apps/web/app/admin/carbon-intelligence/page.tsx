@@ -4,6 +4,7 @@ import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import {
   CarbonIntelligenceClient,
+  type CarbonIntelligenceClientProps,
   type CarbonIntelligenceTab,
   type OrgUnitOption,
 } from "./carbon-intelligence-client";
@@ -25,24 +26,10 @@ export default async function CarbonIntelligencePage({
     searchParams,
   ]);
 
-  const [
-    rawUnits,
-    forecastOptions,
-    simulatorOptions,
-    creditsOptions,
-    creditsSummary,
-    creditsBatches,
-    creditsIcpPrices,
-    creditsLinks,
-  ] = await Promise.all([
+  const [rawUnits, forecastOptions, simulatorOptions] = await Promise.all([
     caller.analytics.units(),
     caller.forecast.options(),
     caller.simulator.options(),
-    caller.carbonCredits.options(),
-    caller.carbonCredits.summary(),
-    caller.carbonCredits.list(),
-    caller.carbonCredits.icpList(),
-    caller.carbonLinks.list(),
   ]);
 
   const askedOrg = typeof params.org === "string" ? params.org : undefined;
@@ -62,34 +49,72 @@ export default async function CarbonIntelligencePage({
     );
   }
 
-  const targetCreditsOrgUnit =
-    creditsOptions.orgUnits.find((u) => u.id === orgUnitId)?.id ??
-    creditsOptions.orgUnits[0]?.id ??
-    orgUnitId;
-
-  // Load overview, alerts, settings, and credits reconciliation for the authorized unit
-  const [overview, alerts, settings, creditsReconciliation] = await Promise.all([
+  // Load overview, alerts, settings for the authorized unit
+  const [overview, alerts, settings] = await Promise.all([
     caller.analytics.overview({ orgUnitId }),
     caller.analytics.alerts({ orgUnitId }),
     caller.analytics.alertSettings(),
-    targetCreditsOrgUnit
-      ? caller.carbonCredits.reconciliation({ orgUnitId: targetCreditsOrgUnit })
-      : Promise.resolve({
-          gross: { scope1: 0, scope2: 0, scope3: 0, total: 0 },
-          offsets: { scope1: 0, scope2: 0, scope3: 0, total: 0 },
-          net: { scope1: 0, scope2: 0, scope3: 0, total: 0 },
-          transferredExclusions: {
-            batchesCount: 0,
-            quantityTco2e: 0,
-            status: "PERMANENTLY_EXCLUDED",
-          },
-          doubleCountingIntegrityCheck: {
-            passed: true,
-            claimDisclosuresValid: true,
-            message: "No records found.",
-          },
-        }),
   ]);
+
+  const canViewCredits =
+    session.isAdmin ||
+    session.isOrgAdmin ||
+    session.permissions.includes("carbon_credit.view");
+
+  let creditsData: CarbonIntelligenceClientProps["creditsData"] = null;
+
+  if (canViewCredits) {
+    try {
+      const [
+        creditsOptions,
+        creditsSummary,
+        creditsBatches,
+        creditsIcpPrices,
+        creditsLinks,
+      ] = await Promise.all([
+        caller.carbonCredits.options(),
+        caller.carbonCredits.summary(),
+        caller.carbonCredits.list(),
+        caller.carbonCredits.icpList(),
+        caller.carbonLinks.list(),
+      ]);
+
+      const targetCreditsOrgUnit =
+        creditsOptions.orgUnits.find((u) => u.id === orgUnitId)?.id ??
+        creditsOptions.orgUnits[0]?.id ??
+        orgUnitId;
+
+      const creditsReconciliation = targetCreditsOrgUnit
+        ? await caller.carbonCredits.reconciliation({ orgUnitId: targetCreditsOrgUnit })
+        : {
+            gross: { scope1: 0, scope2: 0, scope3: 0, total: 0 },
+            offsets: { scope1: 0, scope2: 0, scope3: 0, total: 0 },
+            net: { scope1: 0, scope2: 0, scope3: 0, total: 0 },
+            transferredExclusions: {
+              batchesCount: 0,
+              quantityTco2e: 0,
+              status: "PERMANENTLY_EXCLUDED",
+            },
+            doubleCountingIntegrityCheck: {
+              passed: true,
+              claimDisclosuresValid: true,
+              message: "No records found.",
+            },
+          };
+
+      creditsData = {
+        options: creditsOptions,
+        summary: creditsSummary,
+        batches: creditsBatches,
+        reconciliation: creditsReconciliation,
+        icpPrices: creditsIcpPrices,
+        links: creditsLinks,
+      };
+    } catch (err) {
+      console.warn("Could not load carbon credits for this user session:", err);
+      creditsData = null;
+    }
+  }
 
   // Map units to OrgUnitOption format with depth from forecastOptions or rawUnits
   const depthMap = new Map<string, number>();
@@ -105,14 +130,16 @@ export default async function CarbonIntelligencePage({
   }));
 
   const initialTab: CarbonIntelligenceTab =
-    askedTab === "forecast" ||
-    askedTab === "simulator" ||
-    askedTab === "credits" ||
-    askedTab === "carbon-credits"
-      ? askedTab === "carbon-credits"
-        ? "credits"
-        : askedTab
-      : "overview";
+    (askedTab === "credits" || askedTab === "carbon-credits") && !creditsData
+      ? "overview"
+      : askedTab === "forecast" ||
+          askedTab === "simulator" ||
+          askedTab === "credits" ||
+          askedTab === "carbon-credits"
+        ? askedTab === "carbon-credits"
+          ? "credits"
+          : askedTab
+        : "overview";
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -131,14 +158,7 @@ export default async function CarbonIntelligencePage({
         aiAvailable={overview.aiAvailable}
         forecastOptions={forecastOptions}
         simulatorOptions={simulatorOptions}
-        creditsData={{
-          options: creditsOptions,
-          summary: creditsSummary,
-          batches: creditsBatches,
-          reconciliation: creditsReconciliation,
-          icpPrices: creditsIcpPrices,
-          links: creditsLinks,
-        }}
+        creditsData={creditsData}
         initialTab={initialTab}
       />
     </div>

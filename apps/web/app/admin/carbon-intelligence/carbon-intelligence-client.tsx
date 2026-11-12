@@ -43,7 +43,7 @@ export type CarbonIntelligenceClientProps = {
     reconciliation: CarbonCreditsClientProps["initialReconciliation"];
     icpPrices: CarbonCreditsClientProps["initialIcpPrices"];
     links: CarbonLink[];
-  };
+  } | null;
   initialTab?: CarbonIntelligenceTab;
 };
 
@@ -65,7 +65,7 @@ export function CarbonIntelligenceClient({
 
   // Active tab state derived directly from URL
   const paramTab = searchParams.get("tab");
-  const activeTab: CarbonIntelligenceTab =
+  const requestedTab: CarbonIntelligenceTab =
     paramTab === "forecast" ||
     paramTab === "simulator" ||
     paramTab === "overview" ||
@@ -75,6 +75,9 @@ export function CarbonIntelligenceClient({
         ? "credits"
         : paramTab
       : initialTab;
+
+  const activeTab: CarbonIntelligenceTab =
+    requestedTab === "credits" && !creditsData ? "overview" : requestedTab;
 
   // Active org unit state derived directly from URL
   const paramOrg = searchParams.get("org");
@@ -144,18 +147,20 @@ export function CarbonIntelligenceClient({
             <span>Reduction Simulator</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleTabChange("credits")}
-            className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all ${
-              activeTab === "credits"
-                ? "bg-card text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Coins className="size-3.5 text-emerald-500" aria-hidden />
-            <span>Carbon Credits & Offsets</span>
-          </button>
+          {creditsData && (
+            <button
+              type="button"
+              onClick={() => handleTabChange("credits")}
+              className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === "credits"
+                  ? "bg-card text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Coins className="size-3.5 text-emerald-500" aria-hidden />
+              <span>Carbon Credits & Offsets</span>
+            </button>
+          )}
         </div>
 
         {/* Shared Organization Unit Selector */}
@@ -208,7 +213,7 @@ export function CarbonIntelligenceClient({
         />
       )}
 
-      {activeTab === "credits" && (
+      {activeTab === "credits" && creditsData && (
         <div className="space-y-6">
           <CreditLinksPanel links={creditsData.links} canEdit={isSuperAdmin} />
           <CarbonCreditsClient

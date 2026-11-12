@@ -5,7 +5,7 @@ import { writeAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { httpsTransport, type Transport } from "@/lib/factors/source";
 import { checkLink } from "@/lib/factors/source-text";
-import { adminProcedure, permissionProcedure, router } from "@/lib/trpc/init";
+import { adminProcedure, carbonViewProcedure, router } from "@/lib/trpc/init";
 
 // Where carbon credits can be explored or traded (feature_enhancement.md 6.3, requirement 35; D50, A46). Outside
 // sites only: EmeilSG does not sell, certify or guarantee credits, and the page says so. A Super Admin keeps the
@@ -89,7 +89,7 @@ const select = (sql: ReturnType<typeof db>, all: boolean) => sql<
 
 export const carbonLinksRouter = router({
   /** The list as anyone who can see carbon credits sees it (active links only); a Super Admin sees all. */
-  list: permissionProcedure("carbon_credit.view").query(async ({ ctx }): Promise<CarbonLink[]> => {
+  list: carbonViewProcedure.query(async ({ ctx }): Promise<CarbonLink[]> => {
     const rows = await select(db(), ctx.session.isAdmin);
     return rows.map((r) => ({
       id: r.id,
