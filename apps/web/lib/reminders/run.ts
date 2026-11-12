@@ -5,7 +5,15 @@ import { writeAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getDeadlineData } from "@/lib/deadlines/service";
 import { deadlineReminderEmailHtml, sendEmail } from "@/lib/email/brevo";
-import { planReminders, readSchedule, type Message, type Overseer } from "@/lib/reminders/plan";
+import {
+  planReminders,
+  readSchedule,
+  type Message,
+  type Overseer,
+  type Person,
+  type PendingStatus,
+  levelsOf,
+} from "@/lib/reminders/plan";
 
 // Sends today's deadline reminders (feature_enhancement.md Phase 5). Called once a day by Vercel Cron
 // (/api/cron/reminders) and by a Super Admin's "Run now". Safe to run any number of times: each reminder is a
@@ -28,6 +36,42 @@ const shortDate = (iso: string) =>
     month: "short",
     year: "numeric",
   });
+
+/**
+ * The Administrators above each unit, nearest first: one list per unit that has any (an `org_admin` assigned at the
+ * unit or at a unit above it). Units with none are left out, so the climb skips them.
+ */
+async function loadAdminLevels(
+  sql: ReturnType<typeof db>,
+  unitIds: string[],
+): Promise<Map<string, Person[][]>> {
+  const levels = new Map<string, Person[][]>();
+  if (unitIds.length === 0) return levels;
+  const rows = await sql<
+    { unit_id: string; depth: number; user_id: string; name: string; email: string }[]
+  >`
+    select t.descendant_id::text as unit_id, min(t.depth)::int as depth, u.id as user_id,
+           u.display_name as name, u.email
+    from public.user_org_assignments a
+    join public.roles r on r.id = a.role_id and r.code = 'org_admin'
+    join public.users u on u.id = a.user_id and u.is_active and u.deleted_at is null
+    join public.org_unit_tree t on t.ancestor_id = a.org_unit_id
+    where a.revoked_at is null and t.descendant_id = any(${unitIds}::uuid[])
+    group by t.descendant_id, a.org_unit_id, u.id, u.display_name, u.email
+    order by 2, 4`;
+  // Rows arrive nearest first; people at the same distance are one level.
+  const byUnit = new Map<string, { depth: number; person: Person }[]>();
+  for (const row of rows) {
+    const list = byUnit.get(row.unit_id) ?? [];
+    list.push({
+      depth: row.depth,
+      person: { userId: row.user_id, name: row.name, email: row.email },
+    });
+    byUnit.set(row.unit_id, list);
+  }
+  for (const [unit, list] of byUnit) levels.set(unit, levelsOf(list));
+  return levels;
+}
 
 /** Claims one send: a new row, or a failed one with attempts left. Null when it is not ours to send. */
 async function claim(message: Message, channel: "in_app" | "email"): Promise<string | null> {
@@ -52,27 +96,31 @@ export async function runReminders(by: { userId: string | null }): Promise<RunSu
     select value from public.org_settings where key = 'reminder_schedule'`;
   const schedule = readSchedule(setting?.value);
 
-  // What is still missing, in periods that take uploads now.
+  // What is not approved yet, in periods that take uploads now: missing, or on file and stuck (phase 2).
   const open = await sql<{ id: string }[]>`
     select rp.id from public.reporting_periods rp
     where rp.status = 'open' and not public.reporting_period_locked(rp)`;
   const openIds = new Set(open.map((p) => p.id));
   const { tasks } = await getDeadlineData(sql);
-  const missing = tasks
-    .filter((t) => openIds.has(t.reportingPeriodId) && t.submissionStatus === "missing")
-    .map((t) => ({
-      periodId: t.reportingPeriodId,
-      periodName: t.periodName,
-      dueDate: t.dueDate,
-      orgUnitId: t.orgUnitId,
-      orgUnitName: t.orgUnitName,
-      metricName: t.metricName,
-      owners: t.assignedOwners.map((o) => ({
-        userId: o.userId,
-        name: o.displayName,
-        email: o.email,
-      })),
-    }));
+  const notApproved = tasks.filter(
+    (t) => openIds.has(t.reportingPeriodId) && t.submissionStatus !== "approved",
+  );
+  const adminLevels = await loadAdminLevels(sql, [...new Set(notApproved.map((t) => t.orgUnitId))]);
+  const pending = notApproved.map((t) => ({
+    status: t.submissionStatus as PendingStatus,
+    periodId: t.reportingPeriodId,
+    periodName: t.periodName,
+    dueDate: t.dueDate,
+    orgUnitId: t.orgUnitId,
+    orgUnitName: t.orgUnitName,
+    metricName: t.metricName,
+    owners: t.assignedOwners.map((o) => ({
+      userId: o.userId,
+      name: o.displayName,
+      email: o.email,
+    })),
+    adminLevels: adminLevels.get(t.orgUnitId) ?? [],
+  }));
 
   // Who oversees what: each Administrator their units and below; the Super Admins everything.
   const overseerRows = await sql<
@@ -116,7 +164,7 @@ export async function runReminders(by: { userId: string | null }): Promise<RunSu
   const messages = planReminders({
     today,
     schedule,
-    missing,
+    pending,
     overseers: [...overseers.values()],
     superAdminIds,
   });
@@ -131,6 +179,7 @@ export async function runReminders(by: { userId: string | null }): Promise<RunSu
   for (const message of messages) {
     const link =
       message.kind === "owner" ? "/app/upload" : "/admin/submissions?issue=missing_submissions";
+    const overdue = message.daysBefore < 0;
     for (const channel of message.channels) {
       const id = await claim(message, channel);
       if (!id) {
@@ -142,7 +191,8 @@ export async function runReminders(by: { userId: string | null }): Promise<RunSu
           await tx`
             insert into public.notifications
               (user_id, type, title, message, related_entity_type, related_entity_id, deep_link_path)
-            values (${message.recipient.userId}, 'deadline_approaching', ${message.title},
+            values (${message.recipient.userId},
+                    ${overdue ? "deadline_escalated" : "deadline_approaching"}, ${message.title},
                     ${message.lines.slice(0, 5).join("; ") + (message.lines.length > 5 ? `; and ${message.lines.length - 5} more` : "")},
                     'reporting_period', ${message.periodId}, ${link})`;
           await tx`update public.reminder_sends set status = 'sent', sent_at = now() where id = ${id}`;
@@ -159,7 +209,8 @@ export async function runReminders(by: { userId: string | null }): Promise<RunSu
           dueOn: shortDate(message.dueDate),
           lines: message.lines,
           link: `${appUrl()}${link}`,
-          digest: message.kind === "digest",
+          digest: message.kind !== "owner",
+          overdue,
         }),
       });
       if (result.sent) {

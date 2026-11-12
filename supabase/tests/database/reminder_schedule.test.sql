@@ -1,6 +1,6 @@
--- Deadline reminders (migration 0059; feature_enhancement.md Phase 5).
+-- Deadline reminders (migration 0059; feature_enhancement.md Phase 5) and overdue escalation (migration 0071).
 begin;
-select plan(7);
+select plan(11);
 
 create function pg_temp.err(statement text) returns text language plpgsql as $$
 begin
@@ -48,7 +48,23 @@ select matches(
   'check constraint', 'attempts are capped');
 select matches(
   pg_temp.err($$update public.reminder_sends set kind = 'everyone' where id = (select id from fixture)$$),
-  'check constraint', 'only owner and digest reminders exist');
+  'check constraint', 'only owner, digest and escalation reminders exist');
+
+-- Migration 0071: overdue days are negative, and the escalation message to an Administrator is a kind of its own.
+select is(
+  pg_temp.err($$update public.reminder_sends set days_before = -3, kind = 'escalation' where id = (select id from fixture)$$),
+  '', 'an escalation 3 days after the due date can be recorded');
+select matches(
+  pg_temp.err($$update public.reminder_sends set days_before = -61 where id = (select id from fixture)$$),
+  'check constraint', 'days after the due date stop at 60');
+select is(
+  (select value -> 'escalation' ->> 'superAdminAfter' from public.org_settings where key = 'reminder_schedule'),
+  '7', 'the schedule carries the escalation days');
+select is(
+  (select (value -> 'escalation' ->> 'unitAdminAfter')::int * 100
+        + (value -> 'escalation' ->> 'parentAdminAfter')::int
+   from public.org_settings where key = 'reminder_schedule'),
+  103, 'the unit Administrator is told after 1 day, the next one up after 3');
 
 select * from finish();
 rollback;

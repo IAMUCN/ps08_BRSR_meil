@@ -1,21 +1,26 @@
 import "server-only";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import {
-  getDeadlineData,
-  executeEscalationSweep,
-  sendManualTaskReminder,
-} from "@/lib/deadlines/service";
+import { buildBoard, type BoardRow, type BoardUnit } from "@/lib/deadlines/board";
+import { getDeadlineData, sendManualTaskReminder } from "@/lib/deadlines/service";
 import { writeAudit } from "@/lib/audit";
 import { readSchedule, type Schedule } from "@/lib/reminders/plan";
 import { runReminders } from "@/lib/reminders/run";
 import { adminAreaProcedure, adminProcedure, router } from "@/lib/trpc/init";
 
+/** The submission status board for one period (deadline escalation, phase 2). */
+export type StatusBoard = {
+  periods: { id: string; label: string; open: boolean }[];
+  periodId: string | null;
+  dueDate: string | null;
+  rows: BoardRow[];
+};
+
 /** One reminder that went out (or failed), for the Deadlines page (Phase 5). */
 export type ReminderSend = {
   id: string;
   periodLabel: string;
-  kind: "owner" | "digest";
+  kind: "owner" | "digest" | "escalation";
   recipient: string;
   daysBefore: number;
   channel: "in_app" | "email";
@@ -66,6 +71,61 @@ export const deadlinesRouter = router({
       return res.kpis;
     }),
 
+  /**
+   * Who is behind, unit by unit, for one period (the open one with the latest due date unless asked): every unit
+   * the caller administers and beneath it, with what is approved, on file, not started and overdue, and the owners
+   * who are behind. A Super Admin sees the whole tree, an Administrator their units and below.
+   */
+  board: adminAreaProcedure
+    .input(z.object({ periodId: z.string().uuid().optional() }).optional())
+    .query(async ({ ctx, input }): Promise<StatusBoard> => {
+      const sql = db();
+      const periods = await sql<{ id: string; label: string; open: boolean; due: string }[]>`
+        select id, label, (status = 'open') as open,
+               to_char(coalesce(submission_closes_on, end_date), 'YYYY-MM-DD') as due
+        from public.reporting_periods order by start_date desc`;
+      const chosen =
+        periods.find((p) => p.id === input?.periodId) ?? periods.find((p) => p.open) ?? periods[0];
+      const list = periods.map((p) => ({ id: p.id, label: p.label, open: p.open }));
+      if (!chosen) return { periods: list, periodId: null, dueDate: null, rows: [] };
+
+      const scope = ctx.session.isAdmin
+        ? null
+        : new Set(
+            (
+              await sql<{ id: string }[]>`
+                select distinct descendant_id::text as id from public.org_unit_tree
+                where ancestor_id = any(${ctx.session.adminOrgUnitIds}::uuid[])`
+            ).map((r) => r.id),
+          );
+      const unitRows = await sql<
+        { id: string; name: string; parent_id: string | null; label: string; sort_order: number }[]
+      >`
+        select o.id::text, o.name, o.parent_id::text, l.label, l.sort_order
+        from public.org_units o
+        join public.org_levels l on l.code = o.unit_type
+        where o.deleted_at is null`;
+      const units: BoardUnit[] = unitRows
+        .filter((u) => !scope || scope.has(u.id))
+        .map((u) => ({
+          id: u.id,
+          name: u.name,
+          parentId: u.parent_id,
+          levelLabel: u.label,
+          levelOrder: u.sort_order,
+        }));
+      const { tasks } = await getDeadlineData(sql, { periodId: chosen.id });
+      return {
+        periods: list,
+        periodId: chosen.id,
+        dueDate: chosen.due,
+        rows: buildBoard(
+          units,
+          tasks.filter((t) => !scope || scope.has(t.orgUnitId)),
+        ),
+      };
+    }),
+
   /** The reminder schedule (Phase 5): days before the due date, and which of them by email too. */
   schedule: adminAreaProcedure.query(async (): Promise<Schedule> => {
     const [row] = await db()<{ value: unknown }[]>`
@@ -81,13 +141,33 @@ export const deadlinesRouter = router({
           .array(z.object({ before: z.number().int().min(0).max(60), email: z.boolean() }))
           .min(1, "Keep at least one reminder day.")
           .max(30),
+        /** Days after the due date on which each step of the climb is told; left out, the saved ones stay. */
+        escalation: z
+          .object({
+            unitAdminAfter: z.number().int().min(1).max(60),
+            parentAdminAfter: z.number().int().min(1).max(60),
+            superAdminAfter: z.number().int().min(1).max(60),
+          })
+          .refine(
+            (e) =>
+              e.unitAdminAfter <= e.parentAdminAfter && e.parentAdminAfter <= e.superAdminAfter,
+            {
+              message:
+                "The steps must climb: unit Administrator first, then the next one up, then the Super Admins.",
+            },
+          )
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const schedule = readSchedule({ days: input.days, timezone: "Asia/Kolkata" });
-      await db().begin(async (tx) => {
+      return db().begin(async (tx) => {
         const [old] = await tx<{ value: unknown }[]>`
           select value from public.org_settings where key = 'reminder_schedule' for update`;
+        const schedule = readSchedule({
+          days: input.days,
+          timezone: "Asia/Kolkata",
+          escalation: input.escalation ?? readSchedule(old?.value).escalation,
+        });
         const [saved] = await tx<{ id: string }[]>`
           insert into public.org_settings (key, value, updated_by)
           values ('reminder_schedule', ${tx.json(schedule)}, ${ctx.session.userId})
@@ -102,8 +182,8 @@ export const deadlinesRouter = router({
           oldValue: old?.value ?? null,
           newValue: schedule,
         });
+        return schedule;
       });
-      return schedule;
     }),
 
   /** Send today's reminders now (the daily Vercel Cron run does the same; nothing goes out twice). */
@@ -161,25 +241,6 @@ export const deadlinesRouter = router({
       at: r.at.toISOString(),
     }));
   }),
-
-  /**
-   * Triggers an automated deadline reminder and escalation sweep across open tasks.
-   * Admin-only procedure.
-   */
-  runSweep: adminProcedure
-    .input(
-      z
-        .object({
-          periodId: z.string().uuid().optional(),
-        })
-        .optional(),
-    )
-    .mutation(async ({ ctx, input }) => {
-      return executeEscalationSweep({
-        triggeredByUserId: ctx.session.userId,
-        periodId: input?.periodId,
-      });
-    }),
 
   /**
    * Manually dispatches an immediate reminder for a specific deadline task.

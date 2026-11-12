@@ -497,3 +497,12 @@ Built by the feature session at the owner's request (`.grill/role-dashboard-deci
 ## Role-wise dashboard: Expected submissions tile (2026-11-13, feature lane at the owner's request)
 - `components/dashboard/tile-charts.tsx`: the Upload page's expected-submissions card (progress bar, ticks, stage badges) as a dashboard tile, one block per
   unit. **Not viewed in a browser.**
+
+## Deadlines: overdue escalation (2026-11-13, feature lane at the owner's request)
+- `app/admin/deadlines/reminders-panel.tsx`: an "After the due date" block (three day selects; read-only list for
+  Administrators), "Overdue escalation" in the log's Kind column, "n days late" labels. `deadlines-client.tsx`: the
+  Run Escalation Sweep button and its handler removed; banner text and the L1/L2 badge labels changed.
+  **Not viewed in a browser.**
+- Phase 2: `app/admin/deadlines/status-board.tsx` (new; `page.tsx` reads `?period=`): units with a progress line,
+  badges, "Behind:" names and a native `<details>` per unit for its own items. **Not viewed in a browser** (check
+  the indent on phones, the badge row wrapping, and the three themes).

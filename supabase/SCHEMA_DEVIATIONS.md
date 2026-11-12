@@ -766,3 +766,12 @@ browser grants, listed for Super Admins. `org_settings.demo_video` holds the You
 request. Owner's request; `.grill/demo-requests-decisions.md`.
 
 **Undo:** in the header of `0066_demo_requests.sql`.
+
+## D57 — Overdue escalation up the hierarchy (migration `0071`, 2026-11-13)
+
+`reminder_sends.days_before` accepts -60 to 60 (negative = days after the due date) and `kind` gains `escalation`;
+`org_settings.reminder_schedule` gains `escalation` (`unitAdminAfter`, `parentAdminAfter`, `superAdminAfter`: 1, 3, 7).
+A schedule still equal to the earlier default (7 to 0) moves to 14, 10, 7, 5, 3, 2, 1, 0. Owner's decision;
+`.grill/deadline-escalation-decisions.md`.
+
+**Undo:** in the header of `0071_overdue_escalation.sql`.

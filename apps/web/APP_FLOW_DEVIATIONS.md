@@ -877,3 +877,15 @@ group with where it sits today; ticking one adds the business unit as a parent (
 project placed before these rules (straight under a subsidiary) is marked, and its first ticked business unit
 becomes its main parent. Units already in the database are not changed by the rules. No migration.
 `.grill/org-structure-decisions.md`.
+
+## A58 — Overdue submissions climb the hierarchy (2026-11-13)
+
+Reporting Deadlines → Reminders has an "After the due date" block: the days late on which the unit's Administrator,
+the next Administrator up and the Super Admins are told (default 1, 3, 7). The owners are reminded daily while a
+submission is overdue; each step also tells the ones before it. The "Run Escalation Sweep" button is gone (it was
+manual and not scheduled); the table's escalation levels follow the same days (Level 1: Administrator, Level 2: Super
+Admin). The page's default reminder days are 14 to 0. `.grill/deadline-escalation-decisions.md`.
+
+Phase 2 (same day): Reporting Deadlines opens with "Submission status by unit", a board for Super Admins and
+Administrators (their units and below) with a period select. Past the due date, submissions on file but not approved
+also climb the chain, with where they are stuck. `.grill/deadline-escalation-decisions.md`.

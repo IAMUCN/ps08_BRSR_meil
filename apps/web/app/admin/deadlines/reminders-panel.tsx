@@ -6,7 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
-import type { Schedule } from "@/lib/reminders/plan";
+import type { Escalation, Schedule } from "@/lib/reminders/plan";
 import type { ReminderSend } from "@/lib/trpc/routers/deadlines";
 import { runRemindersAction, saveScheduleAction } from "./actions";
 
@@ -21,7 +21,29 @@ const STATUS: Record<ReminderSend["status"], { label: string; tone: StatusTone }
   failed: { label: "Failed", tone: "error" },
 };
 const dayLabel = (n: number) =>
-  n === 0 ? "Due day" : n === 1 ? "1 day before" : `${n} days before`;
+  n === 0
+    ? "Due day"
+    : n < 0
+      ? `${-n} day${n === -1 ? "" : "s"} late`
+      : n === 1
+        ? "1 day before"
+        : `${n} days before`;
+const KIND: Record<ReminderSend["kind"], string> = {
+  owner: "Own submissions",
+  digest: "Summary",
+  escalation: "Overdue escalation",
+};
+// The climb after the due date: who is told on which day (set under Schedule, saved with it).
+const STEPS: { key: keyof Escalation; label: string; hint: string }[] = [
+  { key: "unitAdminAfter", label: "Unit's Administrator", hint: "the nearest unit above with one" },
+  { key: "parentAdminAfter", label: "Next Administrator up", hint: "joins the first" },
+  {
+    key: "superAdminAfter",
+    label: "Super Admins",
+    hint: "with every Administrator above the unit",
+  },
+];
+const LATE_DAYS = Array.from({ length: 30 }, (_, i) => i + 1);
 
 export function RemindersPanel({
   schedule,
@@ -38,11 +60,16 @@ export function RemindersPanel({
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState(() => new Map(schedule.days.map((d) => [d.before, d.email])));
+  const [steps, setSteps] = useState<Escalation>(schedule.escalation);
   const [pending, setPending] = useState<"save" | null>(null);
   const [shown, setShown] = useState(PAGE);
+  const climbs =
+    steps.unitAdminAfter <= steps.parentAdminAfter &&
+    steps.parentAdminAfter <= steps.superAdminAfter;
   const dirty =
     draft.size !== schedule.days.length ||
-    schedule.days.some((d) => draft.get(d.before) !== d.email);
+    schedule.days.some((d) => draft.get(d.before) !== d.email) ||
+    STEPS.some((s) => steps[s.key] !== schedule.escalation[s.key]);
 
   const setDay = (day: number, state: "off" | "in_app" | "email") =>
     setDraft((current) => {
@@ -58,6 +85,7 @@ export function RemindersPanel({
     setPending("save");
     const saved = await saveScheduleAction({
       days: [...draft].map(([before, email]) => ({ before, email })),
+      escalation: steps,
     });
     if (!saved.ok) {
       setPending(null);
@@ -90,8 +118,9 @@ export function RemindersPanel({
           </h2>
           <p className="text-sm text-muted-foreground">
             Sent every morning at 9:00 (India time) to the people whose submissions are still
-            missing, and a summary to the Administrators of their units. Nobody gets the same
-            reminder twice.
+            missing, and a summary to the Administrators of their units. Once a submission is
+            overdue its owners are reminded daily, and it climbs the hierarchy one step at a time.
+            Nobody gets the same reminder twice.
           </p>
         </div>
         <StatusBadge tone={dailyRunReady ? "success" : "warning"}>
@@ -138,10 +167,59 @@ export function RemindersPanel({
           </ul>
         )}
       </fieldset>
+      <fieldset>
+        <legend className="mb-1 text-sm font-semibold">After the due date</legend>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Days late on which each step is told, by email and in the app. Each step also tells the
+          ones before it, and the owners hear daily.
+        </p>
+        {canEdit ? (
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-3">
+            {STEPS.map((step) => {
+              const id = `escalation-${step.key}`;
+              return (
+                <div key={step.key} className="flex min-w-0 flex-col gap-1">
+                  <label htmlFor={id} className="text-xs text-muted-foreground">
+                    {step.label} <span className="block">({step.hint})</span>
+                  </label>
+                  <select
+                    id={id}
+                    value={steps[step.key]}
+                    onChange={(e) =>
+                      setSteps((s) => ({ ...s, [step.key]: Number(e.target.value) }))
+                    }
+                    className="min-h-8 w-full min-w-0 rounded-sm border border-input bg-background px-2 py-1 text-sm"
+                  >
+                    {LATE_DAYS.map((n) => (
+                      <option key={n} value={n}>
+                        {n} day{n === 1 ? "" : "s"} late
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <ul className="flex flex-wrap gap-2 text-sm">
+            {STEPS.map((step) => (
+              <li key={step.key} className="rounded-sm border px-2 py-1">
+                {step.label}: {dayLabel(-schedule.escalation[step.key])}
+              </li>
+            ))}
+          </ul>
+        )}
+        {canEdit && !climbs ? (
+          <p role="alert" className="mt-2 text-xs text-status-error">
+            The steps must climb: the unit&apos;s Administrator first, then the next one up, then
+            the Super Admins.
+          </p>
+        ) : null}
+      </fieldset>
       {canEdit ? (
         <Button
           size="sm"
-          disabled={!dirty || draft.size === 0 || pending !== null}
+          disabled={!dirty || !climbs || draft.size === 0 || pending !== null}
           onClick={() => void save()}
         >
           {pending === "save" ? <Loader2 className="animate-spin" aria-hidden /> : null}
@@ -196,7 +274,7 @@ export function RemindersPanel({
                     <td className="px-3 py-2">{r.periodLabel}</td>
                     <td className="px-3 py-2">{r.recipient}</td>
                     <td className="px-3 py-2">
-                      {r.kind === "digest" ? "Summary" : "Own submissions"}
+                      {KIND[r.kind]}
                       <span className="block text-xs text-muted-foreground">
                         {r.missingCount} missing
                       </span>
