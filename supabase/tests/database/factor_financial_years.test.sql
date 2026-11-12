@@ -3,11 +3,11 @@ begin;
 select plan(6);
 
 insert into auth.users (id, email)
-values ('00000000-0000-4000-8000-0000000064u1', 'factor_test@meil.test')
+values ('00000000-0000-4000-8000-000000006401', 'factor_test@meil.test')
 on conflict (id) do nothing;
 
 insert into public.users (id, display_name, email)
-values ('00000000-0000-4000-8000-0000000064u1', 'Factor User', 'factor_test@meil.test')
+values ('00000000-0000-4000-8000-000000006401', 'Factor User', 'factor_test@meil.test')
 on conflict (id) do nothing;
 
 insert into public.conversion_factors (id, activity_type, name)

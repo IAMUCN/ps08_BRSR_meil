@@ -23,11 +23,11 @@ select is(
   8, 'the default schedule has eight days');
 
 insert into auth.users (id, email)
-values ('00000000-0000-4000-8000-0000000059u1', 'reminder_test@meil.test')
+values ('00000000-0000-4000-8000-000000005901', 'reminder_test@meil.test')
 on conflict (id) do nothing;
 
 insert into public.users (id, display_name, email)
-values ('00000000-0000-4000-8000-0000000059u1', 'Reminder User', 'reminder_test@meil.test')
+values ('00000000-0000-4000-8000-000000005901', 'Reminder User', 'reminder_test@meil.test')
 on conflict (id) do nothing;
 
 create temporary table fixture as

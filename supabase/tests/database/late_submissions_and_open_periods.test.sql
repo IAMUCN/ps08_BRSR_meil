@@ -15,11 +15,11 @@ $$;
 create function pg_temp.today() returns date language sql as $$ select public.reporting_period_today() $$;
 
 insert into auth.users (id, email)
-values ('00000000-0000-4000-8000-0000000056u1', 'late_test@meil.test')
+values ('00000000-0000-4000-8000-000000005601', 'late_test@meil.test')
 on conflict (id) do nothing;
 
 insert into public.users (id, display_name, email)
-values ('00000000-0000-4000-8000-0000000056u1', 'Late User', 'late_test@meil.test')
+values ('00000000-0000-4000-8000-000000005601', 'Late User', 'late_test@meil.test')
 on conflict (id) do nothing;
 
 -- Room for the test's own periods: whatever is open locally stays open, and the job must not touch it.

@@ -21,11 +21,11 @@ select ok(
 
 -- A report run to forward, on whatever unit, period and user exist locally.
 insert into auth.users (id, email)
-values ('00000000-0000-4000-8000-0000000058u1', 'forward_test@meil.test')
+values ('00000000-0000-4000-8000-000000005801', 'forward_test@meil.test')
 on conflict (id) do nothing;
 
 insert into public.users (id, display_name, email)
-values ('00000000-0000-4000-8000-0000000058u1', 'Forward User', 'forward_test@meil.test')
+values ('00000000-0000-4000-8000-000000005801', 'Forward User', 'forward_test@meil.test')
 on conflict (id) do nothing;
 
 insert into public.report_runs (id, requested_by, org_unit_id, reporting_period_id, report_type, status)
