@@ -9,7 +9,7 @@ stored extractions stay reproducible (it is recorded in `ocr_jobs.model_version`
 
 from dataclasses import dataclass
 
-EXTRACTOR_VERSION = "rules-14"
+EXTRACTOR_VERSION = "rules-15"
 
 
 @dataclass(frozen=True)
@@ -113,6 +113,69 @@ FIELD_PROFILES: dict[str, Profile] = {
     ),
     "amount": Profile(
         labels=("amount spent", "amount paid", "penalty amount", "amount"), kind="number"
+    ),
+    # rules-15 (role-wise dashboard capture, migration 0069): optional figures beside amounts that
+    # already exist, and the fields of a compliance certificate. validity_months has no profile on
+    # purpose: a certificate rarely prints it, so the person types it from the two dates.
+    "beneficiaries": Profile(
+        labels=(
+            "number of beneficiaries",
+            "no. of beneficiaries",
+            "total beneficiaries",
+            "persons benefited",
+            "people benefited",
+            "beneficiaries",
+        ),
+        kind="number",
+        exclude=("amount", "rate"),
+    ),
+    "india_spend": Profile(
+        labels=(
+            "procured from within india",
+            "procurement within india",
+            "purchases within india",
+            "domestic procurement",
+            "within india",
+        ),
+        kind="number",
+    ),
+    "certificate_number": Profile(
+        labels=(
+            "consent order no",
+            "consent no",
+            "authorization no",
+            "authorisation no",
+            "certificate no",
+            "certificate number",
+            "registration no",
+            "licence no",
+            "license no",
+            "noc no",
+            "file no",
+        ),
+        kind="identifier",
+    ),
+    "issuing_authority": Profile(
+        labels=("issuing authority", "issued by", "certification body", "pollution control board"),
+        kind="text",
+    ),
+    "valid_from": Profile(
+        labels=("valid from", "date of issue", "issued on", "date of commencement", "w.e.f"),
+        kind="period",
+    ),
+    "valid_to": Profile(
+        labels=(
+            "valid up to",
+            "valid upto",
+            "valid until",
+            "valid till",
+            "validity upto",
+            "validity up to",
+            "date of expiry",
+            "expiry date",
+            "expires on",
+        ),
+        kind="period",
     ),
     "invoice_number": Profile(
         labels=(
@@ -290,4 +353,36 @@ DOCUMENT_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
     "PROCUREMENT_STATEMENT": ("procurement", "msme", "vendor", "purchases", "spend"),
     "CSR_PAYMENT_RECORD": ("csr", "payment", "social", "responsibility", "project"),
     "PENALTY_ORDER": ("penalty", "fine", "order", "authority", "paid"),
+    # rules-15: certificates that expire. The generic type scores on the words they all share; the
+    # named types add words only they carry, so a consent order beats the generic type.
+    "CERTIFICATE_EXPIRY": ("certificate", "valid", "validity", "expiry", "issued", "authority"),
+    "CONSENT_TO_OPERATE": (
+        "consent to operate",
+        "consent order",
+        "air act",
+        "water act",
+        "pollution control board",
+    ),
+    "CONSENT_TO_ESTABLISH": (
+        "consent to establish",
+        "consent order",
+        "air act",
+        "water act",
+        "pollution control board",
+    ),
+    "HAZARDOUS_WASTE_AUTH": (
+        "hazardous",
+        "authorization",
+        "authorisation",
+        "waste rules",
+        "pollution control board",
+    ),
+    "FIRE_NOC": ("fire", "no objection", "noc", "fire safety", "fire department"),
+    "ISO_CERTIFICATE": (
+        "iso",
+        "14001",
+        "45001",
+        "management system",
+        "certificate of registration",
+    ),
 }

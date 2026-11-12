@@ -187,3 +187,13 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
   aggregates and the verified totals, with the file only if a permission is granted).
 - Defaults proposed for the rest (not yet confirmed): one register per org unit per financial year, "as at"
   31 March, with leavers during the year; a unit's figure is the sum of its children's registers.
+
+## Capture fields and certificates built (2026-11-12, migration 0069, OCR rules-15; unverified)
+- CSR beneficiaries: optional number field on the CSR payment record. Within-India procurement: optional number
+  field on the Procurement Statement (not a second activity); the share is Sum(india_spend) / Sum(total_spend)
+  over approved records, computed by the dashboard query. No part-of-whole rule (it fails on an empty field).
+- Certificates: category "Environmental Compliance" (EHS), activity COMPLIANCE_CERTIFICATE, six document types
+  (generic, consent to operate, consent to establish, hazardous waste authorization, fire NOC, ISO). Fields:
+  number, issuing authority, valid from, valid until, validity in months. Validity in months is the one
+  required number field Verify needs and is typed by the person. Mapped to P6-E13 as not applicable.
+- Employee register, net worth printing in the report, and the report's within-India sub-part are still to do.

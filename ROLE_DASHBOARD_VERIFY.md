@@ -43,4 +43,13 @@ Run on the machine that has the local Supabase stack (`D:\Non Newtonian Things\B
 - `evidence.read` exists but no page or procedure uses it yet (Auditor dashboard phase).
 - The Auditor's audit-trail view with emails and IPs masked is not built.
 - The net-worth value is stored with the other yearly inputs but not printed in the report yet.
-- Not started: employee register, certificate expiry, within-India share, CSR beneficiaries, OCR rule changes (`rules-15`), the dashboard itself.
+- Not started: the employee register, the dashboard itself.
+
+## Capture fields and certificates (migration 0069, OCR `rules-15`)
+
+Written without a database; **not run**. Worker unit tests (59, including 8 new in `tests/unit/test_rules15.py`) pass; Ruff and the Docker image build were not run.
+
+1. Apply **0069** after 0067/0068, then `pnpm db:test` (new `capture_fields_and_certificates.test.sql`, 9 assertions). Also watch `audit_2.test.sql` ("no metric is left without a BRSR mapping"): the certificate metric is mapped to P6-E13 as **not applicable** to keep that invariant.
+2. **Order matters:** push the migration to hosted first, then rebuild the worker image (`docker build -t traceesg-ocr-worker apps/ocr-worker`, check `EXTRACTOR_VERSION` is `rules-15`) and recreate the hosted worker container. A worker newer than the database fails every job.
+3. Upload a CSR payment record with a "Number of beneficiaries" line and a procurement statement with a "Procured from within India" line: both should appear as optional fields on Verify. Upload a consent order: the type should classify (or be pickable) and Valid until should be read.
+4. Known limits: **Validity (months)** is typed by the person (Verify needs exactly one required number field, and a certificate rarely prints it); no part-of-whole rule for within-India spend (the existing rule fails when the field is empty); the report still prints only the MSME share under P8-E4; certificates are not in the BRSR report.
