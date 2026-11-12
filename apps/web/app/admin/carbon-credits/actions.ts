@@ -46,6 +46,7 @@ export async function transferCreditAction(input: {
 export async function getReconciliationAction(input: {
   orgUnitId: string;
   reportingPeriodId?: string;
+  periodFilter?: string;
 }) {
   return runAction((api) => api.carbonCredits.reconciliation(input));
 }
@@ -100,24 +101,36 @@ type LinkFields = {
 
 export async function createCarbonLinkAction(input: LinkFields) {
   const result = await runAction((api) => api.carbonLinks.create(input));
-  if (result.ok) revalidatePath("/admin/carbon-credits");
+  if (result.ok) {
+    revalidatePath("/admin/carbon-credits");
+    revalidatePath("/admin/carbon-intelligence");
+  }
   return result;
 }
 
 export async function updateCarbonLinkAction(input: LinkFields & { id: string; active: boolean }) {
   const result = await runAction((api) => api.carbonLinks.update(input));
-  if (result.ok) revalidatePath("/admin/carbon-credits");
+  if (result.ok) {
+    revalidatePath("/admin/carbon-credits");
+    revalidatePath("/admin/carbon-intelligence");
+  }
   return result;
 }
 
 export async function removeCarbonLinkAction(input: { id: string }) {
   const result = await runAction((api) => api.carbonLinks.remove(input));
-  if (result.ok) revalidatePath("/admin/carbon-credits");
+  if (result.ok) {
+    revalidatePath("/admin/carbon-credits");
+    revalidatePath("/admin/carbon-intelligence");
+  }
   return result;
 }
 
 export async function checkCarbonLinksAction() {
   const result = await runAction((api) => api.carbonLinks.check());
-  if (result.ok) revalidatePath("/admin/carbon-credits");
+  if (result.ok) {
+    revalidatePath("/admin/carbon-credits");
+    revalidatePath("/admin/carbon-intelligence");
+  }
   return result;
 }

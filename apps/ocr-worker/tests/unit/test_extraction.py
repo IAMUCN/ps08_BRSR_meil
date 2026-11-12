@@ -398,5 +398,57 @@ class DiscomThermalBillTest(unittest.TestCase):
         )
 
 
+TRAVEL_FIELDS = [
+    FieldSpec("distance", "Distance of the journey", "number"),
+    FieldSpec("passengers", "Passengers", "number"),
+    FieldSpec("unit", "Unit", "unit"),
+    FieldSpec("invoice_number", "PNR / ticket number", "text"),
+]
+
+
+PERIOD = [FieldSpec("billing_period", "Date", "text")]
+
+
+class TravelTicketTest(unittest.TestCase):
+    def test_printed_count_and_distance_are_read(self):
+        lines = [
+            line("PNR No: X7K2LQ", 60, 100),
+            line("No. of Passengers:", 60, 160),
+            line("6", 560, 160),
+            line("Distance: 1,150 km", 60, 220),
+        ]
+        got = {f.key: f for f in extract_fields(lines, TRAVEL_FIELDS)}
+        self.assertEqual(got["passengers"].value, "6")
+        self.assertEqual(got["distance"].value, "1150")
+        self.assertEqual(got["unit"].value, "km")
+        self.assertEqual(got["invoice_number"].value, "X7K2LQ")
+
+    def test_numbered_names_are_counted_below_the_review_threshold(self):
+        lines = [
+            line("Date of Travel: 12-Sep-2026", 60, 60),
+            line("HYD - DEL  6E 2031", 60, 100),
+            line("Passengers", 60, 160),
+            line("1. MR A KUMAR", 60, 200),
+            line("2. MS B RAO", 60, 240),
+            line("3) MSTR C RAO", 60, 280),
+            line("4 MRS D SINGH", 60, 320),
+            line("Passenger 5: E JOSHI", 60, 360),
+            line("Passenger 6: F KHAN", 60, 400),
+        ]
+        got = {f.key: f for f in extract_fields(lines, TRAVEL_FIELDS + PERIOD)}
+        self.assertEqual(got["billing_period"].value, "12-Sep-2026")
+        # The "Passengers" heading must not read the first name's "1" as the count.
+        self.assertEqual(got["passengers"].value, "6")
+        self.assertEqual(got["passengers"].source["method"], "counted_names")
+        self.assertLessEqual(got["passengers"].confidence, 70)
+        # No distance on the ticket: left for the person, never guessed.
+        self.assertIsNone(got["distance"].value)
+
+    def test_no_names_and_no_count_leaves_passengers_empty(self):
+        lines = [line("Fare: 5400", 60, 100), line("Seat 12A", 60, 160)]
+        got = {f.key: f for f in extract_fields(lines, TRAVEL_FIELDS)}
+        self.assertIsNone(got["passengers"].value)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -56,8 +56,9 @@ const bill = await upload(
 await runWorker();
 const raw = await extractionOf(bill.documentId);
 check(
-  "the worker ran rules-14",
-  /rules-14$/.test(
+  "the worker ran rules-14 or later",
+  // The Phase 3 rules are in every later version too (rules-17 since migration 0077).
+  ((v) => Number(/rules-(\d+)$/.exec(v ?? "")?.[1] ?? 0) >= 14)(
     (
       await one(
         sql`select model_version from public.ocr_jobs where document_id = ${bill.documentId}`,

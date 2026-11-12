@@ -5,11 +5,16 @@ import { writeAudit } from "@/lib/audit";
 import { assertOrgScope, inOrgScope as inScope, scopedOrgUnitIds } from "@/lib/auth/scope";
 import { registryEnum, creditStatusEnum, targetScopeEnum } from "@/lib/carbon-credits/engine";
 import { db } from "@/lib/db";
-import { permissionProcedure, router } from "@/lib/trpc/init";
+import {
+  carbonManageProcedure,
+  carbonViewProcedure,
+  icpManageProcedure,
+  router,
+} from "@/lib/trpc/init";
 
-const view = permissionProcedure("carbon_credit.view");
-const manage = permissionProcedure("carbon_credit.manage");
-const icpManage = permissionProcedure("icp.manage");
+const view = carbonViewProcedure;
+const manage = carbonManageProcedure;
+const icpManage = icpManageProcedure;
 
 // These procedures read and write through lib/db.ts, which bypasses RLS, and the three permissions are held
 // below the group (a Project Manager holds carbon_credit.view): every one stays inside the caller's org scope.
@@ -553,11 +558,21 @@ export const carbonCreditsRouter = router({
       z.object({
         orgUnitId: z.string().uuid(),
         reportingPeriodId: z.string().uuid().optional(),
+        periodFilter: z.string().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
       const sql = db();
       await assertOrgScope(sql, ctx.session, input.orgUnitId);
+
+      const filter = input.periodFilter ?? input.reportingPeriodId;
+      const isUuid = Boolean(
+        filter && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filter),
+      );
+      const uuidFilter = isUuid && filter ? filter : null;
+      const isFy25 = filter === "FY_2025_26";
+      const isFy26 = filter === "FY_2026_27";
+      const isAll = !filter || filter === "ALL";
 
       // 1. Fetch Gross Scope 1, 2, 3 emissions from approved records
       const grossEmissions = await sql<
@@ -567,18 +582,26 @@ export const carbonCreditsRouter = router({
         }[]
       >`
         select
-          s.code as scope_code,
+          coalesce(ps.code, s.code) as scope_code,
           coalesce(sum(case
-            when cr.value_unit in ('tCO2e', 'tonnes CO2e') then cr.value
-            when cr.value_unit in ('kgCO2e', 'kg CO2e') then cr.value / 1000.0
+            when lower(coalesce(cr.value_unit, '')) in ('tco2e', 'tonnes co2e', 'tco2', 'tonnes co2') then cr.value
+            when lower(coalesce(cr.value_unit, '')) in ('kgco2e', 'kg co2e', 'kgco2') then cr.value / 1000.0
             else 0
           end), 0)::text as total_tco2e
         from public.consolidation_records cr
-        join public.scopes s on s.id = cr.scope_id
+        join public.reporting_periods rp on rp.id = cr.reporting_period_id
+        join public.esg_metrics m on m.id = cr.metric_id
+        join public.scopes s on s.id = m.scope_id
+        left join public.scopes ps on ps.id = s.parent_scope_id
         where cr.org_unit_id = ${input.orgUnitId}
           and cr.approval_status = 'approved'
-          and (${input.reportingPeriodId ?? null}::uuid is null or cr.reporting_period_id = ${input.reportingPeriodId ?? null}::uuid)
-        group by s.code
+          and (
+            ${isAll}
+            or (${isUuid} and cr.reporting_period_id = ${uuidFilter}::uuid)
+            or (${isFy25} and rp.start_date >= '2025-04-01' and rp.start_date < '2026-04-01')
+            or (${isFy26} and rp.start_date >= '2026-04-01' and rp.start_date < '2027-04-01')
+          )
+        group by coalesce(ps.code, s.code)
       `;
 
       let grossScope1 = 0;
@@ -589,7 +612,8 @@ export const carbonCreditsRouter = router({
         const val = Number(row.total_tco2e);
         if (row.scope_code === "SCOPE_1") grossScope1 += val;
         else if (row.scope_code === "SCOPE_2") grossScope2 += val;
-        else if (row.scope_code === "SCOPE_3") grossScope3 += val;
+        else if (row.scope_code === "SCOPE_3" || row.scope_code.startsWith("SCOPE_3"))
+          grossScope3 += val;
       }
       const grossTotal = grossScope1 + grossScope2 + grossScope3;
 
@@ -601,13 +625,19 @@ export const carbonCreditsRouter = router({
         }[]
       >`
         select
-          coalesce(target_scope, 'SCOPE_1') as target_scope,
-          coalesce(sum(quantity_tco2e), 0)::text as offset_tco2e
-        from public.carbon_credit_transactions
-        where transaction_type = 'RETIREMENT'
-          and beneficiary_org_unit_id = ${input.orgUnitId}
-          and (${input.reportingPeriodId ?? null}::uuid is null or reporting_period_id = ${input.reportingPeriodId ?? null}::uuid)
-        group by target_scope
+          coalesce(tx.target_scope, 'SCOPE_1') as target_scope,
+          coalesce(sum(tx.quantity_tco2e), 0)::text as offset_tco2e
+        from public.carbon_credit_transactions tx
+        left join public.reporting_periods rp on rp.id = tx.reporting_period_id
+        where tx.transaction_type = 'RETIREMENT'
+          and tx.beneficiary_org_unit_id = ${input.orgUnitId}
+          and (
+            ${isAll}
+            or (${isUuid} and tx.reporting_period_id = ${uuidFilter}::uuid)
+            or (${isFy25} and rp.start_date >= '2025-04-01' and rp.start_date < '2026-04-01')
+            or (${isFy26} and rp.start_date >= '2026-04-01' and rp.start_date < '2027-04-01')
+          )
+        group by tx.target_scope
       `;
 
       let offsetScope1 = 0;

@@ -32,6 +32,8 @@ export default async function UploadPage({ searchParams }: PageProps<"/app/uploa
     options && replacesId
       ? await caller.documents.replacementInfo({ documentId: replacesId }).catch(() => null)
       : null;
+  // The person's unfinished Upload table (migration 0077).
+  const draft = options && !replaces ? await caller.bundles.draft() : null;
 
   // §0.4: blocking notice before category selection is even shown.
   if (options && options.periods.length === 0) {
@@ -54,16 +56,22 @@ export default async function UploadPage({ searchParams }: PageProps<"/app/uploa
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className={replaces ? "mx-auto max-w-5xl" : "mx-auto max-w-7xl"}>
       <PageHeader
         title="Upload Document"
-        description="Choose what the document is evidence for, then add the file. Values are extracted automatically and you'll review them before anything is submitted."
+        description={
+          replaces
+            ? "Upload the replacement document; its values are read and checked like any other."
+            : "Add your bills. In Manual mode you type each bill's value and EmeilSG checks it against the document; in Automatic mode EmeilSG finds each bill and reads its values for you."
+        }
       />
       <UploadWorkspace
         periods={options.periods}
         targets={options.targets}
         maxBytes={options.maxBytes}
         replaces={replaces}
+        draft={draft}
+        billingMonths={options.billingMonths}
       />
     </div>
   );

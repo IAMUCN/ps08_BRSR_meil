@@ -62,6 +62,12 @@ export type SubmissionRow = RecordStatus & {
   rejectedReason: string | null;
   manualException: boolean;
   returnReason: string | null;
+  bundleDocumentId?: string | null;
+  bundleFileName?: string | null;
+  bundleDescription?: string | null;
+  bundleTotalParts?: number | null;
+  pageFrom?: number | null;
+  pageTo?: number | null;
 };
 
 export type OcrJobRow = {
@@ -121,10 +127,17 @@ export const ocrRouter = router({
         rejected_reason: string | null;
         manual_exception: boolean;
         return_reason: string | null;
+        bundle_document_id: string | null;
+        bundle_file_name: string | null;
+        bundle_description: string | null;
+        page_from: number | null;
+        page_to: number | null;
+        bundle_total_parts: number | null;
       }[]
     >`
       select r.id, r.verification_status, r.validation_status, r.approval_status,
-             r.data_quality_state, r.created_at, m.name as metric_name, o.name as org_unit_name,
+             r.data_quality_state, coalesce(bd.created_at, r.created_at) as created_at,
+             m.name as metric_name, o.name as org_unit_name,
              p.label as period_label, d.id as document_id, d.file_name, d.description, j.status as job_status,
              j.error_message, fs.attention,
              (select a.reason from public.audit_logs a
@@ -146,20 +159,30 @@ export const ocrRouter = router({
                  where vr.esg_record_id = r.id and vr.result = 'fail'
                    and vr.evaluated_at = (select max(evaluated_at) from public.validation_results
                                           where esg_record_id = r.id))
-             end as return_reason
+             end as return_reason,
+             bd.id as bundle_document_id,
+             bd.file_name as bundle_file_name,
+             bd.description as bundle_description,
+             bp.page_from,
+             bp.page_to,
+             (select count(*)::int from public.document_bundle_parts p2
+              where p2.bundle_document_id = bd.id and p2.status = 'created') as bundle_total_parts
       from public.esg_records r
       join public.esg_metrics m on m.id = r.metric_id
       join public.org_units o on o.id = r.org_unit_id
       join public.reporting_periods p on p.id = r.reporting_period_id
       left join public.esg_record_documents erd on erd.esg_record_id = r.id and erd.is_primary
       left join public.documents d on d.id = erd.document_id and d.deleted_at is null
+      -- A bill cut from an upload was submitted when the upload arrived.
+      left join public.documents bd on bd.id = d.bundle_document_id and bd.deleted_at is null
+      left join public.document_bundle_parts bp on bp.created_document_id = d.id
       left join public.ocr_jobs j on j.document_id = d.id
       ${fieldStats(sql)}
       where r.submitted_by = ${ctx.session.userId}
         and (p.status = 'open'
              or (r.approval_status not in ('approved', 'rejected')
                  and r.data_quality_state <> 'rejected'))
-      order by r.created_at desc`;
+      order by coalesce(bd.created_at, r.created_at) desc, bp.page_from asc nulls last, r.created_at desc`;
     return rows.map((r): SubmissionRow => ({
       id: r.id,
       verificationStatus: r.verification_status,
@@ -179,6 +202,12 @@ export const ocrRouter = router({
       rejectedReason: r.rejected_reason,
       manualException: r.manual_exception,
       returnReason: r.return_reason,
+      bundleDocumentId: r.bundle_document_id ?? null,
+      bundleFileName: r.bundle_file_name ?? null,
+      bundleDescription: r.bundle_description ?? null,
+      bundleTotalParts: r.bundle_total_parts ?? null,
+      pageFrom: r.page_from ?? null,
+      pageTo: r.page_to ?? null,
     }));
   }),
 

@@ -22,6 +22,14 @@ select is(
   (select jsonb_array_length(value -> 'days') from public.org_settings where key = 'reminder_schedule'),
   8, 'the default schedule has eight days');
 
+insert into auth.users (id, email)
+values ('00000000-0000-4000-8000-000000005901', 'reminder_test@meil.test')
+on conflict (id) do nothing;
+
+insert into public.users (id, display_name, email)
+values ('00000000-0000-4000-8000-000000005901', 'Reminder User', 'reminder_test@meil.test')
+on conflict (id) do nothing;
+
 create temporary table fixture as
 with inserted as (
   insert into public.reminder_sends

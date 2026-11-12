@@ -351,7 +351,7 @@ Notes:
 - Logs are JSON lines on stdout; errors go to Sentry when `SENTRY_DSN` is set.
 - PaddlePaddle 3.3.1's oneDNN (MKLDNN) path fails on these models, so it is disabled; the detector input is
   capped at 1600 px to bound memory and CPU time (about 10 s per A4 page on a laptop CPU).
-- **A PDF with several bills** (`documents.is_bundle`, migration `0032`): the worker reads every page (up to 20)
+- **A PDF with several bills** (`documents.is_bundle`, migration `0032`): the worker reads every page (up to 50)
   and stores a *proposed* split — which pages are one bill, what each is, the activity when it can tell — and
   notifies the uploader; it creates no record. The uploader confirms or edits it on `/app/upload/split/…`, and each
   kept bill is then cut out as its own PDF and recorded like a single upload. A worker newer than the database

@@ -14,6 +14,11 @@ export type VerifyField = {
   confidence: number | null;
   /** The last confirmed value; a returned record reopens with it (03_APP_FLOW.md §4.8). */
   verifiedValue?: string | null;
+  /**
+   * What the person typed for this field on the Upload page (migration 0077), with how it compares to what
+   * OCR read: a mismatch must be dealt with before Confirm, like a low-confidence value.
+   */
+  typed?: { value: string; unit: string | null; status: "match" | "mismatch" | "not_read" } | null;
 };
 
 /** What the user currently has in the screen for one field. */
@@ -29,6 +34,8 @@ export const REJECT_REASON_MIN = 10;
  */
 export function isFlagged(field: VerifyField, threshold: number | null): boolean {
   if (field.critical) return true;
+  // Typed at upload and read differently: the person chooses which is right.
+  if (field.typed?.status === "mismatch") return true;
   if (field.extractedValue === null) return false;
   return threshold === null || field.confidence === null || field.confidence < threshold;
 }
@@ -112,11 +119,31 @@ export function checkConfirm(
  */
 export function activityFieldKeys(
   fields: Pick<VerifyField, "key" | "dataType" | "required">[],
-  /** A multi-input formula names its activity field (lib/calculation/formulas.ts activityInput). */
-  formulaKey: string | null = null,
-): { ok: true; valueKey: string; unitKey: string | null } | { ok: false; reason: string } {
+  /**
+   * A multi-input formula names its activity field (lib/calculation/formulas.ts activityInput); a product
+   * formula names the fields multiplied into it (travel: distance and passengers, migration 0077).
+   */
+  formulaKey: string | readonly string[] | null = null,
+):
+  | { ok: true; valueKey: string; unitKey: string | null; productKeys?: string[] }
+  | { ok: false; reason: string } {
   const unit = fields.find((f) => f.dataType === "unit");
-  const named = fields.find((f) => f.key === formulaKey && f.dataType === "number" && f.required);
+  if (Array.isArray(formulaKey)) {
+    const keys = formulaKey as readonly string[];
+    if (keys.every((k) => fields.some((f) => f.key === k && f.dataType === "number"))) {
+      return { ok: true, valueKey: keys[0], unitKey: unit?.key ?? null, productKeys: [...keys] };
+    }
+    // Read before the product formula: the one number typed then (passenger-km) is the activity value.
+    const legacy = fields.find((f) => f.key === "quantity" && f.dataType === "number");
+    if (legacy) return { ok: true, valueKey: legacy.key, unitKey: unit?.key ?? null };
+    return {
+      ok: false,
+      reason: `This activity needs ${keys.join(" and ")} — contact your Admin.`,
+    };
+  }
+  const named = fields.find(
+    (f) => f.key === (formulaKey as string | null) && f.dataType === "number" && f.required,
+  );
   if (named) return { ok: true, valueKey: named.key, unitKey: unit?.key ?? null };
   const numbers = fields.filter((f) => f.dataType === "number" && f.required);
   if (numbers.length !== 1) {

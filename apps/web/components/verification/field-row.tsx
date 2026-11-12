@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, Pencil } from "lucide-react";
+import { Check, CheckCircle2, Pencil, TriangleAlert } from "lucide-react";
 import { OUTCOME_ICON } from "@/components/validation/validation-result";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { sameAmount } from "@/lib/declarations/compare";
 import { isFlagged, isResolved, type FieldEntry, type VerifyField } from "@/lib/verification/rules";
 
 // One extracted field (UI brief §12.2 right panel): label · click-to-edit value · confidence.
@@ -193,12 +194,15 @@ export function FieldRow({
         {missing && diagnostic ? (
           <p className="w-full text-xs leading-4 text-muted-foreground">{diagnostic}</p>
         ) : null}
+        {field.typed ? (
+          <TypedNote field={field} entry={entry} disabled={disabled} onChange={onChange} />
+        ) : null}
         {field.critical ? (
           <span className="rounded-sm border border-status-warning/50 px-1.5 text-[11px] leading-4 text-muted-foreground uppercase">
             Critical
           </span>
         ) : null}
-        {flagged && !disabled ? (
+        {flagged && !disabled && field.typed?.status !== "mismatch" ? (
           <Button
             type="button"
             variant={resolved ? "outline" : "default"}
@@ -212,5 +216,87 @@ export function FieldRow({
         ) : null}
       </div>
     </li>
+  );
+}
+
+/**
+ * What the person typed for this field on the Upload page against what OCR read (migration 0077). A
+ * difference is settled here: take the document's value, or keep the typed one — which a reviewer then sees.
+ */
+function TypedNote({
+  field,
+  entry,
+  disabled,
+  onChange,
+}: {
+  field: VerifyField;
+  entry: FieldEntry;
+  disabled: boolean;
+  onChange: (next: FieldEntry) => void;
+}) {
+  const typed = field.typed!;
+  const unit = typed.unit ? ` ${typed.unit}` : "";
+  if (typed.status === "match") {
+    return (
+      <p className="flex w-full items-center gap-1.5 text-xs leading-4 text-foreground">
+        <CheckCircle2 className="size-3.5 shrink-0 text-status-success" aria-hidden />
+        Matches what you typed at upload ({typed.value}
+        {unit}).
+      </p>
+    );
+  }
+  if (typed.status === "not_read") {
+    return (
+      <p className="w-full text-xs leading-4 text-muted-foreground">
+        Not read on the document: the value you typed at upload ({typed.value}
+        {unit}) is filled in. Check it against the document.
+      </p>
+    );
+  }
+  const keptTyped =
+    entry.acknowledged &&
+    sameAmount({ text: entry.value, unit: null }, { text: typed.value, unit: null });
+  const tookDocument =
+    entry.acknowledged && entry.value.trim() === (field.extractedValue ?? "").trim();
+  return (
+    <div className="w-full space-y-1.5 rounded-md border border-status-error/40 bg-status-error/5 p-2 text-xs leading-4">
+      <p className="flex items-start gap-1.5 text-foreground">
+        <TriangleAlert className="mt-px size-3.5 shrink-0 text-status-error" aria-hidden />
+        <span>
+          You typed <span className="font-mono font-semibold">{typed.value}</span>
+          {unit} at upload; the document reads{" "}
+          <span className="font-mono font-semibold">{field.extractedValue}</span>. Which is right?
+        </span>
+      </p>
+      {disabled ? null : (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="xs"
+            variant={tookDocument ? "default" : "outline"}
+            aria-pressed={tookDocument}
+            onClick={() => onChange({ value: field.extractedValue ?? "", acknowledged: true })}
+          >
+            {tookDocument ? <Check aria-hidden /> : null}
+            Use the document&apos;s value
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant={keptTyped ? "default" : "outline"}
+            aria-pressed={!!keptTyped}
+            onClick={() => onChange({ value: typed.value, acknowledged: true })}
+          >
+            {keptTyped ? <Check aria-hidden /> : null}
+            Keep my value
+          </Button>
+        </div>
+      )}
+      {keptTyped ? (
+        <p className="text-muted-foreground">
+          Kept. The record goes to a reviewer with both values and the document.
+        </p>
+      ) : null}
+    </div>
   );
 }

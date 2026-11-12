@@ -1,14 +1,16 @@
 """Complete OCR jobs without running OCR, for synthetic test data whose printed values are known.
 
-    docker run --rm -i -e DATABASE_URL=... --entrypoint python traceesg-ocr-worker:latest - < this file
-    (the job list arrives as JSON in the environment variable JOBS_JSON, or at the path in JOBS_FILE)
+    docker run --rm -i -e DATABASE_URL=... --entrypoint python \
+        traceesg-ocr-worker:latest - < this file
+    (the job list arrives as JSON in JOBS_JSON, or at the path in JOBS_FILE)
 
-Used by apps/web/scripts/feed-monthly-data.mjs for the months it loads "directly": the earlier months
-of the demonstration data, where running the OCR engine over ~1,000 pages is not worth the hours. The
-write is the worker's own `complete_job` (same rows, same audit entries, same notification), so every
-later step of the pipeline sees an ordinary extraction. Two things mark it as what it is: the model
-version is `direct-load (no OCR)` and `raw_output` says `synthetic: true`. Confidence is 100 because the
-values are the ones the document was generated from; it is not a recognition score.
+Used by apps/web/scripts/feed-monthly-data.mjs for the months it loads "directly":
+the earlier months of the demonstration data, where running the OCR engine over
+~1,000 pages is not worth the hours. The write is the worker's own `complete_job`
+(same rows, same audit entries, same notification), so every later step sees an
+ordinary extraction. Two things mark it: the model version is `direct-load (no OCR)`
+and `raw_output` says `synthetic: true`. Confidence is 100 because the values are
+the ones the document was generated from; it is not a recognition score.
 
 Input: a JSON list of {"document_id", "document_type" (code), "fields": {field_key: value}}.
 """
@@ -61,7 +63,11 @@ def main() -> None:
             MODEL_VERSION,
             item.get("document_type"),
             fields,
-            {"synthetic": True, "note": "Values loaded directly; the OCR engine was not run.", "lines": []},
+            {
+                "synthetic": True,
+                "note": "Values loaded directly; the OCR engine was not run.",
+                "lines": [],
+            },
         )
         done += 1
     print(json.dumps({"completed": done, "skipped": skipped}))

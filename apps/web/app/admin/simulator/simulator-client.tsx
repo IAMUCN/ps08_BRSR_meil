@@ -49,15 +49,25 @@ const PRESETS = [5, 10, 15, 20, 25];
 export function SimulatorClient({
   options,
   forecastContext,
+  initialOrgUnitId,
+  onOrgChange,
 }: {
   options: SimulatorOptions;
   forecastContext?: ForecastContext;
+  initialOrgUnitId?: string;
+  onOrgChange?: (id: string) => void;
 }) {
   const [isForecastMode, setIsForecastMode] = useState(forecastContext?.isForecast ?? false);
   const [orgUnitId, setOrgUnitId] = useState(
-    options.defaultOrgUnitId ?? options.orgUnits[0]?.id ?? "",
+    initialOrgUnitId ?? options.defaultOrgUnitId ?? options.orgUnits[0]?.id ?? "",
   );
   const [periodId, setPeriodId] = useState(options.defaultPeriodId ?? options.periods[0]?.id ?? "");
+
+  useEffect(() => {
+    if (initialOrgUnitId && initialOrgUnitId !== orgUnitId) {
+      setOrgUnitId(initialOrgUnitId);
+    }
+  }, [initialOrgUnitId]);
 
   const [baseline, setBaseline] = useState<BaselineData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -280,7 +290,10 @@ export function SimulatorClient({
             <NativeSelect
               id="sim-org"
               value={orgUnitId}
-              onChange={(e) => setOrgUnitId(e.target.value)}
+              onChange={(e) => {
+                setOrgUnitId(e.target.value);
+                onOrgChange?.(e.target.value);
+              }}
               disabled={loading}
             >
               {options.orgUnits.map((org) => (

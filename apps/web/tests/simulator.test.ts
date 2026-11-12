@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  buildMultiVectorPathwayComparison,
   buildScenarioComparison,
   calculateSimulation,
+  simulateMultiVectorScenario,
   toTonnesCo2e,
   validateReductionPercent,
   type BaselineData,
+  type MultiVectorBaseline,
 } from "../lib/simulator/engine.ts";
 
 const mockBaseline: BaselineData = {
@@ -263,4 +266,137 @@ test("simulator comparison: builds conservative, moderate, ambitious, and custom
   assert.equal(custom.categoryProjected, 246);
   assert.equal(custom.orgProjected, 946);
   assert.equal(custom.overallReductionPercent, 5.4);
+});
+
+const mockMultiVectorBaseline: MultiVectorBaseline = {
+  orgUnitId: "11111111-1111-1111-1111-111111111111",
+  orgUnitName: "MEIL Corporate HQ",
+  orgUnitCode: "MEIL-HQ",
+  periodId: "22222222-2222-2222-2222-222222222222",
+  periodLabel: "FY 2026-27",
+  gridElectricityKwh: 900000,
+  renewableElectricityKwh: 100000,
+  totalElectricityKwh: 1000000,
+  renewableSharePct: 10.0,
+  fuelDieselL: 50000,
+  waterKl: 20000,
+  wasteTonnes: 100,
+  scope1Tco2e: 134.0, // 50,000 L * 0.00268
+  scope2Tco2e: 644.4, // 900,000 kWh * 0.000716
+  scope3Tco2e: 58.0, // 100 tonnes * 0.58
+  totalTco2e: 836.4,
+  gridEmissionFactor: 0.000716,
+  dieselEmissionFactor: 0.00268,
+  shadowPricePerTco2e: 2500, // ₹2,500 / tCO2e
+  gridTariffInrPerKwh: 7.5,
+  solarPpaTariffInrPerKwh: 3.8,
+  dieselPriceInrPerL: 90.0,
+  waterTariffInrPerKl: 40.0,
+  wasteDisposalCostInrPerTonne: 800.0,
+};
+
+test("Multi-Vector Simulator: Renewable Energy PPA displacement and tariff savings", () => {
+  const result = simulateMultiVectorScenario(mockMultiVectorBaseline, {
+    scenarioName: "60% Solar PPA Transition",
+    targetRenewableSharePct: 60, // From 10% to 60%
+  });
+
+  // Displaced grid = 900,000 - 400,000 = 500,000 kWh
+  assert.equal(result.avoided.gridElectricityKwh, 500000);
+  assert.equal(result.projected.gridElectricityKwh, 400000);
+  assert.equal(result.projected.renewableElectricityKwh, 600000);
+  assert.equal(result.projected.renewableSharePct, 60);
+
+  // Avoided Scope 2: 500,000 * 0.000716 = 358 tCO2e
+  assert.equal(result.avoided.scope2Tco2e, 358);
+  assert.equal(result.projected.scope2Tco2e, 286.4);
+
+  // Financial Tariff Savings: 500,000 * (7.50 - 3.80) = ₹1,850,000
+  assert.equal(result.financialImpact.operationalAnnualSavings, 1850000);
+  // Carbon Value: 358 tCO2e * 2500 = ₹895,000
+  assert.equal(result.financialImpact.carbonRiskAvoidedAnnual, 895000);
+  assert.equal(result.financialImpact.totalAnnualBenefit, 2745000);
+});
+
+test("Multi-Vector Simulator: Fuel Switching to EV/Electric with Scope 1 reduction", () => {
+  const result = simulateMultiVectorScenario(mockMultiVectorBaseline, {
+    scenarioName: "Fleet Electrification",
+    fuelSwitchPct: 40, // 40% diesel eliminated
+    targetCleanFuel: "EV",
+  });
+
+  // Avoided Diesel: 50,000 * 0.40 = 20,000 L
+  assert.equal(result.avoided.fuelDieselL, 20000);
+  assert.equal(result.projected.fuelDieselL, 30000);
+
+  // Avoided Scope 1: 20,000 * 0.00268 = 53.6 tCO2e
+  assert.equal(result.avoided.scope1Tco2e, 53.6);
+  assert.equal(result.projected.scope1Tco2e, 80.4);
+
+  // Displaced fuel cost = 20,000 * 90 = 1,800,000
+  // Added electric cost = 20,000 * 3.0 * 3.80 = 228,000
+  // Net OPEX savings = 1,800,000 - 228,000 = ₹1,572,000
+  assert.equal(result.financialImpact.operationalAnnualSavings, 1572000);
+});
+
+test("Multi-Vector Simulator: Water recycling and landfill waste diversion", () => {
+  const result = simulateMultiVectorScenario(mockMultiVectorBaseline, {
+    scenarioName: "Water & Waste Circularity",
+    waterRecycledPct: 30, // 30% water recycling
+    wasteDivertedPct: 70, // 70% waste diversion
+  });
+
+  // Avoided Water: 20,000 * 0.30 = 6,000 kL
+  assert.equal(result.avoided.waterKl, 6000);
+  assert.equal(result.projected.waterKl, 14000);
+
+  // Avoided Waste: 100 * 0.70 = 70 tonnes
+  assert.equal(result.avoided.wasteTonnes, 70);
+  assert.equal(result.projected.wasteTonnes, 30);
+
+  // Avoided Methane Scope 3: 70 * 0.58 = 40.6 tCO2e
+  assert.equal(result.avoided.scope3Tco2e, 40.6);
+  assert.equal(result.projected.scope3Tco2e, 17.4);
+
+  // Savings: Water = 6000 * 40 = 240,000; Waste = 70 * 800 = 56,000 -> Total = 296,000
+  assert.equal(result.financialImpact.operationalAnnualSavings, 296000);
+});
+
+test("Multi-Vector Simulator: Financial CapEx evaluation and accelerated payback with ICP", () => {
+  const result = simulateMultiVectorScenario(mockMultiVectorBaseline, {
+    scenarioName: "Solar Rooftop Installation",
+    targetRenewableSharePct: 50, // 400,000 kWh displaced -> avoided Scope 2 = 286.4 tCO2e
+    capexAmount: 5000000, // ₹50 Lakhs
+    discountRatePercent: 8,
+  });
+
+  const operationalSavings = result.financialImpact.operationalAnnualSavings; // 400,000 * 3.70 = 1,480,000
+  const carbonValue = result.financialImpact.carbonRiskAvoidedAnnual; // 286.4 * 2500 = 716,000
+  const totalAnnualBenefit = result.financialImpact.totalAnnualBenefit; // 2,196,000
+
+  assert.equal(operationalSavings, 1480000);
+  assert.equal(carbonValue, 716000);
+  assert.equal(totalAnnualBenefit, 2196000);
+
+  // Payback: Traditional = 5,000,000 / 1,480,000 = 3.38 years
+  // Carbon-adjusted = 5,000,000 / 2,196,000 = 2.28 years
+  assert.equal(result.financialImpact.traditionalPaybackYears, 3.38);
+  assert.equal(result.financialImpact.carbonAdjustedPaybackYears, 2.28);
+  assert.equal(result.financialImpact.paybackAccelerationYears, 1.1); // Accelerated by 1.1 yrs!
+  assert.ok((result.financialImpact.fiveYearNpv ?? 0) > 0, "5-year NPV must be positive");
+});
+
+test("Multi-Vector Simulator: Pathways comparison across Conservative, Moderate, and Ambitious", () => {
+  const comparison = buildMultiVectorPathwayComparison(mockMultiVectorBaseline, {
+    scenarioName: "My Custom Strategy",
+    targetRenewableSharePct: 70,
+    fuelSwitchPct: 35,
+  });
+
+  assert.equal(comparison.baseline.avoided.totalTco2e, 0);
+  assert.ok(comparison.conservative.avoided.totalTco2e > 0);
+  assert.ok(comparison.moderate.avoided.totalTco2e > comparison.conservative.avoided.totalTco2e);
+  assert.ok(comparison.ambitious.avoided.totalTco2e > comparison.moderate.avoided.totalTco2e);
+  assert.ok(comparison.custom, "Should include custom scenario");
+  assert.equal(comparison.custom?.projected.renewableSharePct, 70);
 });
