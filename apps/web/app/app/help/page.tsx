@@ -1,10 +1,12 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ClipboardCheck, Settings2, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { FaqItem as Faq, FaqList } from "@/components/help/faq";
+import { Reveal, RevealItem } from "@/components/help/reveal";
 import { PageHeader } from "@/components/shell/page-header";
 import { adminNavFor, workspaceNavFor } from "@/components/shell/admin-nav";
+import type { NavItem } from "@/components/shell/sidebar";
 import { requireAppSession } from "@/lib/auth/session";
 import { BUNDLE_MAX_PAGES } from "@/lib/documents/bundle";
 import { DUE_AFTER_DAYS, LATE_AFTER_DAYS } from "@/lib/periods/rules";
@@ -41,9 +43,9 @@ function Section({ id, title, children }: { id: string; title: string; children:
 /** A process as numbered steps with arrows between them; a plain ordered list to a screen reader. */
 function Flow({ steps }: { steps: { title: string; detail: string }[] }) {
   return (
-    <ol className="!ml-0 flex !list-none flex-wrap items-stretch gap-2" aria-label="Steps">
+    <Reveal as="ol" label="Steps" className="!ml-0 flex !list-none flex-wrap items-stretch gap-2">
       {steps.map((step, i) => (
-        <li key={step.title} className="!ml-0 flex items-stretch gap-2">
+        <RevealItem as="li" key={step.title} className="!ml-0 flex items-stretch gap-2">
           <div className="w-40 rounded-md border border-border bg-muted/40 p-2">
             <p className="text-xs font-semibold text-muted-foreground">Step {i + 1}</p>
             <p className="font-medium">{step.title}</p>
@@ -52,10 +54,88 @@ function Flow({ steps }: { steps: { title: string; detail: string }[] }) {
           {i < steps.length - 1 ? (
             <ArrowRight className="size-4 shrink-0 self-center text-muted-foreground" aria-hidden />
           ) : null}
-        </li>
+        </RevealItem>
       ))}
-    </ol>
+    </Reveal>
   );
+}
+
+// The blueprint of the website: what each page is for, and the part of the sidebar it sits in. A page missing
+// here is still listed, without a line under it.
+const PAGE_PURPOSE: Record<string, string> = {
+  "/app": "What needs you today, and your unit's totals by scope.",
+  "/admin": "Completion, BRSR readiness and open issues for your units.",
+  "/app/upload": "File a bill, invoice or statement.",
+  "/app/submissions": "Every upload of yours and the stage it has reached.",
+  "/app/activity": "Your own actions, as the audit trail records them.",
+  "/app/approvals": "Approve or return the records in your scope.",
+  "/app/users/bulk-import": "Add people from a spreadsheet.",
+  "/app/org-units/bulk-import": "Add org units from a spreadsheet.",
+  "/admin/submissions": "Every record, its stage and its OCR status.",
+  "/admin/validation-queue": "Flagged records to accept or return.",
+  "/admin/approval-queue": "Validated records to approve or return.",
+  "/admin/deadlines": "Due dates, the reminder schedule and what was sent.",
+  "/admin/scope-1": "Scope 1 emissions, from the group down to the document.",
+  "/admin/scope-2": "Scope 2 emissions, from the group down to the document.",
+  "/admin/scope-3": "Scope 3 emissions by category, down to the document.",
+  "/admin/data-explorer": "Search and filter every record with its value.",
+  "/admin/carbon-analytics": "Emissions year on year, suggested actions and alerts.",
+  "/admin/forecast": "Projected emissions. Not official BRSR data.",
+  "/admin/simulator": "What-if reductions. Not official BRSR data.",
+  "/admin/reports": "Generate, forward, verify and download reports.",
+  "/admin/audit-trail": "Who did what and when, with before and after values.",
+  "/admin/reporting-periods": "Open, close and reopen reporting periods.",
+  "/admin/conversion-factors": "Factor versions, their sources and approval.",
+  "/admin/disclosures": "The written answers to BRSR's questions.",
+  "/admin/organization": "The hierarchy and each unit's expected submissions.",
+  "/admin/users": "Invite people, assign roles, deactivate accounts.",
+  "/admin/demo-requests": "Requests sent from the landing page.",
+  "/admin/roles": "What each role may do.",
+  "/admin/brsr-mapping": "Which activity feeds which BRSR question.",
+  "/app/help": "This page.",
+};
+
+const AREA_TITLES = [
+  "Your work",
+  "Review and monitoring",
+  "The numbers",
+  "Output and oversight",
+  "Each reporting cycle",
+  "Set up once",
+];
+const AREA_OF: Record<string, number> = {
+  "/admin/submissions": 1,
+  "/admin/validation-queue": 1,
+  "/admin/approval-queue": 1,
+  "/admin/deadlines": 1,
+  "/app/approvals": 1,
+  "/admin/scope-1": 2,
+  "/admin/scope-2": 2,
+  "/admin/scope-3": 2,
+  "/admin/data-explorer": 2,
+  "/admin/carbon-analytics": 2,
+  "/admin/forecast": 2,
+  "/admin/simulator": 2,
+  "/admin/reports": 3,
+  "/admin/audit-trail": 3,
+  "/admin/reporting-periods": 4,
+  "/admin/conversion-factors": 4,
+  "/admin/disclosures": 4,
+  "/admin/organization": 5,
+  "/admin/users": 5,
+  "/admin/demo-requests": 5,
+  "/admin/roles": 5,
+  "/admin/brsr-mapping": 5,
+  "/app/users/bulk-import": 5,
+  "/app/org-units/bulk-import": 5,
+};
+
+/** The pages a person has, grouped by the part of the site they belong to, in the sidebar's order. */
+function blueprint(pages: NavItem[]) {
+  return AREA_TITLES.map((title, i) => ({
+    title,
+    pages: pages.filter((p) => (AREA_OF[p.href] ?? 0) === i),
+  })).filter((g) => g.pages.length);
 }
 
 export default async function HelpPage() {
@@ -83,7 +163,7 @@ export default async function HelpPage() {
           ["analytics", "Carbon analytics and alerts"],
         ] as [string, string][])
       : []),
-    ["map", "Where things are"],
+    ["map", "Blueprint of the website"],
     ["phone", "On a phone"],
     ["trouble", "Common errors and what to do"],
     ["faq", "Questions"],
@@ -106,6 +186,61 @@ export default async function HelpPage() {
           ))}
         </ul>
       </nav>
+
+      <Reveal className="grid gap-3 md:grid-cols-3" label="Start here">
+        {[
+          {
+            icon: Upload,
+            title: "I upload documents",
+            detail: "How to file a bill and check what OCR read from it.",
+            links: [
+              ["upload", "Uploading and OCR"],
+              ["verify", "Checking extracted values"],
+            ],
+          },
+          {
+            icon: ClipboardCheck,
+            title: admin ? "I review and report" : "I want to follow my records",
+            detail: admin
+              ? "The queues, approvals and how a report is produced."
+              : "The stages a record passes through and what each one means.",
+            links: admin
+              ? [
+                  ["approvals", "Validation and approval"],
+                  ["reports", "Reports and their verification"],
+                ]
+              : [
+                  ["flow", "How a figure gets into a report"],
+                  ["periods", "Reporting periods and deadlines"],
+                ],
+          },
+          {
+            icon: Settings2,
+            title: "I want to find my way around",
+            detail: "Every page you have, who does what, and common problems.",
+            links: [
+              ["map", "Blueprint of the website"],
+              ["roles", "Roles and responsibilities"],
+              ["faq", "Questions"],
+            ],
+          },
+        ].map((card) => (
+          <RevealItem key={card.title} className="rounded-md border bg-card p-4">
+            <card.icon className="size-5 text-primary-text" aria-hidden />
+            <h2 className="mt-2 font-semibold">{card.title}</h2>
+            <p className="text-sm text-muted-foreground">{card.detail}</p>
+            <ul className="mt-2 space-y-1 text-sm">
+              {card.links.map(([id, label]) => (
+                <li key={id}>
+                  <a href={`#${id}`} className="text-primary-text underline underline-offset-2">
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </RevealItem>
+        ))}
+      </Reveal>
 
       <Section id="start" title="Getting started">
         <p>
@@ -247,6 +382,9 @@ export default async function HelpPage() {
                   Role
                 </th>
                 <th scope="col" className="px-3 py-2">
+                  Works in
+                </th>
+                <th scope="col" className="px-3 py-2">
                   What it can do
                 </th>
               </tr>
@@ -262,6 +400,9 @@ export default async function HelpPage() {
                       </span>
                     ) : null}
                   </th>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">
+                    {r.code === "admin" || r.code === "org_admin" ? "Administration" : "Workspace"}
+                  </td>
                   <td className="px-3 py-2 text-xs">
                     {r.code === "admin"
                       ? "Everything, across every org unit."
@@ -390,17 +531,53 @@ export default async function HelpPage() {
         </>
       ) : null}
 
-      <Section id="map" title="Where things are">
-        <p>Your pages:</p>
-        <ul className="!ml-0 grid !list-none gap-1 sm:grid-cols-2">
-          {myPages.map((p) => (
-            <li key={p.href} className="!ml-0">
-              <Link href={p.href} className="text-primary-text underline underline-offset-2">
-                {p.label}
-              </Link>
-            </li>
+      <Section id="map" title="Blueprint of the website">
+        <p>
+          The site has three parts. Your role decides where you arrive after signing in, and the
+          menu lists only the pages you may open.
+        </p>
+        <Flow
+          steps={[
+            {
+              title: "Public pages",
+              detail: "Landing page, sign-in, invitation, forgot password.",
+            },
+            { title: "Sign in", detail: "EmeilSG reads your role and where you hold it." },
+            admin
+              ? {
+                  title: "Administration",
+                  detail: "Review, figures, reports and setup for your units.",
+                }
+              : { title: "Workspace", detail: "Upload, verify and follow your own records." },
+          ]}
+        />
+        <p>Your pages, as the menu groups them:</p>
+        <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {blueprint(myPages).map((group) => (
+            <RevealItem key={group.title} className="rounded-md border border-border p-3">
+              <h3 className="font-semibold">{group.title}</h3>
+              <ul className="!ml-0 mt-1 !list-none space-y-2">
+                {group.pages.map((p) => (
+                  <li key={p.href} className="!ml-0">
+                    <Link href={p.href} className="text-primary-text underline underline-offset-2">
+                      {p.label}
+                    </Link>
+                    {PAGE_PURPOSE[p.href] ? (
+                      <span className="block text-xs text-muted-foreground">
+                        {PAGE_PURPOSE[p.href]}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </RevealItem>
           ))}
-        </ul>
+        </Reveal>
+        <p>
+          From any total you can go down: group, subsidiary, project, record, calculation, original
+          document. A record, a person or a unit opens in a panel on the right without leaving the
+          list.
+        </p>
         {session.isAdmin ? null : admin ? (
           <p className="text-muted-foreground">
             Super Admins also have:{" "}

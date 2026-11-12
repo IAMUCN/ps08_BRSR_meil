@@ -475,3 +475,20 @@ Built by the feature session at the owner's request; no restyle.
   1280 and 390 px and with reduced motion: opens, closes, Enter key, no sideways scroll, no page error. **Not run:**
   the Help page itself signed in (no database in that session), the three themes, the production build, the
   accessibility suite.
+
+## ui, 2026-11-12 (Help page: start-here cards, animated process flow, website blueprint; owner's request)
+
+- `components/help/reveal.tsx` (new, client): `Reveal` / `RevealItem`, the same in-view stagger as the questions,
+  for any group on the Help page. Zero timings and no slide with reduced motion; same markup either way.
+- `app/app/help/page.tsx`: three "start here" cards under the contents list (uploading, reviewing or following
+  records, finding your way), by audience; the process-flow steps (`Flow`) arrive one after another; "Where things
+  are" is now **Blueprint of the website**: the three parts of the site as a flow (public pages, sign in, Workspace
+  or Administration), then the person's own pages grouped as the menu groups them, each with one line on what it is
+  for (`PAGE_PURPOSE`, `AREA_OF` in the page; a new sidebar page needs a line in both); the roles table has a
+  "Works in" column (Administration for `admin` and `org_admin`, Workspace otherwise).
+- No migration, no new dependency, no server procedure.
+- Checked: format, lint, typecheck, web unit tests; the page rendered in Chromium on a temporary copy with stand-in
+  session and settings (since removed), as a Super Admin and a contributor at 1280 px, at 390 px and with reduced
+  motion: nothing left hidden after scrolling, no sideways scroll, no page or console error. **Not run:** the real
+  page signed in against a database, an Administrator's view, the three themes, the production build, the
+  accessibility suite.
