@@ -4,6 +4,7 @@ import { appUrl } from "@/lib/app-url";
 import { writeAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/brevo";
+import { readSchedule } from "@/lib/reminders/plan";
 import { escapeHtml } from "@/lib/reports/html";
 
 export type Sql = postgres.Sql;
@@ -13,8 +14,6 @@ import type {
   DeadlineKPIs,
   DeadlineTask,
   EscalationLevel,
-  EscalationRecipient,
-  SweepResult,
   TaskOwner,
 } from "./types";
 
@@ -300,71 +299,7 @@ export async function getDeadlineData(
     );
   }
 
-  // 6. Batch query Project Managers (L1 Escalation)
-  const managerRows = await sql<
-    {
-      org_unit_id: string;
-      user_id: string;
-      display_name: string;
-      email: string;
-      role_name: string;
-    }[]
-  >`
-    select distinct
-      up.descendant_id as org_unit_id,
-      u.id as user_id,
-      u.display_name,
-      u.email,
-      r.name as role_name
-    from public.user_org_assignments a
-    join public.org_unit_tree up on up.ancestor_id = a.org_unit_id
-    join public.roles r on r.id = a.role_id and r.code = 'project_manager'
-    join public.users u on u.id = a.user_id and u.is_active and u.deleted_at is null
-    where a.revoked_at is null`;
-
-  const managerMap = new Map<string, EscalationRecipient[]>();
-  for (const m of managerRows) {
-    const list = managerMap.get(m.org_unit_id) ?? [];
-    list.push({
-      userId: m.user_id,
-      displayName: m.display_name,
-      email: m.email,
-      roleName: m.role_name,
-      level: 1,
-    });
-    managerMap.set(m.org_unit_id, list);
-  }
-
-  // 7. Batch query Corporate ESG & Admins (L2 Escalation)
-  const adminRows = await sql<
-    {
-      user_id: string;
-      display_name: string;
-      email: string;
-      role_name: string;
-    }[]
-  >`
-    select distinct
-      u.id as user_id,
-      u.display_name,
-      u.email,
-      r.name as role_name
-    from public.user_org_assignments a
-    join public.roles r on r.id = a.role_id and r.code in ('corporate_esg', 'admin')
-    join public.users u on u.id = a.user_id and u.is_active and u.deleted_at is null
-    where a.revoked_at is null`;
-
-  const corporateAdmins: EscalationRecipient[] = adminRows.map(
-    (a: { user_id: string; display_name: string; email: string; role_name: string }) => ({
-      userId: a.user_id,
-      displayName: a.display_name,
-      email: a.email,
-      roleName: a.role_name,
-      level: 2,
-    }),
-  );
-
-  // 8. Batch query last reminded timestamp
+  // 6. Batch query last reminded timestamp
   const reminderNoticeRows = await sql<
     {
       related_entity_id: string;
@@ -382,7 +317,11 @@ export async function getDeadlineData(
     lastRemindedMap.set(r.related_entity_id, r.last_reminded);
   }
 
-  // 9. Evaluate each task
+  // 7. Evaluate each task. "Escalated" follows the climb of lib/reminders: level 1 once the unit's Administrator
+  //    is told, level 2 once the Super Admins are.
+  const [scheduleRow] = await sql<{ value: unknown }[]>`
+    select value from public.org_settings where key = 'reminder_schedule'`;
+  const { escalation } = readSchedule(scheduleRow?.value);
   const allTasks: DeadlineTask[] = [];
 
   for (const exp of expectationsQuery) {
@@ -407,16 +346,16 @@ export async function getDeadlineData(
       dueDate,
       isCompleted,
       referenceDate: refDate,
+      config: {
+        escalationL1ThresholdDays: escalation.unitAdminAfter,
+        escalationL2ThresholdDays: escalation.superAdminAfter,
+      },
     });
 
     const who = ownerMap.get(`${exp.org_unit_id}:${exp.owning_role_id}`);
     // Reminders go to the responsible people, or to the on-behalf uploaders when there are none.
     const owners = who?.responsible.length ? who.responsible : (who?.behalf ?? []);
     const alsoUpload = who?.responsible.length ? who.behalf : [];
-    const projectManagers = managerMap.get(exp.org_unit_id) ?? [];
-
-    const escalationRecipients: EscalationRecipient[] = [...projectManagers, ...corporateAdmins];
-
     allTasks.push({
       expectationId: exp.expectation_id,
       orgUnitId: exp.org_unit_id,
@@ -440,7 +379,6 @@ export async function getDeadlineData(
       assignedOwners: owners,
       alsoUpload,
       owningRoleName: roleNames.get(exp.owning_role_id) ?? null,
-      escalationRecipients,
       lastRemindedAt: lastRemindedMap.get(exp.expectation_id) ?? null,
       deepLinkPath: `/app/upload?metricId=${exp.metric_id}&periodId=${exp.period_id}`,
     });
@@ -479,220 +417,6 @@ export async function getDeadlineData(
     kpis,
     periods: periodRows.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })),
     orgUnits: orgUnitRows.map((o: { id: string; name: string }) => ({ id: o.id, name: o.name })),
-  };
-}
-
-/**
- * Executes a deterministic evaluation sweep over incomplete tasks.
- * Dispatches deduplicated in-app notifications, sends Brevo emails, and logs audit events.
- */
-export async function executeEscalationSweep(input: {
-  triggeredByUserId?: string | null;
-  periodId?: string;
-  referenceDate?: Date;
-}): Promise<SweepResult> {
-  const sql = db();
-  const refDate = input.referenceDate ?? new Date();
-
-  // Load all tasks for the sweep
-  const { tasks } = await getDeadlineData(sql, { periodId: input.periodId }, refDate);
-
-  let evaluatedTasks = 0;
-  let remindersDispatched = 0;
-  let escalationsL1Dispatched = 0;
-  let escalationsL2Dispatched = 0;
-  let alreadyNotifiedCount = 0;
-  let emailsSent = 0;
-  const errors: string[] = [];
-
-  // Group emails to send after transaction
-  const outgoingEmails: Array<{
-    to: { email: string; name: string };
-    subject: string;
-    html: string;
-  }> = [];
-
-  await sql.begin(async (tx) => {
-    for (const task of tasks) {
-      if (task.isCompleted) continue;
-
-      evaluatedTasks++;
-
-      const evalResult = evaluateDeadlineStatus({
-        dueDate: task.dueDate,
-        isCompleted: false,
-        referenceDate: refDate,
-      });
-
-      const stage = evalResult.eligibleReminderStage;
-      const isEscalation = stage === "overdue_l1" || stage === "overdue_l2";
-      // Before the due date, reminders come from the schedule (lib/reminders, Phase 5); this sweep keeps only
-      // the overdue escalations, so nobody gets the same reminder twice.
-      if (!isEscalation) {
-        continue;
-      }
-      const escalationLevel = evalResult.escalationLevel;
-
-      // Determine recipients
-      const recipientUsers: Array<{ id: string; email: string; name: string }> = [];
-
-      // Always include assigned owners
-      for (const owner of task.assignedOwners) {
-        if (!recipientUsers.some((r) => r.id === owner.userId)) {
-          recipientUsers.push({
-            id: owner.userId,
-            email: owner.email,
-            name: owner.displayName,
-          });
-        }
-      }
-
-      // If L1 escalation, also include project managers
-      if (escalationLevel >= 1) {
-        const managers = task.escalationRecipients.filter((r) => r.level === 1);
-        for (const m of managers) {
-          if (!recipientUsers.some((r) => r.id === m.userId)) {
-            recipientUsers.push({
-              id: m.userId,
-              email: m.email,
-              name: m.displayName,
-            });
-          }
-        }
-      }
-
-      // If L2 escalation, also include corporate ESG and admins
-      if (escalationLevel >= 2) {
-        const admins = task.escalationRecipients.filter((r) => r.level === 2);
-        for (const a of admins) {
-          if (!recipientUsers.some((r) => r.id === a.userId)) {
-            recipientUsers.push({
-              id: a.userId,
-              email: a.email,
-              name: a.displayName,
-            });
-          }
-        }
-      }
-
-      if (recipientUsers.length === 0) {
-        continue;
-      }
-
-      // Deduplication check: Has a notification for this task and stage been sent in the last 20 hours?
-      const existingNotices = await tx<{ id: string }[]>`
-        select id from public.notifications
-        where related_entity_id = ${task.expectationId}
-          and type in ('deadline_reminder', 'deadline_escalated')
-          and (
-            created_at > now() - interval '20 hours'
-            or message like ${`%[Stage: ${stage}]%`}
-          )
-        limit 1`;
-
-      if (existingNotices.length > 0) {
-        alreadyNotifiedCount++;
-        continue;
-      }
-
-      // Compose in-app notification content
-      const urgencyText = isEscalation
-        ? `${task.daysOverdue} days overdue (Escalation L${escalationLevel})`
-        : task.daysRemaining === 0
-          ? "Due today"
-          : `${task.daysRemaining} days remaining`;
-
-      const noticeTitle = isEscalation
-        ? `[Urgent: Escalation L${escalationLevel}] ${task.metricName} is overdue`
-        : `[Deadline Reminder] ${task.metricName} due for ${task.periodName}`;
-
-      const noticeMessage = `${task.metricName} (${task.orgUnitName}) for ${task.periodName} is ${urgencyText}. Due date: ${task.dueDate}. [Stage: ${stage}]`;
-
-      const notificationType = isEscalation ? "deadline_escalated" : "deadline_reminder";
-
-      // Insert notifications for all designated recipients
-      for (const recipient of recipientUsers) {
-        await tx`
-          insert into public.notifications
-            (user_id, type, title, message, related_entity_type, related_entity_id, deep_link_path)
-          values
-            (${recipient.id}, ${notificationType}, ${noticeTitle}, ${noticeMessage}, 'submission_expectation', ${task.expectationId}, ${task.deepLinkPath})`;
-      }
-
-      // Write audit log entry
-      await writeAudit(tx, {
-        eventType: isEscalation ? "deadline.escalated" : "deadline.reminder_sent",
-        entityType: "submission_expectation",
-        entityId: task.expectationId,
-        userId: input.triggeredByUserId ?? null,
-        newValue: {
-          periodId: task.reportingPeriodId,
-          orgUnitId: task.orgUnitId,
-          metricId: task.metricId,
-          stage,
-          escalationLevel,
-          daysRemaining: task.daysRemaining,
-          daysOverdue: task.daysOverdue,
-          recipientUserIds: recipientUsers.map((r) => r.id),
-        },
-      });
-
-      if (isEscalation) {
-        if (escalationLevel === 2) {
-          escalationsL2Dispatched++;
-        } else {
-          escalationsL1Dispatched++;
-        }
-      } else {
-        remindersDispatched++;
-      }
-
-      // Queue emails
-      const emailSubject = isEscalation
-        ? `[ACTION REQUIRED: Escalation L${escalationLevel}] Overdue BRSR Reporting: ${task.metricName}`
-        : `EmeilSG Reminder: Submission due for ${task.metricName} (${task.orgUnitName})`;
-
-      for (const recipient of recipientUsers) {
-        outgoingEmails.push({
-          to: { email: recipient.email, name: recipient.name },
-          subject: emailSubject,
-          html: buildDeadlineEmailHtml({
-            recipientName: recipient.name,
-            isEscalation,
-            escalationLevel,
-            taskTitle: task.metricName,
-            categoryName: task.categoryName,
-            orgUnitName: task.orgUnitName,
-            periodName: task.periodName,
-            dueDateFormatted: task.dueDate,
-            urgencyText,
-            deepLinkUrl: `${appUrl()}${task.deepLinkPath}`,
-          }),
-        });
-      }
-    }
-  });
-
-  // Dispatch emails asynchronously outside the database transaction
-  for (const mail of outgoingEmails) {
-    try {
-      const res = await sendEmail(mail);
-      if (res.sent) {
-        emailsSent++;
-      }
-    } catch (err) {
-      errors.push(err instanceof Error ? err.message : "Failed to deliver email notification");
-    }
-  }
-
-  return {
-    evaluatedTasks,
-    remindersDispatched,
-    escalationsL1Dispatched,
-    escalationsL2Dispatched,
-    alreadyNotifiedCount,
-    emailsSent,
-    errors,
   };
 }
 

@@ -44,7 +44,10 @@ test("everyone gets the personal tiles and nothing else without a permission", (
 });
 
 test("a Super Admin sees every tile except a functional role's own work", () => {
-  const roleTiles = TILES.filter((t) => t.requires.kind === "role").map((t) => t.id);
+  // A functional role's own work: role tiles and the contributor-only ones (expected submissions).
+  const roleTiles = TILES.filter(
+    (t) => t.requires.kind === "role" || (t.requires.kind === "permission" && t.requires.notAdmin),
+  ).map((t) => t.id);
   assert.ok(roleTiles.length > 0);
   assert.deepEqual(
     TILES.map((t) => t.id).filter((id) => !roleTiles.includes(id)),
@@ -297,4 +300,22 @@ test("tile ids are unique and every rank is distinct enough to order by", () => 
   assert.equal(new Set(idList).size, idList.length);
   const ranked = TILES.map((t) => `${t.size ?? "kpi"}:${t.rank}`);
   assert.equal(new Set(ranked).size, ranked.length, "two tiles of the same size share a rank");
+});
+
+test("expected submissions: every contributor with upload rights sees it, administrators never do", () => {
+  const uploader = (isOrgAdmin: boolean) =>
+    buildFacts({
+      isAdmin: false,
+      isOrgAdmin,
+      grants: [{ permission: "document.upload", orgUnitId: "projA", atGroup: false }],
+      subtree,
+    });
+  assert.ok(ids(uploader(false)).includes("expected-submissions"));
+  // An Administrator can upload too, but it is not their expected work.
+  assert.ok(!ids(uploader(true)).includes("expected-submissions"));
+  assert.ok(!ids(superAdmin).includes("expected-submissions"));
+  // Someone who cannot upload (Corporate ESG, the Auditor) is not expected to submit anything.
+  assert.ok(!ids(corporateEsg).includes("expected-submissions"));
+  const tile = visibleTiles(TILES, uploader(false)).find((t) => t.id === "expected-submissions");
+  assert.deepEqual(tile?.scope, { kind: "units", units: ["projA"] });
 });

@@ -28,14 +28,6 @@ export interface TaskOwner {
   onBehalf?: boolean;
 }
 
-export interface EscalationRecipient {
-  userId: string;
-  displayName: string;
-  email: string;
-  roleName: string;
-  level: EscalationLevel;
-}
-
 export interface DeadlineTask {
   expectationId: string;
   orgUnitId: string;
@@ -65,7 +57,6 @@ export interface DeadlineTask {
   alsoUpload: TaskOwner[];
   /** The role that owns the activity (EHS for water), for "No one at this unit holds …". */
   owningRoleName: string | null;
-  escalationRecipients: EscalationRecipient[];
   lastRemindedAt: string | null;
   deepLinkPath: string;
 }
@@ -87,14 +78,4 @@ export interface DeadlineFilter {
   status?: DeadlineStatus | "all";
   escalationLevel?: string; // "all" | "0" | "1" | "2"
   search?: string;
-}
-
-export interface SweepResult {
-  evaluatedTasks: number;
-  remindersDispatched: number;
-  escalationsL1Dispatched: number;
-  escalationsL2Dispatched: number;
-  alreadyNotifiedCount: number;
-  emailsSent: number;
-  errors: string[];
 }

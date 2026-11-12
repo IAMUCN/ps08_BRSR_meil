@@ -4,13 +4,6 @@ import { runAction } from "@/lib/trpc/server";
 import type { DeadlineFilter } from "@/lib/deadlines/types";
 
 /**
- * Server action to execute an automated deadline reminder and escalation sweep.
- */
-export async function runEscalationSweepAction(input?: { periodId?: string }) {
-  return runAction((api) => api.deadlines.runSweep(input));
-}
-
-/**
  * Server action to manually send an immediate reminder for a specific task.
  */
 export async function remindTaskAction(input: { expectationId: string; periodId: string }) {
@@ -30,6 +23,9 @@ export async function runRemindersAction() {
 }
 
 /** Phase 5: save the reminder schedule (Super Admin). */
-export async function saveScheduleAction(input: { days: { before: number; email: boolean }[] }) {
+export async function saveScheduleAction(input: {
+  days: { before: number; email: boolean }[];
+  escalation?: { unitAdminAfter: number; parentAdminAfter: number; superAdminAfter: number };
+}) {
   return runAction((api) => api.deadlines.setSchedule(input));
 }

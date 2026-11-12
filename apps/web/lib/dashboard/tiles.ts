@@ -9,6 +9,8 @@
 //     that holds the tile's permission is assigned (not the union of every assignment).
 //   - Order: overdue, then returned or rejected, then pending, then summaries.
 
+import type { StatusTone } from "@/components/ui/status-badge";
+
 /** 0 overdue, 1 returned or rejected, 2 pending, 3 information. */
 export type Urgency = 0 | 1 | 2 | 3;
 
@@ -27,7 +29,7 @@ export type Requirement =
    * Held through an assignment. `adminArea` also asks for an administrator, for tiles that link to pages only
    * administrators may open.
    */
-  | { kind: "permission"; permission: string; adminArea?: boolean }
+  | { kind: "permission"; permission: string; adminArea?: boolean; notAdmin?: boolean }
   /**
    * Held as an assignment of one of these roles (by code), for tiles about the work a role owns. A Super Admin
    * does not get these (they are not a functional role's work); an assignment of the role is what counts.
@@ -122,6 +124,13 @@ export const TILES: TileDef[] = [
     title: "Performance by unit",
     requires: { kind: "permission", permission: "monitoring.view" },
     rank: 140,
+    size: "wide",
+  },
+  {
+    id: "expected-submissions",
+    title: "Expected submissions",
+    requires: { kind: "permission", permission: "document.upload", notAdmin: true },
+    rank: 99,
     size: "wide",
   },
   {
@@ -332,6 +341,8 @@ function scopeFor(requires: Requirement, facts: Facts): TileScope | null {
       return grants.length > 0 ? { kind: "roles", grants } : null;
     }
     case "permission": {
+      // Work a contributor does is not shown to Super Admins or Administrators, whatever they could also upload.
+      if (requires.notAdmin && (facts.isAdmin || facts.isOrgAdmin)) return null;
       if (requires.adminArea && !facts.isAdmin && !facts.isOrgAdmin) return null;
       if (facts.isAdmin) return { kind: "all" };
       const held = facts.held[requires.permission];
@@ -354,6 +365,8 @@ export type TileData = {
   scopeLabel: string;
   figures?: { label: string; value: number | null; unit?: string }[];
   size?: "kpi" | "wide";
+  /** The loader found nothing to show this person: the tile is left out of the answer. */
+  hidden?: boolean;
   /** A picture or list of the figures, drawn by components/dashboard/tile-charts. The summary says the same in words. */
   chart?: TileChart;
 };
@@ -402,6 +415,29 @@ export type TileChart =
     }
   /** A short list of label and number pairs (units by level). */
   | { kind: "stats"; items: { label: string; value: number }[] }
+  /**
+   * What the person is expected to submit, per unit where they upload: how many are on file and, for each
+   * activity, whether one is and where the newest stands (the same card as on Upload).
+   */
+  | {
+      kind: "expected";
+      periodLabel: string;
+      units: {
+        id: string;
+        name: string;
+        submitted: number;
+        total: number;
+        items: {
+          id: string;
+          name: string;
+          detail: string;
+          submitted: boolean;
+          stage: { label: string; tone: StatusTone } | null;
+        }[];
+        notShown: number;
+      }[];
+      moreUnits: number;
+    }
   /** A short list of lines, optionally tinted (certificates, missing items). */
   | {
       kind: "list";

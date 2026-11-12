@@ -7,26 +7,36 @@ import { requireAdminAreaSession } from "@/lib/auth/session";
 import { api } from "@/lib/trpc/server";
 import { DeadlinesClient } from "./deadlines-client";
 import { RemindersPanel } from "./reminders-panel";
+import { StatusBoardView } from "./status-board";
 
 export const metadata: Metadata = {
   title: "Reporting Deadlines & Escalation Engine · EmeilSG",
 };
 
-export default async function DeadlinesPage() {
+export default async function DeadlinesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   // Phase 5: Administrators see the reminders for their units; the task list stays with the Super Admin.
+  // Escalation phase 2: both see the status board for the units they oversee.
   const session = await requireAdminAreaSession();
+  const { period } = await searchParams;
   const caller = await api();
-  const [data, schedule, log] = await Promise.all([
+  const [data, schedule, log, board] = await Promise.all([
     session.isAdmin ? caller.deadlines.list() : null,
     caller.deadlines.schedule(),
     caller.deadlines.reminderLog(),
+    caller.deadlines.board({
+      periodId: /^[0-9a-f-]{36}$/i.test(period ?? "") ? period : undefined,
+    }),
   ]);
 
   return (
     <div className="max-w-7xl space-y-6">
       <PageHeader
         title="Reporting Deadlines & Escalation Engine"
-        description="Monitor the submission deadlines set for each reporting period, identify upcoming and overdue tasks, and execute deterministic multi-tier escalations across MEIL projects."
+        description="Monitor the submission deadlines set for each reporting period, identify upcoming and overdue tasks, and see how overdue submissions climb from the unit's Administrator to the Super Admins."
         action={
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline" size="sm">
@@ -50,6 +60,8 @@ export default async function DeadlinesPage() {
           </div>
         }
       />
+
+      <StatusBoardView board={board} />
 
       <RemindersPanel
         schedule={schedule}

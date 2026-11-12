@@ -1,6 +1,8 @@
 // Phase 5 of feature_enhancement.md: deadline reminders on a schedule (migration 0059). One run a day (Vercel
 // Cron, or a Super Admin's "Run now"); owners get their own missing submissions, Administrators a summary of
-// their units, the Super Admins a summary on email days only; nothing goes out twice. Local stack only.
+// their units, the Super Admins a summary on email days only; nothing goes out twice. Migration 0071: once a
+// submission is overdue its owners are reminded daily and the alert climbs one step at a time (unit Administrator,
+// the next one up, the Super Admins). Local stack only.
 import {
   APP,
   RUN,
@@ -36,6 +38,12 @@ const prjAdmin = await signIn({
   org: "PRJ-X",
   name: "E2E Project X Administrator",
 });
+const subAdmin = await signIn({
+  email: "e2e.suba.admin@traceesg.test",
+  role: "org_admin",
+  org: "SUB-A",
+  name: "E2E Subsidiary Administrator",
+});
 const pmId = (await one(sql`select id from public.users where email = 'e2e.pm@traceesg.test'`))?.id;
 const superIds = (
   await sql`
@@ -61,11 +69,21 @@ section("Who may do what");
 // ============================================================================================================
 const schedule = await admin.query("deadlines.schedule");
 check(
-  "the default schedule is 7 to 0 days, email on 7, 5, 3 and the due day",
+  "the default schedule is 14 down to 0 days, email on 14, 7, 3 and the due day",
   ok(schedule) &&
     schedule.data.days.map((d) => `${d.before}${d.email ? "e" : ""}`).join(",") ===
-      "7e,6,5e,4,3e,2,1,0e",
+      "14e,10,7e,5,3e,2,1,0e",
   JSON.stringify(schedule.data),
+);
+check(
+  "after the due date the climb is 1, 3 and 7 days late",
+  ok(schedule) &&
+    [
+      schedule.data.escalation?.unitAdminAfter,
+      schedule.data.escalation?.parentAdminAfter,
+      schedule.data.escalation?.superAdminAfter,
+    ].join(",") === "1,3,7",
+  JSON.stringify(schedule.data.escalation),
 );
 check(
   "a Project Manager cannot run reminders",
@@ -186,11 +204,11 @@ check(
 );
 
 // ============================================================================================================
-section("Six days before: in the app only, and no Super Admin summary");
+section("Five days before: in the app only, and no Super Admin summary");
 // ============================================================================================================
-await sql`update public.reporting_periods set submission_closes_on = ${plus(6)} where id = ${period.id}`;
+await sql`update public.reporting_periods set submission_closes_on = ${plus(5)} where id = ${period.id}`;
 const day6run = await admin.mutate("deadlines.runReminders");
-const day6 = await sends(sql`s.days_before = 6`);
+const day6 = await sends(sql`s.days_before = 5`);
 check(
   "owners and Administrators are reminded in the app",
   ok(day6run) &&
@@ -208,12 +226,12 @@ check(
 );
 
 // ============================================================================================================
-section("Not a schedule day; a period that no longer takes uploads");
+section("Not a schedule day");
 // ============================================================================================================
-await sql`update public.reporting_periods set submission_closes_on = ${plus(10)} where id = ${period.id}`;
+await sql`update public.reporting_periods set submission_closes_on = ${plus(12)} where id = ${period.id}`;
 const day10 = await admin.mutate("deadlines.runReminders");
 check(
-  "ten days before, nothing is sent",
+  "twelve days before, nothing is sent",
   ok(day10) && day10.data.messages === 0,
   JSON.stringify(day10.data),
 );
@@ -224,11 +242,11 @@ section("The schedule is the Super Admin's to change");
 const { since } = await one(sql`select now() as since`);
 const saved = await admin.mutate("deadlines.setSchedule", {
   days: [
-    { before: 10, email: false },
+    { before: 12, email: false },
     { before: 0, email: true },
   ],
 });
-check("the Super Admin saves a schedule with a ten-day reminder", ok(saved), saved.error);
+check("the Super Admin saves a schedule with a twelve-day reminder", ok(saved), saved.error);
 check(
   "the change is audited",
   (
@@ -239,12 +257,152 @@ check(
 );
 const day10b = await admin.mutate("deadlines.runReminders");
 check(
-  "now ten days before is a reminder day",
+  "now twelve days before is a reminder day",
   ok(day10b) && day10b.data.sent.inApp > 0 && day10b.data.sent.email === 0,
   JSON.stringify(day10b.data),
 );
-const restored = await admin.mutate("deadlines.setSchedule", { days: schedule.data.days });
+const outOfOrder = await admin.mutate("deadlines.setSchedule", {
+  days: schedule.data.days,
+  escalation: { unitAdminAfter: 5, parentAdminAfter: 3, superAdminAfter: 7 },
+});
+check("a climb that does not climb is refused", !ok(outOfOrder));
+const restored = await admin.mutate("deadlines.setSchedule", {
+  days: schedule.data.days,
+  escalation: schedule.data.escalation,
+});
 check("the default schedule is put back", ok(restored), restored.error);
+
+// ============================================================================================================
+section("Overdue: owners daily, then the alert climbs one step at a time");
+// ============================================================================================================
+// The period stays open for late uploads (late_uploads_until is 40 days out); only its due date moves back.
+const lateRun = async (daysLate) => {
+  await sql`update public.reporting_periods set submission_closes_on = ${plus(-daysLate)} where id = ${period.id}`;
+  const ran = await admin.mutate("deadlines.runReminders");
+  return { ran, rows: await sends(sql`s.days_before = ${-daysLate}`) };
+};
+const climb = (rows, who) => rows.filter((r) => r.recipient_id === who && r.kind === "escalation");
+const isSuper = (r) => superIds.includes(r.recipient_id);
+
+const late1 = await lateRun(1);
+check(
+  "1 day late: the Project Manager is reminded in the app and by email",
+  ok(late1.ran) &&
+    late1.rows
+      .filter((r) => r.recipient_id === pmId && r.kind === "owner")
+      .map((r) => r.channel)
+      .sort()
+      .join() === "email,in_app",
+  JSON.stringify(late1.ran.data),
+);
+check(
+  "…the Project X Administrator is told, as an escalation, in the app and by email",
+  climb(late1.rows, prjAdmin.id).length === 2,
+  JSON.stringify(climb(late1.rows, prjAdmin.id)),
+);
+check(
+  "…and neither the Project Manager (an owner) nor a Super Admin is part of the climb yet",
+  !climb(late1.rows, pmId).length && !late1.rows.some((r) => isSuper(r) && r.kind === "escalation"),
+);
+const lateNote = await one(sql`
+  select title, deep_link_path from public.notifications
+  where user_id = ${prjAdmin.id} and type = 'deadline_escalated' and related_entity_id = ${period.id}`);
+check(
+  "the Administrator's notice says how many are overdue and how late, and links to Submission Monitoring",
+  /overdue for E2E Reminders.*1 day late/.test(lateNote?.title ?? "") &&
+    /^\/admin\/submissions/.test(lateNote?.deep_link_path ?? ""),
+  JSON.stringify(lateNote),
+);
+
+const late2 = await lateRun(2);
+check(
+  "2 days late: the owner is reminded in the app only, and nobody is escalated to",
+  ok(late2.ran) &&
+    late2.rows.some(
+      (r) => r.recipient_id === pmId && r.kind === "owner" && r.channel === "in_app",
+    ) &&
+    !late2.rows.some((r) => r.channel === "email") &&
+    !late2.rows.some((r) => r.kind === "escalation"),
+  JSON.stringify(late2.rows.map((r) => [r.kind, r.channel])),
+);
+
+const late3 = await lateRun(3);
+check(
+  "3 days late: the Subsidiary Administrator joins, the Project X Administrator is told again",
+  climb(late3.rows, subAdmin.id).length === 2 && climb(late3.rows, prjAdmin.id).length === 2,
+  JSON.stringify(late3.rows.filter((r) => r.kind === "escalation").map((r) => r.recipient_id)),
+);
+check(
+  "…the Super Admins are still not told",
+  !late3.rows.some((r) => isSuper(r) && r.kind === "escalation"),
+);
+
+const late7 = await lateRun(7);
+check(
+  "7 days late: each Super Admin is told, in the app and by email",
+  superIds.every((id) => climb(late7.rows, id).length === 2),
+  JSON.stringify(late7.rows.filter(isSuper).map((r) => [r.kind, r.channel])),
+);
+check(
+  "…with the Administrators below still told",
+  climb(late7.rows, subAdmin.id).length === 2 && climb(late7.rows, prjAdmin.id).length === 2,
+);
+const again = await admin.mutate("deadlines.runReminders");
+check(
+  "a second run the same day sends nothing new",
+  ok(again) && again.data.sent.inApp === 0 && again.data.sent.email === 0,
+  JSON.stringify(again.data),
+);
+
+// ============================================================================================================
+section("The status board: who is behind, unit by unit, within each person's reach");
+// ============================================================================================================
+check(
+  "a Project Manager cannot open the board",
+  (await pm.query("deadlines.board", { periodId: period.id })).status === 403,
+);
+const prjBoard = await prjAdmin.session.query("deadlines.board", { periodId: period.id });
+const superBoard = await admin.query("deadlines.board", { periodId: period.id });
+check(
+  "the Project X Administrator and the Super Admin both open it",
+  ok(prjBoard) && ok(superBoard),
+);
+const inPrjX = new Set(
+  (
+    await sql`
+      select t.descendant_id::text as id from public.org_unit_tree t
+      join public.org_units o on o.id = t.ancestor_id and o.code = 'PRJ-X'`
+  ).map((r) => r.id),
+);
+check(
+  "the Administrator's board holds Project X and the units beneath it only, Project X first",
+  prjBoard.data.rows.length > 0 &&
+    prjBoard.data.rows.every((r) => inPrjX.has(r.id)) &&
+    prjBoard.data.rows[0].depth === 0,
+  JSON.stringify(prjBoard.data.rows.map((r) => [r.name, r.depth])),
+);
+const top = prjBoard.data.rows[0];
+check(
+  "nothing was uploaded: everything is not started and, the due date being past, overdue",
+  top.approved === 0 &&
+    top.inProgress === 0 &&
+    top.missing === top.total &&
+    top.overdue === top.total,
+  JSON.stringify(top),
+);
+check(
+  "the Super Admin's board reaches further (units outside Project X)",
+  superBoard.data.rows.some((r) => !inPrjX.has(r.id)),
+);
+check(
+  "the board names who is behind",
+  top.behind.includes("E2E Project Manager"),
+  JSON.stringify(top.behind),
+);
+check(
+  "the period list says which periods are open",
+  prjBoard.data.periods.some((p) => p.id === period.id && p.open === true),
+);
 
 // ============================================================================================================
 section("The reminder log and the daily trigger");

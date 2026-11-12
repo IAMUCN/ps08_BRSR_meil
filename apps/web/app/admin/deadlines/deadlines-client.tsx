@@ -29,7 +29,7 @@ import type {
   DeadlineStatus,
   DeadlineTask,
 } from "@/lib/deadlines/types";
-import { fetchDeadlinesAction, remindTaskAction, runEscalationSweepAction } from "./actions";
+import { fetchDeadlinesAction, remindTaskAction } from "./actions";
 
 interface DeadlinesClientProps {
   initialTasks: DeadlineTask[];
@@ -56,7 +56,6 @@ export function DeadlinesClient({
 
   // Transition & loading states
   const [isPending, startTransition] = useTransition();
-  const [isSweeping, startSweepTransition] = useTransition();
   const [remindingTaskId, setRemindingTaskId] = useState<string | null>(null);
 
   // Reload filtered data
@@ -78,44 +77,6 @@ export function DeadlinesClient({
       } else {
         toast.error("Failed to load deadlines: " + res.error);
       }
-    });
-  };
-
-  // Run escalation sweep
-  const handleRunSweep = () => {
-    startSweepTransition(async () => {
-      const periodId = selectedPeriodId !== "all" ? selectedPeriodId : undefined;
-      const res = await runEscalationSweepAction({ periodId });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-
-      const {
-        remindersDispatched,
-        escalationsL1Dispatched,
-        escalationsL2Dispatched,
-        alreadyNotifiedCount,
-        emailsSent,
-      } = res.data;
-
-      const totalDispatched =
-        remindersDispatched + escalationsL1Dispatched + escalationsL2Dispatched;
-
-      if (totalDispatched === 0) {
-        toast.message(
-          alreadyNotifiedCount > 0
-            ? `All eligible tasks (${alreadyNotifiedCount}) were already notified in the last 20 hours.`
-            : "No pending tasks meet the criteria for reminder or escalation at this time.",
-        );
-      } else {
-        toast.success(
-          `Escalation sweep dispatched: ${remindersDispatched} reminder(s), ${escalationsL1Dispatched} Level 1 escalation(s), ${escalationsL2Dispatched} Level 2 escalation(s); ${emailsSent} email(s) sent.`,
-        );
-      }
-
-      // Refresh list
-      applyFilter();
     });
   };
 
@@ -186,35 +147,18 @@ export function DeadlinesClient({
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-4">
         <div>
           <h2 className="text-base font-semibold text-foreground">
-            Compliance Governance & Escalation Sweep
+            Compliance Governance & Escalation
           </h2>
           <p className="text-xs text-muted-foreground">
-            Deterministic rules evaluate approaching submission windows, trigger multi-tiered
-            escalations (L1 to PM, L2 to Corporate ESG), and send in-app and email notices.
+            Reminders and escalations are sent every morning (see Reminders below). A missing
+            submission is reminded to its owners; once overdue it climbs one step at a time: the
+            unit&apos;s Administrator (L1), the next Administrator up, then the Super Admins (L2).
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isPending || isSweeping}
-            onClick={() => applyFilter()}
-          >
+          <Button variant="outline" size="sm" disabled={isPending} onClick={() => applyFilter()}>
             <RefreshCw className={`size-3.5 ${isPending ? "animate-spin" : ""}`} aria-hidden />
             Refresh
-          </Button>
-          <Button
-            size="sm"
-            disabled={isSweeping || isPending}
-            onClick={handleRunSweep}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-          >
-            {isSweeping ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-            ) : (
-              <BellRing className="size-4" aria-hidden />
-            )}
-            Run Escalation Sweep
           </Button>
         </div>
       </div>
@@ -393,8 +337,8 @@ export function DeadlinesClient({
           >
             <option value="all">All Escalation Levels</option>
             <option value="0">Normal (Level 0)</option>
-            <option value="1">Escalated (Level 1: PM)</option>
-            <option value="2">Escalated (Level 2: Admin)</option>
+            <option value="1">Escalated (Level 1: Administrator)</option>
+            <option value="2">Escalated (Level 2: Super Admin)</option>
           </NativeSelect>
         </div>
       </div>
@@ -580,12 +524,12 @@ export function DeadlinesClient({
                         {task.escalationLevel === 2 ? (
                           <span className="inline-flex items-center gap-1 rounded bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 text-[10px] font-bold text-status-error uppercase tracking-wide">
                             <ShieldAlert className="size-3" />
-                            L2: Corporate Admin
+                            L2: Super Admin
                           </span>
                         ) : task.escalationLevel === 1 ? (
                           <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-status-warning uppercase tracking-wide">
                             <AlertTriangle className="size-3" />
-                            L1: Project Mgr
+                            L1: Administrator
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
