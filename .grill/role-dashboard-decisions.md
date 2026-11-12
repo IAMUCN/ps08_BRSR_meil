@@ -142,3 +142,30 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
   (`pnpm --filter web test:isolation`, extended with a Corporate ESG + Project Manager user, written but not
   executed: no Docker or local database on this machine); the end-to-end suite; any browser view. Node is not
   installed on this machine, so tests ran under Bun.
+
+## Capture decisions, answers of 2026-11-12 (later the same day)
+- **Certificates:** one generic "Certificate with expiry date" plus Consent to Operate, Consent to Establish,
+  Hazardous Waste Authorization, Fire NOC and ISO 14001/45001; shared fields (certificate number, issuing
+  authority, valid from, valid to); no calculation; dashboard window 60 days. The owner does not know what EHS
+  tracks today, so the list is the common compliance certificates and is editable data.
+- **Headcount and turnover: option B, a separate employee register with no logins** (supersedes "new fields on
+  the Workforce Statement" above). HR uploads the register as the evidence document. Reason: the BRSR needs
+  about 30 headcount numbers, SEBI's Annexure I names the "Employee Master / Register" as the assurance source
+  for gender wages, and job creation in smaller towns needs each person's place of employment; accounts exist
+  only for people who log in, so counting them would print a wrong headcount. Alternatives rejected: attributes
+  on accounts (undercounts unless everyone has an account); aggregate counts typed or read from a statement
+  (about 30 fragile OCR fields).
+- **Core KPI list:** seeded from SEBI Annexure I (circular SEBI/HO/CFD/CFD-SEC-2/P/CIR/2023/122, 12 July 2023,
+  read from SEBI's own PDF), not from `ASSURANCE.md`, which is to be corrected: safety is permanent disabilities,
+  LTIFR and fatalities (not recordable or high-consequence injuries); the MSME KPI includes sourcing from within
+  India. Core questions in our database: P6-E7, P6-E3, P6-E4, P6-E1, P6-E9, P3-E1(c), P3-E11, P5-E3(b), P5-E7,
+  P8-E4, P8-E5, P9-E7, P1-E8, P1-E9. Label: "SEBI Annexure I, 12 July 2023". Later revisions (December 2024
+  industry standards) were not checked.
+- **Finance / HR mapping:** drafted in chat, **not yet approved**. EHS and Procurement typed-answer permissions
+  not yet asked for; safety and P6 stay Super Admin-only until then.
+
+## Open questions (added)
+- Employee register: store person-level rows in the database, or only the counts computed from the upload with
+  the original file kept as private evidence? Recommended: counts only (data minimisation).
+- Employee register: how it passes the approval flow, who may upload it, per-period snapshot, retention, and
+  what an Auditor sees.
