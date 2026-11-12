@@ -8,8 +8,10 @@ import { AuthSlider } from "@/components/auth/auth-slider";
 import { isLoginReason, LOGIN_NOTICES } from "@/lib/auth/messages";
 import { postLoginPath, safeNextPath } from "@/lib/auth/redirects";
 import { getSessionContext } from "@/lib/auth/session";
-import { AUTH_MESSAGES } from "@/lib/auth/messages";
+import { AUTH_MESSAGES, SIGNUP_CONTACT_EMAIL } from "@/lib/auth/messages";
 import { ChangePasswordForm } from "./change-password-form";
+import { GoogleSignIn } from "./google-sign-in";
+import { googleSignInEnabled } from "@/lib/auth/google";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in · EmeilSG" };
@@ -60,10 +62,35 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       ? LOGIN_NOTICES[reason]
       : null;
 
+  // Signed in elsewhere: name the device the callback found, as the password form does.
+  const device = reason === "google_elsewhere" ? param(params.device)?.slice(0, 80) : null;
+  const message =
+    reason === "not_registered" ? (
+      <>
+        No sign-ups are allowed: that Google account isn&apos;t registered in EmeilSG. Kindly
+        contact the admin at{" "}
+        <a href={`mailto:${SIGNUP_CONTACT_EMAIL}`} className="font-medium underline">
+          {SIGNUP_CONTACT_EMAIL}
+        </a>
+        .
+      </>
+    ) : device ? (
+      `This account is signed in on ${device}. Continue with Google again to sign out there and sign in here.`
+    ) : (
+      notice?.message
+    );
+
   return (
     <AuthSlider
-      notice={notice ? <AuthNotice tone={notice.tone}>{notice.message}</AuthNotice> : null}
-      signIn={<LoginForm next={next} />}
+      notice={notice ? <AuthNotice tone={notice.tone}>{message}</AuthNotice> : null}
+      signIn={
+        <>
+          <LoginForm next={next} />
+          {(await googleSignInEnabled()) ? (
+            <GoogleSignIn next={next} takeover={reason === "google_elsewhere"} />
+          ) : null}
+        </>
+      }
     />
   );
 }

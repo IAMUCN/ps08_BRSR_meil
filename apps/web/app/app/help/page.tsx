@@ -2,8 +2,11 @@ import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { FaqItem as Faq, FaqList } from "@/components/help/faq";
+import { Reveal, RevealItem } from "@/components/help/reveal";
 import { PageHeader } from "@/components/shell/page-header";
 import { adminNavFor, workspaceNavFor } from "@/components/shell/admin-nav";
+import type { NavItem } from "@/components/shell/sidebar";
 import { requireAppSession } from "@/lib/auth/session";
 import { BUNDLE_MAX_PAGES } from "@/lib/documents/bundle";
 import { DUE_AFTER_DAYS, LATE_AFTER_DAYS } from "@/lib/periods/rules";
@@ -40,9 +43,9 @@ function Section({ id, title, children }: { id: string; title: string; children:
 /** A process as numbered steps with arrows between them; a plain ordered list to a screen reader. */
 function Flow({ steps }: { steps: { title: string; detail: string }[] }) {
   return (
-    <ol className="!ml-0 flex !list-none flex-wrap items-stretch gap-2" aria-label="Steps">
+    <Reveal as="ol" label="Steps" className="!ml-0 flex !list-none flex-wrap items-stretch gap-2">
       {steps.map((step, i) => (
-        <li key={step.title} className="!ml-0 flex items-stretch gap-2">
+        <RevealItem as="li" key={step.title} className="!ml-0 flex items-stretch gap-2">
           <div className="w-40 rounded-md border border-border bg-muted/40 p-2">
             <p className="text-xs font-semibold text-muted-foreground">Step {i + 1}</p>
             <p className="font-medium">{step.title}</p>
@@ -51,19 +54,88 @@ function Flow({ steps }: { steps: { title: string; detail: string }[] }) {
           {i < steps.length - 1 ? (
             <ArrowRight className="size-4 shrink-0 self-center text-muted-foreground" aria-hidden />
           ) : null}
-        </li>
+        </RevealItem>
       ))}
-    </ol>
+    </Reveal>
   );
 }
 
-function Faq({ q, children }: { q: string; children: ReactNode }) {
-  return (
-    <details className="rounded-md border border-border p-3">
-      <summary className="cursor-pointer font-medium">{q}</summary>
-      <div className="mt-2 space-y-2">{children}</div>
-    </details>
-  );
+// The blueprint of the website: what each page is for, and the part of the sidebar it sits in. A page missing
+// here is still listed, without a line under it.
+const PAGE_PURPOSE: Record<string, string> = {
+  "/app": "What needs you today, and your unit's totals by scope.",
+  "/admin": "Completion, BRSR readiness and open issues for your units.",
+  "/app/upload": "File a bill, invoice or statement.",
+  "/app/submissions": "Every upload of yours and the stage it has reached.",
+  "/app/activity": "Your own actions, as the audit trail records them.",
+  "/app/approvals": "Approve or return the records in your scope.",
+  "/app/users/bulk-import": "Add people from a spreadsheet.",
+  "/app/org-units/bulk-import": "Add org units from a spreadsheet.",
+  "/admin/submissions": "Every record, its stage and its OCR status.",
+  "/admin/validation-queue": "Flagged records to accept or return.",
+  "/admin/approval-queue": "Validated records to approve or return.",
+  "/admin/deadlines": "Due dates, the reminder schedule and what was sent.",
+  "/admin/scope-1": "Scope 1 emissions, from the group down to the document.",
+  "/admin/scope-2": "Scope 2 emissions, from the group down to the document.",
+  "/admin/scope-3": "Scope 3 emissions by category, down to the document.",
+  "/admin/data-explorer": "Search and filter every record with its value.",
+  "/admin/carbon-analytics": "Emissions year on year, suggested actions and alerts.",
+  "/admin/forecast": "Projected emissions. Not official BRSR data.",
+  "/admin/simulator": "What-if reductions. Not official BRSR data.",
+  "/admin/reports": "Generate, forward, verify and download reports.",
+  "/admin/audit-trail": "Who did what and when, with before and after values.",
+  "/admin/reporting-periods": "Open, close and reopen reporting periods.",
+  "/admin/conversion-factors": "Factor versions, their sources and approval.",
+  "/admin/disclosures": "The written answers to BRSR's questions.",
+  "/admin/organization": "The hierarchy and each unit's expected submissions.",
+  "/admin/users": "Invite people, assign roles, deactivate accounts.",
+  "/admin/demo-requests": "Requests sent from the landing page.",
+  "/admin/roles": "What each role may do.",
+  "/admin/brsr-mapping": "Which activity feeds which BRSR question.",
+  "/app/help": "This page.",
+};
+
+const AREA_TITLES = [
+  "Your work",
+  "Review and monitoring",
+  "The numbers",
+  "Output and oversight",
+  "Each reporting cycle",
+  "Set up once",
+];
+const AREA_OF: Record<string, number> = {
+  "/admin/submissions": 1,
+  "/admin/validation-queue": 1,
+  "/admin/approval-queue": 1,
+  "/admin/deadlines": 1,
+  "/app/approvals": 1,
+  "/admin/scope-1": 2,
+  "/admin/scope-2": 2,
+  "/admin/scope-3": 2,
+  "/admin/data-explorer": 2,
+  "/admin/carbon-analytics": 2,
+  "/admin/forecast": 2,
+  "/admin/simulator": 2,
+  "/admin/reports": 3,
+  "/admin/audit-trail": 3,
+  "/admin/reporting-periods": 4,
+  "/admin/conversion-factors": 4,
+  "/admin/disclosures": 4,
+  "/admin/organization": 5,
+  "/admin/users": 5,
+  "/admin/demo-requests": 5,
+  "/admin/roles": 5,
+  "/admin/brsr-mapping": 5,
+  "/app/users/bulk-import": 5,
+  "/app/org-units/bulk-import": 5,
+};
+
+/** The pages a person has, grouped by the part of the site they belong to, in the sidebar's order. */
+function blueprint(pages: NavItem[]) {
+  return AREA_TITLES.map((title, i) => ({
+    title,
+    pages: pages.filter((p) => (AREA_OF[p.href] ?? 0) === i),
+  })).filter((g) => g.pages.length);
 }
 
 export default async function HelpPage() {
@@ -91,7 +163,7 @@ export default async function HelpPage() {
           ["analytics", "Carbon analytics and alerts"],
         ] as [string, string][])
       : []),
-    ["map", "Where things are"],
+    ["map", "Blueprint of the website"],
     ["phone", "On a phone"],
     ["trouble", "Common errors and what to do"],
     ["faq", "Questions"],
@@ -180,13 +252,15 @@ export default async function HelpPage() {
             {facts.uploadWindowMinutes} minutes.
           </li>
           <li>
-            Choose the project or site, the ESG activity and, when more than one is open, the
-            reporting period. You are offered only the activities your role files.
+            Choose the project or site, then add your bills: one or many, PDFs or photos, up to{" "}
+            {BUNDLE_MAX_PAGES} pages in all.
           </li>
           <li>
-            <strong>A PDF with several bills</strong> (up to {BUNDLE_MAX_PAGES} pages): EmeilSG
-            proposes how it splits into bills; you check the split, and each bill becomes its own
-            record.
+            EmeilSG reads every page and proposes where each bill starts (a bill over several pages
+            stays together), what it is for and, from its billing period, its reporting period. You
+            check that and confirm; each bill becomes its own record. A bill whose billing period is
+            outside its reporting period is marked, and flagged for review. You are offered only the
+            activities your role files.
           </li>
           <li>
             OCR reads the document within a minute or two. Values it reads with less than{" "}
@@ -255,6 +329,9 @@ export default async function HelpPage() {
                   Role
                 </th>
                 <th scope="col" className="px-3 py-2">
+                  Works in
+                </th>
+                <th scope="col" className="px-3 py-2">
                   What it can do
                 </th>
               </tr>
@@ -270,6 +347,9 @@ export default async function HelpPage() {
                       </span>
                     ) : null}
                   </th>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">
+                    {r.code === "admin" || r.code === "org_admin" ? "Administration" : "Workspace"}
+                  </td>
                   <td className="px-3 py-2 text-xs">
                     {r.code === "admin"
                       ? "Everything, across every org unit."
@@ -398,17 +478,53 @@ export default async function HelpPage() {
         </>
       ) : null}
 
-      <Section id="map" title="Where things are">
-        <p>Your pages:</p>
-        <ul className="!ml-0 grid !list-none gap-1 sm:grid-cols-2">
-          {myPages.map((p) => (
-            <li key={p.href} className="!ml-0">
-              <Link href={p.href} className="text-primary-text underline underline-offset-2">
-                {p.label}
-              </Link>
-            </li>
+      <Section id="map" title="Blueprint of the website">
+        <p>
+          The site has three parts. Your role decides where you arrive after signing in, and the
+          menu lists only the pages you may open.
+        </p>
+        <Flow
+          steps={[
+            {
+              title: "Public pages",
+              detail: "Landing page, sign-in, invitation, forgot password.",
+            },
+            { title: "Sign in", detail: "EmeilSG reads your role and where you hold it." },
+            admin
+              ? {
+                  title: "Administration",
+                  detail: "Review, figures, reports and setup for your units.",
+                }
+              : { title: "Workspace", detail: "Upload, verify and follow your own records." },
+          ]}
+        />
+        <p>Your pages, as the menu groups them:</p>
+        <Reveal className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {blueprint(myPages).map((group) => (
+            <RevealItem key={group.title} className="rounded-md border border-border p-3">
+              <h3 className="font-semibold">{group.title}</h3>
+              <ul className="!ml-0 mt-1 !list-none space-y-2">
+                {group.pages.map((p) => (
+                  <li key={p.href} className="!ml-0">
+                    <Link href={p.href} className="text-primary-text underline underline-offset-2">
+                      {p.label}
+                    </Link>
+                    {PAGE_PURPOSE[p.href] ? (
+                      <span className="block text-xs text-muted-foreground">
+                        {PAGE_PURPOSE[p.href]}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </RevealItem>
           ))}
-        </ul>
+        </Reveal>
+        <p>
+          From any total you can go down: group, subsidiary, project, record, calculation, original
+          document. A record, a person or a unit opens in a panel on the right without leaving the
+          list.
+        </p>
         {session.isAdmin ? null : admin ? (
           <p className="text-muted-foreground">
             Super Admins also have:{" "}
@@ -485,33 +601,53 @@ export default async function HelpPage() {
       </Section>
 
       <Section id="faq" title="Questions">
-        <Faq q="Do I type ESG figures into forms?">
-          <p>
-            No. Figures come from uploaded documents. Only BRSR&apos;s written answers and a few
-            yearly inputs (turnover, assurance) are typed by administrators.
-          </p>
-        </Faq>
-        <Faq q="Does the AI decide anything?">
-          <p>
-            No. OCR proposes values and a person confirms them; calculations are fixed formulas;
-            suggestions are decision support. The assistant only reads.
-          </p>
-        </Faq>
-        <Faq q="Can I change a value after it is approved?">
-          <p>
-            Not directly. An administrator can return it while it is still in review; after approval
-            a correction is a new upload. Every change is in the audit trail.
-          </p>
-        </Faq>
-        <Faq q="Who can see my uploads?">
-          <p>
-            You, and people assigned to your unit or a unit above it, as far as their role allows.
-            Nobody in a sibling unit.
-          </p>
-        </Faq>
-        <Faq q="Is the BRSR readiness score official?">
-          <p>No. It is an internal management indicator of how complete the evidence is.</p>
-        </Faq>
+        <FaqList>
+          <Faq q="Do I type ESG figures into forms?">
+            <p>
+              No. Figures come from uploaded documents. Only BRSR&apos;s written answers and a few
+              yearly inputs (turnover, assurance) are typed by administrators.
+            </p>
+          </Faq>
+          <Faq q="Does the AI decide anything?">
+            <p>
+              No. OCR proposes values and a person confirms them; calculations are fixed formulas;
+              suggestions are decision support. The assistant only reads.
+            </p>
+          </Faq>
+          <Faq q="Can I change a value after it is approved?">
+            <p>
+              Not directly. An administrator can return it while it is still in review; after
+              approval a correction is a new upload. Every change is in the audit trail.
+            </p>
+          </Faq>
+          <Faq q="Who can see my uploads?">
+            <p>
+              You, and people assigned to your unit or a unit above it, as far as their role allows.
+              Nobody in a sibling unit.
+            </p>
+          </Faq>
+          <Faq q="Is the BRSR readiness score official?">
+            <p>No. It is an internal management indicator of how complete the evidence is.</p>
+          </Faq>
+          <Faq q="Can I create my own account?">
+            <p>
+              No. An administrator invites you, and the email link lets you choose your password.
+              Use Forgot password on the sign-in page if you lose it.
+            </p>
+          </Faq>
+          <Faq q="Does my document leave EmeilSG to be read?">
+            <p>
+              No. OCR runs on EmeilSG&apos;s own worker, and the file stays in private storage that
+              only signed-in people in your scope can open.
+            </p>
+          </Faq>
+          <Faq q="What happens if I upload the same bill twice?">
+            <p>
+              It is accepted and flagged as a duplicate, naming the earlier record. A reviewer
+              accepts it or returns it; nothing is counted twice without a person deciding.
+            </p>
+          </Faq>
+        </FaqList>
       </Section>
     </div>
   );

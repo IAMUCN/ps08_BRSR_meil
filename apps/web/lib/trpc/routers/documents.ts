@@ -74,7 +74,7 @@ export type UploadPeriod = {
 };
 
 export type UploadOptions = {
-  /** Newest first; the first is the default choice. */
+  /** Begun periods newest first (the first is the default choice), then periods still to come. */
   periods: UploadPeriod[];
   targets: UploadTarget[];
   maxBytes: number;
@@ -126,7 +126,9 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
            public.reporting_period_late(rp) as late
     from public.reporting_periods rp
     where rp.status = 'open' and not public.reporting_period_locked(rp)
-    order by rp.start_date desc`;
+    -- Periods that have begun first, newest first (the default choice); months still to come after them
+    -- (a whole financial year can be open at once, 2026-11-12).
+    order by rp.start_date <= (now() at time zone 'Asia/Kolkata')::date desc, rp.start_date desc`;
   const periods: UploadPeriod[] = periodRows.map((r) => ({
     id: r.id,
     label: r.label,

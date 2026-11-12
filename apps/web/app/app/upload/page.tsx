@@ -57,7 +57,7 @@ export default async function UploadPage({ searchParams }: PageProps<"/app/uploa
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Upload Document"
-        description="Choose what the document is evidence for, then add the file. Values are extracted automatically and you'll review them before anything is submitted."
+        description="Add your bills: one or many, PDFs or photos. EmeilSG finds each bill and what it is for; you check that, then review the values read from each one before anything is submitted."
       />
       <UploadWorkspace
         periods={options.periods}

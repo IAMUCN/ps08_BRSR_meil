@@ -19,16 +19,13 @@ select tables_are('public', array[
   'approvals', 'calculations', 'calculation_inputs', 'brsr_sections', 'brsr_indicators',
   'brsr_disclosures',
   'brsr_metric_mappings', 'audit_logs', 'report_runs', 'notifications', 'org_settings',
-  -- Added by documented deviations (supabase/SCHEMA_DEVIATIONS.md D16, D19, D22, D24, D29, D34, D36, D37, D42, D43, D48, D49, D50, D51, D56), not by drift.
+  -- Added by documented deviations (supabase/SCHEMA_DEVIATIONS.md D16, D19, D22, D24, D29, D34, D36, D37, D42, D43, D48, D49, D50, D51, D56, D57), not by drift.
   'rate_limit_events', 'submission_expectations', 'password_reset_otps', 'document_bundle_parts',
   'org_levels', 'chat_conversations', 'chat_messages', 'org_unit_parents',
   'carbon_credits', 'carbon_credit_transactions', 'internal_carbon_prices', 'capex_carbon_evaluations',
   'user_invitations', 'user_sessions', 'report_forwards', 'reminder_sends',
   'carbon_credit_links', 'emission_alerts', 'emission_alert_sends', 'demo_requests',
-  -- Added by documented deviations for Decision Intelligence (D57-D65, migrations 0067-0075)
-  'decision_rules', 'decision_rule_evaluations', 'decarbonization_suggestions', 'decarbonization_roadmaps',
-  'risk_evaluation_reports', 'recommendations_reports', 'ai_providers', 'ai_security_policies',
-  'rag_knowledge_chunks', 'predictive_forecast_snapshots', 'what_if_scenario_simulations'
+  'document_bundle_sources'
 ], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(

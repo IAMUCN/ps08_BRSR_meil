@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  groupSubmissions,
   submissionBadge,
   submissionTab,
   workerStallMinutes,
   type RecordStatus,
+  type SubmissionItem,
 } from "../lib/ocr/rules.ts";
 
 const uploaded: RecordStatus = {
@@ -59,4 +61,72 @@ test("worker stall banner only after the oldest pending job waits more than 5 mi
   assert.equal(workerStallMinutes(null, now), null);
   assert.equal(workerStallMinutes(new Date("2026-09-17T09:55:00Z"), now), null);
   assert.equal(workerStallMinutes(new Date("2026-09-17T09:48:30Z"), now), 11);
+});
+
+test("groupSubmissions builds a tree structure for multibill PDFs with individual records underneath", () => {
+  const rowSingle: SubmissionItem = {
+    id: "rec-1",
+    bundleDocumentId: null,
+    bundleFileName: null,
+    bundleDescription: null,
+    bundleTotalParts: null,
+    submittedAt: "2026-11-01T10:00:00Z",
+    orgUnitName: "Site Alpha",
+    periodLabel: "FY26-Q1",
+    metricName: "Electricity consumption",
+    fileName: "single_bill.pdf",
+  };
+
+  const rowBundle1: SubmissionItem = {
+    id: "rec-2",
+    bundleDocumentId: "bundle-123",
+    bundleFileName: "Q1_combined_invoices.pdf",
+    bundleDescription: "Quarterly electricity and fuel bills",
+    bundleTotalParts: 2,
+    submittedAt: "2026-11-02T10:00:00Z",
+    orgUnitName: "Site Alpha",
+    periodLabel: "FY26-Q1",
+    metricName: "Electricity consumption",
+    fileName: "Q1_combined_invoices (pages 1–2).pdf",
+    pageFrom: 1,
+    pageTo: 2,
+  };
+
+  const rowBundle2: SubmissionItem = {
+    id: "rec-3",
+    bundleDocumentId: "bundle-123",
+    bundleFileName: "Q1_combined_invoices.pdf",
+    bundleDescription: "Quarterly electricity and fuel bills",
+    bundleTotalParts: 2,
+    submittedAt: "2026-11-02T10:00:00Z",
+    orgUnitName: "Site Alpha",
+    periodLabel: "FY26-Q1",
+    metricName: "Diesel consumption",
+    fileName: "Q1_combined_invoices (pages 3–4).pdf",
+    pageFrom: 3,
+    pageTo: 4,
+  };
+
+  const grouped = groupSubmissions([rowSingle, rowBundle1, rowBundle2]);
+
+  assert.equal(grouped.length, 2);
+  assert.equal(grouped[0].type, "single");
+  if (grouped[0].type === "single") {
+    assert.equal(grouped[0].record.id, "rec-1");
+  }
+
+  assert.equal(grouped[1].type, "bundle");
+  if (grouped[1].type === "bundle") {
+    assert.equal(grouped[1].bundleDocumentId, "bundle-123");
+    assert.equal(grouped[1].bundleFileName, "Q1_combined_invoices.pdf");
+    assert.equal(grouped[1].bundleDescription, "Quarterly electricity and fuel bills");
+    assert.equal(grouped[1].bundleTotalParts, 2);
+    assert.equal(grouped[1].records.length, 2);
+    assert.equal(grouped[1].records[0].id, "rec-2");
+    assert.equal(grouped[1].records[0].pageFrom, 1);
+    assert.equal(grouped[1].records[0].pageTo, 2);
+    assert.equal(grouped[1].records[1].id, "rec-3");
+    assert.equal(grouped[1].records[1].pageFrom, 3);
+    assert.equal(grouped[1].records[1].pageTo, 4);
+  }
 });
