@@ -108,6 +108,19 @@ class SameKindBillsTest(unittest.TestCase):
         )
         self.assertEqual(spans(parts), [(1, 2, "ELECTRICITY_BILL"), (3, 3, "ELECTRICITY_BILL")])
 
+    def test_a_document_footer_does_not_join_bills_of_different_months(self):
+        # Five monthly bills with a "Page k of 5" footer on every page (seen on hosted, 2026-11-12).
+        pages = [self.bill(f"DEMO/2026/0{i}/00841", extra=[f"Page {i} of 5"]) for i in range(1, 6)]
+        parts = split_pages(lines(*pages), 5, CANDIDATES)
+        self.assertEqual([(p.page_from, p.page_to) for p in parts], [(i, i) for i in range(1, 6)])
+
+    def test_one_bill_over_the_whole_document_stays_one(self):
+        first = self.bill("TP-1001", extra=["Page 1 of 3"])
+        parts = split_pages(
+            lines(first, ["Charges", "Page 2 of 3"], ["Payment slip", "Page 3 of 3"]), 3, CANDIDATES
+        )
+        self.assertEqual(spans(parts), [(1, 3, "ELECTRICITY_BILL")])
+
 
 class ProposeMetricTest(unittest.TestCase):
     FUELS = [("p", "Petrol Consumption"), ("c", "CNG Consumption"), ("l", "LPG Consumption")]

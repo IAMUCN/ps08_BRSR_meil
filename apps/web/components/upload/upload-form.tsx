@@ -353,9 +353,10 @@ export function UploadForm({
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-6">
-      <div className="space-y-2">
-        {/* Always a choice (owner's request, 2026-11-12); the newest period comes first. Each bill can
-            still be moved to another period on the next page when its billing period says so. */}
+      {/* An upload of bills has no period here (owner's request, 2026-11-12): each bill's period is chosen
+          after extraction, on the separation page, from its billing period. The upload itself is filed under
+          the newest open period. A replacement keeps the choice: it has no separation page. */}
+      <div className="space-y-2" hidden={bundle}>
         {periods.length > 0 ? (
           <>
             <Label htmlFor={periodFieldId} className="flex items-center gap-2">
@@ -411,7 +412,8 @@ export function UploadForm({
         <p className="text-sm leading-5 text-muted-foreground">
           Add one bill or many: PDFs and photos, a bill over several pages or several bills in one
           PDF (up to {BUNDLE_MAX_PAGES} pages in all). EmeilSG reads them, finds where each bill
-          starts, what it is for and its reporting period, and you check that on the next page.
+          starts, what it is for and, from its billing period, its reporting period. You check all
+          of that, and choose each bill&apos;s reporting period, on the next page.
         </p>
       ) : null}
 

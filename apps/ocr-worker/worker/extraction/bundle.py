@@ -85,6 +85,10 @@ def split_pages(
         page_lines = [ln for ln in lines if ln.page == page]
         code, scores = classify(page_lines, candidates)
         marker = page_marker(page_lines)
+        # "Page 3 of 5" on page 3 of a 5-page upload is the document's own numbering, printed across
+        # several bills (a PDF footer), not the bill's: it says nothing about where a bill starts.
+        if marker == (page, pages_read) and pages_read > 1:
+            marker = None
         bill_number, billing_period = _identifiers(page_lines)
         if not parts or _starts_new_bill(parts[-1], code, marker, bill_number, billing_period):
             parts.append(BundlePart(page, page, code, scores, bill_number, billing_period))

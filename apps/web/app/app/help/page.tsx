@@ -180,8 +180,8 @@ export default async function HelpPage() {
             {facts.uploadWindowMinutes} minutes.
           </li>
           <li>
-            Choose the project or site and the reporting period (the newest is chosen for you), then
-            add your bills: one or many, PDFs or photos, up to {BUNDLE_MAX_PAGES} pages in all.
+            Choose the project or site, then add your bills: one or many, PDFs or photos, up to{" "}
+            {BUNDLE_MAX_PAGES} pages in all.
           </li>
           <li>
             EmeilSG reads every page and proposes where each bill starts (a bill over several pages

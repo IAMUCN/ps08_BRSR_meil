@@ -881,7 +881,7 @@ becomes its main parent. Units already in the database are not changed by the ru
 ## A58 — One upload for every bill (2026-11-12)
 
 The Upload page no longer asks "one bill or a PDF with several bills" or the activity: any number of PDFs and
-photos are dropped at once, with the reporting period chosen from a dropdown (newest by default). The app reads
+photos are dropped at once; no reporting period is asked there. The app reads
 every page and proposes the bills — a bill over several pages, several bills in one PDF, two bills of the same
 kind one after the other — their activity and, from each bill's billing period, its reporting period. The
 uploader checks that on the separation page, where each bill has its own period and a "Billing period doesn't

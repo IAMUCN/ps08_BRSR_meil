@@ -19,6 +19,7 @@ submission datestamp." D57, A58, migration `0067`, OCR `rules-15`.
 
 ## What was built
 
+- **No reporting period on the Upload page** (owner, 2026-11-12, after the first build: "remove the reporting period selection in upload page, the user can select it after extraction"): the upload is filed under the newest open period and each bill's period is chosen on the separation page. "Replace a failed document" keeps its period choice (it has no separation page).
 - **Upload page:** one drop zone for any number of PDFs and photos (JPG, PNG), up to 30 files, 50 pages and 50 MB
   in all, reorderable; the reporting-period dropdown is always shown, newest first. No activity is chosen
   there. After the upload the person goes straight to the separation page. "Replace a failed document" keeps
@@ -42,6 +43,15 @@ submission datestamp." D57, A58, migration `0067`, OCR `rules-15`.
   instead of being read again (`load_bundle_reading`); about 1 s a bill instead of 10 s a page.
 - **Submission date:** the separation page, My Submissions and Verify show when the upload arrived (a bill cut from
   an upload was submitted with it).
+
+## Fix: same-activity bills of different periods (2026-11-12, `rules-16`)
+
+Owner: "the OCR isn't recognizing the same activity bills for different period properly". On hosted, a 5-page PDF of
+five monthly electricity bills (different bill numbers and billing periods on every page) was proposed as one bill:
+it prints a document-wide footer "Page k of 5", and `rules-15` let "Page 2 of 5" overrule the different bill
+numbers. Now a marker whose numbers equal the page's place in the whole upload is the document's numbering and is
+ignored; a bill's own numbering ("Page 2 of 2" inside a longer upload) still counts. Replayed on the stored
+lines of that upload: five bills, January to May 2026. Worker unit 60/60 (two new), Ruff.
 
 ## Decisions (made by the agent; confirm with the owner)
 

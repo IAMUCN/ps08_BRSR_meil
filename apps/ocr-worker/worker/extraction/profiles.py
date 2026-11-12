@@ -9,7 +9,7 @@ stored extractions stay reproducible (it is recorded in `ocr_jobs.model_version`
 
 from dataclasses import dataclass
 
-EXTRACTOR_VERSION = "rules-15"
+EXTRACTOR_VERSION = "rules-16"
 
 
 @dataclass(frozen=True)
