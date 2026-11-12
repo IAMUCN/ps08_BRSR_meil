@@ -492,3 +492,26 @@ Built by the feature session at the owner's request; no restyle.
   motion: nothing left hidden after scrolling, no sideways scroll, no page or console error. **Not run:** the real
   page signed in against a database, an Administrator's view, the three themes, the production build, the
   accessibility suite.
+
+## ui, 2026-11-12 (Documentation on the landing page, not in the signed-in space; owner's request)
+
+- `components/landing/documentation-section.tsx` (new, server) and `components/landing/docs-tabs.tsx` (new, client):
+  a **Documentation** section (`#docs`) on the landing page, before the questions, written as an end-user manual in
+  four tabs: Getting started (invitation to first upload), Roles (what each does and where it works), Checkpoints
+  (the six checks a figure passes) and Technical details (version, the portal, the backend, the document reader,
+  Docker, calculations, email, the assistant), all in plain language with no setup steps. The portal version and
+  the Next.js / React versions are read from `package.json` and the engine version from `lib/calculation/engine.ts`,
+  so they follow the code. Limits an administrator can change (invitation lifetime, session length, upload size)
+  are described without a number, since a public page cannot read the settings.
+- The tabs are a real tab list (arrow keys, Home, End; one panel shown), with a sliding pill and a fade between
+  panels; `MotionProvider` drops the movement for reduced motion. The roles are a list, not a table: the global
+  first-column table rule made the header unreadable on the light landing page.
+- `components/landing/links.ts`: a sixth navigation item, "Docs". `landing-page.tsx`: the section added.
+- `app/app/help/page.tsx`: the three "start here" cards added earlier the same day are removed again (the owner
+  wants the documentation on the landing page). The animated questions, process flow and blueprint stay.
+- No migration, no new dependency, no server procedure.
+- Checked: format, lint, typecheck, web unit tests; the landing page in Chromium on a dev server at 1440 and 390 px
+  and with reduced motion: every tab selects, one panel at a time, Home key works, no sideways scroll, no page or
+  console error; screenshots looked at. **Not run:** the production build, the accessibility suite, the public
+  wording against `COMPLIANCE_AUDIT_2026-10-12.md` (the claims made are the ones the README and audits already
+  state: own OCR worker, private storage, server-side checks).

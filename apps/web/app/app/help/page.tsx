@@ -1,4 +1,4 @@
-import { ArrowRight, ClipboardCheck, Settings2, Upload } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -186,61 +186,6 @@ export default async function HelpPage() {
           ))}
         </ul>
       </nav>
-
-      <Reveal className="grid gap-3 md:grid-cols-3" label="Start here">
-        {[
-          {
-            icon: Upload,
-            title: "I upload documents",
-            detail: "How to file a bill and check what OCR read from it.",
-            links: [
-              ["upload", "Uploading and OCR"],
-              ["verify", "Checking extracted values"],
-            ],
-          },
-          {
-            icon: ClipboardCheck,
-            title: admin ? "I review and report" : "I want to follow my records",
-            detail: admin
-              ? "The queues, approvals and how a report is produced."
-              : "The stages a record passes through and what each one means.",
-            links: admin
-              ? [
-                  ["approvals", "Validation and approval"],
-                  ["reports", "Reports and their verification"],
-                ]
-              : [
-                  ["flow", "How a figure gets into a report"],
-                  ["periods", "Reporting periods and deadlines"],
-                ],
-          },
-          {
-            icon: Settings2,
-            title: "I want to find my way around",
-            detail: "Every page you have, who does what, and common problems.",
-            links: [
-              ["map", "Blueprint of the website"],
-              ["roles", "Roles and responsibilities"],
-              ["faq", "Questions"],
-            ],
-          },
-        ].map((card) => (
-          <RevealItem key={card.title} className="rounded-md border bg-card p-4">
-            <card.icon className="size-5 text-primary-text" aria-hidden />
-            <h2 className="mt-2 font-semibold">{card.title}</h2>
-            <p className="text-sm text-muted-foreground">{card.detail}</p>
-            <ul className="mt-2 space-y-1 text-sm">
-              {card.links.map(([id, label]) => (
-                <li key={id}>
-                  <a href={`#${id}`} className="text-primary-text underline underline-offset-2">
-                    {label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </RevealItem>
-        ))}
-      </Reveal>
 
       <Section id="start" title="Getting started">
         <p>
