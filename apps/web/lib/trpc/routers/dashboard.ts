@@ -59,7 +59,10 @@ export const dashboardRouter = router({
       const data = await mapLimit(visible, 3, (tile) =>
         loadTile(tile, { sql, viewer, scope: tile.scope, periodId, memo }),
       );
-      return arrange(data, TILES);
+      return arrange(
+        data.filter((d) => !d.hidden),
+        TILES,
+      );
     }),
 
   /** The periods that take uploads now, newest first (readable by every signed-in user). */

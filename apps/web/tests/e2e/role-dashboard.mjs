@@ -120,6 +120,39 @@ check(
   ids(T.admin).join(", "),
 );
 
+section("Expected submissions: shown to whoever is expected to submit, never to administrators");
+check(
+  "Super Admin and Corporate ESG are not expected to submit: no Expected submissions tile",
+  !has(T.admin, "expected-submissions") && !has(T.approver, "expected-submissions"),
+);
+const [{ n: expectedAtX }] = await sql`
+  select count(*)::int as n from public.submission_expectations e
+  join public.org_unit_tree t on t.descendant_id = e.org_unit_id and t.ancestor_id = ${PRJ_X}`;
+const expectedTile = byId(T.pm, "expected-submissions");
+if (expectedAtX > 0) {
+  check(
+    "Project Manager at Project X: the tile is there, with a unit block, a count and a progress figure",
+    !!expectedTile &&
+      expectedTile.chart?.kind === "expected" &&
+      expectedTile.chart.units.length > 0,
+    JSON.stringify(expectedTile?.chart?.units?.map((u) => [u.name, u.submitted, u.total])),
+  );
+  const sub = expectedTile?.chart?.units?.[0];
+  check(
+    "the counts add up: submitted is the number of ticked items, never more than the total",
+    !!sub &&
+      sub.submitted <= sub.total &&
+      sub.items.filter((i) => i.submitted).length <= sub.submitted,
+  );
+  check(
+    "only activities the Project Manager may upload are listed (no other role's categories)",
+    !sub?.items.some((i) => /Workforce|Water|Procurement|CSR/.test(i.detail)),
+    sub?.items.map((i) => i.detail).join(" | "),
+  );
+} else {
+  check("Project X has no expectations here, so the tile is rightly left out", !expectedTile);
+}
+
 section("Scope: each tile says where it looks, and never beyond the person's own units");
 check(
   "Corporate ESG at Subsidiary A: its tiles name Subsidiary A, never the whole group",

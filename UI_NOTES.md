@@ -493,3 +493,7 @@ Built by the feature session at the owner's request (`.grill/role-dashboard-deci
 ## Role-wise dashboard, Phase 5 (2026-11-13, feature lane at the owner's request)
 - `app/admin/page.tsx`: the tiles take the picked org unit; the pipeline cards, BRSR Readiness card and the two Issues rows that the tiles now carry are
   removed. `ReadinessInfo` (the weights popover) is no longer used on the dashboard. **Not viewed in a browser.**
+
+## Role-wise dashboard: Expected submissions tile (2026-11-13, feature lane at the owner's request)
+- `components/dashboard/tile-charts.tsx`: the Upload page's expected-submissions card (progress bar, ticks, stage badges) as a dashboard tile, one block per
+  unit. **Not viewed in a browser.**

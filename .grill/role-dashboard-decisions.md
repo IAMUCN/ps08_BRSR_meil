@@ -273,3 +273,8 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
   multi-role, narrowing, ordering, chart-geometry, chart-token and overview tests (358 in all).
 - `tests/e2e/role-dashboard.mjs` (API, in the suite) and `tests/e2e/ui-role-dashboard.mjs` (browser, run on its own) as described in
   ROLE_DASHBOARD_VERIFY.md. Not run.
+
+## Expected submissions tile (2026-11-13, owner's request): unverified
+- The Upload page's Expected submissions card is a dashboard tile for any role from which a submission is expected (non-admin, holds `document.upload`,
+  has expected activities it may upload). Hidden for Super Admin and Administrators, and when nothing is expected. Built on the Upload page's own data
+  (`loadUploadOptions`, `expectedProgress`); filtered to the activities the person may upload. The "Missing in your area" list was dropped as a duplicate.

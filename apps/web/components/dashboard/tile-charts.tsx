@@ -1,8 +1,10 @@
+import { CheckCircle2, Circle } from "lucide-react";
 import Link from "next/link";
 import { DonutChart } from "@/components/charts/donut";
 import { seriesColor } from "@/components/charts/frame";
 import { LineChart } from "@/components/charts/line";
 import { RadialChart } from "@/components/charts/radial";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { formatNumber } from "@/lib/charts/geometry";
 import type { TileChart } from "@/lib/dashboard/tiles";
 import { cn } from "cn";
@@ -139,6 +141,83 @@ export function TileChartView({ chart }: { chart: TileChart }) {
             </li>
           ))}
         </ul>
+      );
+
+    case "expected":
+      return (
+        <div className="mt-3 grid gap-6 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+          {chart.units.map((unit) => {
+            const percentDone =
+              unit.total > 0 ? Math.round((unit.submitted / unit.total) * 100) : 0;
+            return (
+              <section key={unit.id} aria-label={`Expected submissions, ${unit.name}`}>
+                <h4 className="text-sm leading-5 font-semibold">{unit.name}</h4>
+                <p className="text-xs leading-4 text-muted-foreground">{chart.periodLabel}</p>
+                <p className="mt-2 text-sm leading-5">
+                  <span className="font-semibold">
+                    {unit.submitted} of {unit.total}
+                  </span>{" "}
+                  submitted
+                </p>
+                <div
+                  role="progressbar"
+                  aria-label={`Expected submissions submitted, ${unit.name}`}
+                  aria-valuemin={0}
+                  aria-valuemax={unit.total}
+                  aria-valuenow={unit.submitted}
+                  className="mt-1 h-2 overflow-hidden rounded-full bg-muted"
+                >
+                  <div
+                    className="h-full rounded-full bg-status-success"
+                    style={{ width: `${percentDone}%` }}
+                  />
+                </div>
+                <ul className="mt-2 divide-y divide-border">
+                  {unit.items.map((item) => (
+                    <li key={item.id} className="flex items-start justify-between gap-3 py-2">
+                      <span className="flex min-w-0 items-start gap-2">
+                        {item.submitted ? (
+                          <CheckCircle2
+                            className="mt-0.5 size-4 shrink-0 text-status-success"
+                            aria-label="Submitted"
+                          />
+                        ) : (
+                          <Circle
+                            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                            aria-label="Not submitted"
+                          />
+                        )}
+                        <span className="min-w-0">
+                          <span className="block text-sm leading-5">{item.name}</span>
+                          <span className="block text-xs leading-4 text-muted-foreground">
+                            {item.detail}
+                          </span>
+                        </span>
+                      </span>
+                      {item.stage ? (
+                        <StatusBadge tone={item.stage.tone}>{item.stage.label}</StatusBadge>
+                      ) : (
+                        <span className="shrink-0 text-xs leading-6 text-muted-foreground">
+                          Not submitted
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {unit.notShown > 0 ? (
+                  <p className="mt-1 text-xs leading-4 text-muted-foreground">
+                    {unit.notShown} more on the Upload page.
+                  </p>
+                ) : null}
+              </section>
+            );
+          })}
+          {chart.moreUnits > 0 ? (
+            <p className="text-xs leading-4 text-muted-foreground">
+              {chart.moreUnits} more unit{chart.moreUnits === 1 ? "" : "s"} on the Upload page.
+            </p>
+          ) : null}
+        </div>
       );
 
     case "area":

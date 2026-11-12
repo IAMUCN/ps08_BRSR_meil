@@ -214,3 +214,22 @@ Written on a machine with no database, no Docker and no browser: **none of these
    the donut, rings and bars side by side; the chart colours are tested for contrast and distinctness but nobody has looked at them.
 5. Also run `pnpm --filter web test:a11y` (it already covers `/app` and `/admin`) and `pnpm build`.
 6. Known not covered: the Deadlines engine as a third source of "overdue", a chatbot tile, the Administrator's people-and-access tile.
+
+## Expected submissions on the dashboard (owner's request after Phase 6)
+
+Written without a database or a browser; **not run, not seen**. Typecheck, ESLint, Prettier, the production build and the unit tests (359) pass.
+
+The card from Upload ("3 of 4 submitted", a progress bar, each activity ticked or "Not submitted", with the newest document's stage) is now a dashboard
+tile, **Expected submissions**, for anyone who is expected to submit: every non-admin holding `document.upload` (Project Manager, EHS, HR, Finance/CSR,
+Procurement, and the Employee role that uploads for a Project Manager). **Never for a Super Admin or an Administrator**, nor for Corporate ESG or the Auditor
+(they cannot upload).
+
+1. It uses what Upload offers the person (`loadUploadOptions`): the units they upload for and, in each, only the activities their role may upload, among
+   those an administrator marked as expected for the period (`submission_expectations`). A person with nothing expected gets **no tile** (the loader hides it;
+   `dashboard.tiles` leaves hidden tiles out). Up to three units, fifteen activities each (not yet filed first); the rest are counted with a pointer to Upload.
+2. Check against the Upload page for the same project and period: the same "x of y", the same ticks and stage badges. One difference by design: Upload lists
+   every activity expected of the project, other roles' too; the dashboard lists only the person's own.
+3. The period is the one chosen for the dashboard if it still takes uploads, else the newest open one; with no open period the tile is left out.
+4. The "Missing in your area" tile keeps its count and link for the Needs-your-attention band; its list of five items was removed because this tile shows them.
+5. `tests/e2e/role-dashboard.mjs` checks Super Admin and Corporate ESG do not get it, and that a Project Manager at a project with expectations does, with
+   consistent counts and only the Project Manager's own categories.

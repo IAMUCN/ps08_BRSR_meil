@@ -14,6 +14,8 @@ import {
 } from "./overview";
 import { sumTotals, type RegisterTotals } from "@/lib/register/register";
 import { REPORT_INPUTS_KEY, type FyInputs } from "@/lib/reports/inputs";
+import { loadUploadOptions } from "@/lib/trpc/routers/documents";
+import { expectedProgress } from "@/lib/upload/progress";
 import type { db } from "@/lib/db";
 import { submissionTab, type RecordStatus } from "@/lib/ocr/rules";
 import {
@@ -22,6 +24,7 @@ import {
   TILE_ROLES,
   type Facts,
   type ResolvedTile,
+  type TileChart,
   type TileData,
   type TileScope,
   type Urgency,
@@ -33,6 +36,10 @@ import {
 // server; nothing is filtered in the browser.
 
 type Sql = ReturnType<typeof db>;
+
+/** Units and activities shown per unit on the Expected submissions tile (the rest are counted, not listed). */
+const EXPECTED_UNITS = 3;
+const EXPECTED_ITEMS = 15;
 
 /** Records flagged by validation and unreviewed for longer than this are "stuck" (a setting later). */
 export const STUCK_DAYS = 7;
@@ -695,6 +702,70 @@ export const LOADERS: Record<string, (ctx: LoaderContext) => Promise<Result>> = 
       },
     };
   },
+  "expected-submissions": async (ctx) => {
+    // Exactly what Upload offers this person: the units they upload for and, in each, the activities their role
+    // may upload. Only the expected ones among them are shown; nobody expected to submit sees no tile.
+    const options = await ctx.memo(`upload-options:${ctx.viewer.userId}`, () =>
+      loadUploadOptions(ctx.sql, ctx.viewer.userId),
+    );
+    const period = options.periods.find((p) => p.id === ctx.periodId) ?? options.periods[0];
+    const hidden = {
+      urgency: 3 as const,
+      count: null,
+      summary: "",
+      href: "/app/upload",
+      hidden: true,
+    };
+    if (!period) return hidden;
+    const units: Extract<TileChart, { kind: "expected" }>["units"] = [];
+    let seen = 0;
+    for (const target of options.targets) {
+      const offered = new Set(target.categories.flatMap((c) => c.metrics.map((m) => m.id)));
+      const progress = await expectedProgress(ctx.sql, target.orgUnitId, period.id);
+      const items = progress.items.filter((i) => offered.has(i.metricId));
+      if (items.length === 0) continue;
+      seen += 1;
+      if (units.length >= EXPECTED_UNITS) continue;
+      const SCOPE: Record<string, string> = {
+        SCOPE_1: "Scope 1",
+        SCOPE_2: "Scope 2",
+        SCOPE_3: "Scope 3",
+      };
+      units.push({
+        id: target.orgUnitId,
+        name: target.name,
+        submitted: items.filter((i) => i.submitted).length,
+        total: items.length,
+        // Still to file first, then in the order Upload lists them.
+        items: [...items.filter((i) => !i.submitted), ...items.filter((i) => i.submitted)]
+          .slice(0, EXPECTED_ITEMS)
+          .map((i) => ({
+            id: i.metricId,
+            name: i.metricName,
+            detail: `${i.scopeCode ? `${SCOPE[i.scopeCode]} · ` : ""}${i.categoryName}${i.records > 1 ? ` · ${i.records} documents` : ""}`,
+            submitted: i.submitted,
+            stage: i.stage,
+          })),
+        notShown: Math.max(0, items.length - EXPECTED_ITEMS),
+      });
+    }
+    if (units.length === 0) return hidden;
+    const submitted = units.reduce((a, u) => a + u.submitted, 0);
+    const total = units.reduce((a, u) => a + u.total, 0);
+    return {
+      urgency: 3,
+      count: null,
+      summary: `${submitted} of ${total} expected submissions are on file for ${period.label}${units.length > 1 ? ` across ${units.length} units` : ""}.`,
+      href: "/app/upload",
+      chart: {
+        kind: "expected",
+        periodLabel: period.label,
+        units,
+        moreUnits: Math.max(0, seen - units.length),
+      },
+    };
+  },
+
   "my-area": async (ctx) => {
     const periodId = ctx.periodId;
     if (!periodId) {
@@ -767,14 +838,6 @@ export const LOADERS: Record<string, (ctx: LoaderContext) => Promise<Result>> = 
           ? `expected ${rows.length === 1 ? "submission is" : "submissions are"} still missing${late ? ", and the period is past due" : ""}.`
           : "Every expected submission in your area has been filed.",
       href: "/app/upload",
-      chart:
-        rows.length > 0
-          ? {
-              kind: "list",
-              rows: rows.slice(0, 5).map((r) => ({ label: r.activity, detail: r.unit })),
-              more: Math.max(0, rows.length - 5),
-            }
-          : undefined,
     };
   },
 
