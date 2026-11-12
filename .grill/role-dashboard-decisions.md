@@ -236,3 +236,15 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
 - First use: the Reporting completion tile draws four rings. The other tiles stay plain cards until Phase 4 gives them their role content.
 - Duplicates: removed on `/app` (period and the two task cards). On `/admin` kept, because the Issues list and pipeline follow the
   org/period picker and the tiles do not yet; Phase 4 makes the tiles follow it and then removes the rows.
+
+## Phase 4a built (2026-11-12): Group Overview from the owner's reference (unverified against a database or in a browser)
+- The owner attached the reference (a Group Overview: a row of figures, an emissions donut with a scope list and a trend, completion rings by
+  level, a hierarchy with progress, performance per unit, pending actions). Their steer: charts, but not full charts, with text beside them.
+  Every picture here has its figures as text next to it, plus the "View as table" fold on the donut and line charts.
+- New tiles (`monitoring.view`): `emissions`, `structure` (figure cards), `emissions-overview`, `completion-by-level`, `hierarchy-status`,
+  `unit-performance` ("wide" cards in an Analysis section; the figure cards stay in the Overview grid). "Pending actions" is the existing
+  Needs-your-attention band.
+- A unit is finished when it has expected submissions in its subtree and all are approved; nothing expected is shown as "Nothing expected", not
+  0 % or 100 %. Emissions are approved records in kgCO2e or tCO2e, in tonnes; other units are not added in.
+- `lib/dashboard/overview.ts` (pure, 5 tests) shapes the SQL rows; `loaders.ts` holds the queries; `components/dashboard/tile-charts.tsx` draws them.
+- Still to do in Phase 4: the other roles' content (Project Manager, EHS, HR, Finance, Procurement, Auditor) and the Super Admin extras.

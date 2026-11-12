@@ -112,3 +112,30 @@ Written without a database or a browser; **not seen on a screen**. Typecheck, ES
    and `--chart-1..6` are readable in Special, Corporate and Dark.
 5. Colours: `--chart-1..6` in `app/globals.css` (all three themes), tested for 3:1 against the card and the page and for not being mistakable
    for each other (`tests/chart-tokens.test.ts`). A person has not looked at them side by side.
+
+## Group Overview tiles (Phase 4a, from the owner's reference screenshot)
+
+Written without a database or a browser; **the SQL has not been run and nothing has been seen on a screen**. Typecheck, ESLint, Prettier,
+the production build and the unit tests (347, 5 new in `tests/dashboard-overview.test.ts`) pass.
+
+Six new tiles for anyone holding `monitoring.view` (Super Admin, Administrator, Corporate ESG), each limited to the units where a role of
+theirs holds the permission: **Total emissions** and **Organisation** (figure cards), and in a new "Analysis" section **Emissions overview**
+(donut by scope with a text legend of value and share, plus a trend line), **Reporting completion by level** (a ring per hierarchy level, with
+"x / y"), **Organisational hierarchy and reporting status** (top units and the units directly beneath, bar and "NN % · x of y") and
+**Performance by unit** (completion bar and tCO2e per unit directly beneath the top). The reporting-completion rings became an Analysis card.
+
+1. Run `dashboard.tiles` on a database with approved emissions and expectations and compare:
+   - Total emissions and the donut with Scope 1/2/3 on `/admin/scope-1`, `-2`, `-3` for the same org and period (tonnes: kg is divided by 1000;
+     a record in any other unit is not counted). The trend is the latest six periods with approved emissions, oldest first.
+   - Completion by level and the hierarchy rows with Submission Monitoring's "missing submissions" for the same unit. A unit counts as finished
+     when it has expected submissions in its subtree and every one is approved; units with none expected are left out, never shown as 0 %.
+   - Level names come from `org_levels`; nothing is hard-coded.
+2. Columns relied on: `consolidation_records.*`, `scopes.parent_scope_id/code`, `reporting_periods.start_date/label/period_type`,
+   `submission_expectations`, `org_levels.label/sort_order`, `org_units.parent_id/unit_type/deleted_at`, `org_unit_tree`.
+3. Check as a Corporate ESG user assigned to one subsidiary: no unit outside it appears in any tile (the extended isolation test covers
+   Project Q for the mixed user). Check at phone width that the cards stack and nothing scrolls sideways, and in all three themes that the
+   donut, rings and bars are readable.
+4. Not built: collapsible rows in the hierarchy list (it shows the top units and the units directly beneath, at most 12 rows, and says how many
+   are not shown); the Project Manager, EHS, HR, Finance, Procurement and Auditor role content; the Super Admin extras (factors, BRSR
+   readiness, reports and audit activity, users and hierarchy).
+5. On `/admin` the Issues list and the four pipeline cards still sit below the tiles: they follow the org/period picker and the tiles do not.

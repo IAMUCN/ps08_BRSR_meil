@@ -480,3 +480,8 @@ Built by the feature session at the owner's request (`.grill/role-dashboard-deci
   Reporting completion rings; `app/app/page.tsx` lost the period and task cards the tiles replace. **Not viewed in a browser.** The
   axe/accessibility suite has not run on them: marks are links or focusable groups with labels, charts have a text table, nothing relies on
   colour alone.
+
+## Role-wise dashboard, Phase 4a (2026-11-12, feature lane at the owner's request)
+- `components/dashboard/tile-views.tsx` now has a figures row ("Overview") and an "Analysis" section of wide cards, each with a heading, a
+  "View all" link and a sentence saying what the picture shows; `components/dashboard/tile-charts.tsx` draws rings, the scope donut and trend,
+  the hierarchy list and the per-unit bars with the chart kit. **Not viewed in a browser**; not run through axe.

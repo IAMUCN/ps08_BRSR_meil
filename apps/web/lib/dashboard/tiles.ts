@@ -35,6 +35,8 @@ export type TileDef = {
   requires: Requirement;
   /** Importance among tiles of the same urgency; lower first. */
   rank: number;
+  /** "kpi" is a small figure card (the default); "wide" holds a chart or list and has its own heading. */
+  size?: "kpi" | "wide";
 };
 
 /** The tiles built so far. Later phases add rows here and a loader in lib/dashboard/loaders.ts. */
@@ -63,10 +65,51 @@ export const TILES: TileDef[] = [
   { id: "returned", title: "Returned for correction", requires: { kind: "self" }, rank: 55 },
   { id: "notifications", title: "Unread notifications", requires: { kind: "self" }, rank: 90 },
   {
+    id: "emissions",
+    title: "Total emissions",
+    requires: { kind: "permission", permission: "monitoring.view" },
+    rank: 60,
+  },
+  {
+    id: "structure",
+    title: "Organisation",
+    requires: { kind: "permission", permission: "monitoring.view" },
+    rank: 65,
+  },
+  {
     id: "completion",
     title: "Reporting completion",
     requires: { kind: "permission", permission: "monitoring.view" },
     rank: 100,
+    size: "wide",
+  },
+  {
+    id: "emissions-overview",
+    title: "Emissions overview",
+    requires: { kind: "permission", permission: "monitoring.view" },
+    rank: 110,
+    size: "wide",
+  },
+  {
+    id: "completion-by-level",
+    title: "Reporting completion by level",
+    requires: { kind: "permission", permission: "monitoring.view" },
+    rank: 120,
+    size: "wide",
+  },
+  {
+    id: "hierarchy-status",
+    title: "Organisational hierarchy and reporting status",
+    requires: { kind: "permission", permission: "monitoring.view" },
+    rank: 130,
+    size: "wide",
+  },
+  {
+    id: "unit-performance",
+    title: "Performance by unit",
+    requires: { kind: "permission", permission: "monitoring.view" },
+    rank: 140,
+    size: "wide",
   },
 ];
 
@@ -156,9 +199,55 @@ export type TileData = {
   /** Said on the tile so nobody wonders why two tiles show different units. */
   scopeLabel: string;
   figures?: { label: string; value: number | null; unit?: string }[];
-  /** A small picture of the figures, drawn by components/charts. The summary says the same in words. */
-  chart?: { kind: "radials"; items: { label: string; value: number | null }[] };
+  size?: "kpi" | "wide";
+  /** A picture or list of the figures, drawn by components/dashboard/tile-charts. The summary says the same in words. */
+  chart?: TileChart;
 };
+
+export type TileChart =
+  | { kind: "radials"; items: { label: string; value: number | null }[] }
+  | {
+      kind: "emissions";
+      unit: string;
+      total: number;
+      periodLabel: string;
+      slices: { key: string; label: string; value: number; href?: string }[];
+      trend: { categories: string[]; values: number[] };
+    }
+  | {
+      kind: "levels";
+      items: { key: string; label: string; done: number; total: number; pct: number | null }[];
+    }
+  | {
+      kind: "hierarchy";
+      rows: {
+        id: string;
+        name: string;
+        level: string;
+        depth: 0 | 1;
+        done: number;
+        total: number;
+        pct: number | null;
+        href: string;
+      }[];
+      more: number;
+    }
+  | {
+      kind: "units";
+      unit: string;
+      rows: {
+        id: string;
+        name: string;
+        level: string;
+        pct: number | null;
+        done: number;
+        total: number;
+        emissions: number;
+        href: string;
+      }[];
+    }
+  /** A short list of label and number pairs (units by level). */
+  | { kind: "stats"; items: { label: string; value: number }[] };
 
 /**
  * Splits the data into the "Needs action" band (something overdue, returned or pending, with a count above

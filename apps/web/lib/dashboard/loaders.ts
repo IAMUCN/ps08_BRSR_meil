@@ -1,6 +1,14 @@
 import "server-only";
 import { fraction, type Fraction } from "@/lib/dashboard/kpis";
 import { summary } from "@/lib/dashboard/summary";
+import {
+  emissionFigures,
+  hierarchyRows,
+  levelRings,
+  percent,
+  type EmissionRow,
+  type UnitRow,
+} from "./overview";
 import type { db } from "@/lib/db";
 import { submissionTab, type RecordStatus } from "@/lib/ocr/rules";
 import {
@@ -171,6 +179,67 @@ const summaries = (ctx: LoaderContext) =>
     const top = await roots(ctx);
     return Promise.all(top.map((r) => summary(ctx.sql, r.id, periodId)));
   });
+
+// --- Group Overview data (Phase 4) ---------------------------------------------------------------------------
+
+/** Approved emissions in tonnes CO2e per scope and period for the scope's top units (roll-ups include everything beneath). */
+const emissionRows = (ctx: LoaderContext) =>
+  ctx.memo(`emissions:${scopeKey(ctx.scope)}`, async () => {
+    const ids = (await roots(ctx)).map((r) => r.id);
+    if (ids.length === 0) return [] as EmissionRow[];
+    // ponytail: two top units that share a unit would count it twice; a shared unit sits under one group today.
+    return ctx.sql<EmissionRow[]>`
+      select s.code as scope_code, rp.id::text as period_id, rp.label, rp.start_date::text as start_date,
+             sum(case lower(btrim(cr.value_unit))
+                   when 'kgco2e' then cr.value / 1000.0
+                   when 'tco2e' then cr.value end)::float as tonnes
+      from public.consolidation_records cr
+      join public.esg_metrics m on m.id = cr.metric_id
+      join public.scopes sc on sc.id = m.scope_id
+      join public.scopes s on s.id = coalesce(sc.parent_scope_id, sc.id)
+           and s.code in ('SCOPE_1', 'SCOPE_2', 'SCOPE_3')
+      join public.reporting_periods rp on rp.id = cr.reporting_period_id
+      where cr.org_unit_id = any(${ids}::uuid[]) and cr.approval_status = 'approved'
+      group by s.code, rp.id, rp.label, rp.start_date`;
+  });
+
+/** Every unit of the scope with what is expected and approved in its subtree for the period. */
+const unitRows = (ctx: LoaderContext) =>
+  ctx.memo(`unit-rows:${scopeKey(ctx.scope)}:${ctx.periodId}`, async () => {
+    if (!ctx.periodId) return [] as UnitRow[];
+    const { sql, scope, periodId } = { ...ctx, periodId: ctx.periodId };
+    return sql<UnitRow[]>`
+      with exp as (
+        select e.org_unit_id,
+               exists (select 1 from public.esg_records r
+                        where r.org_unit_id = e.org_unit_id and r.metric_id = e.metric_id
+                          and r.reporting_period_id = ${periodId} and r.approval_status = 'approved'
+                          and r.data_quality_state <> 'rejected') as approved
+        from public.submission_expectations e
+        join public.esg_metrics m on m.id = e.metric_id and m.deleted_at is null
+        join public.reporting_periods p on p.id = ${periodId} and p.period_type::text = m.frequency::text
+        join public.org_units o on o.id = e.org_unit_id and o.deleted_at is null
+      )
+      select u.id::text, u.name, u.parent_id::text, u.unit_type as level, l.label as level_label,
+             l.sort_order as level_order,
+             count(exp.org_unit_id)::int as expected,
+             count(*) filter (where exp.approved)::int as approved
+      from public.org_units u
+      join public.org_levels l on l.code = u.unit_type
+      left join public.org_unit_tree t on t.ancestor_id = u.id
+      left join exp on exp.org_unit_id = t.descendant_id
+      where u.deleted_at is null
+        and ${scope.kind === "units" ? sql`u.id = any(${scope.units}::uuid[])` : sql`true`}
+      group by u.id, u.name, u.parent_id, u.unit_type, l.label, l.sort_order`;
+  });
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Where a tile link goes: the chosen period, and the one top unit when there is just one. */
+const linkQuery = (ctx: LoaderContext, rootIds: string[]) =>
+  [ctx.periodId ? `period=${ctx.periodId}` : "", rootIds.length === 1 ? `org=${rootIds[0]}` : ""]
+    .filter(Boolean)
+    .join("&");
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const pct = (f: Fraction) => (f.value === null ? null : Math.round(f.value));
@@ -365,11 +434,187 @@ export const LOADERS: Record<string, (ctx: LoaderContext) => Promise<Result>> = 
       chart: { kind: "radials", items: steps.map(([label, f]) => ({ label, value: pct(f) })) },
     };
   },
+
+  emissions: async (ctx) => {
+    const rows = await emissionRows(ctx);
+    const f = emissionFigures(rows, ctx.periodId);
+    const q = linkQuery(
+      ctx,
+      (await roots(ctx)).map((r) => r.id),
+    );
+    return {
+      urgency: 3,
+      count: round1(f.total),
+      summary:
+        f.total > 0
+          ? `tCO2e approved${f.periodLabel ? ` in ${f.periodLabel}` : ""}, Scope 1, 2 and 3 together.`
+          : "No approved emissions yet in this period.",
+      href: `/admin/data-explorer${q ? `?${q}` : ""}`,
+    };
+  },
+
+  structure: async (ctx) => {
+    const ids = (await roots(ctx)).map((r) => r.id);
+    const rows = ids.length
+      ? await ctx.sql<{ label: string; n: number }[]>`
+          select l.label, count(distinct o.id)::int as n
+          from public.org_unit_tree t
+          join public.org_units o on o.id = t.descendant_id and o.deleted_at is null
+          join public.org_levels l on l.code = o.unit_type
+          where t.ancestor_id = any(${ids}::uuid[]) and t.descendant_id <> t.ancestor_id
+          group by l.label, l.sort_order order by l.sort_order`
+      : [];
+    const total = rows.reduce((a, r) => a + r.n, 0);
+    return {
+      urgency: 3,
+      count: total,
+      summary: total > 0 ? "units beneath the top of your scope." : "No units beneath this one.",
+      href: "/admin/data-explorer",
+      chart: { kind: "stats", items: rows.map((r) => ({ label: r.label, value: r.n })) },
+    };
+  },
+
+  "emissions-overview": async (ctx) => {
+    const rows = await emissionRows(ctx);
+    const f = emissionFigures(rows, ctx.periodId);
+    const ids = (await roots(ctx)).map((r) => r.id);
+    const q = linkQuery(ctx, ids);
+    const scopeHref = (n: number) => `/admin/scope-${n}${q ? `?${q}` : ""}`;
+    return {
+      urgency: 3,
+      count: null,
+      summary:
+        f.total > 0
+          ? `${round1(f.total)} tCO2e approved${f.periodLabel ? ` in ${f.periodLabel}` : ""}: ${f.slices
+              .map((s) => `${s.label} ${round1(s.value)}`)
+              .join(", ")}.`
+          : "No approved emissions yet in this period.",
+      href: `/admin/scope-1${q ? `?${q}` : ""}`,
+      chart: {
+        kind: "emissions",
+        unit: "tCO2e",
+        total: round1(f.total),
+        periodLabel: f.periodLabel ?? "",
+        slices: f.slices.map((s, i) => ({ ...s, value: round1(s.value), href: scopeHref(i + 1) })),
+        trend: f.trend,
+      },
+    };
+  },
+
+  "completion-by-level": async (ctx) => {
+    if (!ctx.periodId) {
+      return {
+        urgency: 3,
+        count: null,
+        summary: "No reporting period to measure.",
+        href: "/admin/submissions",
+      };
+    }
+    const rings = levelRings(await unitRows(ctx));
+    return {
+      urgency: 3,
+      count: null,
+      summary:
+        rings.length > 0
+          ? `${rings.map((r) => `${r.label} ${r.done} of ${r.total}`).join(" · ")} finished.`
+          : "No expected submissions are configured for these units.",
+      href: `/admin/submissions?period=${ctx.periodId}`,
+      chart: rings.length > 0 ? { kind: "levels", items: rings } : undefined,
+    };
+  },
+
+  "hierarchy-status": async (ctx) => {
+    if (!ctx.periodId) {
+      return {
+        urgency: 3,
+        count: null,
+        summary: "No reporting period to measure.",
+        href: "/admin/submissions",
+      };
+    }
+    const top = await roots(ctx);
+    const { rows, more } = hierarchyRows(
+      await unitRows(ctx),
+      top.map((r) => r.id),
+    );
+    return {
+      urgency: 3,
+      count: null,
+      summary:
+        rows.length > 0
+          ? `${rows.length} unit${rows.length === 1 ? "" : "s"} shown${more > 0 ? `, ${more} more not shown` : ""}.`
+          : "Nothing to show for these units.",
+      href: `/admin/submissions?period=${ctx.periodId}`,
+      chart: {
+        kind: "hierarchy",
+        more,
+        rows: rows.map((r) => ({
+          ...r,
+          href: `/admin/submissions?org=${r.id}&period=${ctx.periodId}`,
+        })),
+      },
+    };
+  },
+
+  "unit-performance": async (ctx) => {
+    if (!ctx.periodId) {
+      return {
+        urgency: 3,
+        count: null,
+        summary: "No reporting period to measure.",
+        href: "/admin/submissions",
+      };
+    }
+    const top = new Set((await roots(ctx)).map((r) => r.id));
+    const children = (await unitRows(ctx))
+      .filter((u) => u.parent_id !== null && top.has(u.parent_id))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 10);
+    const periodId = ctx.periodId;
+    const emitted =
+      children.length > 0
+        ? await ctx.sql<{ org_unit_id: string; tonnes: number | null }[]>`
+            select cr.org_unit_id::text, sum(case lower(btrim(cr.value_unit))
+                     when 'kgco2e' then cr.value / 1000.0 when 'tco2e' then cr.value end)::float as tonnes
+            from public.consolidation_records cr
+            join public.esg_metrics m on m.id = cr.metric_id
+            join public.scopes sc on sc.id = m.scope_id
+            join public.scopes s on s.id = coalesce(sc.parent_scope_id, sc.id)
+                 and s.code in ('SCOPE_1', 'SCOPE_2', 'SCOPE_3')
+            where cr.org_unit_id = any(${children.map((c) => c.id)}::uuid[])
+              and cr.reporting_period_id = ${periodId} and cr.approval_status = 'approved'
+            group by cr.org_unit_id`
+        : [];
+    const tonnes = new Map(emitted.map((e) => [e.org_unit_id, e.tonnes ?? 0]));
+    return {
+      urgency: 3,
+      count: null,
+      summary:
+        children.length > 0
+          ? `${children.length} unit${children.length === 1 ? "" : "s"} directly beneath the top of your scope.`
+          : "No units directly beneath the top of your scope.",
+      href: `/admin/submissions?period=${periodId}`,
+      chart: {
+        kind: "units",
+        unit: "tCO2e",
+        rows: children.map((c) => ({
+          id: c.id,
+          name: c.name,
+          level: c.level_label,
+          pct: percent(c.approved, c.expected),
+          done: c.approved,
+          total: c.expected,
+          emissions: round1(tonnes.get(c.id) ?? 0),
+          href: `/admin/submissions?org=${c.id}&period=${periodId}`,
+        })),
+      },
+    };
+  },
 };
 
 /** One tile's data. A tile that fails to load says so; it never takes the dashboard down with it. */
 export async function loadTile(tile: ResolvedTile, ctx: LoaderContext): Promise<TileData> {
-  const base = { id: tile.id, title: tile.title };
+  const base = { id: tile.id, title: tile.title, size: tile.size };
   try {
     const loader = LOADERS[tile.id];
     if (!loader) throw new Error(`no loader for ${tile.id}`);
