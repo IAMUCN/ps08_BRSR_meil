@@ -57,27 +57,20 @@ export default async function CarbonIntelligencePage({
   ]);
 
   const canViewCredits =
-    session.isAdmin ||
-    session.isOrgAdmin ||
-    session.permissions.includes("carbon_credit.view");
+    session.isAdmin || session.isOrgAdmin || session.permissions.includes("carbon_credit.view");
 
   let creditsData: CarbonIntelligenceClientProps["creditsData"] = null;
 
   if (canViewCredits) {
     try {
-      const [
-        creditsOptions,
-        creditsSummary,
-        creditsBatches,
-        creditsIcpPrices,
-        creditsLinks,
-      ] = await Promise.all([
-        caller.carbonCredits.options(),
-        caller.carbonCredits.summary(),
-        caller.carbonCredits.list(),
-        caller.carbonCredits.icpList(),
-        caller.carbonLinks.list(),
-      ]);
+      const [creditsOptions, creditsSummary, creditsBatches, creditsIcpPrices, creditsLinks] =
+        await Promise.all([
+          caller.carbonCredits.options(),
+          caller.carbonCredits.summary(),
+          caller.carbonCredits.list(),
+          caller.carbonCredits.icpList(),
+          caller.carbonLinks.list(),
+        ]);
 
       const targetCreditsOrgUnit =
         creditsOptions.orgUnits.find((u) => u.id === orgUnitId)?.id ??

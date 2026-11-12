@@ -256,9 +256,7 @@ test("Carbon Intelligence: reconciliation ensures transferred credits are never 
 test("Carbon Intelligence: permission resolution allows Super Admin, Org Admin, or carbon_credit.view", () => {
   const canView = (session: { isAdmin: boolean; isOrgAdmin?: boolean; permissions: string[] }) =>
     Boolean(
-      session.isAdmin ||
-        session.isOrgAdmin ||
-        session.permissions.includes("carbon_credit.view"),
+      session.isAdmin || session.isOrgAdmin || session.permissions.includes("carbon_credit.view"),
     );
 
   // Super Admin
@@ -274,7 +272,8 @@ test("Carbon Intelligence: permission resolution allows Super Admin, Org Admin, 
     true,
   );
   // User without any credit permissions
-  assert.equal(canView({ isAdmin: false, isOrgAdmin: false, permissions: ["document.upload"] }), false);
+  assert.equal(
+    canView({ isAdmin: false, isOrgAdmin: false, permissions: ["document.upload"] }),
+    false,
+  );
 });
-
-
