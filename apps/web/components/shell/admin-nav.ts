@@ -23,6 +23,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/scope-3", label: "Scope 3", icon: "scope3" },
   { href: "/admin/data-explorer", label: "Data Explorer", icon: "explorer" },
   { href: "/admin/carbon-analytics", label: "Carbon Analytics", icon: "analytics" },
+  { href: "/admin/decision-rules", label: "Decision Center & RAG", icon: "validation", superOnly: true },
   { href: "/admin/forecast", label: "Emissions Forecast", icon: "forecast", superOnly: true },
   { href: "/admin/simulator", label: "Reduction Simulator", icon: "simulator", superOnly: true },
   // Output and oversight.
