@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Award,
   Calculator,
   CheckCircle2,
   Coins,
+  Flame,
   Leaf,
   Minus,
   Plus,
@@ -126,9 +128,28 @@ export function CarbonCreditsClient({
   initialOrgUnitId,
   onOrgChange,
 }: CarbonCreditsClientProps) {
+  const searchParams = useSearchParams();
+  const subtabParam = searchParams?.get("subtab");
+
   const [activeTab, setActiveTab] = useState<"inventory" | "reconciliation" | "icp" | "quotation">(
-    "inventory",
+    subtabParam === "inventory" ||
+      subtabParam === "reconciliation" ||
+      subtabParam === "icp" ||
+      subtabParam === "quotation"
+      ? subtabParam
+      : "quotation",
   );
+
+  useEffect(() => {
+    if (
+      subtabParam === "inventory" ||
+      subtabParam === "reconciliation" ||
+      subtabParam === "icp" ||
+      subtabParam === "quotation"
+    ) {
+      setActiveTab(subtabParam);
+    }
+  }, [subtabParam]);
   const [summary, setSummary] = useState(initialSummary);
   const [batches, setBatches] = useState(initialBatches);
   const [reconciliation, setReconciliation] = useState(initialReconciliation);
@@ -349,61 +370,63 @@ export function CarbonCreditsClient({
 
   return (
     <div className="space-y-6">
-      {/* 4 Header Metric KPI Cards */}
+      {/* 4 Header Metric KPI Cards: Highlighting Carbon Equivalents and Deficit */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-emerald-500/20 bg-emerald-500/5 [&_.text-muted-foreground]:text-foreground">
+        <Card className="border-amber-500/20 bg-amber-500/5 [&_.text-muted-foreground]:text-foreground">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-              <Leaf className="size-4" />
-              Active Available Inventory
+            <CardDescription className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              <Flame className="size-4 text-amber-500" />
+              Gross Carbon Equivalent
             </CardDescription>
             <CardTitle className="text-2xl font-bold tracking-tight">
-              {summary.availableTco2e.toLocaleString()}{" "}
+              {reconciliation.gross.total.toLocaleString()}{" "}
               <span className="text-sm font-normal text-muted-foreground">tCO₂e</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xs text-muted-foreground">
-            {summary.activeBatchesCount} batches in holding inventory
+            S1: {reconciliation.gross.scope1.toLocaleString()} · S2:{" "}
+            {reconciliation.gross.scope2.toLocaleString()} · S3:{" "}
+            {reconciliation.gross.scope3.toLocaleString()} tCO₂e
           </CardContent>
         </Card>
 
         <Card className="border-purple-500/20 bg-purple-500/5 [&_.text-muted-foreground]:text-foreground">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-              <ShieldCheck className="size-4" />
-              Retired for BRSR Offsets
+            <CardDescription className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              <ShieldCheck className="size-4 text-purple-500" />
+              Retired Offsets (BRSR)
             </CardDescription>
             <CardTitle className="text-2xl font-bold tracking-tight">
-              {summary.retiredTco2e.toLocaleString()}{" "}
-              <span className="text-sm font-normal text-muted-foreground">tCO₂e</span>
+              {reconciliation.offsets.total.toLocaleString()}{" "}
+              <span className="text-sm font-normal text-muted-foreground">Credits (tCO₂e)</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xs text-muted-foreground">
-            Permanent environmental claims with registry proof
+            Applied to Principle 6 carbon neutrality
           </CardContent>
         </Card>
 
-        <Card className="border-amber-500/20 bg-amber-500/5 [&_.text-muted-foreground]:text-foreground">
+        <Card className="border-emerald-500/40 bg-emerald-500/10 [&_.text-muted-foreground]:text-foreground">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-              <ShieldAlert className="size-4" />
-              Transferred / Sold (Surrendered)
+            <CardDescription className="flex items-center gap-1.5 text-xs font-bold text-status-success">
+              <ShoppingCart className="size-4 text-status-success" />
+              Carbon Credits to Purchase
             </CardDescription>
-            <CardTitle className="text-2xl font-bold tracking-tight">
-              {summary.transferredTco2e.toLocaleString()}{" "}
-              <span className="text-sm font-normal text-muted-foreground">tCO₂e</span>
+            <CardTitle className="text-2xl font-black tracking-tight text-status-success">
+              {reconciliation.net.total.toLocaleString()}{" "}
+              <span className="text-sm font-normal text-muted-foreground">Credits</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-xs text-muted-foreground">
-            Locked from internal claims (Anti-double counting)
+          <CardContent className="text-xs text-muted-foreground font-medium">
+            1 Credit = 1 tCO₂e Carbon Equivalent Deficit
           </CardContent>
         </Card>
 
         <Card className="border-blue-500/20 bg-blue-500/5 [&_.text-muted-foreground]:text-foreground">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-              <Coins className="size-4" />
-              Corporate Shadow Carbon Price
+              <Coins className="size-4 text-blue-500" />
+              Internal Shadow Price
             </CardDescription>
             <CardTitle className="text-2xl font-bold tracking-tight">
               ₹{summary.currentShadowPrice.toLocaleString()}{" "}
@@ -411,21 +434,87 @@ export function CarbonCreditsClient({
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xs text-muted-foreground">
-            Internal price applied to CapEx & project ROI
+            Registry inventory: {summary.availableTco2e.toLocaleString()} tCO₂e available
           </CardContent>
         </Card>
+      </div>
+
+      {/* Shared Entity Scope & Reporting Period Filter Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-3 shadow-xs">
+        <div className="flex flex-wrap items-center gap-3">
+          <Label className="text-xs font-semibold uppercase text-muted-foreground">
+            Entity Scope:
+          </Label>
+          <div className="w-56">
+            <NativeSelect
+              value={selectedOrgUnit}
+              onChange={(e) => {
+                const newId = e.target.value;
+                setSelectedOrgUnit(newId);
+                onOrgChange?.(newId);
+                startTransition(async () => {
+                  const res = await getReconciliationAction({
+                    orgUnitId: newId,
+                    reportingPeriodId: selectedPeriod,
+                  });
+                  if (res.ok) setReconciliation(res.data);
+                });
+              }}
+            >
+              {options.orgUnits.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.code})
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+
+          <Label className="ml-2 text-xs font-semibold uppercase text-muted-foreground">
+            Period:
+          </Label>
+          <div className="w-48">
+            <NativeSelect
+              value={selectedPeriod ?? ""}
+              onChange={(e) => {
+                const p = e.target.value || undefined;
+                setSelectedPeriod(p);
+                startTransition(async () => {
+                  const res = await getReconciliationAction({
+                    orgUnitId: selectedOrgUnit,
+                    reportingPeriodId: p,
+                  });
+                  if (res.ok) setReconciliation(res.data);
+                });
+              }}
+            >
+              <option value="">All Historical Periods</option>
+              {options.periods.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+        </div>
+
+        <Badge
+          variant="outline"
+          className="text-xs border-emerald-500/40 text-status-success bg-emerald-500/5"
+        >
+          <ShieldCheck className="size-3.5 mr-1" />1 Carbon Credit = 1 tCO₂e Carbon Equivalent
+        </Badge>
       </div>
 
       {/* Tabs Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-3">
         <div className="flex flex-wrap gap-2">
           <Button
-            variant={activeTab === "inventory" ? "default" : "outline"}
+            variant={activeTab === "quotation" ? "default" : "outline"}
             size="sm"
-            onClick={() => setActiveTab("inventory")}
+            onClick={() => setActiveTab("quotation")}
           >
-            <Award className="size-4" />
-            Registry Ledger ({batches.length})
+            <ShoppingCart className="size-4" />
+            Carbon Equivalents & Credits to Purchase
           </Button>
           <Button
             variant={activeTab === "reconciliation" ? "default" : "outline"}
@@ -436,20 +525,20 @@ export function CarbonCreditsClient({
             Anti-Double-Counting Reconciliation
           </Button>
           <Button
+            variant={activeTab === "inventory" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveTab("inventory")}
+          >
+            <Award className="size-4" />
+            Registry Ledger ({batches.length})
+          </Button>
+          <Button
             variant={activeTab === "icp" ? "default" : "outline"}
             size="sm"
             onClick={() => setActiveTab("icp")}
           >
             <Coins className="size-4" />
             CapEx Carbon Evaluator (ICP)
-          </Button>
-          <Button
-            variant={activeTab === "quotation" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("quotation")}
-          >
-            <ShoppingCart className="size-4" />
-            Credits to Purchase
           </Button>
         </div>
 
@@ -694,7 +783,7 @@ export function CarbonCreditsClient({
             <Card className="lg:col-span-2 border-primary/20">
               <CardHeader className="pb-3">
                 <CardDescription className="text-xs font-semibold uppercase">
-                  1. Gross Operational Emissions
+                  1. Gross Carbon Equivalent
                 </CardDescription>
                 <CardTitle className="text-2xl font-bold text-foreground">
                   {reconciliation.gross.total.toLocaleString()}{" "}
@@ -774,11 +863,11 @@ export function CarbonCreditsClient({
             <Card className="lg:col-span-2 border-emerald-500/30 bg-emerald-500/5">
               <CardHeader className="pb-3">
                 <CardDescription className="text-xs font-semibold uppercase text-status-success">
-                  3. Net BRSR Carbon Position
+                  3. Net Carbon Deficit (Credits Needed)
                 </CardDescription>
                 <CardTitle className="text-2xl font-bold text-status-success">
                   {reconciliation.net.total.toLocaleString()}{" "}
-                  <span className="text-sm font-normal text-muted-foreground">tCO₂e</span>
+                  <span className="text-sm font-normal text-muted-foreground">Credits (tCO₂e)</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1.5 text-xs text-muted-foreground">

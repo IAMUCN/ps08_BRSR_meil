@@ -151,14 +151,18 @@ export function OverviewTab({
           {/* Card 1: Total Carbon Emissions */}
           <div className="rounded-lg border border-border bg-card p-3.5 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">Total Emissions</span>
+              <span className="text-xs font-medium text-muted-foreground">
+                Total Carbon Equivalent
+              </span>
               <Layers className="size-3.5 text-primary-text" aria-hidden />
             </div>
             <div className="mt-2 text-xl font-bold tracking-tight text-foreground">
               {latestYear ? fmt(latestYear.total) : "—"}
               <span className="ml-1 text-[11px] font-normal text-muted-foreground">tCO₂e</span>
             </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">Approved calculations</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Approved calculations (CO₂e)
+            </div>
           </div>
 
           {/* Card 2: Scope 1 Emissions */}

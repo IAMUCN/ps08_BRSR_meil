@@ -172,13 +172,19 @@ export function CarbonQuotationPanel({
       <div className="rounded-xl border border-primary/20 bg-linear-to-r from-card via-card to-primary/5 p-6 shadow-xs">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge className="bg-primary text-primary-foreground font-semibold">
                 <Calculator className="size-3.5 mr-1" />
-                Carbon Credits to Purchase
+                Carbon Equivalents & Credits
               </Badge>
               <Badge variant="outline" className="border-border">
                 {orgUnitName} · {periodLabel}
+              </Badge>
+              <Badge
+                variant="secondary"
+                className="border-emerald-500/30 bg-emerald-500/10 text-status-success font-medium text-xs"
+              >
+                1 Carbon Credit = 1 tCO₂e Carbon Equivalent
               </Badge>
             </div>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground">
@@ -186,7 +192,8 @@ export function CarbonQuotationPanel({
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Directly derived from your organization&apos;s verified emission data. 1 Carbon Credit
-              offsets exactly 1 tCO₂e of greenhouse gas emissions.
+              offsets exactly 1 metric tonne of CO₂ equivalent (1 tCO₂e) of greenhouse gas
+              emissions.
             </p>
           </div>
 
@@ -206,7 +213,7 @@ export function CarbonQuotationPanel({
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-lg border bg-card/60 p-4">
             <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-              <span>Gross Operational Emissions</span>
+              <span>Gross Carbon Equivalent (Footprint)</span>
               <Flame className="size-4 text-amber-500" />
             </div>
             <div className="mt-2 text-2xl font-bold text-foreground">
@@ -224,12 +231,14 @@ export function CarbonQuotationPanel({
 
           <div className="rounded-lg border bg-card/60 p-4">
             <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-              <span>Existing Retired Credits</span>
+              <span>Existing Retired Offsets</span>
               <ShieldCheck className="size-4 text-purple-500" />
             </div>
             <div className="mt-2 text-2xl font-bold text-primary-text">
               {reconciliation.offsets.total.toLocaleString()}{" "}
-              <span className="text-sm font-normal text-muted-foreground">Credits (tCO₂e)</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                Credits (tCO₂e Equivalent)
+              </span>
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
               Already retired in registry & applied to SEBI BRSR
@@ -246,11 +255,7 @@ export function CarbonQuotationPanel({
               <span className="text-sm font-normal text-muted-foreground">Credits</span>
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-medium text-foreground">
-              <span>S1: {shortfall.scope1.toLocaleString()}</span>
-              <span>·</span>
-              <span>S2: {shortfall.scope2.toLocaleString()}</span>
-              <span>·</span>
-              <span>S3: {shortfall.scope3.toLocaleString()}</span>
+              <span>1 Credit = 1 tCO₂e Carbon Equivalent</span>
             </div>
           </div>
         </div>
@@ -398,11 +403,13 @@ export function CarbonQuotationPanel({
             <thead className="bg-table-header text-table-header-foreground border-y">
               <tr>
                 <th className="px-4 py-3 font-semibold">Emission Scope</th>
-                <th className="px-4 py-3 font-semibold text-right">Gross Emissions (tCO₂e)</th>
+                <th className="px-4 py-3 font-semibold text-right">
+                  Gross Carbon Equivalent (tCO₂e)
+                </th>
                 <th className="px-4 py-3 font-semibold text-right">Existing Retired Offsets</th>
-                <th className="px-4 py-3 font-semibold text-right">Net Residual Deficit</th>
+                <th className="px-4 py-3 font-semibold text-right">Carbon Deficit (tCO₂e)</th>
                 <th className="px-4 py-3 font-semibold text-right text-status-success font-bold">
-                  Credits to Purchase
+                  Credits to Purchase (1:1)
                 </th>
                 <th className="px-4 py-3 font-semibold text-right">Projected Net Emissions</th>
               </tr>

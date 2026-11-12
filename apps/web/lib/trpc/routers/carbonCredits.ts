@@ -572,18 +572,20 @@ export const carbonCreditsRouter = router({
         }[]
       >`
         select
-          s.code as scope_code,
+          coalesce(ps.code, s.code) as scope_code,
           coalesce(sum(case
-            when cr.value_unit in ('tCO2e', 'tonnes CO2e') then cr.value
-            when cr.value_unit in ('kgCO2e', 'kg CO2e') then cr.value / 1000.0
+            when lower(coalesce(cr.value_unit, '')) in ('tco2e', 'tonnes co2e', 'tco2', 'tonnes co2') then cr.value
+            when lower(coalesce(cr.value_unit, '')) in ('kgco2e', 'kg co2e', 'kgco2') then cr.value / 1000.0
             else 0
           end), 0)::text as total_tco2e
         from public.consolidation_records cr
-        join public.scopes s on s.id = cr.scope_id
+        join public.esg_metrics m on m.id = cr.metric_id
+        join public.scopes s on s.id = m.scope_id
+        left join public.scopes ps on ps.id = s.parent_scope_id
         where cr.org_unit_id = ${input.orgUnitId}
           and cr.approval_status = 'approved'
           and (${input.reportingPeriodId ?? null}::uuid is null or cr.reporting_period_id = ${input.reportingPeriodId ?? null}::uuid)
-        group by s.code
+        group by coalesce(ps.code, s.code)
       `;
 
       let grossScope1 = 0;
@@ -594,7 +596,8 @@ export const carbonCreditsRouter = router({
         const val = Number(row.total_tco2e);
         if (row.scope_code === "SCOPE_1") grossScope1 += val;
         else if (row.scope_code === "SCOPE_2") grossScope2 += val;
-        else if (row.scope_code === "SCOPE_3") grossScope3 += val;
+        else if (row.scope_code === "SCOPE_3" || row.scope_code.startsWith("SCOPE_3"))
+          grossScope3 += val;
       }
       const grossTotal = grossScope1 + grossScope2 + grossScope3;
 
