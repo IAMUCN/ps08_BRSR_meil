@@ -460,3 +460,58 @@ Built by the feature session at the owner's request; no restyle.
   beneath; screen-reader names, the introduction ("I'm Tracey. Ask me about …") and the question box say Tracey.
 - `lib/chat/orchestrate.ts`: the instructions start "You are Tracey, the ESG data analyst inside EmeilSG"; she
   answers to her name. `tests/e2e/ui-phase8.mjs` expects "Ask Tracey".
+
+## ui, 2026-11-12 (Help page: animated questions; owner's request)
+
+- `components/help/faq.tsx` (new, client): `FaqList` and `FaqItem` replace the `<details>` blocks in the Help page's
+  Questions section. An answer opens and closes with a height and fade animation (`motion/react`, 0.26 s), the
+  chevron turns, the open item takes a tinted background, and the questions arrive one after another the first time
+  the list scrolls into view. Each question is a button in an `h3` with `aria-expanded` / `aria-controls`; the
+  answer is a labelled region. With reduced motion the timings are zero and the slide is dropped; the markup is the
+  same either way (rendering it differently caused a hydration error, caught in the browser check).
+- `app/app/help/page.tsx`: uses the new components; three questions added (own account, where the document is read,
+  the same bill twice). No migration, no new dependency, no server procedure.
+- Checked: format, lint, typecheck, web unit tests; the component in Chromium on a temporary page (since removed) at
+  1280 and 390 px and with reduced motion: opens, closes, Enter key, no sideways scroll, no page error. **Not run:**
+  the Help page itself signed in (no database in that session), the three themes, the production build, the
+  accessibility suite.
+
+## ui, 2026-11-12 (Help page: start-here cards, animated process flow, website blueprint; owner's request)
+
+- `components/help/reveal.tsx` (new, client): `Reveal` / `RevealItem`, the same in-view stagger as the questions,
+  for any group on the Help page. Zero timings and no slide with reduced motion; same markup either way.
+- `app/app/help/page.tsx`: three "start here" cards under the contents list (uploading, reviewing or following
+  records, finding your way), by audience; the process-flow steps (`Flow`) arrive one after another; "Where things
+  are" is now **Blueprint of the website**: the three parts of the site as a flow (public pages, sign in, Workspace
+  or Administration), then the person's own pages grouped as the menu groups them, each with one line on what it is
+  for (`PAGE_PURPOSE`, `AREA_OF` in the page; a new sidebar page needs a line in both); the roles table has a
+  "Works in" column (Administration for `admin` and `org_admin`, Workspace otherwise).
+- No migration, no new dependency, no server procedure.
+- Checked: format, lint, typecheck, web unit tests; the page rendered in Chromium on a temporary copy with stand-in
+  session and settings (since removed), as a Super Admin and a contributor at 1280 px, at 390 px and with reduced
+  motion: nothing left hidden after scrolling, no sideways scroll, no page or console error. **Not run:** the real
+  page signed in against a database, an Administrator's view, the three themes, the production build, the
+  accessibility suite.
+
+## ui, 2026-11-12 (Documentation on the landing page, not in the signed-in space; owner's request)
+
+- `components/landing/documentation-section.tsx` (new, server) and `components/landing/docs-tabs.tsx` (new, client):
+  a **Documentation** section (`#docs`) on the landing page, before the questions, written as an end-user manual in
+  four tabs: Getting started (invitation to first upload), Roles (what each does and where it works), Checkpoints
+  (the six checks a figure passes) and Technical details (version, the portal, the backend, the document reader,
+  Docker, calculations, email, the assistant), all in plain language with no setup steps. The portal version and
+  the Next.js / React versions are read from `package.json` and the engine version from `lib/calculation/engine.ts`,
+  so they follow the code. Limits an administrator can change (invitation lifetime, session length, upload size)
+  are described without a number, since a public page cannot read the settings.
+- The tabs are a real tab list (arrow keys, Home, End; one panel shown), with a sliding pill and a fade between
+  panels; `MotionProvider` drops the movement for reduced motion. The roles are a list, not a table: the global
+  first-column table rule made the header unreadable on the light landing page.
+- `components/landing/links.ts`: a sixth navigation item, "Docs". `landing-page.tsx`: the section added.
+- `app/app/help/page.tsx`: the three "start here" cards added earlier the same day are removed again (the owner
+  wants the documentation on the landing page). The animated questions, process flow and blueprint stay.
+- No migration, no new dependency, no server procedure.
+- Checked: format, lint, typecheck, web unit tests; the landing page in Chromium on a dev server at 1440 and 390 px
+  and with reduced motion: every tab selects, one panel at a time, Home key works, no sideways scroll, no page or
+  console error; screenshots looked at. **Not run:** the production build, the accessibility suite, the public
+  wording against `COMPLIANCE_AUDIT_2026-10-12.md` (the claims made are the ones the README and audits already
+  state: own OCR worker, private storage, server-side checks).
