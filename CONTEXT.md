@@ -753,6 +753,7 @@ _Last updated: 2026-11-11._
 
 | Question | Notes |
 |---|---|
+| Decision-intelligence branch (`e333e9b`, 2026-11-12) | Its eight routers had lost their registration in `lib/trpc/root.ts` in a later merge, so Vercel's build failed (38 type errors); re-registered 2026-11-12 (build passes). Still open: its migrations reuse numbers `0053`–`0055` (pgvector/RAG, forecasts, what-if), which `main` already has, and are on no database, so the Decision Center's features that read those tables fail at run time. Ask its author, or have the feature role renumber them to `0068`+ and apply them on hosted. |
 | Expected submissions for the demo (2026-11-11) | The Upload page's progress list is empty for most projects: only MSRTC, BEST and Olectra have expectations. Fill them in on Admin → Organization, or ask the agent to set them from the test data. |
 | Daily reminders on Vercel (2026-11-11) | Save schedule now sends today's reminders at once, but nothing runs daily until `CRON_SECRET` (16+ random characters) is added to the Vercel project's environment variables and the app is redeployed; the panel then says "Active · runs daily at 9:00 IST". |
 | Hosted July–September 2026 test data (2026-11-11) | The real-OCR load was killed for low memory and not restarted (system rule). Say when to resume (`feed --months "July 2026,August 2026,September 2026" --extract ocr`, other apps stopped, hosted worker started), then `close` all 18 hosted months. |
