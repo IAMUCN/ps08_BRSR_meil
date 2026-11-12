@@ -109,3 +109,66 @@ test("Internal Carbon Pricing (ICP) & CapEx Evaluation Model", () => {
   assert.equal(result.traditionalNpv, 368065);
   assert.equal(result.carbonAdjustedNpv, 7078147);
 });
+
+test("Carbon Offset Quotation & Shortfall Procurement Calculations", async () => {
+  const {
+    calculateOffsetShortfall,
+    calculateQuotation,
+    QUOTATION_PROVIDERS,
+    formatInrLakhs,
+    generateRfqDocument,
+  } = await import("../lib/carbon-credits/quotation.ts");
+
+  const gross = { scope1: 5000, scope2: 3000, scope3: 2000, total: 10000 };
+  const offsets = { scope1: 1000, scope2: 1500, scope3: 0, total: 2500 };
+
+  const shortfall = calculateOffsetShortfall(gross, offsets);
+  assert.equal(shortfall.scope1, 4000);
+  assert.equal(shortfall.scope2, 1500);
+  assert.equal(shortfall.scope3, 2000);
+  assert.equal(shortfall.total, 7500);
+  assert.equal(shortfall.hasEmissions, true);
+
+  // Verra VCS Quotation
+  const verra = QUOTATION_PROVIDERS.find((p) => p.id === "verra_vcs");
+  assert.ok(verra, "Verra VCS provider should exist");
+  const quote = calculateQuotation(shortfall.total, verra!, shortfall.total);
+
+  assert.equal(quote.targetVolumeTco2e, 7500);
+  // 7,500 * 920 = 6,900,000 INR (69 Lakhs)
+  assert.equal(quote.estimatedTotalInr, 6900000);
+  assert.equal(quote.remainingNetEmissionsTco2e, 0);
+  assert.equal(quote.offsetPercentage, 100);
+  assert.equal(formatInrLakhs(quote.estimatedTotalInr), "₹69.00 Lakhs");
+
+  // CarbonTradeLabs Spot Exchange Quotation
+  const ctx = QUOTATION_PROVIDERS.find((p) => p.id === "carbontradelabs");
+  assert.ok(ctx, "CarbonTradeLabs provider should exist");
+  const ctxQuote = calculateQuotation(2000, ctx!, shortfall.total);
+  assert.equal(ctxQuote.targetVolumeTco2e, 2000);
+  assert.equal(ctxQuote.estimatedTotalInr, 1760000);
+  assert.equal(ctxQuote.remainingNetEmissionsTco2e, 5500);
+  assert.ok(ctxQuote.offsetPercentage > 26 && ctxQuote.offsetPercentage < 27);
+
+  // RFQ Generation
+  const rfq = generateRfqDocument({
+    rfqNumber: "RFQ-TEST-1234",
+    createdAt: "13 Nov 2026",
+    orgUnitName: "MEIL Infrastructure",
+    orgUnitCode: "MEIL-INFRA",
+    reportingPeriod: "FY 2025-26",
+    targetVolumeTco2e: 7500,
+    scopeBreakdown: { scope1: 4000, scope2: 1500, scope3: 2000 },
+    preferredRegistries: ["Verra VCS", "Gold Standard", "CCTS India"],
+    vintageWindow: "2022–2025",
+    additionalityClause: "Must be certified additional under approved methodology.",
+    antiDoubleCountingClause: "Non-double-counting warranty required under Article 6.",
+    estimatedBudgetInr: "₹69.00 Lakhs",
+    estimatedBudgetUsd: "$82.5k",
+  });
+
+  assert.ok(rfq.includes("RFQ-TEST-1234"));
+  assert.ok(rfq.includes("7,500 tCO2e"));
+  assert.ok(rfq.includes("MEIL Infrastructure"));
+  assert.ok(rfq.includes("SEBI BRSR Core"));
+});

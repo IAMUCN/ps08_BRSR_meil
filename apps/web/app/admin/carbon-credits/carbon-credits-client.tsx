@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import {
   Award,
+  Calculator,
   CheckCircle2,
   Coins,
   Leaf,
@@ -12,6 +13,7 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  ShoppingCart,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -30,6 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { CarbonQuotationPanel } from "./carbon-quotation-panel";
 import {
   evaluateCapexAction,
   getReconciliationAction,
@@ -123,7 +126,9 @@ export function CarbonCreditsClient({
   initialOrgUnitId,
   onOrgChange,
 }: CarbonCreditsClientProps) {
-  const [activeTab, setActiveTab] = useState<"inventory" | "reconciliation" | "icp">("inventory");
+  const [activeTab, setActiveTab] = useState<"inventory" | "reconciliation" | "icp" | "quotation">(
+    "inventory",
+  );
   const [summary, setSummary] = useState(initialSummary);
   const [batches, setBatches] = useState(initialBatches);
   const [reconciliation, setReconciliation] = useState(initialReconciliation);
@@ -437,6 +442,14 @@ export function CarbonCreditsClient({
           >
             <Coins className="size-4" />
             CapEx Carbon Evaluator (ICP)
+          </Button>
+          <Button
+            variant={activeTab === "quotation" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveTab("quotation")}
+          >
+            <ShoppingCart className="size-4" />
+            Carbon Offset Quotation
           </Button>
         </div>
 
@@ -788,6 +801,16 @@ export function CarbonCreditsClient({
                   </span>
                 </div>
               </CardContent>
+              <div className="border-t border-emerald-500/20 px-6 py-3 bg-emerald-500/5">
+                <Button
+                  size="sm"
+                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold"
+                  onClick={() => setActiveTab("quotation")}
+                >
+                  <ShoppingCart className="size-3.5 mr-1.5" />
+                  Get Quotation to Offset {reconciliation.net.total.toLocaleString()} tCO₂e
+                </Button>
+              </div>
             </Card>
           </div>
 
@@ -1089,6 +1112,27 @@ export function CarbonCreditsClient({
             </div>
           </div>
         </div>
+      )}
+
+      {/* TAB 4: CARBON OFFSET QUOTATION & PROCUREMENT */}
+      {activeTab === "quotation" && (
+        <CarbonQuotationPanel
+          orgUnitName={options.orgUnits.find((u) => u.id === selectedOrgUnit)?.name ?? "MEIL"}
+          orgUnitCode={options.orgUnits.find((u) => u.id === selectedOrgUnit)?.code ?? ""}
+          periodLabel={options.periods.find((p) => p.id === selectedPeriod)?.label ?? "FY 2025-26"}
+          reconciliation={reconciliation}
+          currentShadowPrice={summary.currentShadowPrice}
+          onInitiateMint={(prefill) => {
+            setMintForm((prev) => ({
+              ...prev,
+              projectName: prefill.projectName,
+              registry: prefill.registry,
+              quantityTco2e: prefill.quantityTco2e,
+              notes: prefill.notes,
+            }));
+            setIsMintOpen(true);
+          }}
+        />
       )}
 
       {/* MODAL: MINT / REGISTER BATCH */}
