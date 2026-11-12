@@ -163,7 +163,11 @@ check(
     links.data.length >= 6 &&
     links.data.every((l) => l.url.startsWith("https://") && l.host),
 );
-const page = (await admin.get("/admin/carbon-credits")).html;
+let pageRes = await admin.get("/admin/carbon-credits");
+if (pageRes.location) {
+  pageRes = await admin.get(pageRes.location);
+}
+const page = pageRes.html;
 check(
   "Carbon Markets says EmeilSG does not sell, certify or guarantee credits",
   /does not sell, certify or guarantee carbon credits/.test(page),

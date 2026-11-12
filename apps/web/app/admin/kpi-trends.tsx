@@ -21,10 +21,10 @@ export function KpiTrendsCard({ trends, orgName }: { trends: KpiTrends; orgName:
           Approved records only, for {orgName} and everything beneath it. A year with no approved
           data is left empty, never shown as zero.{" "}
           <Link
-            href="/admin/carbon-analytics"
+            href="/admin/carbon-intelligence"
             className="text-primary-text underline underline-offset-2"
           >
-            Carbon Analytics
+            Carbon Intelligence
           </Link>{" "}
           has the break-down by activity, suggested actions and emission alerts.
         </p>
