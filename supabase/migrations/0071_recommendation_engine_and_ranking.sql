@@ -17,36 +17,9 @@ create table if not exists public.recommendations_reports (
 
 create index if not exists rec_reports_org_period_idx on public.recommendations_reports (org_unit_id, reporting_period_id);
 
--- Permissions
-insert into public.permissions (code, description) values
-  ('recommendation.view', 'View prioritized decarbonization and operational recommendations with transparent ranking breakdown.'),
-  ('recommendation.manage', 'Recalibrate recommendation ranking weights and update recommendation status.')
-on conflict (code) do nothing;
-
-insert into public.role_permissions (role_id, permission_id)
-select r.id, p.id
-from public.roles r
-cross join public.permissions p
-where r.code in ('admin', 'corporate_esg') and p.code in ('recommendation.view', 'recommendation.manage')
-on conflict do nothing;
-
-insert into public.role_permissions (role_id, permission_id)
-select r.id, p.id
-from public.roles r
-cross join public.permissions p
-where r.code in ('project_manager', 'ehs', 'finance_csr') and p.code = 'recommendation.view'
-on conflict do nothing;
-
 -- RLS
 alter table public.recommendations_reports enable row level security;
-revoke all on public.recommendations_reports from anon;
+revoke all on public.recommendations_reports from anon, authenticated;
+grant select on public.recommendations_reports to authenticated;
 
-do $$
-begin
-  if exists (select from pg_roles where rolname = 'chat_reader') then
-    grant select on public.recommendations_reports to chat_reader;
-    create policy chat_reader_select_rr on public.recommendations_reports for select to chat_reader using (true);
-  end if;
-exception when others then
-  null;
-end $$;
+create policy recommendations_reports_read on public.recommendations_reports for select to authenticated using (true);

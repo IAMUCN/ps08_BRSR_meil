@@ -24,7 +24,11 @@ select tables_are('public', array[
   'org_levels', 'chat_conversations', 'chat_messages', 'org_unit_parents',
   'carbon_credits', 'carbon_credit_transactions', 'internal_carbon_prices', 'capex_carbon_evaluations',
   'user_invitations', 'user_sessions', 'report_forwards', 'reminder_sends',
-  'carbon_credit_links', 'emission_alerts', 'emission_alert_sends', 'demo_requests'
+  'carbon_credit_links', 'emission_alerts', 'emission_alert_sends', 'demo_requests',
+  -- Added by documented deviations for Decision Intelligence (D57-D65, migrations 0067-0075)
+  'decision_rules', 'decision_rule_evaluations', 'decarbonization_suggestions', 'decarbonization_roadmaps',
+  'risk_evaluation_reports', 'recommendations_reports', 'ai_providers', 'ai_security_policies',
+  'rag_knowledge_chunks', 'predictive_forecast_snapshots', 'what_if_scenario_simulations'
 ], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(

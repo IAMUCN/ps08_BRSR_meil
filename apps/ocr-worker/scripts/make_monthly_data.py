@@ -88,10 +88,11 @@ def fields_of(metric: str, expected: dict, ref: str, period: str) -> dict:
         fields["total_employees"] = str(expected["total"])
     if metric.startswith("SAFETY_"):
         fields.update({"fatalities": "0", "high_consequence_injuries": "0"})
-    if (
-        metric not in ("WORKFORCE_GENDER", "WORKFORCE_TRAINING", "MSME_PROCUREMENT")
-        and not metric.startswith("SAFETY_")
-    ):
+    if metric not in (
+        "WORKFORCE_GENDER",
+        "WORKFORCE_TRAINING",
+        "MSME_PROCUREMENT",
+    ) and not metric.startswith("SAFETY_"):
         fields["invoice_number"] = ref
     fields["billing_period"] = period
     return fields
@@ -290,10 +291,7 @@ def write_month(root: Path, feed: Path | None, year: int, month: int, factor: fl
             f"({'; '.join(f'{k}={v}' for k, v in expected.items())})"
         )
     path = (
-        Path("documents")
-        / small.ref
-        / m.ROLE_NAMES[m.PM]
-        / "multi-bill (3 bills in one PDF).pdf"
+        Path("documents") / small.ref / m.ROLE_NAMES[m.PM] / "multi-bill (3 bills in one PDF).pdf"
     )
     (folder / path).parent.mkdir(parents=True, exist_ok=True)
     pdf = m.bundle(pages)

@@ -73,39 +73,12 @@ create table if not exists public.decarbonization_roadmaps (
 
 create index if not exists roadmaps_org_period_idx on public.decarbonization_roadmaps (org_unit_id, reporting_period_id);
 
--- 3. Permissions
-insert into public.permissions (code, description) values
-  ('suggestion.view', 'View decarbonization suggestions, carbon abatement roadmaps, and payback analytics.'),
-  ('suggestion.manage', 'Generate, accept, assign, and update decarbonization action items.')
-on conflict (code) do nothing;
-
-insert into public.role_permissions (role_id, permission_id)
-select r.id, p.id
-from public.roles r
-cross join public.permissions p
-where r.code in ('admin', 'corporate_esg') and p.code in ('suggestion.view', 'suggestion.manage')
-on conflict do nothing;
-
-insert into public.role_permissions (role_id, permission_id)
-select r.id, p.id
-from public.roles r
-cross join public.permissions p
-where r.code in ('project_manager', 'ehs', 'finance_csr') and p.code = 'suggestion.view'
-on conflict do nothing;
-
--- 4. RLS Configuration
+-- 3. RLS Configuration
 alter table public.decarbonization_suggestions enable row level security;
 alter table public.decarbonization_roadmaps enable row level security;
 
 revoke all on public.decarbonization_suggestions, public.decarbonization_roadmaps from anon, authenticated;
+grant select on public.decarbonization_suggestions, public.decarbonization_roadmaps to authenticated;
 
-do $$
-begin
-  if exists (select from pg_roles where rolname = 'chat_reader') then
-    grant select on public.decarbonization_suggestions, public.decarbonization_roadmaps to chat_reader;
-    create policy chat_reader_select_ds on public.decarbonization_suggestions for select to chat_reader using (true);
-    create policy chat_reader_select_dr on public.decarbonization_roadmaps for select to chat_reader using (true);
-  end if;
-exception when others then
-  null;
-end $$;
+create policy decarbonization_suggestions_read on public.decarbonization_suggestions for select to authenticated using (true);
+create policy decarbonization_roadmaps_read on public.decarbonization_roadmaps for select to authenticated using (true);

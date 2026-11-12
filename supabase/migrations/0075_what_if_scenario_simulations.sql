@@ -30,13 +30,6 @@ alter table public.what_if_scenario_simulations enable row level security;
 create policy what_if_scenario_select on public.what_if_scenario_simulations
   for select to authenticated using (true);
 
--- Policy: Insert allowed for authenticated users
-create policy what_if_scenario_insert on public.what_if_scenario_simulations
-  for insert to authenticated with check (true);
-
--- Policy: Update/Delete allowed for authenticated users
-create policy what_if_scenario_modify on public.what_if_scenario_simulations
-  for all to authenticated using (true) with check (true);
-
--- Revoke dangerous direct modifications from anon
-revoke all on public.what_if_scenario_simulations from anon;
+-- Revoke modifications from anon and authenticated
+revoke all on public.what_if_scenario_simulations from anon, authenticated;
+grant select on public.what_if_scenario_simulations to authenticated;

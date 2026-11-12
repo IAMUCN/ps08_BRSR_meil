@@ -5,8 +5,8 @@
 -- 3. HNSW vector index & GIN full-text search index.
 -- 4. Permission-aware retrieval function with org_unit_id filtering.
 
--- Enable pgvector extension
-create extension if not exists vector;
+-- Enable pgvector extension in extensions schema
+create extension if not exists vector with schema extensions;
 
 -- RAG Knowledge Chunks table
 create table if not exists public.rag_knowledge_chunks (
@@ -26,7 +26,7 @@ create table if not exists public.rag_knowledge_chunks (
   title text not null,
   content text not null,
   tsv tsvector generated always as (to_tsvector('english', title || ' ' || content)) stored,
-  embedding vector(768),
+  embedding extensions.vector(768),
   metadata jsonb not null default '{}'::jsonb,
   citation_label text not null,
   is_verified boolean not null default true,
@@ -58,12 +58,13 @@ alter table public.rag_knowledge_chunks enable row level security;
 create policy rag_chunks_read on public.rag_knowledge_chunks
   for select to authenticated using (true);
 
-revoke insert, update, delete on public.rag_knowledge_chunks from anon, public;
+revoke all on public.rag_knowledge_chunks from anon, authenticated;
+grant select on public.rag_knowledge_chunks to authenticated;
 
 -- Hybrid search stored procedure (Vector Cosine + Text Rank + Permission Filter)
 create or replace function public.hybrid_search_rag_chunks(
   query_text text,
-  query_embedding vector(768),
+  query_embedding extensions.vector(768),
   match_count int,
   authorized_org_units uuid[] default null,
   allowed_classifications text[] default null,
@@ -86,6 +87,7 @@ returns table (
   combined_score float
 )
 language sql stable
+set search_path = public, extensions
 as $$
   with vector_matches as (
     select

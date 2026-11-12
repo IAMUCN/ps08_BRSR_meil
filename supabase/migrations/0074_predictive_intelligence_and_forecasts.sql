@@ -33,5 +33,6 @@ alter table public.predictive_forecast_snapshots enable row level security;
 create policy predictive_forecast_select on public.predictive_forecast_snapshots
   for select to authenticated using (true);
 
--- Revoke dangerous direct modifications from anon and public
-revoke insert, update, delete on public.predictive_forecast_snapshots from anon, public;
+-- Revoke modifications from anon and authenticated
+revoke all on public.predictive_forecast_snapshots from anon, authenticated;
+grant select on public.predictive_forecast_snapshots to authenticated;

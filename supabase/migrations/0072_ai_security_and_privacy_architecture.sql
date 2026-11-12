@@ -71,6 +71,8 @@ create policy ai_providers_read on public.ai_providers
 create policy ai_security_policies_read on public.ai_security_policies
   for select to authenticated using (true);
 
--- Revoke all modifications from public/anon
-revoke insert, update, delete on public.ai_providers from anon, public;
-revoke insert, update, delete on public.ai_security_policies from anon, public;
+-- Revoke modifications and unauthorized access from anon and authenticated
+revoke all on public.ai_providers from anon, authenticated;
+revoke all on public.ai_security_policies from anon, authenticated;
+grant select on public.ai_providers to authenticated;
+grant select on public.ai_security_policies to authenticated;

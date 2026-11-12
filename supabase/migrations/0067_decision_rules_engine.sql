@@ -50,7 +50,8 @@ create index if not exists decision_eval_rule_idx on public.decision_rule_evalua
 
 -- 3. Append-only enforcement for evaluations
 create or replace function public.prevent_decision_evaluations_change() returns trigger
-language plpgsql as $$
+language plpgsql
+set search_path = '' as $$
 begin
   raise exception 'decision_rule_evaluations is append-only: % is not allowed', tg_op
     using errcode = 'insufficient_privilege';
@@ -68,50 +69,15 @@ create trigger trg_decision_rule_evaluations_no_truncate
   before truncate on public.decision_rule_evaluations
   for each statement execute function public.prevent_decision_evaluations_change();
 
--- 4. Permissions
-insert into public.permissions (code, description) values
-  ('decision_rule.view', 'View configurable decision rules, threshold alerts and evaluation receipts.'),
-  ('decision_rule.manage', 'Create, version and adjust operational decision rules and threshold parameters.')
-on conflict (code) do nothing;
-
-insert into public.role_permissions (role_id, permission_id)
-select r.id, p.id
-from public.roles r
-cross join public.permissions p
-where r.code = 'admin' and p.code in ('decision_rule.view', 'decision_rule.manage')
-on conflict do nothing;
-
-insert into public.role_permissions (role_id, permission_id)
-select r.id, p.id
-from public.roles r
-cross join public.permissions p
-where r.code = 'corporate_esg' and p.code in ('decision_rule.view', 'decision_rule.manage')
-on conflict do nothing;
-
-insert into public.role_permissions (role_id, permission_id)
-select r.id, p.id
-from public.roles r
-cross join public.permissions p
-where r.code in ('project_manager', 'ehs', 'finance_csr') and p.code = 'decision_rule.view'
-on conflict do nothing;
-
--- 5. RLS Configuration
+-- 4. RLS Configuration
 alter table public.decision_rules enable row level security;
 alter table public.decision_rule_evaluations enable row level security;
 
 revoke all on public.decision_rules, public.decision_rule_evaluations from anon, authenticated;
+grant select on public.decision_rules, public.decision_rule_evaluations to authenticated;
 
--- Allow chat_reader role read-only access if present
-do $$
-begin
-  if exists (select from pg_roles where rolname = 'chat_reader') then
-    grant select on public.decision_rules, public.decision_rule_evaluations to chat_reader;
-    create policy chat_reader_select_dr on public.decision_rules for select to chat_reader using (true);
-    create policy chat_reader_select_dre on public.decision_rule_evaluations for select to chat_reader using (true);
-  end if;
-exception when others then
-  null;
-end $$;
+create policy decision_rules_read on public.decision_rules for select to authenticated using (true);
+create policy decision_rule_evaluations_read on public.decision_rule_evaluations for select to authenticated using (true);
 
 -- 6. Seed Baseline Version 1 Operational Rules
 insert into public.decision_rules (

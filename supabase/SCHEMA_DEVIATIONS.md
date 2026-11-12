@@ -766,3 +766,18 @@ browser grants, listed for Super Admins. `org_settings.demo_video` holds the You
 request. Owner's request; `.grill/demo-requests-decisions.md`.
 
 **Undo:** in the header of `0066_demo_requests.sql`.
+
+## D57 — Decision Intelligence Architecture (migrations `0067`–`0075`, 2026-11-12)
+
+Adds 11 tables for operational decision intelligence, SEBI BRSR RAG, predictive forecasting, and decarbonization simulation:
+- `decision_rules`, `decision_rule_evaluations` (migration `0067`): Configurable versioned decision rules with append-only evaluation receipts.
+- `decarbonization_suggestions`, `decarbonization_roadmaps` (migration `0068`): Decarbonization action items and strategic roadmaps.
+- `risk_evaluation_reports` (migration `0069`): 6-vector operational risk assessments with audit disclaimers.
+- `recommendations_reports` (migration `0071`): Multi-criteria ranked recommendation reports ($0.35I + 0.25U + 0.20F + 0.20D$).
+- `ai_providers`, `ai_security_policies` (migration `0072`): Approved AI provider registry, permission matrix, and emergency kill switch.
+- `rag_knowledge_chunks` (migration `0073`): pgvector knowledge chunks for hybrid semantic search across statutory guidelines and verified records.
+- `predictive_forecast_snapshots` (migration `0074`): GBDT model tournament and time-series consumption forecasts.
+- `what_if_scenario_simulations` (migration `0075`): Decarbonization levers and internal carbon pricing financial evaluations.
+
+All tables have RLS enabled, zero browser write privileges, and strict tenant isolation by `org_unit_id`. Server procedures write via elevated service connection.
+
