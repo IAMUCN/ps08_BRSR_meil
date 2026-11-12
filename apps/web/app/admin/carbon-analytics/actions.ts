@@ -14,7 +14,10 @@ export async function wordRecommendationAction(input: {
 
 export async function acknowledgeAlertAction(input: { id: string; note: string }) {
   const result = await runAction((api) => api.analytics.acknowledge(input));
-  if (result.ok) revalidatePath("/admin/carbon-analytics");
+  if (result.ok) {
+    revalidatePath("/admin/carbon-analytics");
+    revalidatePath("/admin/carbon-intelligence");
+  }
   return result;
 }
 
@@ -26,13 +29,19 @@ export async function updateAlertSettingsAction(input: {
   lookbackDays: number;
 }) {
   const result = await runAction((api) => api.analytics.updateAlertSettings(input));
-  if (result.ok) revalidatePath("/admin/carbon-analytics");
+  if (result.ok) {
+    revalidatePath("/admin/carbon-analytics");
+    revalidatePath("/admin/carbon-intelligence");
+  }
   return result;
 }
 
 export async function runAlertsAction() {
   const result = await runAction((api) => api.analytics.runAlerts());
-  if (result.ok) revalidatePath("/admin/carbon-analytics");
+  if (result.ok) {
+    revalidatePath("/admin/carbon-analytics");
+    revalidatePath("/admin/carbon-intelligence");
+  }
   return result;
 }
 

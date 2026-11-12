@@ -57,36 +57,48 @@ def process_next(
         if not job_context.esg_record_id and not job_context.is_bundle:
             raise PermanentError(NOT_LINKED)
 
-        data = storage.download(settings, job_context.storage_path)
-        pages, total_pages = files.to_page_images(
-            data,
-            job_context.mime_type,
-            files.BUNDLE_MAX_PAGES if job_context.is_bundle else files.MAX_PAGES,
-        )
-        if job_context.is_bundle and total_pages > files.BUNDLE_MAX_PAGES:
-            raise PermanentError(
-                f"This PDF has {total_pages} pages; at most {files.BUNDLE_MAX_PAGES} are supported "
-                "— split it into smaller PDFs."
+        # A bill cut from an upload was read already, page by page, when the upload was split
+        # (owner's request, 2026-11-12): reuse that reading instead of reading it twice.
+        reused = None if job_context.is_bundle else db.load_bundle_reading(conn, job.document_id)
+        if reused:
+            lines, page_sizes = reused
+            total_pages = processed_pages = len(page_sizes)
+        else:
+            data = storage.download(settings, job_context.storage_path)
+            pages, total_pages = files.to_page_images(
+                data,
+                job_context.mime_type,
+                files.BUNDLE_MAX_PAGES if job_context.is_bundle else files.MAX_PAGES,
             )
-        try:
-            lines = engine.read(pages)
-        except Exception as error:
-            raise TransientError(f"OCR engine error: {error}") from error
+            if job_context.is_bundle and total_pages > files.BUNDLE_MAX_PAGES:
+                raise PermanentError(
+                    f"This upload has {total_pages} pages; at most {files.BUNDLE_MAX_PAGES} are "
+                    "supported — split it into smaller uploads."
+                )
+            try:
+                lines = engine.read(pages)
+            except Exception as error:
+                raise TransientError(f"OCR engine error: {error}") from error
+            page_sizes = [[int(page.shape[1]), int(page.shape[0])] for page in pages]
+            processed_pages = len(pages)
         if not any(line.text.strip() and line.score >= MIN_READABLE_SCORE for line in lines):
             raise PermanentError(NO_TEXT)
 
         if job_context.is_bundle:
-            _propose_bundle(conn, job, lines, len(pages), total_pages, context, started)
+            _propose_bundle(
+                conn, job, lines, processed_pages, total_pages, page_sizes, context, started
+            )
             return True
 
         document_type, type_scores = classify(lines, job_context.document_types)
         fields = extract_fields(lines, job_context.fields)
         raw_output = {
             "engine": {"models": MODEL_VERSION, "extractor": EXTRACTOR_VERSION},
-            "pages": {"total": total_pages, "processed": len(pages)},
+            "pages": {"total": total_pages, "processed": processed_pages},
             # Width and height of each page image the boxes below are measured on, so a viewer can
             # draw a field's box on the document at any zoom (Phase 3).
-            "page_sizes": [[int(page.shape[1]), int(page.shape[0])] for page in pages],
+            "page_sizes": page_sizes,
+            **({"reused_from_upload": True} if reused else {}),
             "lines": [
                 {"page": ln.page, "text": ln.text, "score": round(ln.score, 4), "box": ln.box}
                 for ln in lines
@@ -141,6 +153,7 @@ def _propose_bundle(
     lines: list[TextLine],
     pages_read: int,
     total_pages: int,
+    page_sizes: list[list[int]],
     context: dict,
     started: float,
 ) -> None:
@@ -159,6 +172,8 @@ def _propose_bundle(
                 "page_to": part.page_to,
                 "document_type_id": entry.id if entry else None,
                 "metric_id": metric_id,
+                "bill_number": part.bill_number,
+                "billing_period": part.billing_period,
             }
         )
         summary.append(
@@ -168,11 +183,15 @@ def _propose_bundle(
                 "document_type": part.document_type,
                 "scores": part.scores,
                 "metric_id": metric_id,
+                "bill_number": part.bill_number,
+                "billing_period": part.billing_period,
             }
         )
     raw_output = {
         "engine": {"models": MODEL_VERSION, "extractor": EXTRACTOR_VERSION},
         "pages": {"total": total_pages, "processed": pages_read},
+        # Kept so each bill cut from this upload can reuse the reading, boxes included.
+        "page_sizes": page_sizes,
         "lines": [
             {"page": ln.page, "text": ln.text, "score": round(ln.score, 4), "box": ln.box}
             for ln in lines

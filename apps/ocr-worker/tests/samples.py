@@ -183,6 +183,29 @@ def _travel(draw: ImageDraw.ImageDraw, invoice: str, invoice_date: str) -> None:
         draw.text((560, 280 + i * 60), value, fill="black", font=body)
 
 
+def _air_ticket(draw: ImageDraw.ImageDraw, pnr: str, date: str, passengers: int) -> None:
+    big, body = _font(40), _font(28)
+    draw.text((60, 110), "Sample Airways (fictitious)", fill="black", font=big)
+    draw.text((60, 170), "E-TICKET - GROUP BOOKING", fill="black", font=big)
+    rows = [("PNR No:", pnr), ("Date of Travel:", date), ("Sector:", "HYD - DEL")]
+    for i, (label, value) in enumerate(rows):
+        draw.text((60, 280 + i * 60), label, fill="black", font=body)
+        draw.text((560, 280 + i * 60), value, fill="black", font=body)
+    names = ["MR A KUMAR", "MS B RAO", "MR C SINGH", "MRS D JOSHI", "MR E KHAN", "MS F NAIR"]
+    draw.text((60, 480), "Passenger Details", fill="black", font=body)
+    for i in range(passengers):
+        title, *rest = names[i % len(names)].split(" ", 1)
+        draw.text((60, 540 + i * 50), f"{i + 1}. {title} {rest[0]}", fill="black", font=body)
+
+
+def air_ticket_pdf(pnr: str = "X7K2LQ", date: str = "12-Sep-2026", passengers: int = 6) -> bytes:
+    """A group air ticket (travel as distance x passengers, migration 0077): numbered names, no
+    count and no distance printed, as most tickets are."""
+    return _encode(
+        _page(lambda draw: _air_ticket(draw, pnr, date, passengers)), "PDF", resolution=150
+    )
+
+
 def waste_certificate_pdf(
     certificate: str = "WD-2026-0001", disposal_date: str = "12-Sep-2026"
 ) -> bytes:

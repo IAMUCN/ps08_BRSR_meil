@@ -1,9 +1,22 @@
 "use client";
 
 import { rowClick } from "@/components/ui/row-click";
-import { Download, RotateCcw, Search, X } from "lucide-react";
+import {
+  ChevronDown,
+  Download,
+  ExternalLink,
+  Eye,
+  FileStack,
+  FileText,
+  FolderTree,
+  RotateCcw,
+  Search,
+  X,
+} from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OrgTreeSelect } from "@/components/org/org-tree-select";
@@ -11,6 +24,8 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { csvSafeText } from "@/lib/csv";
 import { formatQuantity } from "@/lib/calculation/trace";
+import { pagesLabel } from "@/lib/documents/bundle";
+import { groupSubmissions, type SubmissionGroup } from "@/lib/ocr/rules";
 import type { RecordRow } from "@/lib/records/search";
 import type { ContextOptions } from "@/lib/trpc/routers/records";
 import { RecordDrawer } from "./record-drawer";
@@ -429,6 +444,13 @@ function exportCsv(rows: RecordRow[], name: string) {
   URL.revokeObjectURL(link.href);
 }
 
+function activitySummary(records: RecordRow[]): string {
+  const unique = Array.from(new Set(records.map((r) => r.metricName)));
+  if (unique.length === 1) return unique[0];
+  if (unique.length <= 2) return unique.join(", ");
+  return `${unique[0]}, ${unique[1]} +${unique.length - 2} more`;
+}
+
 export function RecordsTable({
   rows,
   truncated,
@@ -446,21 +468,98 @@ export function RecordsTable({
       ? ["Document", "ESG activity", "Org unit", "Period", "Submitted by", "OCR", "Status"]
       : ["Document", "Metric", "Org unit", "Period", "Value", "Status"];
 
+  const groups = groupSubmissions(rows);
+  const bundleGroups = groups.filter(
+    (g): g is Extract<SubmissionGroup<RecordRow>, { type: "bundle" }> => g.type === "bundle",
+  );
+
+  // Dropped down by default
+  const [expandedBundles, setExpandedBundles] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const b of bundleGroups) {
+      initial[b.bundleDocumentId] = true;
+    }
+    return initial;
+  });
+
+  const isExpanded = (bundleId: string) => expandedBundles[bundleId] !== false;
+
+  const toggleBundle = (bundleId: string) => {
+    setExpandedBundles((prev) => ({
+      ...prev,
+      [bundleId]: prev[bundleId] === false ? true : false,
+    }));
+  };
+
+  const expandAll = () => {
+    const next: Record<string, boolean> = {};
+    for (const b of bundleGroups) {
+      next[b.bundleDocumentId] = true;
+    }
+    setExpandedBundles(next);
+  };
+
+  const collapseAll = () => {
+    const next: Record<string, boolean> = {};
+    for (const b of bundleGroups) {
+      next[b.bundleDocumentId] = false;
+    }
+    setExpandedBundles(next);
+  };
+
+  const allExpanded = bundleGroups.every((b) => isExpanded(b.bundleDocumentId));
+  const noneExpanded =
+    bundleGroups.length > 0 && bundleGroups.every((b) => !isExpanded(b.bundleDocumentId));
+
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {rows.length} record(s){truncated ? " — showing the newest 500; narrow the filters" : ""}
         </p>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={rows.length === 0}
-          onClick={() => exportCsv(rows, variant === "monitoring" ? "submissions" : "esg-records")}
-        >
-          <Download aria-hidden />
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          {variant === "monitoring" && bundleGroups.length > 0 ? (
+            <div className="mr-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <FolderTree className="size-3.5 text-primary" aria-hidden />
+              <span>
+                {bundleGroups.length} multi-bill {bundleGroups.length === 1 ? "PDF" : "PDFs"}
+              </span>
+              <span className="select-none text-muted-foreground/40">·</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={expandAll}
+                disabled={allExpanded}
+                className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Expand all
+              </Button>
+              <span className="select-none text-muted-foreground/40">·</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={collapseAll}
+                disabled={noneExpanded}
+                className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Collapse all
+              </Button>
+            </div>
+          ) : null}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={rows.length === 0}
+            onClick={() =>
+              exportCsv(rows, variant === "monitoring" ? "submissions" : "esg-records")
+            }
+          >
+            <Download aria-hidden />
+            Export CSV
+          </Button>
+        </div>
       </div>
       {rows.length === 0 ? (
         <p className="rounded-md border bg-card px-4 py-6 text-sm text-muted-foreground">
@@ -483,98 +582,453 @@ export function RecordsTable({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.recordId}
-                  onClick={rowClick(() => setSelected(r.recordId))}
-                  className="cursor-pointer border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
-                >
-                  <td className="px-3 py-2.5">
-                    <button
-                      type="button"
-                      className="text-left font-medium underline-offset-2 hover:underline"
-                      onClick={() => setSelected(r.recordId)}
+              {variant === "monitoring"
+                ? groups.map((group) => {
+                    if (group.type === "single") {
+                      const r = group.record;
+                      return (
+                        <tr
+                          key={r.recordId}
+                          onClick={rowClick(() => setSelected(r.recordId))}
+                          className="cursor-pointer border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
+                        >
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-start gap-2">
+                              <FileText
+                                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                                aria-hidden
+                              />
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    className="text-left font-medium underline-offset-2 hover:underline"
+                                    onClick={() => setSelected(r.recordId)}
+                                  >
+                                    {r.fileName ?? "Record without a document"}
+                                  </button>
+                                  {r.documentId ? (
+                                    <a
+                                      href={`/api/documents/${r.documentId}/file`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="inline-flex items-center gap-0.5 text-[11px] font-normal text-muted-foreground hover:text-foreground"
+                                      title="Open single bill PDF in new tab"
+                                    >
+                                      <span className="underline">Single PDF</span>
+                                      <ExternalLink className="size-2.5" aria-hidden />
+                                    </a>
+                                  ) : null}
+                                </div>
+                                {r.description ? (
+                                  <span
+                                    className="block max-w-80 truncate text-xs text-foreground"
+                                    title={r.description}
+                                  >
+                                    {r.description}
+                                  </span>
+                                ) : null}
+                                {r.billNumber || r.documentTypeName ? (
+                                  <span className="block text-xs text-muted-foreground">
+                                    {r.billNumber ? `Bill no. ${r.billNumber}` : null}
+                                    {r.billNumber && r.documentTypeName ? " · " : null}
+                                    {r.documentTypeName
+                                      ? `${r.documentTypeName}${r.documentTypeSource ? ` (${DOCUMENT_TYPE_SOURCE[r.documentTypeSource]})` : ""}`
+                                      : null}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {r.metricName}
+                            <span className="block text-xs text-muted-foreground">
+                              {r.categoryName}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5">{r.orgUnitName}</td>
+                          <td className="px-3 py-2.5">{r.periodLabel}</td>
+                          <td className="px-3 py-2.5 font-mono text-xs">
+                            <span className="font-sans text-sm">
+                              {r.submittedBy}
+                              {r.submitterRoles || r.onBehalfOf ? (
+                                <span className="block text-xs text-muted-foreground">
+                                  {[r.submitterRoles, r.onBehalfOf ? `for ${r.onBehalfOf}` : null]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </span>
+                              ) : null}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {OCR_LABELS[r.ocrState] ? (
+                              <StatusBadge tone={OCR_LABELS[r.ocrState].tone}>
+                                {OCR_LABELS[r.ocrState].label}
+                              </StatusBadge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No document</span>
+                            )}
+                            {r.ocrState === "failed" && r.ocrError ? (
+                              <span className="mt-1 block max-w-48 text-xs leading-4 text-muted-foreground">
+                                {r.ocrError}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <StageBadge
+                              row={{
+                                verification: r.verificationStatus,
+                                validation: r.validationStatus,
+                                approval: r.approvalStatus,
+                                quality: r.dataQualityState,
+                              }}
+                            />
+                            {r.late ? (
+                              <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                                Late
+                              </span>
+                            ) : null}
+                            {r.duplicate ? (
+                              <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                                Possible duplicate
+                              </span>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    // Bundle Parent + Children
+                    const expanded = isExpanded(group.bundleDocumentId);
+
+                    return (
+                      <tbody key={`bundle-group-${group.bundleDocumentId}`} className="contents">
+                        {/* Parent Row: Main Combined PDF */}
+                        <tr
+                          onClick={() => toggleBundle(group.bundleDocumentId)}
+                          className="cursor-pointer border-t-2 border-table-border bg-surface-subtle/80 hover:bg-table-row-hover font-medium transition-colors select-none"
+                        >
+                          <td className="px-3 py-3">
+                            <div className="flex items-start gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleBundle(group.bundleDocumentId);
+                                }}
+                                className="mt-0.5 rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-expanded={expanded}
+                                aria-label={
+                                  expanded
+                                    ? `Collapse bills for ${group.bundleFileName}`
+                                    : `Expand bills for ${group.bundleFileName}`
+                                }
+                              >
+                                <ChevronDown
+                                  className={cn(
+                                    "size-4 transition-transform duration-200",
+                                    !expanded && "-rotate-90 text-muted-foreground/70",
+                                  )}
+                                  aria-hidden
+                                />
+                              </button>
+                              <FileStack
+                                className="mt-0.5 size-4.5 shrink-0 text-primary"
+                                aria-hidden
+                              />
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <a
+                                    href={`/api/documents/${group.bundleDocumentId}/file`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="font-semibold text-primary underline-offset-4 hover:underline inline-flex items-center gap-1"
+                                    title="Open combined main PDF with all recorded bills"
+                                  >
+                                    <span>{group.bundleFileName}</span>
+                                    <ExternalLink
+                                      className="size-3 text-muted-foreground"
+                                      aria-hidden
+                                    />
+                                  </a>
+                                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary whitespace-nowrap">
+                                    Combined PDF · {group.records.length}{" "}
+                                    {group.records.length === 1 ? "bill" : "bills"}
+                                    {group.bundleTotalParts &&
+                                    group.bundleTotalParts > group.records.length
+                                      ? ` (${group.bundleTotalParts} total recorded)`
+                                      : ""}
+                                  </span>
+                                </div>
+                                {group.bundleDescription ? (
+                                  <span
+                                    className="mt-0.5 block max-w-sm truncate text-xs font-normal text-muted-foreground"
+                                    title={group.bundleDescription}
+                                  >
+                                    {group.bundleDescription}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-muted-foreground font-normal">
+                            {activitySummary(group.records)}
+                          </td>
+                          <td className="px-3 py-3 font-normal">{group.orgUnitName}</td>
+                          <td className="px-3 py-3 font-normal">{group.periodLabel}</td>
+                          <td className="px-3 py-3 font-sans text-sm font-normal">
+                            {group.records[0]?.submittedBy}
+                            {group.records[0]?.submitterRoles || group.records[0]?.onBehalfOf ? (
+                              <span className="block text-xs text-muted-foreground">
+                                {[
+                                  group.records[0]?.submitterRoles,
+                                  group.records[0]?.onBehalfOf
+                                    ? `for ${group.records[0]?.onBehalfOf}`
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="px-3 py-3">
+                            <StatusBadge tone="neutral">Combined Document</StatusBadge>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div
+                              className="flex flex-wrap items-center gap-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Button
+                                asChild
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2.5 text-xs font-normal gap-1"
+                              >
+                                <a
+                                  href={`/api/documents/${group.bundleDocumentId}/file`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="View main combined PDF with all recorded bills"
+                                >
+                                  <Eye className="size-3.5" aria-hidden /> View Main PDF
+                                </a>
+                              </Button>
+                              <Link
+                                href={`/app/upload/split/${group.bundleDocumentId}`}
+                                className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline whitespace-nowrap"
+                                title="View recorded bills split breakdown"
+                              >
+                                All recorded bills
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Child Rows: Individual Recorded Bills */}
+                        {expanded &&
+                          group.records.map((r, idx) => {
+                            const isLast = idx === group.records.length - 1;
+                            const pageLabelText =
+                              r.pageFrom && r.pageTo ? pagesLabel(r.pageFrom, r.pageTo) : null;
+
+                            return (
+                              <tr
+                                key={r.recordId}
+                                onClick={rowClick(() => setSelected(r.recordId))}
+                                className="cursor-pointer border-t border-table-border/60 bg-table-row/60 hover:bg-table-row-hover/90"
+                              >
+                                <td className="px-3 py-2.5">
+                                  <div className="flex items-center gap-2 pl-6 sm:pl-7">
+                                    <span
+                                      className="font-mono text-xs text-muted-foreground/60 select-none shrink-0"
+                                      aria-hidden
+                                    >
+                                      {isLast ? "└──" : "├──"}
+                                    </span>
+                                    <FileText
+                                      className="size-3.5 shrink-0 text-muted-foreground"
+                                      aria-hidden
+                                    />
+                                    <div className="min-w-0">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <button
+                                          type="button"
+                                          className="text-left font-medium text-primary-text underline-offset-2 hover:underline"
+                                          onClick={() => setSelected(r.recordId)}
+                                        >
+                                          {r.fileName ?? "Record without a document"}
+                                        </button>
+                                        {pageLabelText ? (
+                                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground whitespace-nowrap">
+                                            {pageLabelText}
+                                          </span>
+                                        ) : null}
+                                        {r.documentId ? (
+                                          <a
+                                            href={`/api/documents/${r.documentId}/file`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="inline-flex items-center gap-0.5 text-[11px] font-normal text-muted-foreground hover:text-foreground ml-1"
+                                            title="View cut single PDF"
+                                          >
+                                            <span className="underline">Single PDF</span>
+                                            <ExternalLink className="size-2.5" aria-hidden />
+                                          </a>
+                                        ) : null}
+                                      </div>
+                                      {r.description &&
+                                      r.description !== group.bundleDescription ? (
+                                        <span
+                                          className="mt-0.5 block max-w-80 truncate text-xs font-normal text-muted-foreground"
+                                          title={r.description}
+                                        >
+                                          {r.description}
+                                        </span>
+                                      ) : null}
+                                      {r.billNumber || r.documentTypeName ? (
+                                        <span className="block text-xs text-muted-foreground">
+                                          {r.billNumber ? `Bill no. ${r.billNumber}` : null}
+                                          {r.billNumber && r.documentTypeName ? " · " : null}
+                                          {r.documentTypeName
+                                            ? `${r.documentTypeName}${r.documentTypeSource ? ` (${DOCUMENT_TYPE_SOURCE[r.documentTypeSource]})` : ""}`
+                                            : null}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  {r.metricName}
+                                  <span className="block text-xs text-muted-foreground">
+                                    {r.categoryName}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5">{r.orgUnitName}</td>
+                                <td className="px-3 py-2.5">{r.periodLabel}</td>
+                                <td className="px-3 py-2.5 font-mono text-xs">
+                                  <span className="font-sans text-sm">
+                                    {r.submittedBy}
+                                    {r.submitterRoles || r.onBehalfOf ? (
+                                      <span className="block text-xs text-muted-foreground">
+                                        {[
+                                          r.submitterRoles,
+                                          r.onBehalfOf ? `for ${r.onBehalfOf}` : null,
+                                        ]
+                                          .filter(Boolean)
+                                          .join(" · ")}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  {OCR_LABELS[r.ocrState] ? (
+                                    <StatusBadge tone={OCR_LABELS[r.ocrState].tone}>
+                                      {OCR_LABELS[r.ocrState].label}
+                                    </StatusBadge>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                      No document
+                                    </span>
+                                  )}
+                                  {r.ocrState === "failed" && r.ocrError ? (
+                                    <span className="mt-1 block max-w-48 text-xs leading-4 text-muted-foreground">
+                                      {r.ocrError}
+                                    </span>
+                                  ) : null}
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <StageBadge
+                                    row={{
+                                      verification: r.verificationStatus,
+                                      validation: r.validationStatus,
+                                      approval: r.approvalStatus,
+                                      quality: r.dataQualityState,
+                                    }}
+                                  />
+                                  {r.late ? (
+                                    <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                                      Late
+                                    </span>
+                                  ) : null}
+                                  {r.duplicate ? (
+                                    <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                                      Possible duplicate
+                                    </span>
+                                  ) : null}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    );
+                  })
+                : rows.map((r) => (
+                    <tr
+                      key={r.recordId}
+                      onClick={rowClick(() => setSelected(r.recordId))}
+                      className="cursor-pointer border-t border-table-border bg-table-row even:bg-table-row-alt hover:bg-table-row-hover"
                     >
-                      {r.fileName ?? "Record without a document"}
-                    </button>
-                    {r.description ? (
-                      <span
-                        className="block max-w-80 truncate text-xs text-foreground"
-                        title={r.description}
-                      >
-                        {r.description}
-                      </span>
-                    ) : null}
-                    {r.billNumber || r.documentTypeName ? (
-                      <span className="block text-xs text-muted-foreground">
-                        {r.billNumber ? `Bill no. ${r.billNumber}` : null}
-                        {r.billNumber && r.documentTypeName ? " · " : null}
-                        {r.documentTypeName
-                          ? `${r.documentTypeName}${r.documentTypeSource ? ` (${DOCUMENT_TYPE_SOURCE[r.documentTypeSource]})` : ""}`
-                          : null}
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    {r.metricName}
-                    <span className="block text-xs text-muted-foreground">{r.categoryName}</span>
-                  </td>
-                  <td className="px-3 py-2.5">{r.orgUnitName}</td>
-                  <td className="px-3 py-2.5">{r.periodLabel}</td>
-                  <td className="px-3 py-2.5 font-mono text-xs">
-                    {variant === "monitoring" ? (
-                      <span className="font-sans text-sm">
-                        {r.submittedBy}
-                        {r.submitterRoles || r.onBehalfOf ? (
-                          <span className="block text-xs text-muted-foreground">
-                            {[r.submitterRoles, r.onBehalfOf ? `for ${r.onBehalfOf}` : null]
-                              .filter(Boolean)
-                              .join(" · ")}
+                      <td className="px-3 py-2.5">
+                        <button
+                          type="button"
+                          className="text-left font-medium underline-offset-2 hover:underline"
+                          onClick={() => setSelected(r.recordId)}
+                        >
+                          {r.fileName ?? "Record without a document"}
+                        </button>
+                        {r.description ? (
+                          <span
+                            className="block max-w-80 truncate text-xs text-foreground"
+                            title={r.description}
+                          >
+                            {r.description}
                           </span>
                         ) : null}
-                      </span>
-                    ) : (
-                      valueOf(r)
-                    )}
-                  </td>
-                  {variant === "monitoring" ? (
-                    <td className="px-3 py-2.5">
-                      {OCR_LABELS[r.ocrState] ? (
-                        <StatusBadge tone={OCR_LABELS[r.ocrState].tone}>
-                          {OCR_LABELS[r.ocrState].label}
-                        </StatusBadge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">No document</span>
-                      )}
-                      {r.ocrState === "failed" && r.ocrError ? (
-                        <span className="mt-1 block max-w-48 text-xs leading-4 text-muted-foreground">
-                          {r.ocrError}
+                        {r.billNumber || r.documentTypeName ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {r.billNumber ? `Bill no. ${r.billNumber}` : null}
+                            {r.billNumber && r.documentTypeName ? " · " : null}
+                            {r.documentTypeName
+                              ? `${r.documentTypeName}${r.documentTypeSource ? ` (${DOCUMENT_TYPE_SOURCE[r.documentTypeSource]})` : ""}`
+                              : null}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {r.metricName}
+                        <span className="block text-xs text-muted-foreground">
+                          {r.categoryName}
                         </span>
-                      ) : null}
-                    </td>
-                  ) : null}
-                  <td className="px-3 py-2.5">
-                    <StageBadge
-                      row={{
-                        verification: r.verificationStatus,
-                        validation: r.validationStatus,
-                        approval: r.approvalStatus,
-                        quality: r.dataQualityState,
-                      }}
-                    />
-                    {r.late ? (
-                      <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
-                        Late
-                      </span>
-                    ) : null}
-                    {r.duplicate ? (
-                      <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
-                        Possible duplicate
-                      </span>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
+                      </td>
+                      <td className="px-3 py-2.5">{r.orgUnitName}</td>
+                      <td className="px-3 py-2.5">{r.periodLabel}</td>
+                      <td className="px-3 py-2.5 font-mono text-xs">{valueOf(r)}</td>
+                      <td className="px-3 py-2.5">
+                        <StageBadge
+                          row={{
+                            verification: r.verificationStatus,
+                            validation: r.validationStatus,
+                            approval: r.approvalStatus,
+                            quality: r.dataQualityState,
+                          }}
+                        />
+                        {r.late ? (
+                          <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                            Late
+                          </span>
+                        ) : null}
+                        {r.duplicate ? (
+                          <span className="mt-1 block text-[11px] leading-4 tracking-wide text-status-warning uppercase">
+                            Possible duplicate
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
             </tbody>
           </table>
         </div>

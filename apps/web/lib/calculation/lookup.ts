@@ -88,7 +88,9 @@ async function traces(sql: Sql, where: ReturnType<Sql>, byCalculation: boolean) 
             ? `${label(formula.part)} ÷ ${label(formula.whole)} × ${formula.scale.toLocaleString("en-IN")}`
             : formula?.op === "subtract"
               ? `${label(formula.inputs[0])} − ${label(formula.inputs[1])}`
-              : null,
+              : formula?.op === "multiply_by_factor" && formula.product && inputs.length > 0
+                ? `${formula.product.map(label).join(" × ")} × conversion factor`
+                : null,
         engineVersion: r.engine_version,
         calculatedAt: r.calculated_at.toISOString(),
       },

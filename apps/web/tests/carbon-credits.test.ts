@@ -109,3 +109,75 @@ test("Internal Carbon Pricing (ICP) & CapEx Evaluation Model", () => {
   assert.equal(result.traditionalNpv, 368065);
   assert.equal(result.carbonAdjustedNpv, 7078147);
 });
+
+test("Carbon Equivalent & Required Credits to Purchase Calculator", async () => {
+  const {
+    calculateOffsetShortfall,
+    calculateCreditProcurementPlan,
+    generateProcurementBriefDocument,
+  } = await import("../lib/carbon-credits/quotation.ts");
+
+  const gross = { scope1: 5000, scope2: 3000, scope3: 2000, total: 10000 };
+  const offsets = { scope1: 1000, scope2: 1500, scope3: 0, total: 2500 };
+
+  // 1. Calculate deficit / shortfall (1 Credit = 1 tCO2e)
+  const shortfall = calculateOffsetShortfall(gross, offsets);
+  assert.equal(shortfall.scope1, 4000);
+  assert.equal(shortfall.scope2, 1500);
+  assert.equal(shortfall.scope3, 2000);
+  assert.equal(shortfall.total, 7500);
+  assert.equal(shortfall.hasEmissions, true);
+
+  // 2. 100% Net Zero Procurement Plan
+  const netZeroPlan = calculateCreditProcurementPlan(7500, gross, offsets, "ALL");
+  assert.equal(netZeroPlan.targetCreditsToBuy, 7500);
+  assert.equal(netZeroPlan.currentGrossEmissionsTco2e, 10000);
+  assert.equal(netZeroPlan.currentOffsetsRetiredTco2e, 2500);
+  assert.equal(netZeroPlan.currentNetEmissionsTco2e, 7500);
+  assert.equal(netZeroPlan.projectedNetEmissionsTco2e, 0);
+  assert.equal(netZeroPlan.offsetPercentage, 100);
+  assert.equal(netZeroPlan.isNetZeroAchieved, true);
+  // Scope 1: 4000/7500 * 7500 = 4000
+  // Scope 2: 1500/7500 * 7500 = 1500
+  // Scope 3: 2000/7500 * 7500 = 2000
+  assert.equal(netZeroPlan.scopeBreakdown.scope1, 4000);
+  assert.equal(netZeroPlan.scopeBreakdown.scope2, 1500);
+  assert.equal(netZeroPlan.scopeBreakdown.scope3, 2000);
+
+  // 3. Partial 50% Milestone Plan
+  const partialPlan = calculateCreditProcurementPlan(3750, gross, offsets, "ALL");
+  assert.equal(partialPlan.targetCreditsToBuy, 3750);
+  assert.equal(partialPlan.projectedNetEmissionsTco2e, 3750);
+  assert.equal(partialPlan.offsetPercentage, 50);
+  assert.equal(partialPlan.isNetZeroAchieved, false);
+
+  // 4. Targeted Scope 2 Electricity Deficit (I-REC eligibility)
+  const scope2Plan = calculateCreditProcurementPlan(1500, gross, offsets, "SCOPE_2");
+  assert.equal(scope2Plan.scopeBreakdown.scope1, 0);
+  assert.equal(scope2Plan.scopeBreakdown.scope2, 1500);
+  assert.equal(scope2Plan.scopeBreakdown.scope3, 0);
+  assert.equal(scope2Plan.projectedNetEmissionsTco2e, 6000);
+
+  // 5. Procurement Brief Document Generation
+  const doc = generateProcurementBriefDocument({
+    planId: "PLAN-TEST-2026-9999",
+    createdAt: "13 Nov 2026",
+    orgUnitName: "MEIL Infrastructure",
+    orgUnitCode: "MEIL-INFRA",
+    reportingPeriod: "FY 2025-26",
+    grossEmissionsTco2e: 10000,
+    existingOffsetsTco2e: 2500,
+    unmitigatedNetEmissionsTco2e: 7500,
+    creditsToPurchase: 7500,
+    scopeAllocation: { scope1: 4000, scope2: 1500, scope3: 2000 },
+    postProcurementResidualTco2e: 0,
+    complianceStandard: "SEBI BRSR Core Principle 6 / GHG Protocol Corporate Standard",
+  });
+
+  assert.ok(doc.includes("PLAN-TEST-2026-9999"));
+  assert.ok(doc.includes("1 Carbon Credit = 1 tCO2e"));
+  assert.ok(doc.includes("7,500 Carbon Credits"));
+  assert.ok(doc.includes("100% Carbon Neutral Achieved"));
+  assert.ok(doc.includes("MEIL Infrastructure"));
+  assert.ok(doc.includes("SEBI BRSR Core"));
+});

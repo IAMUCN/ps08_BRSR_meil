@@ -766,3 +766,36 @@ browser grants, listed for Super Admins. `org_settings.demo_video` holds the You
 request. Owner's request; `.grill/demo-requests-decisions.md`.
 
 **Undo:** in the header of `0066_demo_requests.sql`.
+
+## D57 — One upload for every bill: bill identifiers, per-bill period, original files (migration `0067`, 2026-11-12)
+
+`document_bundle_parts` gains `billing_period` and `bill_number` (what OCR read on each proposed bill) and
+`reporting_period_id` (the period the uploader filed it in). New `document_bundle_sources`: the files of one
+upload in order, with name, type, size, SHA-256, storage path and the upload pages each one is. Server-only (RLS on,
+no browser grants). `.grill/merged-upload-decisions.md`.
+
+## D58 — Decision intelligence, AI security, RAG, and what-if simulation (migrations `0068`–`0076`, 2026-11-12)
+
+Adds operational decision intelligence and audit infrastructure:
+- `decision_rules` and `decision_rule_evaluations`: versioned threshold rules and append-only evaluations.
+- `decarbonization_suggestions` and `decarbonization_roadmaps`: quantified decarbonization recommendations and strategic roadmaps.
+- `risk_evaluation_reports` and `recommendations_reports`: 6-vector risk scores and transparent multicriteria ranked suggestions.
+- `ai_providers` and `ai_security_policies`: AI gateway provider credentials, data classification access matrices, and emergency kill switches.
+- `rag_knowledge_chunks`: permission-filtered vector chunks (768-dim embeddings) for grounded statutory RAG search.
+- `predictive_forecast_snapshots`: backtested chronological forecasts and GBDT model snapshots.
+- `what_if_scenario_simulations`: multi-vector decarbonization scenario parameters and carbon-adjusted financial payback projections.
+
+All 11 tables have RLS enabled, strict tenant isolation by `org_unit_id`, and zero direct browser write permissions.
+
+
+## D59 — Typed values with each upload, drafts (migration `0077`), travel as distance × passengers (migration `0078`), 2026-11-12
+
+`upload_declarations` keeps what a person typed for each row of the Upload page (bill type, reporting period,
+mode `bill` / `pages_of_one` / `total`, the values by field key), apart from the OCR fields so a reading or a
+correction never overwrites it; a trigger refuses any change or delete. `esg_records.upload_declaration_id` points a
+record at its row (several records share one for a typed total). `upload_drafts` holds one unfinished Upload table
+per person. Both tables have RLS and no browser grants. Travel by air, rail and road and staff buses ask for
+`distance` and `passengers` instead of one passenger-km `quantity`; formula version 2 (`direct_multiply` with
+`inputs: [distance, passengers]`) replaces version 1, which is superseded, not deleted. `.grill/row-upload-decisions.md`.
+Migration `0079` (2026-11-13) adds `page_from` / `page_to` to `upload_declarations` (both or neither, the last not
+before the first), covered by the same no-change trigger: the pages of a bill typed for a file of several.

@@ -9,7 +9,7 @@ stored extractions stay reproducible (it is recorded in `ocr_jobs.model_version`
 
 from dataclasses import dataclass
 
-EXTRACTOR_VERSION = "rules-14"
+EXTRACTOR_VERSION = "rules-17"
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,37 @@ FIELD_PROFILES: dict[str, Profile] = {
         ),
         kind="number",
         exclude=("rate", "price", "amount"),
+    ),
+    # Travel and commuting (migration 0077): distance x passengers. A ticket usually prints only the
+    # stations or airports, so the distance is often left for the person; the passengers are a count
+    # printed on the ticket or the list of names on it (`_count_passengers`).
+    "distance": Profile(
+        labels=(
+            "total distance",
+            "distance travelled",
+            "distance traveled",
+            "route distance",
+            "trip distance",
+            "distance",
+            "km travelled",
+        ),
+        kind="number",
+        exclude=("rate", "fare", "amount"),
+    ),
+    "passengers": Profile(
+        labels=(
+            "number of passengers",
+            "no of passengers",
+            "no. of passengers",
+            "total passengers",
+            "passengers",
+            "no of pax",
+            "total pax",
+            "travellers",
+            "employees carried",
+        ),
+        kind="number",
+        exclude=("fare", "amount", "rate"),
     ),
     "consumption": Profile(
         labels=(
@@ -130,6 +161,12 @@ FIELD_PROFILES: dict[str, Profile] = {
             "payment ref",
             "order number",
             "order no",
+            # A ticket's PNR is its bill number (same-bill duplicates, 2026-11-12).
+            "pnr no",
+            "pnr number",
+            "pnr",
+            "ticket number",
+            "ticket no",
         ),
         kind="identifier",
     ),
@@ -150,6 +187,11 @@ FIELD_PROFILES: dict[str, Profile] = {
             "training period",
             "payment date",
             "order date",
+            # Tickets (migration 0077).
+            "date of travel",
+            "travel date",
+            "date of journey",
+            "journey date",
             "as on",
         ),
         kind="period",
@@ -158,7 +200,7 @@ FIELD_PROFILES: dict[str, Profile] = {
     "unit": Profile(
         labels=("unit of measure", "uom", "unit", "currency"),
         kind="unit",
-        near=("quantity", "consumption", "withdrawal", "total_spend", "amount"),
+        near=("quantity", "consumption", "withdrawal", "total_spend", "amount", "distance"),
     ),
     "source_classification": Profile(
         labels=(
@@ -211,6 +253,11 @@ KNOWN_UTILITIES = (
 )  # fmt: skip
 FOLDED_UTILITY_CONFIDENCE = 70.0
 
+# A ticket with no passenger count prints the names, numbered ("1. MR A KUMAR", "2 MS B RAO",
+# "Passenger 3: ..."). The count of numbered names is a reading of the page, but which lines are
+# names is a judgement, so it is capped below the review threshold: the person acknowledges it.
+COUNTED_PASSENGERS_CONFIDENCE = 70.0
+
 # Classification only chooses among the document types mapped to the record's metric. A type needs
 # at least MIN_CLASSIFICATION_SCORE distinct keywords and must beat every other candidate.
 MIN_CLASSIFICATION_SCORE = 2
@@ -256,7 +303,16 @@ DOCUMENT_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
         "manifest",
         "treatment",
     ),
-    "TRAVEL_INVOICE": ("travel", "airline", "air", "rail", "passenger", "sector", "ticket"),
+    "TRAVEL_INVOICE": (
+        "travel",
+        "airline",
+        "air",
+        "rail",
+        "passenger",
+        "sector",
+        "ticket",
+        "pnr",
+    ),
     "REFRIGERANT_RECORD": ("refrigerant", "sf6", "gas charged", "r-22", "r-32", "r-410a", "r-134a"),
     "MATERIAL_INVOICE": ("cement", "steel", "tmt", "opc", "ppc", "material", "net weight"),
     "PROCESS_EMISSION_STATEMENT": (

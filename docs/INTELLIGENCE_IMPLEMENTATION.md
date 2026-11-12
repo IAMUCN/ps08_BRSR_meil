@@ -61,7 +61,7 @@ The platform enforces mandatory enterprise controls governing external LLM inter
 4. **PII Anonymization:** In-memory regex masking of Indian phone numbers, PAN numbers, Aadhaar patterns, email addresses, and vendor account numbers.
 5. **Emergency Kill Switch:** Database-persisted flag in `public.ai_kill_switch_state`. When tripped by an administrator, all external provider requests are immediately rejected locally with zero egress.
 6. **No Automatic Action Execution:** Recommendation engines produce advisory action cards only (`open`). Modifications to operational states require explicit human admin approval (`approved`).
-7. **Database Immutability Invariant:** Database triggers (`0050_database_safety_invariants.sql`) block AI roles and background agents from executing `UPDATE` or `DELETE` statements on `public.esg_records`.
+7. **Database Immutability Invariant:** Database triggers (`0070_database_safety_invariants.sql`) block AI roles and background agents from executing `UPDATE` or `DELETE` statements on `public.esg_records`.
 
 ---
 
@@ -115,26 +115,26 @@ limit 5;
 
 ---
 
-## 4. Complete Database Schemas (Migrations 0047 – 0055)
+## 4. Complete Database Schemas (Migrations 0067 – 0075)
 
 The entire intelligence system is defined declaratively across 9 database migrations:
 
 ```
 supabase/migrations/
-├── 0047_decision_rules_engine.sql
-├── 0048_decarbonization_suggestions.sql
-├── 0049_risk_evaluations.sql
-├── 0050_database_safety_invariants.sql
-├── 0051_recommendation_engine_and_ranking.sql
-├── 0052_ai_security_and_privacy_architecture.sql
-├── 0053_pgvector_and_rag_indexes.sql
-├── 0054_predictive_intelligence_and_forecasts.sql
-└── 0055_what_if_scenario_simulations.sql
+├── 0067_decision_rules_engine.sql
+├── 0068_decarbonization_suggestions.sql
+├── 0069_risk_evaluations.sql
+├── 0070_database_safety_invariants.sql
+├── 0071_recommendation_engine_and_ranking.sql
+├── 0072_ai_security_and_privacy_architecture.sql
+├── 0073_pgvector_and_rag_indexes.sql
+├── 0074_predictive_intelligence_and_forecasts.sql
+└── 0075_what_if_scenario_simulations.sql
 ```
 
 ### 4.1 Schema DDL Definitions
 
-#### A. Decision Rules Engine (`0047_decision_rules_engine.sql`)
+#### A. Decision Rules Engine (`0067_decision_rules_engine.sql`)
 ```sql
 create table if not exists public.decision_rules (
   id uuid primary key default gen_random_uuid(),
@@ -169,7 +169,7 @@ create table if not exists public.rule_evaluations (
 );
 ```
 
-#### B. Risk Evaluations (`0049_risk_evaluations.sql`)
+#### B. Risk Evaluations (`0069_risk_evaluations.sql`)
 ```sql
 create table if not exists public.risk_evaluation_reports (
   id uuid primary key default gen_random_uuid(),
@@ -185,7 +185,7 @@ create table if not exists public.risk_evaluation_reports (
 );
 ```
 
-#### C. Database Safety Invariants (`0050_database_safety_invariants.sql`)
+#### C. Database Safety Invariants (`0070_database_safety_invariants.sql`)
 ```sql
 create or replace function public.prevent_ai_tampering_esg_records()
 returns trigger language plpgsql as $$
@@ -203,7 +203,7 @@ create trigger trg_block_ai_write_esg_records
   for each statement execute function public.prevent_ai_tampering_esg_records();
 ```
 
-#### D. Prioritized Recommendations (`0051_recommendation_engine_and_ranking.sql`)
+#### D. Prioritized Recommendations (`0071_recommendation_engine_and_ranking.sql`)
 ```sql
 create table if not exists public.prioritized_recommendations (
   id uuid primary key default gen_random_uuid(),
@@ -229,7 +229,7 @@ create table if not exists public.prioritized_recommendations (
 );
 ```
 
-#### E. AI Gateway & Security State (`0052_ai_security_and_privacy_architecture.sql`)
+#### E. AI Gateway & Security State (`0072_ai_security_and_privacy_architecture.sql`)
 ```sql
 create table if not exists public.ai_kill_switch_state (
   id boolean primary key default true,
@@ -254,7 +254,7 @@ create table if not exists public.ai_request_audit_logs (
 );
 ```
 
-#### F. RAG Knowledge Chunks & Vector Indexes (`0053_pgvector_and_rag_indexes.sql`)
+#### F. RAG Knowledge Chunks & Vector Indexes (`0073_pgvector_and_rag_indexes.sql`)
 ```sql
 create extension if not exists vector;
 
@@ -278,7 +278,7 @@ create index if not exists idx_rag_chunks_fts
   on public.rag_knowledge_chunks using gin (to_tsvector('english', content));
 ```
 
-#### G. Predictive Forecast Snapshots (`0054_predictive_intelligence_and_forecasts.sql`)
+#### G. Predictive Forecast Snapshots (`0074_predictive_intelligence_and_forecasts.sql`)
 ```sql
 create table if not exists public.predictive_forecast_snapshots (
   id uuid primary key default gen_random_uuid(),
@@ -300,7 +300,7 @@ create table if not exists public.predictive_forecast_snapshots (
 );
 ```
 
-#### H. What-If Scenario Simulations (`0055_what_if_scenario_simulations.sql`)
+#### H. What-If Scenario Simulations (`0075_what_if_scenario_simulations.sql`)
 ```sql
 create table if not exists public.what_if_scenario_simulations (
   id uuid primary key default gen_random_uuid(),

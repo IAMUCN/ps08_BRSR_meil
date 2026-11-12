@@ -1,6 +1,6 @@
 import "server-only";
 import postgres from "postgres";
-import { poolSettings } from "@/lib/pooler-url";
+import { holdForIdleClose, poolSettings } from "@/lib/pooler-url";
 
 // Direct Postgres access for server-side transactional mutations (.grill/phase-3-auth-decisions.md).
 // Bypasses RLS like the service role — import only from server code (tRPC procedures).
@@ -22,6 +22,7 @@ export function db(): postgres.Sql {
       connect_timeout: 15,
     });
   }
+  holdForIdleClose();
   return globalForDb.emeilSgSql;
 }
 

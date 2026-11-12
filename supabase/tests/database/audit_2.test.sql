@@ -14,7 +14,9 @@ select is(
       and exists (select 1 from public.calculation_formulas f where f.metric_id = m.id and f.status = 'active')
       and exists (select 1 from public.validation_rules v where v.metric_id = m.id)
       and exists (select 1 from public.document_type_metric_mappings d where d.metric_id = m.id)
-      and (select count(*) from public.metric_field_requirements r where r.metric_id = m.id) = 4),
+      -- Commuting asks for the distance and the passengers instead of passenger-km (migration 0077).
+      and (select count(*) from public.metric_field_requirements r where r.metric_id = m.id)
+          = case when m.code = 'COMMUTING_BUS' then 5 else 4 end),
   10,
   'each new activity has its fields, formula, units rule and document type');
 

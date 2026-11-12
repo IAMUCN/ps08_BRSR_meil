@@ -23,6 +23,28 @@ export async function changeActivityAction(documentId: string, metricId: string)
   return result;
 }
 
+/** Move the record to another reporting period before Confirm or after a return (owner, 2026-11-13). */
+export async function changePeriodAction(documentId: string, reportingPeriodId: string) {
+  const result = await runAction((api) =>
+    api.verification.changePeriod({ documentId, reportingPeriodId }),
+  );
+  if (result.ok) {
+    revalidatePath(`/app/verify/${documentId}`);
+    revalidatePath("/app/submissions");
+  }
+  return result;
+}
+
+/** Run the checks again on a record moved to another month after they sent it back (2026-11-13). */
+export async function recheckAction(documentId: string) {
+  const result = await runAction((api) => api.verification.recheck({ documentId }));
+  if (result.ok) {
+    revalidatePath(`/app/verify/${documentId}`);
+    revalidatePath("/app/submissions");
+  }
+  return result;
+}
+
 export async function checkInvoiceDuplicatesAction(documentId: string, invoiceNumber: string) {
   return runAction((api) => api.verification.invoiceDuplicates({ documentId, invoiceNumber }));
 }

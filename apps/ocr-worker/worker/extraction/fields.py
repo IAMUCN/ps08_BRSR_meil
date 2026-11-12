@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 
 from worker.extraction.profiles import (
+    COUNTED_PASSENGERS_CONFIDENCE,
     DOCUMENT_TYPE_KEYWORDS,
     FIELD_PROFILES,
     FOLDED_UTILITY_CONFIDENCE,
@@ -282,6 +283,28 @@ def _find_utility(lines: list[TextLine]) -> tuple[str, float, dict] | None:
     return None
 
 
+# "1. MR A KUMAR", "2) MS B RAO", "3 MSTR C", "Passenger 4: D", "Pax 5 - E": a numbered name.
+_PASSENGER_LINE = re.compile(
+    r"^\s*(?:(?:passenger|pax)\s*(\d{1,2})\b|(\d{1,2})\s*[.):\-]?\s*(?:mr|mrs|ms|miss|mstr|master|dr)\b)",
+    re.IGNORECASE,
+)
+
+
+def _count_passengers(lines: list[TextLine]) -> tuple[str, float, dict] | None:
+    """The passengers on a ticket that prints no count: its numbered names, counted once each."""
+    numbers: dict[int, int] = {}
+    for i, line in enumerate(lines):
+        match = _PASSENGER_LINE.match(line.text)
+        if match:
+            number = int(match.group(1) or match.group(2))
+            numbers.setdefault(number, i)
+    if not numbers:
+        return None
+    used = sorted(numbers.values())
+    confidence = min(_percent(*(lines[i].score for i in used)), COUNTED_PASSENGERS_CONFIDENCE)
+    return str(len(numbers)), confidence, {"method": "counted_names", "lines": used}
+
+
 def _find_unit_near(lines: list[TextLine], found: dict[str, ExtractedField], profile: Profile):
     """A unit printed next to its quantity ("1,250.00 L") or in the quantity's label ("Qty
     (Litres)")."""
@@ -324,6 +347,11 @@ def extract_fields(lines: list[TextLine], specs: list[FieldSpec]) -> list[Extrac
                 hit = _find_implied_unit(found)
             if not hit and spec.key == "source_classification":
                 hit = _find_utility(lines)
+            if spec.key == "passengers":
+                # A "Passengers" heading over the list of names reads "1. MR A" as the count.
+                if hit and _PASSENGER_LINE.match(lines[hit[2]["lines"][-1]].text):
+                    hit = None
+                hit = hit or _count_passengers(lines)
         if hit:
             value, confidence, source = hit
             found[spec.key] = ExtractedField(spec.key, spec.label, value, confidence, source)

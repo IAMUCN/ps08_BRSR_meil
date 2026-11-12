@@ -31,6 +31,15 @@ import { analyticsRouter } from "@/lib/trpc/routers/analytics";
 import { searchRouter } from "@/lib/trpc/routers/search";
 import { helpRouter } from "@/lib/trpc/routers/help";
 import { demoRequestsRouter } from "@/lib/trpc/routers/demo-requests";
+// The decision-intelligence routers (e333e9b); their registration was lost in a later merge.
+import { featuresRouter } from "@/lib/trpc/routers/features";
+import { rulesRouter } from "@/lib/trpc/routers/rules";
+import { suggestionsRouter } from "@/lib/trpc/routers/suggestions";
+import { risksRouter } from "@/lib/trpc/routers/risks";
+import { recommendationsRouter } from "@/lib/trpc/routers/recommendations";
+import { aiGatewayRouter } from "@/lib/trpc/routers/ai-gateway";
+import { ragRouter } from "@/lib/trpc/routers/rag";
+import { predictiveRouter } from "@/lib/trpc/routers/predictive";
 
 export const appRouter = router({
   session: router({
@@ -68,6 +77,14 @@ export const appRouter = router({
   search: searchRouter,
   help: helpRouter,
   demoRequests: demoRequestsRouter,
+  features: featuresRouter,
+  rules: rulesRouter,
+  suggestions: suggestionsRouter,
+  risks: risksRouter,
+  recommendations: recommendationsRouter,
+  aiGateway: aiGatewayRouter,
+  rag: ragRouter,
+  predictive: predictiveRouter,
 });
 
 export type AppRouter = typeof appRouter;

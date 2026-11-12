@@ -1,4 +1,4 @@
--- Migration 0050: Database Safety Invariants & AI Table Guardrails
+-- Migration 0070: Database Safety Invariants & AI Table Guardrails
 -- Enforces database safety rules:
 -- 1. Read: authorized only via RLS.
 -- 2. Insert/Update: Existing tables only via existing approved workflows; AI tables controlled.
@@ -22,7 +22,8 @@ revoke all on public.risk_evaluation_reports from anon;
 
 -- 3. Guardrail: Guard trigger ensuring verified ESG records cannot have their calculated values altered
 create or replace function public.guard_verified_esg_records() returns trigger
-language plpgsql as $$
+language plpgsql
+set search_path = '' as $$
 begin
   -- If record is user_verified and approved, prevent changes to calculated tCO2e or activity value
   -- unless explicitly rejected or transitioning back through the authorized approval queue.
@@ -43,6 +44,7 @@ begin
   return new;
 end;
 $$;
+revoke execute on function public.guard_verified_esg_records() from public, anon, authenticated;
 
 drop trigger if exists trg_guard_verified_esg_records on public.esg_records;
 create trigger trg_guard_verified_esg_records

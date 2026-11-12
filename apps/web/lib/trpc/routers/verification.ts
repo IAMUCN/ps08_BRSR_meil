@@ -3,6 +3,9 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { activityKeyFor } from "@/lib/calculation/engine";
+import { productOf } from "@/lib/calculation/formulas";
+import { totalStatus } from "@/lib/declarations/compare";
+import { declarationOf, groupBills, typedFields } from "@/lib/declarations/load";
 import { loadCalculations } from "@/lib/calculation/lookup";
 import type { CalculationState } from "@/lib/calculation/trace";
 import type { ActiveSession } from "@/lib/auth/session";
@@ -12,7 +15,12 @@ import type { Outcome, RuleType } from "@/lib/validation/checks";
 import { runValidation } from "@/lib/validation/engine";
 import { confidenceThreshold, documentAccess } from "@/lib/verification/access";
 import { activityMismatch } from "@/lib/verification/mismatch";
-import { loadUploadOptions, type UploadCategory } from "@/lib/trpc/routers/documents";
+import { periodForBill } from "@/lib/documents/bundle";
+import {
+  loadUploadOptions,
+  takesTypedBill,
+  type UploadCategory,
+} from "@/lib/trpc/routers/documents";
 import {
   MANUAL_JUSTIFICATION_MIN,
   REJECT_REASON_MIN,
@@ -63,6 +71,13 @@ export type VerifyDocument = {
     activities: { id: string; name: string; selectable: boolean }[];
   } | null;
   recordId: string | null;
+  /** The record's reporting period, and the months it can be moved to before Confirm (owner, 2026-11-13). */
+  periodId: string | null;
+  periodOptions: { id: string; label: string; late: boolean }[];
+  /** The month the bill's billing period points to, when that is not the record's own. */
+  suggestedPeriod: { id: string; label: string } | null;
+  /** Sent back by the checks, then moved to another month after they ran: they can be run again in it. */
+  recheckAfterMove: boolean;
   documentTypeId: string | null;
   documentTypeName: string | null;
   documentTypeOptions: { id: string; name: string }[];
@@ -79,6 +94,25 @@ export type VerifyDocument = {
     values: { label: string; value: string | null }[];
   } | null;
   rejectedReason: string | null;
+  /**
+   * This bill is one of several whose total was typed at upload (migration 0077): the bills, and per typed
+   * field the total typed and what the bills add up to so far.
+   */
+  typedTotal: {
+    bills: {
+      documentId: string | null;
+      fileName: string | null;
+      isThis: boolean;
+      verified: boolean;
+    }[];
+    fields: {
+      label: string;
+      typed: string;
+      unit: string | null;
+      sum: number | null;
+      status: "waiting" | "match" | "mismatch";
+    }[];
+  } | null;
   /** Latest validation run (UI brief §12.4); null before the first Confirm. */
   validation: {
     status: string;
@@ -158,7 +192,9 @@ async function loadDocument(sql: Sql, documentId: string) {
       mismatch_code: string | null;
     }[]
   >`
-    select d.file_name, d.description, d.mime_type, d.file_size_bytes, d.created_at, u.display_name as uploaded_by_name,
+    select d.file_name, d.description, d.mime_type, d.file_size_bytes,
+           -- When the upload arrived: a bill cut from an upload was submitted with it (2026-11-12).
+           coalesce(bd.created_at, d.created_at) as created_at, u.display_name as uploaded_by_name,
            d.org_unit_id, o.name as org_unit_name, d.reporting_period_id, p.label as period_label,
            d.document_type_id, dt.name as document_type_name,
            r.id as record_id, r.metric_id, m.name as metric_name, m.unit as metric_unit,
@@ -169,6 +205,7 @@ async function loadDocument(sql: Sql, documentId: string) {
            j.status as job_status, j.error_message, e.id as extraction_id,
            e.raw_output #>> '{classification,mismatch,document_type}' as mismatch_code
     from public.documents d
+    left join public.documents bd on bd.id = d.bundle_document_id
     join public.users u on u.id = d.uploaded_by
     join public.org_units o on o.id = d.org_unit_id
     join public.reporting_periods p on p.id = d.reporting_period_id
@@ -425,6 +462,7 @@ export const verificationRouter = router({
           confidence: f.confidence,
           verifiedValue: f.verified_value,
         }));
+      const declaration = row.record_id ? await declarationOf(sql, row.record_id) : null;
       const state = verifyState({
         verificationStatus: row.verification_status,
         dataQualityState: row.data_quality_state,
@@ -438,6 +476,55 @@ export const verificationRouter = router({
         row.metric_id ? await activityKeyFor(sql, row.metric_id) : null,
       );
       const activityKey = activity.ok ? activity.valueKey : null;
+      const unitKey = activity.ok
+        ? activity.unitKey
+        : (fieldRows.find((f) => f.data_type === "unit")?.field_key ?? null);
+
+      // What was typed for this bill on the Upload page, against what OCR read (migration 0077).
+      const typed = declaration
+        ? typedFields(
+            declaration,
+            fieldRows.map((f) => ({
+              key: f.field_key,
+              dataType: f.data_type,
+              extractedValue: f.extracted_value,
+            })),
+            unitKey,
+          )
+        : new Map();
+      let typedTotal: VerifyDocument["typedTotal"] = null;
+      if (declaration?.mode === "total") {
+        const keys = Object.keys(declaration.values).filter((k) =>
+          fieldRows.some((f) => f.field_key === k && f.data_type === "number"),
+        );
+        const bills = await groupBills(sql, declaration.id, keys, unitKey);
+        const unit = unitKey ? (declaration.values[unitKey] ?? null) : null;
+        typedTotal = {
+          bills: bills.map((b) => ({
+            documentId: b.documentId,
+            fileName: b.fileName,
+            isThis: b.documentId === input.documentId,
+            verified: b.verified,
+          })),
+          fields: keys.map((k) => {
+            const status = totalStatus(
+              { text: declaration.values[k], unit },
+              bills.map((b) => b.values[k]),
+            );
+            return {
+              label: fieldRows.find((f) => f.field_key === k)!.field_label,
+              typed: declaration.values[k],
+              unit,
+              sum: status.status === "waiting" || Number.isNaN(status.sum) ? null : status.sum,
+              status: status.status,
+            };
+          }),
+        };
+      }
+      const withTyped = (f: VerifyField): VerifyField => {
+        const t = typed.get(f.key);
+        return t ? { ...f, typed: t } : f;
+      };
 
       // Category mismatch and the activity picker (owner's request, 2026-11-12): only while the activity can
       // still change; after Confirm the reviewer sees the same mismatch as a validation flag.
@@ -448,6 +535,71 @@ export const verificationRouter = router({
       const choosable = new Set(activityOptions.flatMap((c) => c.metrics.map((m) => m.id)));
       const mismatch =
         state === "ready" ? await activityMismatch(sql, row.mismatch_code, row.metric_id) : null;
+
+      // The reporting period can change while the activity can, and on a record returned for correction
+      // (owner's request, 2026-11-13: a bill filed in the wrong month).
+      const periodChangeable =
+        access.canVerify &&
+        row.record_id !== null &&
+        (activityChangeable(state) || state === "returned");
+      type Month = { id: string; label: string; startDate: string; endDate: string; late: boolean };
+      const months: Month[] = [];
+      if (periodChangeable) {
+        const options = await loadUploadOptions(sql, ctx.session.userId);
+        for (const p of [...options.periods, ...options.billingMonths]) {
+          if (!months.some((m) => m.id === p.id)) {
+            months.push({
+              id: p.id,
+              label: p.label,
+              startDate: p.startDate,
+              endDate: p.endDate,
+              late: p.late,
+            });
+          }
+        }
+        if (!months.some((m) => m.id === row.reporting_period_id)) {
+          // Its own month stays selectable even if it would not be offered for a new bill.
+          const [own] = await sql<
+            { id: string; label: string; start_date: string; end_date: string }[]
+          >`
+            select id, label, start_date::text, end_date::text from public.reporting_periods
+            where id = ${row.reporting_period_id}`;
+          if (own) {
+            months.push({
+              id: own.id,
+              label: own.label,
+              startDate: own.start_date,
+              endDate: own.end_date,
+              late: false,
+            });
+          }
+        }
+        months.sort((x, y) => y.startDate.localeCompare(x.startDate));
+      }
+      const billing =
+        fieldRows.find((f) => f.field_key === "billing_period")?.verified_value ??
+        fieldRows.find((f) => f.field_key === "billing_period")?.extracted_value ??
+        null;
+      const pointed = periodChangeable ? periodForBill(billing, months) : null;
+      const suggestedPeriod =
+        pointed && pointed !== row.reporting_period_id
+          ? { id: pointed, label: months.find((m) => m.id === pointed)!.label }
+          : null;
+
+      // Moved after the last checks ran (e.g. before 2026-11-13 a move did not run them again).
+      const [movedSince] =
+        state === "returned" &&
+        row.record_id &&
+        row.validation_status === "failed" &&
+        row.approval_status !== "returned"
+          ? await sql<{ moved: boolean }[]>`
+              select exists (
+                select 1 from public.audit_logs a
+                where a.event_type = 'record.period_changed' and a.entity_id = ${row.record_id}
+                  and a.created_at > coalesce((select max(evaluated_at) from public.validation_results
+                                               where esg_record_id = ${row.record_id}), '-infinity')
+              ) as moved`
+          : [{ moved: false }];
 
       const validationResults = results.map((r) => ({
         ruleType: r.rule_type,
@@ -491,6 +643,10 @@ export const verificationRouter = router({
             }
           : null,
         recordId: row.record_id,
+        periodId: row.reporting_period_id,
+        periodOptions: months.map((m) => ({ id: m.id, label: m.label, late: m.late })),
+        suggestedPeriod,
+        recheckAfterMove: access.canVerify && movedSince.moved,
         documentTypeId: row.document_type_id,
         documentTypeName: row.document_type_name,
         documentTypeOptions: typeOptions.map((t) => ({ id: t.id, name: t.name })),
@@ -498,19 +654,20 @@ export const verificationRouter = router({
         errorMessage: row.job_status === "failed" ? row.error_message : null,
         threshold,
         // Manual entry (failed OCR) works from the requirements, which have no ocr_fields rows yet.
-        fields:
-          state === "failed" && fields.length === 0
-            ? fieldRows.map((f) => ({
-                id: f.field_key,
-                key: f.field_key,
-                label: f.field_label,
-                dataType: f.data_type,
-                required: f.is_required,
-                critical: f.is_critical,
-                extractedValue: null,
-                confidence: null,
-              }))
-            : fields,
+        fields: (state === "failed" && fields.length === 0
+          ? fieldRows.map((f) => ({
+              id: f.field_key,
+              key: f.field_key,
+              label: f.field_label,
+              dataType: f.data_type,
+              required: f.is_required,
+              critical: f.is_critical,
+              extractedValue: null,
+              confidence: null,
+            }))
+          : fields
+        ).map(withTyped),
+        typedTotal,
         verified:
           state === "verified" && verification[0]
             ? {
@@ -678,6 +835,98 @@ export const verificationRouter = router({
       });
     }),
 
+  /**
+   * Move the record to another reporting period before its values are confirmed, or when it was returned for
+   * correction (owner's request, 2026-11-13: a May bill filed under June). Any month that takes uploads or a
+   * billing month of this financial year; late is worked out again for the new month. Audited.
+   */
+  changePeriod: protectedProcedure
+    .input(z.object({ documentId: z.uuid(), reportingPeriodId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await requireAccess(ctx.session, input.documentId);
+      const options = await loadUploadOptions(db(), ctx.session.userId);
+      if (!takesTypedBill(options, input.reportingPeriodId)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Bills can't be filed in that month any more — choose another one.",
+        });
+      }
+      return db().begin(async (tx) => {
+        // Not rejected, and either not confirmed yet or returned for correction.
+        const record = await lockPendingRecord(tx, input.documentId);
+        if (record.reporting_period_id === input.reportingPeriodId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "The record is already in that month.",
+          });
+        }
+        const [moved] = await tx<{ label: string; old_label: string; late: boolean }[]>`
+          update public.esg_records r
+          set reporting_period_id = ${input.reportingPeriodId},
+              -- Late against the new month's due date, from when the upload arrived (migration 0056).
+              submitted_late = (
+                select (coalesce(bd.created_at, d.created_at) at time zone 'Asia/Kolkata')::date
+                         > coalesce(p.submission_closes_on, p.end_date)
+                from public.documents d
+                left join public.documents bd on bd.id = d.bundle_document_id
+                cross join public.reporting_periods p
+                where d.id = ${input.documentId} and p.id = ${input.reportingPeriodId})
+          from public.reporting_periods np, public.reporting_periods op
+          where r.id = ${record.id} and np.id = ${input.reportingPeriodId}
+            and op.id = ${record.reporting_period_id}
+          returning np.label, op.label as old_label, r.submitted_late as late`;
+        await tx`
+          update public.documents set reporting_period_id = ${input.reportingPeriodId}
+          where id = ${input.documentId}`;
+        await writeAudit(tx, {
+          eventType: "record.period_changed",
+          entityType: "esg_record",
+          entityId: record.id,
+          userId: ctx.session.userId,
+          oldValue: { reporting_period_id: record.reporting_period_id, label: moved.old_label },
+          newValue: {
+            reporting_period_id: input.reportingPeriodId,
+            label: moved.label,
+            submitted_late: moved.late,
+          },
+        });
+        // A record the checks sent back (not one a reviewer returned) is checked again in its new month at
+        // once: its values were already confirmed, and the failure is usually the month itself.
+        const recheck =
+          record.returned &&
+          record.validation_status === "failed" &&
+          record.approval_status !== "returned";
+        const validation = recheck ? (await runValidation(tx, record.id)).status : null;
+        return { label: moved.label, late: moved.late, validation };
+      });
+    }),
+
+  /**
+   * Run the checks again on a record they sent back, without changing its values — for a record moved to another
+   * month after they ran (owner's report, 2026-11-13). A reviewer's return still needs Confirm.
+   */
+  recheck: protectedProcedure
+    .input(z.object({ documentId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await requireAccess(ctx.session, input.documentId);
+      return db().begin(async (tx) => {
+        const record = await lockPendingRecord(tx, input.documentId);
+        if (
+          !record.returned ||
+          record.validation_status !== "failed" ||
+          record.approval_status === "returned"
+        ) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Only a record the checks sent back can be checked again here — confirm it instead.",
+          });
+        }
+        const validation = await runValidation(tx, record.id);
+        return { validation: validation.status };
+      });
+    }),
+
   /** Live duplicate check while the user edits the invoice number (§2.3). */
   invoiceDuplicates: protectedProcedure
     .input(z.object({ documentId: z.uuid(), invoiceNumber: z.string().max(200) }))
@@ -725,6 +974,20 @@ export const verificationRouter = router({
         }
 
         const fieldRows = await loadFields(tx, input.documentId, record.metric_id);
+        // The same guard rail as the screen: a value typed at upload that the document reads differently
+        // must be settled by the person (migration 0077), so the typed comparison is part of the check.
+        const declaration = await declarationOf(tx, record.id);
+        const typed = declaration
+          ? typedFields(
+              declaration,
+              fieldRows.map((f) => ({
+                key: f.field_key,
+                dataType: f.data_type,
+                extractedValue: f.extracted_value,
+              })),
+              fieldRows.find((f) => f.data_type === "unit")?.field_key ?? null,
+            )
+          : new Map();
         const fields: VerifyField[] = fieldRows
           .filter((f) => f.id)
           .map((f) => ({
@@ -736,6 +999,7 @@ export const verificationRouter = router({
             critical: f.is_critical,
             extractedValue: f.extracted_value,
             confidence: f.confidence,
+            typed: typed.get(f.field_key) ?? null,
           }));
         const entries = Object.fromEntries(
           input.fields.map((f) => [f.id, { value: f.value, acknowledged: f.acknowledged }]),
@@ -797,6 +1061,18 @@ export const verificationRouter = router({
             activityRaw = raw?.ok ? raw.value : null;
           }
           if (activity.unitKey && field.key === activity.unitKey) activityUnit = value || null;
+        }
+        // Travel (migration 0077): the activity value is distance x passengers (passenger-km).
+        if (activity.productKeys) {
+          const number = (text: string | null | undefined) => {
+            const parsed = text ? parseDecimal(text) : null;
+            return parsed?.ok ? parsed.value : null;
+          };
+          const byKey = (k: string) => fields.find((f) => f.key === k)!;
+          activityValue = productOf(
+            activity.productKeys.map((k) => number(entries[byKey(k).id].value)),
+          );
+          activityRaw = productOf(activity.productKeys.map((k) => number(byKey(k).extractedValue)));
         }
 
         // A re-confirmed manual exception stays a manual exception (schema §9.3).
@@ -932,14 +1208,21 @@ export const verificationRouter = router({
               ${value || null}, 'edited', ${userId}, now()
             )`;
         }
-        const parsed = parseDecimal(entries[activity.valueKey].value);
+        const numberOf = (key: string) => {
+          const parsed = parseDecimal(entries[key]?.value ?? "");
+          return parsed.ok ? parsed.value : null;
+        };
+        // Travel: distance x passengers (migration 0077).
+        const manualValue = activity.productKeys
+          ? productOf(activity.productKeys.map(numberOf))
+          : numberOf(activity.valueKey);
         await tx`
           insert into public.verifications
             (esg_record_id, ocr_extraction_id, verified_by, is_manual_exception, notes)
           values (${record.id}, null, ${userId}, true, ${input.justification})`;
         await tx`
           update public.esg_records
-          set activity_value_verified = ${parsed.ok ? parsed.value : null},
+          set activity_value_verified = ${manualValue},
               activity_unit = ${activity.unitKey ? (entries[activity.unitKey]?.value.trim() ?? null) : null},
               verified_by = ${userId}, verification_status = 'user_verified',
               data_quality_state = 'verified'

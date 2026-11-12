@@ -5,6 +5,12 @@
 import type { Instrumentation } from "next";
 
 export async function register() {
+  // Times shown by the server read in India time (owner's request, 2026-11-12). Vercel's servers run on UTC,
+  // so every date the pages format without naming a zone was 5½ hours behind; Node switches its zone when
+  // TZ is set. APP_TIME_ZONE overrides it. (A developer machine in India already ran this way.)
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    process.env.TZ = process.env.APP_TIME_ZONE?.trim() || "Asia/Kolkata";
+  }
   if (!process.env.SENTRY_DSN || process.env.NEXT_RUNTIME !== "nodejs") return;
   const Sentry = await import("@sentry/nextjs");
   Sentry.init({
