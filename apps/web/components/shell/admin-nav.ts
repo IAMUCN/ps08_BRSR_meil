@@ -94,7 +94,12 @@ export function workspaceNavFor(session: {
   permissions: string[];
 }): NavItem[] {
   if (session.isAdmin || session.isOrgAdmin) return adminNavFor(session);
-  const nav = [...APP_NAV];
+  // Upload and My Submissions are for people who can upload; a read-only role (the Assurance Reviewer) is
+  // not offered them (role-wise dashboard: no upload actions for the Auditor).
+  const canUpload = session.permissions.includes("document.upload");
+  const nav = APP_NAV.filter(
+    (item) => canUpload || (item.href !== "/app/upload" && item.href !== "/app/submissions"),
+  );
   // A1: the Approvals item appears only for approvers (Corporate ESG/Sustainability).
   if (session.permissions.includes("approval.decide"))
     nav.push({ href: "/app/approvals", label: "Approvals", icon: "approvals" });

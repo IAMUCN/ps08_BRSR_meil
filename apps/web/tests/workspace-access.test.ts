@@ -122,7 +122,12 @@ test("the Super Admin and Administrator sidebars are unchanged by this", () => {
 const finance = {
   isAdmin: false,
   isOrgAdmin: false,
-  permissions: ["document.upload", "record.verify", "disclosure.finance", "financial_inputs.manage"],
+  permissions: [
+    "document.upload",
+    "record.verify",
+    "disclosure.finance",
+    "financial_inputs.manage",
+  ],
 };
 const hr = {
   isAdmin: false,

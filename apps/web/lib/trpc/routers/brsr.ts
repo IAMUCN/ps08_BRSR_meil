@@ -7,12 +7,7 @@ import { holdsPermissionAtGroup } from "@/lib/auth/scope";
 import { canEditDisclosures, canEnterFinancialInputs } from "@/lib/auth/workspace";
 import { financialYearOf } from "@/lib/consolidation/aggregate";
 import { db } from "@/lib/db";
-import {
-  adminProcedure,
-  permissionProcedure,
-  protectedProcedure,
-  router,
-} from "@/lib/trpc/init";
+import { adminProcedure, permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
 import { resolvePeriod } from "@/lib/trpc/routers/scope";
 
 // BRSR mapping (03_APP_FLOW.md §2.2, PRD §27, TRD §26; .grill/phase-14-brsr-mapping-decisions.md). The
@@ -247,7 +242,8 @@ export const brsrRouter = router({
   /** The financial years the Disclosures page offers, for people who cannot open Reports to read them. */
   disclosureYears: protectedProcedure.query(
     async ({ ctx }): Promise<{ years: number[]; defaultYear: number | null }> => {
-      if (!canEditDisclosures(ctx.session) && !canEnterFinancialInputs(ctx.session)) throw FORBIDDEN;
+      if (!canEditDisclosures(ctx.session) && !canEnterFinancialInputs(ctx.session))
+        throw FORBIDDEN;
       const periods = await db()<{ start_date: string; status: string }[]>`
         select start_date::text, status::text from public.reporting_periods order by start_date desc`;
       const years = [...new Set(periods.map((p) => financialYearOf(p.start_date)))];
