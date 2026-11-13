@@ -4,5 +4,6 @@ export const NAV_ITEMS = [
   { href: "#roles", label: "Roles" },
   { href: "#reporting", label: "Reporting" },
   { href: "#security", label: "Security" },
-  { href: "#docs", label: "Docs" },
+  { href: "#documentation", label: "Docs" },
+  { href: "#faq", label: "FAQ" },
 ];
