@@ -110,6 +110,17 @@ export function passwordResetOtpEmailHtml(input: {
 <p>It expires in ${input.expiryMinutes} minutes. If you didn&#39;t request this, ignore this email.</p>`;
 }
 
+export function mfaEmailCodeHtml(input: {
+  displayName: string;
+  code: string;
+  expiryMinutes: number;
+}): string {
+  return `<p>Hi ${escapeHtml(input.displayName)},</p>
+<p>Use this code to finish signing in to EmeilSG:</p>
+<p style="font-size: 28px; font-weight: bold; letter-spacing: 4px;">${escapeHtml(input.code)}</p>
+<p>It expires in ${input.expiryMinutes} minutes. If you did not just try to sign in, do not share this code and tell your administrator.</p>`;
+}
+
 export function submissionReminderEmailHtml(input: {
   displayName: string;
   periodLabel: string;

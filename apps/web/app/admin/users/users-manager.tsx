@@ -34,6 +34,7 @@ import {
   inviteUserAction,
   reactivateUserAction,
   resendInviteAction,
+  resetUserMfaAction,
   revokeAssignmentAction,
   revokeInviteAction,
 } from "./actions";
@@ -746,6 +747,27 @@ function ManageSheet({
                     </Button>
                   ) : null}
                 </>
+              ) : null}
+              {user.manageable && !user.invitation ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Remove ${user.displayName}'s authenticator app? They will set up a new one at their next sign-in. Super Admins only.`,
+                      )
+                    ) {
+                      run(
+                        () => resetUserMfaAction({ userId: user.id }),
+                        "Authenticator app removed",
+                      );
+                    }
+                  }}
+                >
+                  Reset authenticator app
+                </Button>
               ) : null}
             </div>
             {user.invitation ? (

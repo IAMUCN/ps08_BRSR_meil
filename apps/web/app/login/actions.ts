@@ -120,7 +120,11 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
   }
 
   const result = await resolveSession(supabase);
-  if (result.status === "password_change_required") {
+  if (
+    result.status === "password_change_required" ||
+    result.status === "mfa_required" ||
+    result.status === "mfa_enrollment_required"
+  ) {
     const next = safeNextPath(parsed.data.next);
     redirect(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
   }

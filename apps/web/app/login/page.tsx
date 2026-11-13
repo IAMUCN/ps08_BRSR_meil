@@ -9,6 +9,7 @@ import { isLoginReason, LOGIN_NOTICES } from "@/lib/auth/messages";
 import { postLoginPath, safeNextPath } from "@/lib/auth/redirects";
 import { getSessionContext } from "@/lib/auth/session";
 import { AUTH_MESSAGES, SIGNUP_CONTACT_EMAIL } from "@/lib/auth/messages";
+import { MfaChallengeForm, MfaSetup } from "@/components/auth/mfa-setup";
 import { ChangePasswordForm } from "./change-password-form";
 import { GoogleSignIn } from "./google-sign-in";
 import { googleSignInEnabled } from "@/lib/auth/google";
@@ -35,6 +36,38 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         heading="Choose a new password"
         notice={<AuthNotice tone="info">{AUTH_MESSAGES.temporaryPassword}</AuthNotice>}
         signIn={<ChangePasswordForm next={next} email={session.email} />}
+        footer={
+          <a
+            href="/auth/signout"
+            className="mt-4 inline-flex min-h-6 items-center self-start text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Sign out
+          </a>
+        }
+      />
+    );
+  }
+
+  // Password accepted, second step: the code from the authenticator app, or setting one up first.
+  if (session.status === "mfa_required" || session.status === "mfa_enrollment_required") {
+    const enrolling = session.status === "mfa_enrollment_required";
+    return (
+      <AuthSlider
+        heading={enrolling ? "Set up two-step sign-in" : "Enter your code"}
+        notice={
+          enrolling ? (
+            <AuthNotice tone="info">
+              Your organization requires an authenticator app. Set it up once to continue.
+            </AuthNotice>
+          ) : null
+        }
+        signIn={
+          enrolling ? (
+            <MfaSetup next={next} />
+          ) : (
+            <MfaChallengeForm next={next} contactEmail={SIGNUP_CONTACT_EMAIL} />
+          )
+        }
         footer={
           <a
             href="/auth/signout"

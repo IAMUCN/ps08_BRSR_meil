@@ -3,6 +3,10 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+import { MFA_EMAIL_COOKIE, emailPassValid } from "@/lib/auth/mfa-email";
+import { sessionIdFromAccessToken } from "@/lib/auth/session-cookie";
+import { aalFromAccessToken, hasVerifiedTotp, mfaEnforced } from "@/lib/auth/mfa";
 import { mustChangePassword } from "@/lib/auth/initial-password";
 import { ADMIN_ROLE, ORG_ADMIN_ROLE } from "@/lib/auth/redirects";
 import { currentSessionId, touchSession } from "@/lib/auth/session-limits";
@@ -50,6 +54,10 @@ export type SessionResult =
   | { status: "unprovisioned" }
   // Signed in with the emailed temporary password: nothing is open until they choose their own.
   | { status: "password_change_required"; email: string }
+  // Password accepted; the six-digit code from the authenticator app is still to come.
+  | { status: "mfa_required"; email: string }
+  // No authenticator app yet and the platform requires one (on unless AUTH_MFA_REQUIRED=false).
+  | { status: "mfa_enrollment_required"; email: string }
   | { status: "active"; session: ActiveSession };
 
 /** Why a signed-in user is being turned away; mirrors the /auth/signout `reason` values. */
@@ -87,6 +95,23 @@ export async function resolveSession(supabase: SupabaseClient): Promise<SessionR
   const clock = await touchSession(await currentSessionId(supabase), user.id, false);
   if (clock.state !== "active") return { status: "expired" };
   if (mustChangePassword(user)) return { status: "password_change_required", email: profile.email };
+
+  const hasTotp = hasVerifiedTotp(user.factors);
+  if (hasTotp) {
+    const {
+      data: { session: authSession },
+    } = await supabase.auth.getSession();
+    if (aalFromAccessToken(authSession?.access_token) !== "aal2") {
+      // "Try another way": a code emailed to the account passed for this very sign-in.
+      const sessionId = sessionIdFromAccessToken(authSession?.access_token);
+      const pass = (await cookies()).get(MFA_EMAIL_COOKIE)?.value;
+      if (!sessionId || !emailPassValid(pass, user.id, sessionId)) {
+        return { status: "mfa_required", email: profile.email };
+      }
+    }
+  } else if (mfaEnforced()) {
+    return { status: "mfa_enrollment_required", email: profile.email };
+  }
 
   const { data: assignmentRows, error: assignmentError } = await supabase
     .from("user_org_assignments")
@@ -159,7 +184,13 @@ export async function requireActiveSession(): Promise<ActiveSession> {
   if (result.status === "anonymous") redirect("/login");
   // A Server Component cannot clear cookies: the sign-out route ends the sign-in and shows the reason.
   if (result.status === "expired") redirect("/auth/signout?reason=expired");
-  if (result.status === "password_change_required") redirect("/login");
+  if (
+    result.status === "password_change_required" ||
+    result.status === "mfa_required" ||
+    result.status === "mfa_enrollment_required"
+  ) {
+    redirect("/login");
+  }
   if (result.status !== "active") redirect(`/auth/signout?reason=${result.status}`);
   return result.session;
 }

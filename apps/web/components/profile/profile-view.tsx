@@ -11,12 +11,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import type { ActiveSession } from "@/lib/auth/session";
+import { MfaSettings } from "@/components/profile/mfa-settings";
 import { changePasswordAction, updateDisplayNameAction } from "@/lib/profile/actions";
 
 /**
  * 03_APP_FLOW.md §2.3 Profile, mounted at /app/profile and /admin/profile. Role and scope are read-only.
  */
-export function ProfileView({ session }: { session: ActiveSession }) {
+export function ProfileView({
+  session,
+  mfa,
+}: {
+  session: ActiveSession;
+  mfa: { enabled: boolean; required: boolean };
+}) {
   const router = useRouter();
   const [namePending, startName] = useTransition();
   const [passwordPending, startPassword] = useTransition();
@@ -157,6 +164,7 @@ export function ProfileView({ session }: { session: ActiveSession }) {
           </p>
         </form>
       </section>
+      <MfaSettings enabled={mfa.enabled} required={mfa.required} />
     </div>
   );
 }

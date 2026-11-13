@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Lock, Pencil, Plus } from "lucide-react";
+import { Loader2, Lock, Pencil, Plus, Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { SUGGESTED_PERMISSIONS } from "@/lib/roles/suggested-permissions";
 import { permissionLabel } from "@/lib/roles/permission-labels";
 import type { RoleMatrix } from "@/lib/trpc/routers/roles";
 import {
@@ -132,6 +133,27 @@ function RolePermissions({
   const [pending, startTransition] = useTransition();
   const [checked, setChecked] = useState(new Set(role.permissionIds));
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const suggestedCodes = new Set(SUGGESTED_PERMISSIONS[role.code] ?? []);
+  const suggestedIds = permissions.filter((p) => suggestedCodes.has(p.code)).map((p) => p.id);
+  const [query, setQuery] = useState("");
+  // Saved selection decides the order (so rows do not jump while ticking): selected first, then the rest;
+  // inside each group the suggested ones lead, then by name.
+  const savedIds = new Set(role.permissionIds);
+  const ordered = [...permissions].sort(
+    (a, b) =>
+      Number(savedIds.has(b.id)) - Number(savedIds.has(a.id)) ||
+      Number(suggestedCodes.has(b.code)) - Number(suggestedCodes.has(a.code)) ||
+      permissionLabel(a.code).localeCompare(permissionLabel(b.code)),
+  );
+  const needle = query.trim().toLowerCase();
+  const visible = needle
+    ? ordered.filter((p) =>
+        `${permissionLabel(p.code)} ${p.description ?? ""} ${p.code}`
+          .toLowerCase()
+          .includes(needle),
+      )
+    : ordered;
+  const missingSuggested = suggestedIds.filter((id) => !checked.has(id)).length;
   const dirty =
     checked.size !== role.permissionIds.length || role.permissionIds.some((id) => !checked.has(id));
 
@@ -192,11 +214,50 @@ function RolePermissions({
         </p>
       ) : null}
 
+      {!role.isLocked && suggestedIds.length > 0 ? (
+        <div role="note" className="mt-4 rounded-md border bg-muted/40 p-4 text-sm leading-5">
+          <p className="font-medium">
+            We suggest {suggestedIds.length} permission{suggestedIds.length === 1 ? "" : "s"} for{" "}
+            {role.name}.
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            They are marked <span className="font-medium">Suggested</span> below. If this role needs
+            anything else, tick it as well, then save.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            disabled={pending || missingSuggested === 0}
+            onClick={() => setChecked((prev) => new Set([...prev, ...suggestedIds]))}
+          >
+            {missingSuggested === 0
+              ? "All suggested permissions ticked"
+              : `Tick the ${missingSuggested} missing suggested permission${missingSuggested === 1 ? "" : "s"}`}
+          </Button>
+        </div>
+      ) : null}
+
       <form onSubmit={onSubmit} className="mt-6">
+        <div className="relative mb-3">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search permissions"
+            aria-label="Search permissions"
+            className="pl-8"
+          />
+        </div>
         <fieldset disabled={role.isLocked || pending}>
           <legend className="sr-only">Permissions for {role.name}</legend>
           <ul className="divide-y rounded-md border">
-            {permissions.map((permission) => (
+            {visible.map((permission) => (
               <li key={permission.id} className="flex items-start gap-3 px-3 py-3">
                 <input
                   id={`perm-${permission.id}`}
@@ -213,11 +274,23 @@ function RolePermissions({
                   }
                 />
                 <label htmlFor={`perm-${permission.id}`} className="text-sm leading-5">
-                  <span className="block font-medium">{permissionLabel(permission.code)}</span>
+                  <span className="block font-medium">
+                    {permissionLabel(permission.code)}
+                    {suggestedCodes.has(permission.code) && !role.isLocked ? (
+                      <span className="ml-2 rounded-sm border px-1.5 py-0.5 text-xs font-normal text-foreground">
+                        Suggested
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="text-muted-foreground">{permission.description}</span>
                 </label>
               </li>
             ))}
+            {visible.length === 0 ? (
+              <li className="px-3 py-4 text-sm text-muted-foreground">
+                No permission matches &ldquo;{query}&rdquo;.
+              </li>
+            ) : null}
           </ul>
         </fieldset>
         {!role.isLocked ? (

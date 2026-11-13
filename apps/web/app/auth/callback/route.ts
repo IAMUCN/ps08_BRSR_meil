@@ -103,7 +103,11 @@ export async function GET(request: NextRequest) {
   });
 
   const result = await resolveSession(supabase);
-  if (result.status === "password_change_required") {
+  if (
+    result.status === "password_change_required" ||
+    result.status === "mfa_required" ||
+    result.status === "mfa_enrollment_required"
+  ) {
     return redirect(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
   }
   if (result.status !== "active") {

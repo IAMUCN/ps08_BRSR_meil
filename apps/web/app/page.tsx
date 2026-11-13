@@ -16,7 +16,11 @@ export default async function RootPage() {
     redirect(landingPathFor(result.session.roleCodes));
   }
 
-  if (result?.status === "password_change_required") {
+  if (
+    result?.status === "password_change_required" ||
+    result?.status === "mfa_required" ||
+    result?.status === "mfa_enrollment_required"
+  ) {
     redirect("/login");
   }
 

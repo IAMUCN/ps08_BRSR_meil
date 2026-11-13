@@ -54,3 +54,12 @@ export async function reactivateUserAction(input: { userId: string }) {
 export async function deleteUserAction(input: { userId: string }) {
   return runAction((api) => api.users.delete(input));
 }
+
+/** Super Admin only (checked in the action): removes the person's authenticator app. */
+export async function resetUserMfaAction(input: { userId: string }) {
+  const { resetUserMfa } = await import("@/lib/auth/mfa-actions");
+  const result = await resetUserMfa(input.userId);
+  return result.ok
+    ? ({ ok: true, data: { removed: result.removed } } as const)
+    : ({ ok: false, error: result.error } as const);
+}
