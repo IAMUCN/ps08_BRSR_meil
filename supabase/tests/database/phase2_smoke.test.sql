@@ -31,7 +31,9 @@ select tables_are('public', array[
   'risk_evaluation_reports', 'recommendations_reports', 'ai_providers', 'ai_security_policies',
   'rag_knowledge_chunks', 'predictive_forecast_snapshots', 'what_if_scenario_simulations',
   -- Upload by rows, typed values checked against the document (D59, migration 0077)
-  'upload_declarations', 'upload_drafts'
+  'upload_declarations', 'upload_drafts',
+  -- Employee register (migration 0070/0083)
+  'employee_registers'
 ], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(
@@ -67,8 +69,8 @@ select ok(not has_column_privilege('authenticated', 'public.user_display_names',
 -- Seed data
 ------------------------------------------------------------------------------------------------
 
-select is((select count(*)::int from public.roles where is_system_role), 9, '9 system roles (0067 adds the Assurance Reviewer)');
-select is((select count(*)::int from public.permissions), 26, '26 permissions (0067 adds four, 0070 two)');
+select is((select count(*)::int from public.roles where is_system_role), 9, '9 system roles (0080 adds the Assurance Reviewer)');
+select is((select count(*)::int from public.permissions), 26, '26 permissions (0080 adds four, 0083 two)');
 select is((select count(*)::int from public.role_permissions rp join public.roles r on r.id = rp.role_id
            where r.code = 'admin'), 26, 'admin holds every permission');
 select set_eq(

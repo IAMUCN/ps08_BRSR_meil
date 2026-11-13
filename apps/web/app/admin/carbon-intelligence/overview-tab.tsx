@@ -1,17 +1,11 @@
 "use client";
 
 import {
-  Activity,
   ArrowDownRight,
   ArrowUpRight,
-  BarChart3,
-  Building2,
-  Calendar,
   Flame,
-  Info,
   Layers,
   Leaf,
-  Lightbulb,
   Link2,
   Percent,
   Sparkles,
@@ -20,7 +14,6 @@ import {
 import { useMemo, useState } from "react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { AlertSettings } from "@/lib/analytics/alerts";
-import type { Recommendation } from "@/lib/analytics/recommend";
 import type { AnalyticsOverview } from "@/lib/analytics/service";
 import {
   monthsLabel,

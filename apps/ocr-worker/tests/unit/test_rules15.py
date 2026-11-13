@@ -14,7 +14,7 @@ from worker.extraction.profiles import (
 
 class VersionTest(unittest.TestCase):
     def test_the_rules_are_versioned(self):
-        self.assertEqual(EXTRACTOR_VERSION, "rules-15")
+        self.assertEqual(EXTRACTOR_VERSION, "rules-17")
 
 
 class CapturedFieldsTest(unittest.TestCase):
