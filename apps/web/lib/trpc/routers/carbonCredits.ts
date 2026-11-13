@@ -953,6 +953,9 @@ export const carbonCreditsRouter = router({
           traditionalPaybackYears && carbonAdjustedPaybackYears
             ? Number((traditionalPaybackYears - carbonAdjustedPaybackYears).toFixed(2))
             : null,
+        // No payback from the savings alone, but one with the carbon value (2026-11-13).
+        paysBackOnlyWithCarbon:
+          traditionalPaybackYears === null && carbonAdjustedPaybackYears !== null,
         traditionalNpv: Math.round(traditionalNpv),
         carbonAdjustedNpv: Math.round(carbonAdjustedNpv),
         lifetimeCarbonAvoidedTco2e: annualEmissionCutTco2e * input.projectLifespanYears,

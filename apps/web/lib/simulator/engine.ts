@@ -355,6 +355,8 @@ export type MultiVectorFinancialImpact = {
   traditionalPaybackYears: number | null;
   carbonAdjustedPaybackYears: number | null;
   paybackAccelerationYears: number | null;
+  /** No payback from the savings alone, but one with the carbon value (2026-11-13). */
+  paysBackOnlyWithCarbon: boolean;
   fiveYearNpv: number | null;
   isGrounded: boolean;
   missingInputsExplanation?: string;
@@ -566,6 +568,8 @@ export function simulateMultiVectorScenario(
       traditionalPaybackYears,
       carbonAdjustedPaybackYears,
       paybackAccelerationYears,
+      paysBackOnlyWithCarbon:
+        traditionalPaybackYears === null && carbonAdjustedPaybackYears !== null,
       fiveYearNpv,
       isGrounded: true,
       missingInputsExplanation: !capexAmount

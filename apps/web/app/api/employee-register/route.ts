@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { ingestRegister } from "@/lib/register/service";
 import { sameOriginRequest } from "@/lib/security/origin";
 
-// Upload an employee register (migration 0070). The file is read once on the server; only the totals are kept
+// Upload an employee register (migration 0083). The file is read once on the server; only the totals are kept
 // and the original is stored privately. Same-origin only, like every state-changing request.
 
 const form = z.object({

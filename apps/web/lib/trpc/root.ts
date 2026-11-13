@@ -13,6 +13,7 @@ import { reportingPeriodsRouter } from "@/lib/trpc/routers/reporting-periods";
 import { approvalsRouter } from "@/lib/trpc/routers/approvals";
 import { auditRouter } from "@/lib/trpc/routers/audit";
 import { brsrRouter } from "@/lib/trpc/routers/brsr";
+import { brsrTablesRouter } from "@/lib/trpc/routers/brsr-tables";
 import { chatRouter } from "@/lib/trpc/routers/chat";
 import { consolidationRouter } from "@/lib/trpc/routers/consolidation";
 import { recordsRouter } from "@/lib/trpc/routers/records";
@@ -67,6 +68,7 @@ export const appRouter = router({
   simulator: simulatorRouter,
   deadlines: deadlinesRouter,
   brsr: brsrRouter,
+  brsrTables: brsrTablesRouter,
   consolidation: consolidationRouter,
   records: recordsRouter,
   reports: reportsRouter,

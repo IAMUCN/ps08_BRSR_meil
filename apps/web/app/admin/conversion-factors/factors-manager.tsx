@@ -17,6 +17,12 @@ import {
 } from "@/components/ui/sheet";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import type { FetchOutcome } from "@/lib/factors/source";
+import {
+  PROPOSED_CALORIFIC_VALUES,
+  PROPOSED_SOURCE,
+  isEnergyKey,
+  metricOfEnergyKey,
+} from "@/lib/energy/calorific";
 import { fyLabel, fyOf, OUTPUT_UNITS, type SourceHost } from "@/lib/factors/source-text";
 import type { FactorRow, FactorVersionRow } from "@/lib/trpc/routers/factors";
 import { ReviewPanel, type ReviewData } from "./review-panel";
@@ -720,6 +726,26 @@ function FactorSheet({
   }
 
   const selectedType = activityTypes.find((t) => t.code === form.activityType);
+  // A calorific value (BRSR P6-E1) gives GJ; the values proposed are IPCC defaults, saved only as a draft.
+  const energy = isEnergyKey(form.activityType);
+  const outputUnits: readonly string[] = energy ? ["GJ"] : OUTPUT_UNITS;
+  const proposed = energy
+    ? PROPOSED_CALORIFIC_VALUES[metricOfEnergyKey(form.activityType)]
+    : undefined;
+  function applyProposed() {
+    if (!proposed) return;
+    setForm((prev) => ({
+      ...prev,
+      name: prev.name || `${selectedType?.name ?? "Fuel"}`,
+      value: String(proposed.value),
+      inputUnit: proposed.inputUnit,
+      outputUnit: "GJ",
+      sourceReference: PROPOSED_SOURCE.reference,
+      sourcePublisher: PROPOSED_SOURCE.publisher,
+      sourceUrl: PROPOSED_SOURCE.url,
+      notes: proposed.note,
+    }));
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -736,7 +762,19 @@ function FactorSheet({
                 <NativeSelect
                   id="factor-activity"
                   value={form.activityType}
-                  onChange={(e) => set("activityType")(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setForm((prev) => ({
+                      ...prev,
+                      activityType: next,
+                      // A calorific value's result is always GJ; an emission factor's starts at kgCO2e.
+                      outputUnit: isEnergyKey(next)
+                        ? "GJ"
+                        : prev.outputUnit === "GJ"
+                          ? "kgCO2e"
+                          : prev.outputUnit,
+                    }));
+                  }}
                   required
                 >
                   {activityTypes.map((t) => (
@@ -749,6 +787,37 @@ function FactorSheet({
                   <p className="text-xs text-muted-foreground">
                     Records for this activity are normalised to {selectedType.unit}.
                   </p>
+                ) : null}
+                {energy ? (
+                  <div className="space-y-2 rounded-md border border-border bg-muted/40 p-3 text-xs leading-5">
+                    <p>
+                      A calorific value turns this fuel into energy (GJ) for BRSR Principle 6,
+                      Essential Indicator 1. It does not change any emission calculation.
+                    </p>
+                    {proposed ? (
+                      <>
+                        <p>
+                          Proposed:{" "}
+                          <span className="font-medium">
+                            {proposed.value} GJ per {proposed.inputUnit}
+                          </span>{" "}
+                          — {PROPOSED_SOURCE.reference}. {proposed.note}
+                        </p>
+                        <Button type="button" size="sm" variant="outline" onClick={applyProposed}>
+                          Use the proposed value
+                        </Button>
+                        <p className="text-muted-foreground">
+                          It is saved as a draft; another Super Admin approves it before any report
+                          uses it.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-muted-foreground">
+                        No value is proposed for this one: it needs your supplier&apos;s own figure
+                        (gas density or steam enthalpy).
+                      </p>
+                    )}
+                  </div>
                 ) : null}
               </div>
               <div className="space-y-2">
@@ -898,7 +967,7 @@ function FactorSheet({
                 onChange={(e) => set("outputUnit")(e.target.value)}
                 required
               >
-                {OUTPUT_UNITS.map((u) => (
+                {outputUnits.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>

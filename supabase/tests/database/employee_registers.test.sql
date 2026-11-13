@@ -33,6 +33,8 @@ select is(
   0, 'there is no person-level column');
 
 -- One live register per unit and year.
+insert into auth.users (id, email, aud, role)
+values ('70707070-0000-4000-8000-000000000001', 'register.fixture@example.test', 'authenticated', 'authenticated');
 insert into public.users (id, display_name, email)
 values ('70707070-0000-4000-8000-000000000001', 'Register Fixture', 'register.fixture@example.test');
 insert into public.employee_registers

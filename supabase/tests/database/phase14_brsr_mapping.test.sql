@@ -14,7 +14,11 @@ select is(
   (select count(*)::int from public.esg_metrics m
     where m.deleted_at is null
       and not exists (select 1 from public.brsr_metric_mappings x
-                       where x.esg_metric_id = m.id and x.is_applicable)),
+                       where x.esg_metric_id = m.id and x.is_applicable)
+      -- Compliance certificates are evidence of compliance, not a reported figure: mapped to P6-E13 as not
+      -- applicable on purpose (migration 0082). Still mapped — the next test of audit_2 checks that.
+      and not (m.code = 'COMPLIANCE_CERTIFICATE'
+               and exists (select 1 from public.brsr_metric_mappings x where x.esg_metric_id = m.id))),
   0,
   'no orphaned metrics: every metric feeds at least one applicable BRSR indicator');
 

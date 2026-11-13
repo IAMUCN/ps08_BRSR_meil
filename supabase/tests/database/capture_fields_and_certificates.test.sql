@@ -10,12 +10,12 @@ select is(
 select is(
   (select is_required from public.metric_field_requirements r join public.esg_metrics m on m.id = r.metric_id
     where m.code = 'MSME_PROCUREMENT' and r.field_key = 'india_spend'),
-  false, 'within-India spend is an optional field');
--- The verification screen needs exactly one required number field per activity: neither addition changes that.
+  true, 'within-India spend is required since migration 0086 (BRSR P8-E4 prints it)');
+-- MSME's formula names its part and whole, so a third required number is fine for verification.
 select is(
   (select count(*)::int from public.metric_field_requirements r join public.esg_metrics m on m.id = r.metric_id
     where m.code in ('CSR_EXPENDITURE', 'MSME_PROCUREMENT') and r.data_type = 'number' and r.is_required),
-  3, 'CSR keeps one required number (amount) and MSME its two (total and MSME spend)');
+  4, 'CSR keeps one required number (amount); MSME has three (total, MSME and within-India spend)');
 
 select is(
   (select c.name from public.esg_metrics m join public.esg_categories c on c.id = m.category_id

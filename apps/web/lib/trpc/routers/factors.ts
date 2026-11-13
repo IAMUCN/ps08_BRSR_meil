@@ -4,6 +4,7 @@ import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { runCalculation } from "@/lib/calculation/engine";
 import { sameQuantity } from "@/lib/calculation/units";
+import { energyRowOf, isEnergyKey, metricOfEnergyKey } from "@/lib/energy/calorific";
 import { db } from "@/lib/db";
 import { fetchSource } from "@/lib/factors/source";
 import {
@@ -123,16 +124,24 @@ async function checkVersion(
   activityType: string,
   v: VersionValues,
 ) {
+  // A calorific value (`ENERGY:<activity>`, BRSR P6-E1) is per the activity's own unit and gives GJ.
+  const energy = isEnergyKey(activityType);
   const [metric] = await tx<{ unit: string; name: string }[]>`
     select unit, name from public.esg_metrics
-    where code = ${activityType} and deleted_at is null and requires_conversion_factor`;
+    where code = ${energy ? metricOfEnergyKey(activityType) : activityType} and deleted_at is null
+      and (${energy} or requires_conversion_factor)`;
   if (!metric) throw bad("That activity does not take a conversion factor.");
   if (!sameQuantity(v.inputUnit, metric.unit)) {
     throw bad(
       `The factor must be per a unit of the same kind as the activity's unit (${metric.unit}); "${v.inputUnit}" is not.`,
     );
   }
-  const outputUnit = OUTPUT_UNITS.find((u) => u.toLowerCase() === v.outputUnit.toLowerCase());
+  if (energy && v.outputUnit.toLowerCase() !== "gj") {
+    throw bad("A calorific value gives GJ (gigajoules) per unit of the activity.");
+  }
+  const outputUnit = energy
+    ? "GJ"
+    : OUTPUT_UNITS.find((u) => u.toLowerCase() === v.outputUnit.toLowerCase());
   if (!outputUnit) throw bad(`The result unit must be one of ${OUTPUT_UNITS.join(", ")}.`);
   if (factorId) {
     const [existing] = await tx<{ output_unit: string }[]>`
@@ -235,7 +244,10 @@ export const factorsRouter = router({
         versions: Omit<FactorVersionRow, "reliability">[] | null;
       }[]
     >`
-      select f.id, f.activity_type, m.name as metric_name, m.unit as metric_unit, f.name,
+      select f.id, f.activity_type,
+             m.name || case when f.activity_type like 'ENERGY:%' then ' — calorific value' else '' end
+               as metric_name,
+             m.unit as metric_unit, f.name,
              (select json_agg(json_build_object(
                        'id', v.id, 'versionNumber', v.version_number, 'value', v.value::float,
                        'inputUnit', v.input_unit, 'outputUnit', v.output_unit,
@@ -261,7 +273,8 @@ export const factorsRouter = router({
                 left join public.users ap on ap.id = v.approved_by
                where v.conversion_factor_id = f.id) as versions
       from public.conversion_factors f
-      left join public.esg_metrics m on m.code = f.activity_type and m.deleted_at is null
+      left join public.esg_metrics m
+        on m.code = regexp_replace(f.activity_type, '^ENERGY:', '') and m.deleted_at is null
       order by f.activity_type`;
     return rows.map((r) => ({
       id: r.id,
@@ -279,10 +292,36 @@ export const factorsRouter = router({
   /** Activity types a factor can be created for — the configured metrics, so no free-text typos. */
   activityTypes: manage.query(async () => {
     const sql = db();
-    return sql<{ code: string; name: string; unit: string }[]>`
-      select code, name, unit from public.esg_metrics
-      where deleted_at is null and requires_conversion_factor
-      order by name`;
+    const rows = await sql<
+      {
+        code: string;
+        name: string;
+        unit: string;
+        factor: boolean;
+        scope: string | null;
+        category: string | null;
+      }[]
+    >`
+      select m.code, m.name, m.unit, m.requires_conversion_factor as factor,
+             coalesce(ps.code, s.code) as scope, c.name as category
+      from public.esg_metrics m
+      left join public.scopes s on s.id = m.scope_id
+      left join public.scopes ps on ps.id = s.parent_scope_id
+      left join public.esg_categories c on c.id = m.category_id
+      where m.deleted_at is null
+      order by m.name`;
+    // Emission factors, then the calorific values energy needs (BRSR P6-E1): every fuel and steam, whose unit
+    // is not already energy.
+    return [
+      ...rows.filter((r) => r.factor).map(({ code, name, unit }) => ({ code, name, unit })),
+      ...rows
+        .filter((r) => energyRowOf(r.code, r.scope, r.category) && !sameQuantity(r.unit, "kWh"))
+        .map(({ code, name, unit }) => ({
+          code: `ENERGY:${code}`,
+          name: `${name} — calorific value (GJ per ${unit})`,
+          unit,
+        })),
+    ];
   }),
 
   /** The official sites a link may be fetched from (org_settings.factor_source_hosts). */
@@ -374,9 +413,11 @@ export const factorsRouter = router({
       }
       await count(limit);
       const sql = db();
+      const energy = isEnergyKey(input.activityType);
       const [metric] = await sql<{ id: string; name: string; unit: string }[]>`
         select id, name, unit from public.esg_metrics
-        where code = ${input.activityType} and deleted_at is null and requires_conversion_factor`;
+        where code = ${energy ? metricOfEnergyKey(input.activityType) : input.activityType}
+          and deleted_at is null and (${energy} or requires_conversion_factor)`;
       if (!metric) throw bad("That activity does not take a conversion factor.");
       const outcome = await fetchSource(input.url, await sourceHosts(sql), {
         metricUnit: metric.unit,

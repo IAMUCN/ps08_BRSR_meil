@@ -31,7 +31,11 @@ select tables_are('public', array[
   'risk_evaluation_reports', 'recommendations_reports', 'ai_providers', 'ai_security_policies',
   'rag_knowledge_chunks', 'predictive_forecast_snapshots', 'what_if_scenario_simulations',
   -- Upload by rows, typed values checked against the document (D59, migration 0077)
-  'upload_declarations', 'upload_drafts'
+  'upload_declarations', 'upload_drafts',
+  -- The employee register (role-wise dashboard, migration 0083)
+  'employee_registers',
+  -- SEBI's typed tables (migration 0087)
+  'brsr_table_answers'
 ], 'public schema has the 35 tables from 05_BACKEND_SCHEMA.md plus documented deviations only');
 
 select is(

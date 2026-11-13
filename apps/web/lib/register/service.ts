@@ -12,7 +12,7 @@ import {
   type RowProblem,
 } from "./register";
 
-// Storing and reading employee registers (migration 0070; .grill/role-dashboard-decisions.md). The file goes to
+// Storing and reading employee registers (migration 0083; .grill/role-dashboard-decisions.md). The file goes to
 // the private `registers` bucket; the database keeps only the totals computed from it. The person-level rows
 // exist in memory while a file is read, and are never written anywhere.
 

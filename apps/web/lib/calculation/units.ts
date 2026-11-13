@@ -53,6 +53,12 @@ const UNITS: Record<string, { canonical: string; multiplier: number }> = {
   units: { canonical: "kWh", multiplier: 1 },
   unit: { canonical: "kWh", multiplier: 1 },
   mwh: { canonical: "kWh", multiplier: 1000 },
+  // Joules (SEBI asks for energy "in Joules or multiples", P6-E1; steam and heat bills may state GJ).
+  // 1 kWh = 3.6 MJ, so 1 GJ = 1000 / 3.6 kWh.
+  kj: { canonical: "kWh", multiplier: 1 / 3600 },
+  mj: { canonical: "kWh", multiplier: 1 / 3.6 },
+  gj: { canonical: "kWh", multiplier: 1000 / 3.6 },
+  tj: { canonical: "kWh", multiplier: 1_000_000 / 3.6 },
 };
 
 export type Normalized = { value: number; unit: string };

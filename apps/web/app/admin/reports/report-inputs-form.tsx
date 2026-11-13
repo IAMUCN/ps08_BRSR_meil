@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { financialYearLabel } from "@/lib/consolidation/aggregate";
-import type { FyInputs } from "@/lib/reports/inputs";
+import { CHANGE_NOTE_INDICATORS, type FyInputs } from "@/lib/reports/inputs";
 import { reportInputsAction, saveReportInputsAction } from "./actions";
 
 // What SEBI's tables need that no uploaded document holds — entered once per financial year and reused by
@@ -56,6 +56,15 @@ export function ReportInputsForm({
       physicalOutputUnit: text("physicalOutputUnit"),
       assurance: text("assurance"),
       methodologyNote: text("methodologyNote"),
+      pppSource: text("pppSource"),
+      pppAccessedOn: text("pppAccessedOn"),
+      assurer: text("assurer"),
+      assuranceLevel: (text("assuranceLevel") as FyInputs["assuranceLevel"]) ?? null,
+      changeNotes: Object.fromEntries(
+        CHANGE_NOTE_INDICATORS.map(([code]) => [code, text(`change-${code}`) ?? ""]).filter(
+          ([, note]) => note,
+        ),
+      ),
     };
     startTransition(async () => {
       const result = await saveReportInputsAction({ financialYear: year, ...next });
@@ -132,6 +141,25 @@ export function ReportInputsForm({
             defaultValue={values.pppRate ?? ""}
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="inputs-ppp-source">PPP rate source</Label>
+          <Input
+            id="inputs-ppp-source"
+            name="pppSource"
+            maxLength={300}
+            placeholder="e.g. IMF World Economic Outlook"
+            defaultValue={values.pppSource ?? ""}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="inputs-ppp-date">PPP rate read on</Label>
+          <Input
+            id="inputs-ppp-date"
+            name="pppAccessedOn"
+            type="date"
+            defaultValue={values.pppAccessedOn ?? ""}
+          />
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-2">
             <Label htmlFor="inputs-output">Physical output</Label>
@@ -168,6 +196,28 @@ export function ReportInputsForm({
             className={area}
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="inputs-assurer">Assurance provider (BRSR Core)</Label>
+          <Input
+            id="inputs-assurer"
+            name="assurer"
+            maxLength={200}
+            placeholder="e.g. the audit firm's name"
+            defaultValue={values.assurer ?? ""}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="inputs-assurance-level">Level of assurance</Label>
+          <NativeSelect
+            id="inputs-assurance-level"
+            name="assuranceLevel"
+            defaultValue={values.assuranceLevel ?? ""}
+          >
+            <option value="">Not stated</option>
+            <option value="reasonable">Reasonable</option>
+            <option value="limited">Limited</option>
+          </NativeSelect>
+        </div>
         <div className="space-y-2 md:col-span-2">
           <Label htmlFor="inputs-method">
             Methodology note (optional: GWP values used, consolidation approach, exclusions)
@@ -181,6 +231,29 @@ export function ReportInputsForm({
             className={area}
           />
         </div>
+        <fieldset className="space-y-3 md:col-span-2 lg:col-span-4">
+          <legend className="text-sm font-medium">
+            Reasons for the change from the previous year (optional, printed under each table)
+          </legend>
+          <div className="grid gap-3 md:grid-cols-2">
+            {CHANGE_NOTE_INDICATORS.map(([code, label]) => (
+              <div key={code} className="space-y-1">
+                <Label htmlFor={`inputs-change-${code}`} className="text-xs">
+                  {code} — {label}
+                </Label>
+                <textarea
+                  id={`inputs-change-${code}`}
+                  name={`change-${code}`}
+                  rows={2}
+                  maxLength={1000}
+                  defaultValue={values.changeNotes?.[code] ?? ""}
+                  placeholder="e.g. Energy intensity fell 4.5% after the solar plant came on line"
+                  className={area}
+                />
+              </div>
+            ))}
+          </div>
+        </fieldset>
         <div className="lg:col-span-4">
           <Button type="submit" variant="outline" disabled={pending}>
             Save for {financialYearLabel(year)}

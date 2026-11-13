@@ -62,7 +62,7 @@ select is(
   (select is_required from public.metric_field_requirements r
      join public.esg_metrics m on m.id = r.metric_id
     where m.code = 'WASTE_DISPOSED' and r.field_key = 'waste_category'),
-  false, 'a waste certificate may state its category; it is never required');
+  true, 'a waste certificate states its category: required since migration 0086 (SEBI P6-E9)');
 
 select has_column('public', 'conversion_factor_versions', 'gases', 'a factor version states the gases it covers');
 

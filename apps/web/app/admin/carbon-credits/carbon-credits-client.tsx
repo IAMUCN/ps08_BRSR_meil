@@ -245,6 +245,7 @@ export function CarbonCreditsClient({
     traditionalPaybackYears: number | null;
     carbonAdjustedPaybackYears: number | null;
     paybackAccelerationYears: number | null;
+    paysBackOnlyWithCarbon?: boolean;
     traditionalNpv: number;
     carbonAdjustedNpv: number;
     lifetimeCarbonAvoidedTco2e: number;
@@ -1136,10 +1137,18 @@ export function CarbonCreditsClient({
                         <div className="text-lg font-bold text-foreground">
                           {capexResult.carbonAdjustedPaybackYears} Years{" "}
                           <span className="text-xs font-normal text-muted-foreground">
-                            (vs {capexResult.traditionalPaybackYears} yrs standard)
+                            {capexResult.traditionalPaybackYears === null
+                              ? "(no payback from the savings alone)"
+                              : `(vs ${capexResult.traditionalPaybackYears} yrs standard)`}
                           </span>
                         </div>
                       </div>
+                      {capexResult.paysBackOnlyWithCarbon ? (
+                        <Badge className="bg-emerald-600 text-white text-xs">
+                          <Zap aria-hidden />
+                          Pays back only with the carbon value
+                        </Badge>
+                      ) : null}
                       {capexResult.paybackAccelerationYears &&
                         capexResult.paybackAccelerationYears > 0 && (
                           <Badge className="bg-emerald-600 text-white text-xs">

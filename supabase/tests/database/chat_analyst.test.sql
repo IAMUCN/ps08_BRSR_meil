@@ -100,7 +100,7 @@ select is(
 -- --- Availability is a permission --------------------------------------------------------------------------
 select is(
   (select count(*)::int from public.roles r
-   where r.code <> 'auditor' -- the Assurance Reviewer (0067) arrived later and does not get it by default
+   where r.code <> 'auditor' -- the Assurance Reviewer (0080) arrived later and does not get it by default
      and not exists (select 1 from public.role_permissions rp
                      join public.permissions p on p.id = rp.permission_id and p.code = 'chat.use'
                      where rp.role_id = r.id)),

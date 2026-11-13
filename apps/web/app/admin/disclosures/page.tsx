@@ -11,6 +11,7 @@ import { PRINCIPLE_TITLES } from "@/lib/brsr/principles";
 import { api } from "@/lib/trpc/server";
 import { ReportInputsForm } from "../reports/report-inputs-form";
 import { DisclosureAnswer } from "./disclosure-answer";
+import { TypedTables } from "./typed-tables";
 
 export const metadata: Metadata = { title: "BRSR Disclosures · EmeilSG" };
 
@@ -47,6 +48,10 @@ export default async function DisclosuresPage({ searchParams }: PageProps<"/admi
   const sections = canEditDisclosures(session)
     ? await caller.brsr.disclosures({ financialYear: year })
     : [];
+  // SEBI's typed tables (migration 0087): the ones this person may write.
+  const tables = canEditDisclosures(session)
+    ? await caller.brsrTables.list({ financialYear: year })
+    : [];
   const all = sections.flatMap((s) => s.indicators);
   const typed = all.filter((i) => i.kind === "statement");
   const answered = typed.filter((i) => i.answer).length;
@@ -78,6 +83,7 @@ export default async function DisclosuresPage({ searchParams }: PageProps<"/admi
         ))}
       </nav>
       {inputs ? <ReportInputsForm years={years} initialYear={year} initial={inputs} /> : null}
+      <TypedTables financialYear={year} yearLabel={financialYearLabel(year)} tables={tables} />
       {sections.length > 0 ? (
         <p className="text-sm leading-5 text-muted-foreground">
           {answered} of {typed.length} written answers entered for {financialYearLabel(year)}.

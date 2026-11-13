@@ -20,7 +20,28 @@ export type FyInputs = {
   assurance: string | null;
   /** Anything the entity states about method: GWP set, consolidation approach, exclusions. */
   methodologyNote: string | null;
+  /** Where the PPP rate came from (e.g. "IMF World Economic Outlook") and when it was read (2026-11-13). */
+  pppSource?: string | null;
+  /** YYYY-MM-DD. */
+  pppAccessedOn?: string | null;
+  /** The assurance provider and level, printed under each BRSR Core table (2026-11-13). */
+  assurer?: string | null;
+  assuranceLevel?: "reasonable" | "limited" | null;
+  /** Why a figure moved from the previous year, by indicator code (SEBI tables only; 2026-11-13). */
+  changeNotes?: Record<string, string>;
 };
+
+/** The SEBI tables a year-on-year note can be written for, in report order. */
+export const CHANGE_NOTE_INDICATORS: [string, string][] = [
+  ["P3-E11", "Safety incidents"],
+  ["P6-E1", "Energy"],
+  ["P6-E3", "Water withdrawal and consumption"],
+  ["P6-E4", "Water discharge"],
+  ["P6-E7", "Scope 1 and 2 emissions"],
+  ["P6-E9", "Waste"],
+  ["P6-L2", "Scope 3 emissions"],
+  ["P8-E4", "Purchases from MSMEs and within India"],
+];
 
 export const EMPTY_INPUTS: FyInputs = {
   turnoverCr: null,
@@ -30,10 +51,17 @@ export const EMPTY_INPUTS: FyInputs = {
   physicalOutputUnit: null,
   assurance: null,
   methodologyNote: null,
+  pppSource: null,
+  pppAccessedOn: null,
+  assurer: null,
+  assuranceLevel: null,
+  changeNotes: {},
 };
 
 /** Revenue adjusted for PPP, in million international dollars: ₹ crore × 10⁷ ÷ rate ÷ 10⁶. */
-export const pppRevenueMnUsd = (turnoverCr: number, pppRate: number) => (turnoverCr * 10) / pppRate;
+/** Revenue in PPP million USD; null when the PPP rate is missing or not positive (a division by it). */
+export const pppRevenueMnUsd = (turnoverCr: number, pppRate: number) =>
+  pppRate > 0 ? (turnoverCr * 10) / pppRate : null;
 
 /** A quantity per unit of a denominator; null when either side is missing or the denominator is not positive. */
 export const intensity = (quantity: number | null, per: number | null | undefined) =>

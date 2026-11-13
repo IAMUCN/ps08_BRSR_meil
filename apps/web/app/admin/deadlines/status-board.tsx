@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PeriodSelect } from "@/components/ui/period-select";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import type { BoardItem } from "@/lib/deadlines/board";
 import { STATUS_TEXT } from "@/lib/reminders/plan";
@@ -46,22 +47,13 @@ export function StatusBoardView({ board }: { board: StatusBoard }) {
         </div>
         {periods.length > 0 ? (
           <div className="flex items-center gap-2">
-            <label htmlFor="board-period" className="text-sm text-muted-foreground">
-              Period
-            </label>
-            <NativeSelect
-              id="board-period"
+            <PeriodSelect
+              idPrefix="board"
+              inline
+              periods={periods}
               value={periodId ?? ""}
-              onChange={(e) => router.push(`?period=${e.target.value}`, { scroll: false })}
-              className="h-9 w-auto min-w-44"
-            >
-              {periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                  {p.open ? "" : " (closed)"}
-                </option>
-              ))}
-            </NativeSelect>
+              onChange={(period) => router.push(`?period=${period}`, { scroll: false })}
+            />
           </div>
         ) : null}
       </div>

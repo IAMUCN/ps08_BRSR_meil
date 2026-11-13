@@ -1,3 +1,4 @@
+import { ChatLauncher } from "@/components/chat/chat-launcher";
 import { workspaceNavFor } from "@/components/shell/admin-nav";
 import { SessionKeeper } from "@/components/shell/session-keeper";
 import { Sidebar } from "@/components/shell/sidebar";
@@ -5,6 +6,7 @@ import { ThemeSync } from "@/components/shell/theme-sync";
 import { TopBar } from "@/components/shell/top-bar";
 import { requireAdminWorkspaceSession } from "@/lib/auth/session";
 import { canAdminister } from "@/lib/auth/workspace";
+import { chatConfig } from "@/lib/chat/data";
 
 // /admin/* is for administrators (03_APP_FLOW.md §1): a Super Admin, or an Administrator of part of the
 // organisation, who is offered only the pages about their own org units. Since the role-wise dashboard, a

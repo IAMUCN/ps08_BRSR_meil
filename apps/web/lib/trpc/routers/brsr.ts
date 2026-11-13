@@ -88,7 +88,7 @@ export type ReadinessMetric = {
 export type ReadinessView = {
   periodId: string;
   periodLabel: string;
-  periods: { id: string; label: string }[];
+  periods: { id: string; label: string; startDate: string }[];
   sections: (BrsrSection & {
     indicators: (BrsrIndicator & { status: IndicatorStatus; metrics: ReadinessMetric[] })[];
   })[];
@@ -175,7 +175,7 @@ const FORBIDDEN = new TRPCError({
  * (brsr_indicators.owning_permission) they hold through an assignment at a group-level org unit. The answers
  * have one value per financial year for the whole group, so a project-level assignment does not count.
  */
-async function disclosureRights(
+export async function disclosureRights(
   sql: ReturnType<typeof db>,
   session: { userId: string; isAdmin: boolean; permissions: string[] },
 ): Promise<string[] | null> {
@@ -545,8 +545,8 @@ export const brsrRouter = router({
             and r.data_quality_state <> 'rejected'
             and r.approval_status in ('approved', 'review_pending')
           order by r.approval_status, o.name, d.file_name`,
-        sql<{ id: string; label: string }[]>`
-          select id, label from public.reporting_periods order by start_date desc`,
+        sql<{ id: string; label: string; startDate: string }[]>`
+          select id, label, start_date::text as "startDate" from public.reporting_periods order by start_date desc`,
       ]);
 
       const sections = bySection(rows, (row) => {

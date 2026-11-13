@@ -6,6 +6,7 @@ import { useState } from "react";
 import { CalculationTraceView } from "@/components/calculation/calculation-trace";
 import { DocumentViewer } from "@/components/document-viewer/document-viewer";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PeriodSelect } from "@/components/ui/period-select";
 import {
   Sheet,
   SheetContent,
@@ -72,22 +73,13 @@ export function ReadinessTree({
           Complete means every mapped metric has an approved record.
         </p>
         <div className="flex items-center gap-2">
-          <label htmlFor="brsr-period" className="text-sm text-muted-foreground">
-            Period
-          </label>
-          <NativeSelect
-            id="brsr-period"
+          <PeriodSelect
+            idPrefix="brsr"
+            inline
+            periods={view.periods}
             value={view.periodId}
-            onChange={(e) =>
-              router.push(`/admin/brsr-mapping?tab=readiness&period=${e.target.value}`)
-            }
-          >
-            {view.periods.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </NativeSelect>
+            onChange={(period) => router.push(`/admin/brsr-mapping?tab=readiness&period=${period}`)}
+          />
         </div>
       </div>
 

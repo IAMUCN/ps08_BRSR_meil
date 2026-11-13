@@ -29,6 +29,7 @@ import {
 import { activityKeyFor } from "../calculation/engine.ts";
 import { productOf } from "../calculation/formulas.ts";
 import { declarationProblems } from "../declarations/load.ts";
+import { sebiGroupProblems } from "./sebi-groups.ts";
 import { activityFieldKeys } from "../verification/rules.ts";
 
 // The validation engine (06_IMPLEMENTATION_PLAN.md Phase 8). Called inside the Confirm transaction
@@ -205,6 +206,24 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
     );
   }
 
+  // --- SEBI's table groups (2026-11-13): text that would land in "not stated" goes to a reviewer ------
+  const metricCode = (
+    await tx<{ code: string }[]>`select code from public.esg_metrics where id = ${record.metric_id}`
+  )[0]?.code;
+  if (metricCode === "WATER_CONSUMPTION" || metricCode === "WASTE_DISPOSED") {
+    const grouping = sebiGroupProblems(metricCode, valueOf, parseNumber(valueOf("discharge")));
+    builtIn(
+      "logical",
+      grouping.length
+        ? {
+            ok: false,
+            forceFlag: true,
+            message: `${grouping.join(" ")} The report would show it as "not stated".`,
+          }
+        : { ok: true, message: "SEBI's tables can place this record." },
+    );
+  }
+
   // --- The document's kind (Phase 3): OCR thinks it is another activity's document ------------------
   const mismatch = await activityMismatch(tx, record.mismatch_code, record.metric_id);
   const suggestion = mismatch
@@ -279,7 +298,7 @@ export async function runValidation(tx: Tx, recordId: string): Promise<Validatio
         verdict = checkRange(
           parseNumber(valueOf(def.field)),
           labelOf(def.field),
-          def as { min?: number; min_exclusive?: number; max?: number },
+          def as { min?: number; min_exclusive?: number; max?: number; flag_zero?: boolean },
         );
         break;
       case "not_greater_than":

@@ -145,6 +145,30 @@ export function ContextFilters({
     return () => clearTimeout(timer);
   }, [text]);
   const years = [...new Set(context.periods.map((p) => p.financialYear))];
+  // Submission Monitoring: pick the financial year, then a period inside it that has already begun (a period in
+  // the future has nothing to show). The year is only a picker narrowing the list, kept in the address as year.
+  const today = new Date().toISOString().slice(0, 10);
+  const currentPeriod = context.periods.find((p) => p.id === context.periodId);
+  const pickedYear = Number(params.year) || currentPeriod?.financialYear || years[0];
+  const periodChoices = context.periods.filter(
+    (p) => p.financialYear === pickedYear && (p.startDate <= today || p.id === context.periodId),
+  );
+  const chooseYear = (value: string) => {
+    const inYear = context.periods.filter(
+      (p) => p.financialYear === Number(value) && p.startDate <= today,
+    );
+    const target = inYear[0] ?? context.periods.find((p) => p.financialYear === Number(value));
+    const next = new URLSearchParams();
+    const merged: Record<string, string | undefined> = {
+      ...params,
+      org: context.orgUnitId,
+      year: value,
+      period: target?.id,
+    };
+    delete merged.fy;
+    for (const [k, v] of Object.entries(merged)) if (v) next.set(k, v);
+    router.push(`${pathname}?${next.toString()}`);
+  };
 
   const select = (
     id: string,
@@ -239,12 +263,34 @@ export function ContextFilters({
               "One period",
             )
           : null}
+        {variant === "monitoring" ? (
+          <label
+            htmlFor="f-year"
+            className="flex flex-[0_0_9rem] flex-col gap-1 text-xs text-muted-foreground"
+          >
+            Financial year
+            <NativeSelect
+              id="f-year"
+              value={String(pickedYear)}
+              onChange={(e) => chooseYear(e.target.value)}
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  {`FY ${y}-${String((y + 1) % 100).padStart(2, "0")}`}
+                </option>
+              ))}
+            </NativeSelect>
+          </label>
+        ) : null}
         {!params.fy
           ? select(
               "f-period",
               "Period",
               context.periodId,
-              context.periods.map((p) => [p.id, p.label]),
+              (variant === "monitoring" ? periodChoices : context.periods).map((p) => [
+                p.id,
+                p.label,
+              ]),
               "period",
               "",
               // Wide enough for a label like "September 2026" with the arrow (owner's feedback, 2026-11-11).

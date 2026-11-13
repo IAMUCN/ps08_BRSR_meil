@@ -15,7 +15,7 @@ import {
 } from "@/lib/consolidation/aggregate";
 import { db } from "@/lib/db";
 import { expireStaleRuns, runReport } from "@/lib/reports/generate";
-import { REPORT_INPUTS_KEY, type FyInputs } from "@/lib/reports/inputs";
+import { CHANGE_NOTE_INDICATORS, REPORT_INPUTS_KEY, type FyInputs } from "@/lib/reports/inputs";
 import { loadReportInputs, type Snapshot } from "@/lib/reports/snapshot";
 import { getBundlePreview, type BundlePreview } from "@/lib/reports/bundle";
 import { permissionProcedure, protectedProcedure, router } from "@/lib/trpc/init";
@@ -29,7 +29,7 @@ const generateProcedure = permissionProcedure("report.generate");
 
 /**
  * The yearly inputs have one value per financial year for the whole group: a Super Admin, or someone holding
- * financial_inputs.manage through an assignment at a group-level org unit (Finance / CSR; migration 0067).
+ * financial_inputs.manage through an assignment at a group-level org unit (Finance / CSR; migration 0080).
  */
 async function assertFinancialInputs(session: {
   userId: string;
@@ -127,6 +127,20 @@ export const reportsRouter = router({
         physicalOutputUnit: text(40),
         assurance: text(500),
         methodologyNote: text(1000),
+        pppSource: text(300).optional(),
+        pppAccessedOn: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .optional(),
+        assurer: text(200).optional(),
+        assuranceLevel: z.enum(["reasonable", "limited"]).nullable().optional(),
+        changeNotes: z
+          .partialRecord(
+            z.enum(CHANGE_NOTE_INDICATORS.map(([code]) => code) as [string, ...string[]]),
+            z.string().trim().max(1000),
+          )
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -225,7 +239,11 @@ export const reportsRouter = router({
     const inScope = allOrgUnits.filter((o) => scope === null || scope.includes(o.id));
     const top = Math.min(...inScope.map((o) => o.depth));
     const orgUnits = inScope.map((o) => ({ ...o, depth: o.depth - top }));
-    const open = periods.find((p) => p.status === "open") ?? periods[0];
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const open =
+      periods.find((p) => p.status === "open" && p.start_date <= today) ??
+      periods.find((p) => p.start_date <= today) ??
+      periods[0];
     return {
       defaultPeriodId: open?.id ?? null,
       defaultFinancialYear: open ? financialYearOf(open.start_date) : null,

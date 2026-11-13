@@ -40,6 +40,11 @@ export type CapexEvaluationResult = {
   traditionalPaybackYears: number | null;
   carbonAdjustedPaybackYears: number | null;
   paybackAccelerationYears: number | null;
+  /**
+   * No payback from the operating savings alone (none, or not positive), but one with the carbon value: the
+   * acceleration can't be a number of years then, so it is said in words (2026-11-13).
+   */
+  paysBackOnlyWithCarbon: boolean;
   traditionalNpv: number;
   carbonAdjustedNpv: number;
   lifetimeCarbonAvoidedTco2e: number;
@@ -133,6 +138,7 @@ export function evaluateCapexCarbonEconomics(params: CapexEvaluationParams): Cap
     traditionalPaybackYears,
     carbonAdjustedPaybackYears,
     paybackAccelerationYears,
+    paysBackOnlyWithCarbon: traditionalPaybackYears === null && carbonAdjustedPaybackYears !== null,
     traditionalNpv: Math.round(traditionalNpv),
     carbonAdjustedNpv: Math.round(carbonAdjustedNpv),
     lifetimeCarbonAvoidedTco2e: annualEmissionCutTco2e * params.projectLifespanYears,

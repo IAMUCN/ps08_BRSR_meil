@@ -9,7 +9,7 @@ import type { RegisterTotals } from "@/lib/register/register";
 import { registerPeople, type RegisterPeople } from "@/lib/register/service";
 import { protectedProcedure, router } from "@/lib/trpc/init";
 
-// The employee register (migration 0070). HR uploads, HR confirms the totals, an approver (not the uploader or
+// The employee register (migration 0083). HR uploads, HR confirms the totals, an approver (not the uploader or
 // the verifier) accepts them. Totals only are stored; the file is read again for the account-status view.
 // Permissions: employee_register.manage (upload, confirm), employee_register.view (open the file, see who has
 // an account), approval.decide (accept or return). Each applies inside the units where the caller's role holds it.

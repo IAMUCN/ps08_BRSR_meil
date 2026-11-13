@@ -57,7 +57,11 @@ export const simulatorRouter = router({
       from public.reporting_periods
       order by start_date desc`;
 
-    const open = periods.find((p) => p.status === "open") ?? periods[0];
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const open =
+      periods.find((p) => p.status === "open" && p.start_date <= today) ??
+      periods.find((p) => p.start_date <= today) ??
+      periods[0];
 
     return {
       orgUnits: orgUnits.map((u) => ({ id: u.id, name: u.name, code: u.code, depth: u.depth })),

@@ -23,10 +23,10 @@ select is(pg_temp.perms('ehs'), 'chat.use,document.upload,record.verify', 'EHS: 
 select is(pg_temp.perms('procurement'), 'chat.use,document.upload,record.verify',
   'Procurement: upload and verify');
 select is(pg_temp.perms('hr'), 'chat.use,disclosure.hr,document.upload,employee_register.manage,employee_register.view,record.verify,user.bulk_import',
-  'HR: upload, verify, bulk import of employees, and the workforce answers (0067)');
+  'HR: upload, verify, bulk import of employees, and the workforce answers (0080)');
 select is(pg_temp.perms('finance_csr'),
   'carbon_credit.view,chat.use,disclosure.finance,document.upload,financial_inputs.manage,icp.manage,record.verify',
-  'Finance / CSR: upload, verify, carbon price, the financial inputs and finance answers (0067)');
+  'Finance / CSR: upload, verify, carbon price, the financial inputs and finance answers (0080)');
 -- Organisation-wide configuration stays with the Admin role.
 select is(
   (select count(*)::int from public.role_permissions rp

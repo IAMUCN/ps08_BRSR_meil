@@ -33,6 +33,8 @@ export type CarbonIntelligenceClientProps = {
   alerts: EmissionAlert[];
   settings: AlertSettings;
   isSuperAdmin: boolean;
+  /** Super Admin or Administrator: may acknowledge emission alerts. */
+  canAcknowledge: boolean;
   aiAvailable: boolean;
   forecastOptions: ForecastOptions;
   simulatorOptions: SimulatorOptions;
@@ -54,6 +56,7 @@ export function CarbonIntelligenceClient({
   alerts,
   settings,
   isSuperAdmin,
+  canAcknowledge,
   aiAvailable,
   forecastOptions,
   simulatorOptions,
@@ -193,6 +196,7 @@ export function CarbonIntelligenceClient({
           alerts={alerts}
           settings={settings}
           isSuperAdmin={isSuperAdmin}
+          canAcknowledge={canAcknowledge}
           aiAvailable={aiAvailable}
         />
       )}

@@ -53,6 +53,7 @@ const inputs = {
   financialYear: fy,
   turnoverCr: 1000,
   pppRate: 20.343,
+  netWorthCr: null,
   physicalOutput: null,
   physicalOutputUnit: null,
   assurance: "No (e2e synthetic value)",

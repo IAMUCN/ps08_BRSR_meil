@@ -118,7 +118,7 @@ test("the Super Admin and Administrator sidebars are unchanged by this", () => {
   assert.ok(!adminHrefs.includes("/admin/conversion-factors"));
 });
 
-// Finance / CSR and HR type their own part of the BRSR answers (migration 0067).
+// Finance / CSR and HR type their own part of the BRSR answers (migration 0080).
 const finance = {
   isAdmin: false,
   isOrgAdmin: false,

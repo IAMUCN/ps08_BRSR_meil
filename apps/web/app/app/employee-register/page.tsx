@@ -9,7 +9,7 @@ import { RegisterManager } from "./register-manager";
 
 export const metadata: Metadata = { title: "Employee Register · EmeilSG" };
 
-// The employee register (migration 0070; .grill/role-dashboard-decisions.md). HR uploads an Excel register of
+// The employee register (migration 0083; .grill/role-dashboard-decisions.md). HR uploads an Excel register of
 // the workforce; only the totals computed from it are kept, with the file as private evidence. Each procedure
 // checks the permission and scope again.
 export default async function EmployeeRegisterPage() {

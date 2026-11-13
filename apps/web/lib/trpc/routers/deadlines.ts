@@ -10,7 +10,7 @@ import { adminAreaProcedure, adminProcedure, router } from "@/lib/trpc/init";
 
 /** The submission status board for one period (deadline escalation, phase 2). */
 export type StatusBoard = {
-  periods: { id: string; label: string; open: boolean }[];
+  periods: { id: string; label: string; open: boolean; startDate: string }[];
   periodId: string | null;
   dueDate: string | null;
   rows: BoardRow[];
@@ -80,13 +80,25 @@ export const deadlinesRouter = router({
     .input(z.object({ periodId: z.string().uuid().optional() }).optional())
     .query(async ({ ctx, input }): Promise<StatusBoard> => {
       const sql = db();
-      const periods = await sql<{ id: string; label: string; open: boolean; due: string }[]>`
-        select id, label, (status = 'open') as open,
+      const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+      const periods = await sql<
+        { id: string; label: string; open: boolean; due: string; startDate: string }[]
+      >`
+        select id, label, (status = 'open') as open, start_date::text as "startDate",
                to_char(coalesce(submission_closes_on, end_date), 'YYYY-MM-DD') as due
         from public.reporting_periods order by start_date desc`;
       const chosen =
-        periods.find((p) => p.id === input?.periodId) ?? periods.find((p) => p.open) ?? periods[0];
-      const list = periods.map((p) => ({ id: p.id, label: p.label, open: p.open }));
+        periods.find((p) => p.id === input?.periodId) ??
+        // The current period: the newest one that has begun, open ones first.
+        periods.find((p) => p.open && p.startDate <= today) ??
+        periods.find((p) => p.startDate <= today) ??
+        periods[0];
+      const list = periods.map((p) => ({
+        id: p.id,
+        label: p.label,
+        open: p.open,
+        startDate: p.startDate,
+      }));
       if (!chosen) return { periods: list, periodId: null, dueDate: null, rows: [] };
 
       const scope = ctx.session.isAdmin

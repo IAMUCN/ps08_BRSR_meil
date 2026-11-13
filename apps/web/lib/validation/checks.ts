@@ -308,9 +308,18 @@ export function checkEvidence(input: { attached: boolean; manualException: boole
 export function checkRange(
   value: number | null,
   label: string,
-  bounds: { min?: number; min_exclusive?: number; max?: number },
+  bounds: { min?: number; min_exclusive?: number; max?: number; flag_zero?: boolean },
 ): Verdict {
   if (value === null) return { ok: false, message: `${label} is not a number.` };
+  // A zero is accepted but a person confirms it (owner's decision, 2026-11-13; migration 0085): a month with
+  // no usage is real, and so is a misread amount.
+  if (bounds.flag_zero && value === 0) {
+    return {
+      ok: false,
+      forceFlag: true,
+      message: `${label} is zero — confirm the document really shows no usage for this period.`,
+    };
+  }
   if (bounds.min_exclusive !== undefined && !(value > bounds.min_exclusive)) {
     return {
       ok: false,
@@ -384,7 +393,23 @@ export function checkHistoryRatio(
     };
   }
   const typical = median(history.map((h) => h.value));
-  const ratio = typical > 0 ? value / typical : Infinity;
+  // A usual level of zero can't be a ratio (it used to read "Infinity×"): zero again is in line, anything
+  // else is worth a look.
+  if (typical === 0) {
+    return value === 0
+      ? { ok: true, message: `Zero, as in this project's history (${periods} periods).` }
+      : {
+          ok: false,
+          message: `${formatNumber(value)} where this project's usual level is zero (median over ${periods} periods).`,
+        };
+  }
+  if (value === 0) {
+    return {
+      ok: false,
+      message: `Zero where this project's usual level is ${formatNumber(typical)} (median over ${periods} periods).`,
+    };
+  }
+  const ratio = value / typical;
   if (ratio > params.max_ratio || ratio < 1 / params.max_ratio) {
     const factor = ratio >= 1 ? `${ratio.toFixed(1)}× above` : `${(1 / ratio).toFixed(1)}× below`;
     return {

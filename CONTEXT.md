@@ -792,6 +792,29 @@ _Last updated: 2026-11-13._
 - **Fifth round, 2026-11-13 (same branch, uncommitted, no migration):** Verify has a Reporting period picker (before
   Confirm and when returned) with a one-click "Move to <month>" when the billing period points elsewhere; audited
   (`record.period_changed`), late recomputed. `row-upload.mjs` 75/75, browser 33/33, unit 385, build.
+- **2026-11-13, local only (uncommitted, nothing pushed):** `ucn/main` `e592bb9` fast-forwarded into
+  `feature-row-upload` and local `main`. Fixed there: the role-wise dashboard's five migrations clashed with
+  existing numbers and are renumbered `0067`–`0071` → `0080`–`0084` (`0081` is a DRAFT the owner has not
+  approved); `app/admin/layout.tsx` lacked the chat imports; Carbon Intelligence did not pass `canAcknowledge`;
+  three database tests and one worker test were stale; four files were unformatted. OCR version bumped to
+  `rules-18` (the capture rules joined `rules-17` after that image was built). Checked: a fresh database applies
+  `0001`–`0084`, database tests 538/538, web unit 501/501, worker unit 69/69 and Ruff, typecheck, lint (0 errors),
+  format, production build. **`0080`–`0084` were applied to hosted on 2026-11-13 (owner's request)** with
+  `test data/_backup/hosted-0080-0084.cjs`, in one transaction (`0081`, the DRAFT disclosure mapping, included at the
+  owner's instruction). Read back: history at `0084` (74 migrations; `0068`–`0076` still not on hosted), 34
+  permissions, 11 roles (new `auditor`, "Assurance Reviewer"), 48 metrics, 42 owned BRSR answers,
+  `employee_registers` with RLS and no browser grants, a private `registers` bucket, the escalation schedule
+  (1 / 3 / 7 days); 25 users, 1,211 records, 1,225 documents unchanged.
+- **BRSR gaps against L&T (2026-11-13, owner: "do all of them"), uncommitted in the working tree; migrations
+  `0085`–`0087` applied to hosted the same day (owner's request; `test data/_backup/hosted-0085-0087.cjs`, one
+  transaction; read back: history at `0087`, the zero rule `min 0 + flag_zero`, 4 fields required,
+  `brsr_table_answers` with RLS and no browser grants; 25 users, 1,211 records, 1,225 documents unchanged)**
+  (D60, A61, `.grill/brsr-gaps-decisions.md`). Zero values flagged; energy in GJ (P6-E1) with calorific values as
+  approvable `ENERGY:<activity>` factors (IPCC values proposed on the form); water by source, treatment levels,
+  waste per category and operation, MSME and within-India lines; PPP source, assurer and level, year-on-year
+  notes; 17 typed SEBI tables with Excel import on BRSR Disclosures. Checked so far: web unit 516, database 548
+  (fresh run of `0085`–`0087`), lint (0 errors), format, typecheck, production build. The full end-to-end suite
+  was running at the time of the hosted apply; `tests/e2e/brsr-gaps.mjs` and a browser check not yet run.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)
@@ -841,7 +864,7 @@ _Last updated: 2026-11-13._
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D60** and **A61**; the next migration is `0080` (`0078` travel and `0079` pages are taken)), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D60** and **A61**; the next migration is `0085`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on

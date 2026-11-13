@@ -1,4 +1,4 @@
--- Migration 0069: role-wise dashboard, capture - CSR beneficiaries, within-India procurement, compliance
+-- Migration 0082: role-wise dashboard, capture - CSR beneficiaries, within-India procurement, compliance
 -- certificates with an expiry date (.grill/role-dashboard-decisions.md). Written on a machine with no
 -- database, so it has NOT been run: see ROLE_DASHBOARD_VERIFY.md.
 --

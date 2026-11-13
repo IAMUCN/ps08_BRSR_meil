@@ -1,4 +1,4 @@
--- Migration 0067: role-wise dashboard, step 1 - permissions, the Auditor role, Core KPI flag
+-- Migration 0080: role-wise dashboard, step 1 - permissions, the Auditor role, Core KPI flag
 -- (.grill/role-dashboard-decisions.md; written 2026-11-12 on a machine with no database, so it has NOT been run:
 -- see ROLE_DASHBOARD_VERIFY.md for what the person applying it must check).
 --
@@ -65,7 +65,7 @@ on conflict do nothing;
 -- 3. BRSR questions: which are Core KPIs, and which permission may type the written answer.
 --    is_core is seeded from SEBI's own Annexure I of circular SEBI/HO/CFD/CFD-SEC-2/P/CIR/2023/122
 --    (12 July 2023); a Super Admin can change it. Later revisions of the annexure were not checked.
---    owning_permission is filled by migration 0068 once the owner approves the mapping.
+--    owning_permission is filled by migration 0081 once the owner approves the mapping.
 -------------------------------------------------------------------------------------------------
 alter table public.brsr_indicators
   add column if not exists is_core boolean not null default false,

@@ -9,6 +9,7 @@ import { CalculationTraceView } from "@/components/calculation/calculation-trace
 import { DocumentViewer } from "@/components/document-viewer/document-viewer";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PeriodSelect } from "@/components/ui/period-select";
 import {
   Sheet,
   SheetContent,
@@ -101,20 +102,13 @@ export function ScopeDashboard({
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <label htmlFor="scope-period" className="text-sm text-muted-foreground">
-            Period
-          </label>
-          <NativeSelect
-            id="scope-period"
+          <PeriodSelect
+            idPrefix="scope"
+            inline
+            periods={view.periods}
             value={view.periodId}
-            onChange={(e) => go({ period: e.target.value })}
-          >
-            {view.periods.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </NativeSelect>
+            onChange={(period) => go({ period })}
+          />
           <div
             role="group"
             aria-label="Show the figures as"
@@ -509,6 +503,15 @@ function Bars({
         {label}
         {units.length === 1 ? `, ${units[0]}` : ""}. Approved records only.
       </figcaption>
+      <Donut
+        slices={rows.flatMap((r, i) =>
+          r.bar && r.bar.value > 0 && r.bar.unit === units[0]
+            ? [{ key: r.key, label: r.label, value: r.bar.value, color: SLICE[i % SLICE.length] }]
+            : [],
+        )}
+        unit={units[0]}
+        mixedUnits={units.length > 1}
+      />
       <ul className="space-y-2">
         {rows.map((r) => (
           <li
@@ -549,6 +552,74 @@ function Bars({
         ))}
       </ul>
     </figure>
+  );
+}
+
+const SLICE = [1, 2, 3, 4, 5, 6].map((n) => `var(--chart-${n})`);
+
+/** Share of the total as a donut with a legend (same figures as the bars; one unit only, never mixed). */
+function Donut({
+  slices,
+  unit,
+  mixedUnits,
+}: {
+  slices: { key: string; label: string; value: number; color: string }[];
+  unit: string;
+  mixedUnits: boolean;
+}) {
+  const total = slices.reduce((s, x) => s + x.value, 0);
+  if (slices.length < 2 || total <= 0) return null;
+  const R = 40;
+  const C = 2 * Math.PI * R;
+  const starts = slices.map((_, i) =>
+    slices.slice(0, i).reduce((s, x) => s + (x.value / total) * C, 0),
+  );
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-6">
+      <svg
+        viewBox="0 0 100 100"
+        className="h-40 w-40 shrink-0 -rotate-90"
+        role="img"
+        aria-label={`Share of the total by ${slices.map((s) => `${s.label} ${Math.round((s.value / total) * 100)}%`).join(", ")}`}
+      >
+        {slices.map((s, i) => {
+          const len = (s.value / total) * C;
+          return (
+            <circle
+              key={s.key}
+              cx="50"
+              cy="50"
+              r={R}
+              fill="none"
+              stroke={s.color}
+              strokeWidth="18"
+              strokeDasharray={`${len} ${C - len}`}
+              strokeDashoffset={-starts[i]}
+            >
+              <title>{`${s.label}: ${formatCompact(s.value, unit)}`}</title>
+            </circle>
+          );
+        })}
+      </svg>
+      <ul className="space-y-1 text-sm">
+        {slices.map((s) => (
+          <li key={s.key} className="flex items-center gap-2">
+            <span
+              className="h-3 w-3 shrink-0 rounded-sm"
+              style={{ backgroundColor: s.color }}
+              aria-hidden
+            />
+            <span>{s.label}</span>
+            <span className="font-mono text-xs text-muted-foreground">
+              {((s.value / total) * 100).toFixed(1)}%
+            </span>
+          </li>
+        ))}
+        {mixedUnits ? (
+          <li className="text-xs text-muted-foreground">Only {unit} shown; units are not mixed.</li>
+        ) : null}
+      </ul>
+    </div>
   );
 }
 

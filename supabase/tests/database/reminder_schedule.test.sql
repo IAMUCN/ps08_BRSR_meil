@@ -1,4 +1,4 @@
--- Deadline reminders (migration 0059; feature_enhancement.md Phase 5) and overdue escalation (migration 0071).
+-- Deadline reminders (migration 0059; feature_enhancement.md Phase 5) and overdue escalation (migration 0084).
 begin;
 select plan(11);
 

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { runAction } from "@/lib/trpc/server";
 
-// Employee register (migration 0070): each procedure checks the permission and the org scope again.
+// Employee register (migration 0083): each procedure checks the permission and the org scope again.
 
 export async function confirmRegisterAction(input: { id: string }) {
   const result = await runAction((api) => api.register.confirm(input));

@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PeriodSelect } from "@/components/ui/period-select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   buildScenarioComparison,
@@ -312,18 +313,12 @@ export function SimulatorClient({
             >
               Reporting Period
             </label>
-            <NativeSelect
-              id="sim-period"
+            <PeriodSelect
+              idPrefix="sim"
+              periods={options.periods}
               value={periodId}
-              onChange={(e) => setPeriodId(e.target.value)}
-              disabled={loading}
-            >
-              {options.periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label} {p.status === "open" ? "(Open)" : ""}
-                </option>
-              ))}
-            </NativeSelect>
+              onChange={setPeriodId}
+            />
           </div>
 
           {/* Scope Filter */}

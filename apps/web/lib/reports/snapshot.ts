@@ -1,7 +1,8 @@
 import "server-only";
 import { consolidateNodes, loadMetrics } from "@/lib/consolidation/query";
 import type { Figure, Method } from "@/lib/consolidation/aggregate";
-import { normalize } from "@/lib/calculation/units";
+import { normalize, sameQuantity } from "@/lib/calculation/units";
+import { GJ_PER_KWH, energyRowOf } from "@/lib/energy/calorific";
 import type { db, Tx } from "@/lib/db";
 import { parseNumber } from "@/lib/validation/checks";
 import {
@@ -9,6 +10,10 @@ import {
   dischargeDestination,
   dischargeTreated,
   type DischargeDestination,
+  treatmentLevel,
+  type TreatmentLevel,
+  waterSource,
+  type WaterSource,
   wasteCategory,
   wasteRoute,
   type WasteCategory,
@@ -16,6 +21,7 @@ import {
 } from "./classify";
 import { EMPTY_INPUTS, REPORT_INPUTS_KEY, type FyInputs } from "./inputs";
 import type { ReportTemplate, TemplateExtras } from "./templates";
+import type { Cells } from "../brsr-tables/definitions";
 
 // What a BRSR report says, frozen at generation (schema §13.1 snapshot_data; .grill/phase-17-reporting-
 // decisions.md). Approved records only. Every reported metric lists its contributing records with the
@@ -24,7 +30,7 @@ import type { ReportTemplate, TemplateExtras } from "./templates";
 
 type Sql = Tx | ReturnType<typeof db>;
 
-export const SNAPSHOT_VERSION = 4;
+export const SNAPSHOT_VERSION = 5;
 
 export type ReportedRecord = {
   recordId: string;
@@ -96,11 +102,51 @@ export type Breakups = {
   waterDischarge?: {
     destination: DischargeDestination | null;
     treated: boolean | null;
+    /** Version 5: the treatment level read from the same text; null when treated but no level is named. */
+    level?: TreatmentLevel | null;
     kl: number;
   }[];
+  /** Version 5 (BRSR gaps, 2026-11-13). Water withdrawn by SEBI's source, in kilolitres; null = not stated. */
+  waterWithdrawal?: { source: WaterSource | null; kl: number }[];
+  /** Version 5. Water consumed (withdrawn less discharged), in kilolitres. */
+  waterConsumptionKl?: number;
+  /** Version 5. Energy for P6-E1, in GJ, and the records that could not be converted (no calorific value). */
+  energy?: EnergyBreakup;
+  /** Version 5. Waste by category and operation together, in metric tonnes. */
+  wasteMatrix?: { category: WasteCategory | null; route: WasteRoute | null; tonnes: number }[];
+  /** Version 5. Purchases for P8-E4, in the records' own currency: from MSMEs, from within India, in all. */
+  procurement?: { msme: number; total: number; india: number; indiaTotal: number };
   /** The counts on approved safety incident statements, summed (migration 0041). */
   safety?: SafetyTotals[];
 };
+
+export type EnergyBreakup = {
+  renewable: { electricity: number; fuel: number; other: number };
+  nonRenewable: { electricity: number; fuel: number; other: number };
+  /** Activities with approved records but no calorific value covering them, so not in the totals. */
+  unconverted: { activity: string; records: number }[];
+};
+
+export type TypedTables = {
+  financialYear: number;
+  byYear: Record<string, Record<string, { cells: Cells; notes: string | null }>>;
+};
+
+/** The typed tables for a financial year and the two before it (A-22 asks for three years). */
+export async function loadTypedTables(sql: Sql, financialYear: number): Promise<TypedTables> {
+  const rows = await sql<
+    { financial_year: number; code: string; cells: Cells; notes: string | null }[]
+  >`
+    select a.financial_year, i.code, a.cells, a.notes
+    from public.brsr_table_answers a
+    join public.brsr_indicators i on i.id = a.brsr_indicator_id
+    where a.financial_year between ${financialYear - 2} and ${financialYear}`.catch(() => []);
+  const byYear: TypedTables["byYear"] = {};
+  for (const r of rows) {
+    (byYear[String(r.financial_year)] ??= {})[r.code] = { cells: r.cells, notes: r.notes };
+  }
+  return { financialYear, byYear };
+}
 
 export type SafetyTotals = {
   workforce: "employees" | "workers";
@@ -165,6 +211,11 @@ export type Snapshot = {
   factors: FactorUsed[];
   /** Schema §13.1: the contributing record ids per indicator, in the documented shape. */
   indicators: { brsr_indicator_id: string; esg_record_ids: string[] }[];
+  /**
+   * Version 5 (migration 0087): SEBI's typed tables for the disclosure year and the two before it, by year then
+   * indicator code. Absent from earlier snapshots and when no year applies.
+   */
+  typedTables?: TypedTables;
   /** Phase 8 (D52): the layout this snapshot was printed with; absent = the full BRSR format. */
   template?: ReportTemplate;
   /** Phase 8: what that template adds (per-activity emissions, the summary's trends and alerts). */
@@ -260,6 +311,7 @@ async function collectBreakups(
   const sources: { key: Scope1Source; total: number }[] = [];
   const categories: { key: WasteCategory | null; total: number }[] = [];
   const routes: { key: WasteRoute | null; total: number }[] = [];
+  const matrix: { key: string; total: number }[] = [];
   for (const r of rows) {
     const unit = r.unit?.trim().toLowerCase();
     const tCo2e =
@@ -285,6 +337,11 @@ async function collectBreakups(
       if (kg.ok) {
         addTo(categories, wasteCategory(r.waste_category), kg.normalized.value / 1000);
         addTo(routes, wasteRoute(r.used_in), kg.normalized.value / 1000);
+        addTo(
+          matrix,
+          `${wasteCategory(r.waste_category) ?? ""}|${wasteRoute(r.used_in) ?? ""}`,
+          kg.normalized.value / 1000,
+        );
       }
     }
   }
@@ -305,23 +362,50 @@ async function collectBreakups(
                             order by x.extracted_at desc limit 1) e on true
         where cr.org_unit_id = ${orgUnitId} and cr.reporting_period_id in ${sql(periodIds)}
           and cr.approval_status = 'approved'
-          and m.code in ('WATER_CONSUMPTION', 'SAFETY_EMPLOYEES', 'SAFETY_WORKERS')`
+          and m.code in ('WATER_CONSUMPTION', 'SAFETY_EMPLOYEES', 'SAFETY_WORKERS', 'MSME_PROCUREMENT')`
     : [];
   const waterDischarge: NonNullable<Breakups["waterDischarge"]> = [];
+  const withdrawal: { key: WaterSource | null; total: number }[] = [];
+  let waterConsumptionKl = 0;
+  const procurement = { msme: 0, total: 0, india: 0, indiaTotal: 0 };
   const safety: SafetyTotals[] = [];
   for (const r of fieldRows) {
     const number = (key: string) => parseNumber(r.fields?.[key] ?? null);
+    if (r.metric_code === "MSME_PROCUREMENT") {
+      // P8-E4: from MSMEs, and (migration 0082) from within India where the statement says so.
+      const total = number("total_spend");
+      if (total === null || total <= 0) continue;
+      procurement.total += total;
+      procurement.msme += number("msme_spend") ?? 0;
+      const india = number("india_spend");
+      if (india !== null) {
+        procurement.india += india;
+        procurement.indiaTotal += total;
+      }
+      continue;
+    }
     if (r.metric_code === "WATER_CONSUMPTION") {
-      const discharged = number("discharge");
-      const kl = discharged !== null && r.unit ? normalize(discharged, r.unit, "KL") : null;
-      if (!kl?.ok || kl.normalized.value === 0) continue;
+      const inKl = (key: string) => {
+        const value = number(key);
+        const n = value !== null && r.unit ? normalize(value, r.unit, "KL") : null;
+        return n?.ok ? n.normalized.value : null;
+      };
+      // P6-E3: withdrawal by source, and consumption = withdrawn less discharged.
+      const withdrawn = inKl("withdrawal");
+      const out = inKl("discharge") ?? 0;
+      if (withdrawn !== null) {
+        addTo(withdrawal, waterSource(r.fields?.source_classification), withdrawn);
+        waterConsumptionKl += Math.max(0, withdrawn - out);
+      }
+      if (out === 0) continue;
       const destination = dischargeDestination(r.fields?.discharge_destination);
       const treated = dischargeTreated(r.fields?.discharge_treatment);
+      const level = treated ? treatmentLevel(r.fields?.discharge_treatment) : null;
       const entry = waterDischarge.find(
-        (x) => x.destination === destination && x.treated === treated,
+        (x) => x.destination === destination && x.treated === treated && x.level === level,
       );
-      if (entry) entry.kl += kl.normalized.value;
-      else waterDischarge.push({ destination, treated, kl: kl.normalized.value });
+      if (entry) entry.kl += out;
+      else waterDischarge.push({ destination, treated, level, kl: out });
       continue;
     }
     const workforce = r.metric_code === "SAFETY_EMPLOYEES" ? "employees" : "workers";
@@ -344,8 +428,21 @@ async function collectBreakups(
     totals.highConsequenceInjuries += number("high_consequence_injuries") ?? 0;
   }
 
+  const energy = await collectEnergy(sql, orgUnitId, periodIds);
   return {
     waterDischarge,
+    waterWithdrawal: withdrawal.map((x) => ({ source: x.key, kl: x.total })),
+    waterConsumptionKl,
+    energy,
+    wasteMatrix: matrix.map((x) => {
+      const [category, route] = x.key.split("|");
+      return {
+        category: (category || null) as WasteCategory | null,
+        route: (route || null) as WasteRoute | null,
+        tonnes: x.total,
+      };
+    }),
+    procurement,
     safety,
     gases: gases.map((g) => {
       const at = g.key.indexOf("|");
@@ -355,6 +452,75 @@ async function collectBreakups(
     wasteByCategory: categories.map((x) => ({ category: x.key, tonnes: x.total })),
     wasteByRoute: routes.map((x) => ({ route: x.key, tonnes: x.total })),
   };
+}
+
+/**
+ * Energy for P6-E1 in GJ, from approved records: electricity and heat by a physical constant (kWh x 0.0036),
+ * fuel and steam by the calorific value in force for the record's period (`ENERGY:<activity>`, an approved
+ * version only). A record with neither is counted as unconverted, never guessed.
+ */
+async function collectEnergy(
+  sql: Sql,
+  orgUnitId: string,
+  periodIds: string[],
+): Promise<EnergyBreakup> {
+  const out: EnergyBreakup = {
+    renewable: { electricity: 0, fuel: 0, other: 0 },
+    nonRenewable: { electricity: 0, fuel: 0, other: 0 },
+    unconverted: [],
+  };
+  if (!periodIds.length) return out;
+  const rows = await sql<
+    {
+      code: string;
+      name: string;
+      scope_code: string | null;
+      category: string | null;
+      value: number | null;
+      unit: string | null;
+      ncv: number | null;
+      ncv_unit: string | null;
+    }[]
+  >`
+    select m.code, m.name, coalesce(ps.code, s.code) as scope_code, c.name as category,
+           r.activity_value_verified::float as value, r.activity_unit as unit,
+           ncv.value::float as ncv, ncv.input_unit as ncv_unit
+    from public.consolidation_records cr
+    join public.esg_records r on r.id = cr.esg_record_id
+    join public.esg_metrics m on m.id = cr.metric_id
+    join public.reporting_periods p on p.id = cr.reporting_period_id
+    left join public.scopes s on s.id = m.scope_id
+    left join public.scopes ps on ps.id = s.parent_scope_id
+    left join public.esg_categories c on c.id = m.category_id
+    left join lateral (
+      select v.value, v.input_unit from public.conversion_factor_versions v
+      join public.conversion_factors f on f.id = v.conversion_factor_id
+      where f.activity_type = 'ENERGY:' || m.code and v.status in ('active', 'superseded')
+        and v.effective_from <= p.end_date
+      order by v.effective_from desc, v.version_number desc limit 1
+    ) ncv on true
+    where cr.org_unit_id = ${orgUnitId} and cr.reporting_period_id in ${sql(periodIds)}
+      and cr.approval_status = 'approved' and r.activity_value_verified is not null`;
+  for (const r of rows) {
+    const place = energyRowOf(r.code, r.scope_code, r.category);
+    if (!place || r.value === null || !r.unit) continue;
+    let gj: number | null = null;
+    if (sameQuantity(r.unit, "kWh")) {
+      const kwh = normalize(r.value, r.unit, "kWh");
+      gj = kwh.ok ? kwh.normalized.value * GJ_PER_KWH : null;
+    } else if (r.ncv !== null && r.ncv_unit) {
+      const n = normalize(r.value, r.unit, r.ncv_unit);
+      gj = n.ok ? n.normalized.value * r.ncv : null;
+    }
+    if (gj === null) {
+      const entry = out.unconverted.find((x) => x.activity === r.name);
+      if (entry) entry.records += 1;
+      else out.unconverted.push({ activity: r.name, records: 1 });
+      continue;
+    }
+    (place.renewable ? out.renewable : out.nonRenewable)[place.kind] += gj;
+  }
+  return out;
 }
 
 const approvedFigures = (figures: Figure[]) =>
@@ -665,6 +831,10 @@ export async function buildSnapshot(
             })),
           }
         : null,
+    typedTables:
+      (input.disclosureYear ?? financialYear) === null
+        ? undefined
+        : await loadTypedTables(sql, (input.disclosureYear ?? financialYear)!),
     inputs:
       financialYear === null
         ? null

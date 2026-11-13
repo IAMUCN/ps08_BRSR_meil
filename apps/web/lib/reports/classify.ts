@@ -98,3 +98,49 @@ export function dischargeTreated(text: string | null | undefined): boolean | nul
   if (/^(no|none|nil|na|n\/a)\b|untreated|no treatment|without treatment/.test(t)) return false;
   return true;
 }
+
+/** How far discharged water was treated (SEBI asks for the level), from the same treatment text. */
+export const TREATMENT_LEVELS = [
+  ["primary", "Primary treatment"],
+  ["secondary", "Secondary treatment"],
+  ["tertiary", "Tertiary treatment"],
+] as const;
+export type TreatmentLevel = (typeof TREATMENT_LEVELS)[number][0];
+
+export function treatmentLevel(text: string | null | undefined): TreatmentLevel | null {
+  const t = text?.trim().toLowerCase();
+  if (!t || dischargeTreated(t) === false) return null;
+  // The highest level named wins: "secondary and tertiary" is tertiary.
+  if (/tertiary|\bro\b|reverse osmosis|ultra-?\s?filtration|\buf\b|advanced/.test(t))
+    return "tertiary";
+  if (/secondary|biological|activated sludge|\bstp\b|\betp\b|mbbr|sbr/.test(t)) return "secondary";
+  if (/primary|settling|sedimentation|screening|oil.?(and|&).?grease/.test(t)) return "primary";
+  return null;
+}
+
+/** SEBI's water-withdrawal sources (Principle 6, Essential Indicator 3), in the order of its table. */
+export const WATER_SOURCES = [
+  ["surface", "Surface water"],
+  ["ground", "Groundwater"],
+  ["third_party", "Third party water"],
+  ["sea", "Seawater / desalinated water"],
+  ["other", "Others"],
+] as const;
+export type WaterSource = (typeof WATER_SOURCES)[number][0];
+
+export function waterSource(text: string | null | undefined): WaterSource | null {
+  const t = text?.trim().toLowerCase();
+  if (!t) return null;
+  if (/sea|desal|marine|ocean/.test(t)) return "sea";
+  if (/ground|bore|tube.?well|well\b|aquifer/.test(t)) return "ground";
+  if (
+    /third|municipal|corporation|board|jal|supply|tanker|utility|authority|piped|metro water/.test(
+      t,
+    )
+  ) {
+    return "third_party";
+  }
+  if (/surface|river|lake|reservoir|canal|dam|stream|pond|rain/.test(t)) return "surface";
+  if (/other/.test(t)) return "other";
+  return null;
+}

@@ -6,11 +6,16 @@
 import { formatQuantity } from "../calculation/trace.ts";
 import { PRINCIPLE_TITLES } from "../brsr/principles.ts";
 import { intensity, pppRevenueMnUsd, type FyInputs } from "./inputs.ts";
+import { BRSR_CORE } from "./templates.ts";
+import { computePart, tableOf, type Column, type TableDef } from "../brsr-tables/definitions.ts";
 import {
   DISCHARGE_DESTINATIONS,
+  TREATMENT_LEVELS,
   WASTE_CATEGORIES,
   WASTE_ROUTES,
+  WATER_SOURCES,
   type DischargeDestination,
+  type TreatmentLevel,
   type WasteCategory,
   type WasteRoute,
 } from "./classify.ts";
@@ -22,6 +27,7 @@ import type {
   Scope1Source,
   ScopeTotal,
   Snapshot,
+  TypedTables,
 } from "./snapshot.ts";
 
 const ESCAPES: Record<string, string> = {
@@ -44,6 +50,8 @@ export type Year = {
   inputs: FyInputs | null;
   /** Absent from snapshots made before version 3. */
   breakups?: Breakups;
+  /** Version 5: SEBI's typed tables (the same object on every year). */
+  typedTables?: TypedTables;
 };
 
 export const NONE = '<span class="none">No approved data</span>';
@@ -92,6 +100,7 @@ export const yearsOf = (s: Snapshot): Year[] => [
     sections: s.sections,
     inputs: s.inputs?.current ?? null,
     breakups: s.breakups,
+    typedTables: s.typedTables,
   },
   ...(s.previous
     ? [
@@ -271,6 +280,25 @@ function wasteTable(years: Year[], code: string) {
       : parts.reduce<number>((a, p) => a + (p ?? 0), 0);
   };
   const t = "Metric tonnes";
+  // For each category, the tonnes that went through one operation (snapshot version 5): sub-rows that
+  // appear only where a category has some.
+  const perCategory = (r: WasteRoute) =>
+    [
+      ...WASTE_CATEGORIES.map(([c, label]) => [c, `${label} (${c})`] as const),
+      [null, "Category not stated"] as const,
+    ]
+      .map(([c, label]) => {
+        const of = (y: Year) =>
+          y.breakups?.wasteMatrix?.find((x) => x.category === c && x.route === r)?.tonnes;
+        return years.some((y) => of(y) !== undefined)
+          ? subRow(
+              `of which: ${label}`,
+              t,
+              years.map((y) => tonnesCell(of(y))),
+            )
+          : "";
+      })
+      .join("");
   const heading = (text: string) =>
     `<tr><th colspan="${2 + years.length}">${escapeHtml(text)}</th></tr>`;
   const unstated = (label: string, of: (y: Year) => number | undefined) =>
@@ -302,12 +330,13 @@ function wasteTable(years: Year[], code: string) {
         "For each category of waste generated, total waste recovered through recycling, re-using or other recovery operations",
       ) +
       WASTE_ROUTES.filter(([g]) => g === "recovered")
-        .map(([, r, label]) =>
-          row(
-            label,
-            t,
-            years.map((y) => tonnesCell(route(y, r))),
-          ),
+        .map(
+          ([, r, label]) =>
+            row(
+              label,
+              t,
+              years.map((y) => tonnesCell(route(y, r))),
+            ) + perCategory(r),
         )
         .join("") +
       row(
@@ -319,12 +348,13 @@ function wasteTable(years: Year[], code: string) {
         "For each category of waste generated, total waste disposed by nature of disposal method",
       ) +
       WASTE_ROUTES.filter(([g]) => g === "disposed")
-        .map(([, r, label]) =>
-          row(
-            label,
-            t,
-            years.map((y) => tonnesCell(route(y, r))),
-          ),
+        .map(
+          ([, r, label]) =>
+            row(
+              label,
+              t,
+              years.map((y) => tonnesCell(route(y, r))),
+            ) + perCategory(r),
         )
         .join("") +
       row(
@@ -386,7 +416,11 @@ function dischargeTable(years: Year[]) {
   const kl = "Kilolitres";
   const sum = (
     y: Year,
-    keep: (x: { destination: DischargeDestination | null; treated: boolean | null }) => boolean,
+    keep: (x: {
+      destination: DischargeDestination | null;
+      treated: boolean | null;
+      level?: TreatmentLevel | null;
+    }) => boolean,
   ) => {
     const rows = y.breakups?.waterDischarge?.filter(keep) ?? [];
     return rows.length ? rows.reduce((n, x) => n + x.kl, 0) : undefined;
@@ -414,6 +448,19 @@ function dischargeTable(years: Year[]) {
           "With treatment",
           kl,
           cells((x) => x.destination === d && x.treated === true),
+        ) +
+        // The level of treatment (snapshot version 5), read from the treatment the record states.
+        TREATMENT_LEVELS.map(([level, label]) =>
+          optional(
+            `of which: ${label.toLowerCase()}`,
+            (x) => x.destination === d && x.treated === true && x.level === level,
+            true,
+          ),
+        ).join("") +
+        optional(
+          "of which: level of treatment not stated",
+          (x) => x.destination === d && x.treated === true && x.level === null,
+          true,
         ) +
         optional(
           "Treatment not stated on the record",
@@ -468,7 +515,216 @@ function safetyTable(years: Year[]) {
   }</tbody></table>`;
 }
 
+// Principle 6, Essential Indicator 1 (snapshot version 5): energy in GJ, renewable and not, from approved
+// records — electricity by a physical constant, fuel by its approved calorific value.
+function energyTable(years: Year[]) {
+  const gj = "GJ";
+  const of = (y: Year) => y.breakups?.energy;
+  const part = (y: Year, renewable: boolean, kind: "electricity" | "fuel" | "other") => {
+    const e = of(y);
+    return e ? (renewable ? e.renewable : e.nonRenewable)[kind] : null;
+  };
+  const sum = (y: Year, renewable: boolean | null) => {
+    const e = of(y);
+    if (!e) return null;
+    const groups =
+      renewable === null
+        ? [e.renewable, e.nonRenewable]
+        : [renewable ? e.renewable : e.nonRenewable];
+    return groups.reduce((n, g) => n + g.electricity + g.fuel + g.other, 0);
+  };
+  const cell = (value: number | null) => (value === null ? NONE : escapeHtml(num(value, 2)));
+  const heading = (text: string) =>
+    `<tr><th colspan="${2 + years.length}">${escapeHtml(text)}</th></tr>`;
+  const unconverted = [
+    ...new Set(years.flatMap((y) => of(y)?.unconverted.map((u) => u.activity) ?? [])),
+  ];
+  const table = sebiTable(
+    years,
+    heading("From renewable sources") +
+      row(
+        "Total electricity consumption (A)",
+        gj,
+        years.map((y) => cell(part(y, true, "electricity"))),
+      ) +
+      row(
+        "Total fuel consumption (B)",
+        gj,
+        years.map((y) => cell(part(y, true, "fuel"))),
+      ) +
+      row(
+        "Energy consumption through other sources (C)",
+        gj,
+        years.map((y) => cell(part(y, true, "other"))),
+      ) +
+      row(
+        "Total energy consumed from renewable sources (A+B+C)",
+        gj,
+        years.map((y) => cell(sum(y, true))),
+      ) +
+      heading("From non-renewable sources") +
+      row(
+        "Total electricity consumption (D)",
+        gj,
+        years.map((y) => cell(part(y, false, "electricity"))),
+      ) +
+      row(
+        "Total fuel consumption (E)",
+        gj,
+        years.map((y) => cell(part(y, false, "fuel"))),
+      ) +
+      row(
+        "Energy consumption through other sources (F)",
+        gj,
+        years.map((y) => cell(part(y, false, "other"))),
+      ) +
+      row(
+        "Total energy consumed from non-renewable sources (D+E+F)",
+        gj,
+        years.map((y) => cell(sum(y, false))),
+      ) +
+      row(
+        "Total energy consumed (A+B+C+D+E+F)",
+        gj,
+        years.map((y) => cell(sum(y, null))),
+      ) +
+      intensityRows("Energy", gj, years, (y) => sum(y, null)),
+  );
+  const note = unconverted.length
+    ? `<p class="note">Not in the totals: approved records of ${unconverted
+        .map(escapeHtml)
+        .join(
+          ", ",
+        )}, which have no approved calorific value (Admin → Conversion Factors) to turn them into GJ.</p>`
+    : "";
+  const older = years.some((y) => !of(y))
+    ? '<p class="note">A year shown as "No approved data" was reported before energy was computed (report version 5).</p>'
+    : "";
+  return table + note + older;
+}
+
+// Principle 6, Essential Indicator 3 (snapshot version 5): withdrawal by SEBI's source, and consumption.
+function waterTable(years: Year[]) {
+  const kl = "Kilolitres";
+  const by = (y: Year, s: string | null) =>
+    y.breakups?.waterWithdrawal?.find((x) => x.source === s)?.kl;
+  const has = (y: Year) => (y.breakups?.waterWithdrawal?.length ?? 0) > 0;
+  const total = (y: Year) =>
+    has(y) ? y.breakups!.waterWithdrawal!.reduce((n, x) => n + x.kl, 0) : null;
+  const consumed = (y: Year) => (has(y) ? (y.breakups?.waterConsumptionKl ?? null) : null);
+  const stated = years.some((y) => by(y, null) !== undefined)
+    ? subRow(
+        "Source not stated on the record",
+        kl,
+        years.map((y) => tonnesCell(by(y, null))),
+      )
+    : "";
+  return sebiTable(
+    years,
+    `<tr><th colspan="${2 + years.length}">Water withdrawal by source</th></tr>` +
+      WATER_SOURCES.map(([s, label], index) =>
+        row(
+          `(${["i", "ii", "iii", "iv", "v"][index]}) ${label}`,
+          kl,
+          years.map((y) => tonnesCell(by(y, s))),
+        ),
+      ).join("") +
+      stated +
+      row(
+        "Total volume of water withdrawal",
+        kl,
+        years.map((y) => quantityCell(total(y))),
+      ) +
+      row(
+        "Total volume of water consumption",
+        kl,
+        years.map((y) => quantityCell(consumed(y))),
+      ) +
+      intensityRows("Water consumption", "KL", years, consumed),
+  );
+}
+
+// Principle 8, Essential Indicator 4: purchases from MSMEs and (migration 0082) from within India.
+function procurementTable(years: Year[]) {
+  const pct = (part: number, whole: number) =>
+    whole > 0 ? `${num((part / whole) * 100, 1)}%` : DASH;
+  const of = (y: Year) => y.breakups?.procurement;
+  return sebiTable(
+    years,
+    row(
+      "Directly sourced from MSMEs / small producers",
+      "% of total purchases",
+      years.map((y) => {
+        const p = of(y);
+        return p && p.total > 0 ? pct(p.msme, p.total) : NONE;
+      }),
+    ) +
+      row(
+        "Directly from within India",
+        "% of total purchases",
+        years.map((y) => {
+          const p = of(y);
+          return p && p.indiaTotal > 0 ? pct(p.india, p.indiaTotal) : NONE;
+        }),
+      ),
+  );
+}
+
+const fyText = (fy: number) => `FY ${fy}-${String((fy + 1) % 100).padStart(2, "0")}`;
+const typedCell = (value: unknown, column: Column) => {
+  if (value === null || value === undefined || value === "") return DASH;
+  if (typeof value === "string") return escapeHtml(value);
+  if (typeof value !== "number") return DASH;
+  return escapeHtml(
+    `${num(value, column.kind === "percent" ? 1 : 2)}${column.kind === "percent" ? "%" : ""}`,
+  );
+};
+
+/**
+ * A typed SEBI table (migration 0087) for the years it asks for: one block per financial year, newest first, in
+ * SEBI's rows and columns, totals and percentages worked out. Empty when nothing was typed for any of them.
+ */
+function typedTable(def: TableDef, tables: TypedTables) {
+  const years = Array.from({ length: def.years }, (_, i) => tables.financialYear - i);
+  const filled = years.filter((fy) => tables.byYear[String(fy)]?.[def.code]);
+  if (!filled.length) return "";
+  return filled
+    .map((fy) => {
+      const answer = tables.byYear[String(fy)][def.code];
+      const parts = def.parts
+        .map((part) => {
+          const grid = computePart(part, answer.cells);
+          const head = `<tr><th>${escapeHtml(part.title ?? "")}</th>${part.columns
+            .map((c) => `<th class="num">${escapeHtml(c.label)}</th>`)
+            .join("")}</tr>`;
+          const body = part.rows
+            .map(
+              (row) =>
+                `<tr${row.sumOf ? ' class="sub"' : ""}><td>${escapeHtml(row.label)}</td>${part.columns
+                  .map(
+                    (c) =>
+                      `<td class="num">${
+                        row.only && !row.only.includes(c.key)
+                          ? DASH
+                          : typedCell(grid[row.key]?.[c.key], c)
+                      }</td>`,
+                  )
+                  .join("")}</tr>`,
+            )
+            .join("");
+          return `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+        })
+        .join("");
+      const notes = answer.notes ? `<p class="note">${escapeHtml(answer.notes)}</p>` : "";
+      return `<p class="note"><strong>${escapeHtml(fyText(fy))}</strong></p>${parts}${notes}`;
+    })
+    .join("");
+}
+
 const SEBI_TABLES: Partial<Record<string, (years: Year[], code: string) => string>> = {
+  "P6-E1": energyTable,
+  "P6-E3": waterTable,
+  "P8-E4": procurementTable,
   "P3-E11": safetyTable,
   "P6-E4": dischargeTable,
   "P6-E7": ghgTable,
@@ -504,10 +760,26 @@ function metricRow(m: ReportedMetric, code: string, years: Year[]) {
 
 export function indicatorBlock(i: ReportedIndicator, years: Year[]) {
   const sebi = SEBI_TABLES[i.code];
-  const assurance = years[0].inputs
+  const typedDef = tableOf(i.code);
+  const typed = typedDef && years[0].typedTables ? typedTable(typedDef, years[0].typedTables) : "";
+  const inputs = years[0].inputs;
+  // Under each BRSR Core table: who assured it and at what level, when stated (2026-11-13); otherwise the
+  // year's assurance statement as before.
+  const core = BRSR_CORE.some((k) => k.code === i.code);
+  const assurance = inputs
     ? `<p class="note">Note: independent assessment / evaluation / assurance by an external agency — ${
-        years[0].inputs.assurance ? escapeHtml(years[0].inputs.assurance) : "Not provided"
+        core && inputs.assurer
+          ? `${escapeHtml(inputs.assurer)}${
+              inputs.assuranceLevel ? `, ${inputs.assuranceLevel} assurance` : ""
+            } (BRSR Core)`
+          : inputs.assurance
+            ? escapeHtml(inputs.assurance)
+            : "Not provided"
       }</p>`
+    : "";
+  const change = inputs?.changeNotes?.[i.code]?.trim();
+  const changeNote = change
+    ? `<p class="note"><strong>Reason for the change from the previous year:</strong> ${escapeHtml(change)}</p>`
     : "";
   // An emissions indicator has dozens of mapped activities; the ones with no approved data in either year
   // are counted in a line under the table rather than listed one by one.
@@ -526,7 +798,8 @@ export function indicatorBlock(i: ReportedIndicator, years: Year[]) {
   // A written disclosure: the typed answer, or SEBI's question left visibly unanswered.
   const metrics = !i.metrics.length
     ? i.kind === "statement"
-      ? answer || '<p class="none">Not reported</p>'
+      ? // A written question with a table computed from records (P6-E1 energy) needs no "Not reported".
+        answer || (sebi || typed ? "" : '<p class="none">Not reported</p>')
       : '<p class="none">No metric is mapped to this indicator.</p>'
     : (shown.length
         ? `<table><thead><tr><th>${sebi ? "Contributing ESG metric" : "ESG metric"}</th>${yearHeads(
@@ -540,7 +813,8 @@ export function indicatorBlock(i: ReportedIndicator, years: Year[]) {
         i.indicatorType ? `<span class="type">${escapeHtml(i.indicatorType)}</span>` : ""
       }${sdgTags(i.sdgs)}</h3>
       <p class="question">${escapeHtml(i.questionText)}</p>
-      ${sebi ? sebi(years, i.code) + assurance : ""}
+      ${sebi ? sebi(years, i.code) + changeNote + assurance : ""}
+      ${typed}
       ${metrics}
       ${i.metrics.length ? answer : ""}
     </div>`;
@@ -585,6 +859,22 @@ export function methodology(s: Snapshot, years: Year[]) {
             "₹ per international dollar",
             years.map((y) => input(y.inputs?.pppRate, 3)),
           ) +
+          // Where the rate came from and when it was read (2026-11-13).
+          (years.some((y) => y.inputs?.pppSource)
+            ? row(
+                "PPP rate source",
+                "—",
+                years.map((y) =>
+                  y.inputs?.pppSource
+                    ? `${escapeHtml(y.inputs.pppSource)}${
+                        y.inputs.pppAccessedOn
+                          ? `, accessed ${escapeHtml(y.inputs.pppAccessedOn)}`
+                          : ""
+                      }`
+                    : NOT_PROVIDED,
+                ),
+              )
+            : "") +
           row(
             "Physical output",
             years[0].inputs?.physicalOutputUnit ?? "—",

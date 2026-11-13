@@ -33,6 +33,7 @@ const ALL = [
   "role-dashboard",
   "release-checks",
   "row-upload",
+  "brsr-gaps",
 ];
 const chosen = process.argv.slice(2).length ? process.argv.slice(2) : ALL;
 const APP = process.env.E2E_APP_URL ?? "http://localhost:3000";

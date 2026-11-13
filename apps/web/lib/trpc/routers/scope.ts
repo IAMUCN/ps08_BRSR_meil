@@ -21,19 +21,26 @@ const input = z.object({
 export async function resolvePeriod(periodId: string | undefined): Promise<string | null> {
   if (periodId) return periodId;
   const sql = db();
+  // Several periods are open at once (the whole financial year), so "latest open" picked March 2027. Prefer the
+  // period that has begun, newest first; periods in the future only when nothing has begun.
   const [open] = await sql<{ id: string }[]>`
-    select id from public.reporting_periods where status = 'open' order by start_date desc limit 1`;
+    select id from public.reporting_periods where status = 'open'
+    order by start_date <= (now() at time zone 'Asia/Kolkata')::date desc,
+      case when start_date <= (now() at time zone 'Asia/Kolkata')::date then start_date end desc nulls last,
+      start_date asc
+    limit 1`;
   if (open) return open.id;
   // No period is open (all closed): fall back to the most recent one so the page still has something.
   const [latest] = await sql<{ id: string }[]>`
-    select id from public.reporting_periods order by start_date desc limit 1`;
+    select id from public.reporting_periods
+    order by start_date <= (now() at time zone 'Asia/Kolkata')::date desc, start_date desc limit 1`;
   return latest?.id ?? null;
 }
 
 export type ScopeView = ScopeBreakdown & {
   periodId: string;
   periodLabel: string;
-  periods: { id: string; label: string }[];
+  periods: { id: string; label: string; startDate: string }[];
 };
 
 async function view(scopeCode: string, orgUnitId: string, periodId: string): Promise<ScopeView> {
@@ -41,8 +48,8 @@ async function view(scopeCode: string, orgUnitId: string, periodId: string): Pro
   const [breakdown, [period], periods] = await Promise.all([
     scopeBreakdown(sql, { scopeCode, orgUnitId, periodId }),
     sql<{ label: string }[]>`select label from public.reporting_periods where id = ${periodId}`,
-    sql<{ id: string; label: string }[]>`
-      select id, label from public.reporting_periods order by start_date desc limit 24`,
+    sql<{ id: string; label: string; startDate: string }[]>`
+      select id, label, start_date::text as "startDate" from public.reporting_periods order by start_date desc limit 60`,
   ]);
   return { ...breakdown, periodId, periodLabel: period?.label ?? "", periods };
 }

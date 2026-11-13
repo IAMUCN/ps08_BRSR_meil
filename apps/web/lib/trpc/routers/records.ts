@@ -46,7 +46,7 @@ export type ContextOptions = {
     parentIds: string[];
     status: string;
   }[];
-  periods: { id: string; label: string; financialYear: number }[];
+  periods: { id: string; label: string; financialYear: number; startDate: string }[];
   roles: { code: string; name: string }[];
   /** Each activity with its top-level scope (SCOPE_1/2/3), or null for one that is not an emission. */
   metrics: { code: string; name: string; scopeCode: string | null }[];
@@ -130,6 +130,7 @@ async function resolveContext(
       id: p.id,
       label: p.label,
       financialYear: financialYearOf(p.start_date),
+      startDate: p.start_date,
     })),
     roles,
     metrics: metrics.map((m) => ({ code: m.code, name: m.name, scopeCode: m.scope_code })),

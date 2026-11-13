@@ -107,7 +107,7 @@ data is hidden or shows a clear empty state, never an invented figure.
 0. Backend authorization: permission-scope helper (units where a permission is held), scoped header counts,
    read pages and Reports opened to `monitoring.view` / `report.generate` holders with mutations closed,
    isolation tests. Branch `feature-role-dashboard` (a branch called `feature` exists, so no slash).
-C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.read`, `is_core`, new fields,
+C. Capture: migrations `0080`+ (new permissions, `auditor` role and `evidence.read`, `is_core`, new fields,
    net worth input), OCR rules and worker rebuild, Verify fields, tests. Hosted only with a go.
 1. Registry, visibility, multi-role aggregation, urgency ordering, batched dashboard API.
 2. Chart kit and tokens.
@@ -188,7 +188,7 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
 - Defaults proposed for the rest (not yet confirmed): one register per org unit per financial year, "as at"
   31 March, with leavers during the year; a unit's figure is the sum of its children's registers.
 
-## Capture fields and certificates built (2026-11-12, migration 0069, OCR rules-15; unverified)
+## Capture fields and certificates built (2026-11-12, migration 0082, OCR rules-15; unverified)
 - CSR beneficiaries: optional number field on the CSR payment record. Within-India procurement: optional number
   field on the Procurement Statement (not a second activity); the share is Sum(india_spend) / Sum(total_spend)
   over approved records, computed by the dashboard query. No part-of-whole rule (it fails on an empty field).
@@ -198,7 +198,7 @@ C. Capture: migrations `0067`+ (new permissions, `auditor` role and `evidence.re
   required number field Verify needs and is typed by the person. Mapped to P6-E13 as not applicable.
 - Employee register, net worth printing in the report, and the report's within-India sub-part are still to do.
 
-## Employee register built (2026-11-12, migration 0070; unverified against a database)
+## Employee register built (2026-11-12, migration 0083; unverified against a database)
 - Counts only, as decided: `employee_registers` holds totals (headcount by employee/worker, permanent/other,
   gender, differently abled; permanent opening, closing and leavers; wages by gender and in smaller towns); the
   file is in the private `registers` bucket. Totals are as at 31 March; turnover is leavers over the average of

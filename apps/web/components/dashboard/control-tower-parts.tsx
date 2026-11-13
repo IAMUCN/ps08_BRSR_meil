@@ -3,6 +3,7 @@
 import { Info } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PeriodSelect } from "@/components/ui/period-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Readiness } from "@/lib/dashboard/kpis";
 import type { ContextOptions } from "@/lib/trpc/routers/records";
@@ -28,19 +29,12 @@ export function ContextPicker({ context }: { context: ContextOptions }) {
           ))}
         </NativeSelect>
       </label>
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        Period
-        <NativeSelect
-          value={context.periodId}
-          onChange={(e) => go(context.orgUnitId, e.target.value)}
-        >
-          {context.periods.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
-          ))}
-        </NativeSelect>
-      </label>
+      <PeriodSelect
+        idPrefix="ct"
+        periods={context.periods}
+        value={context.periodId}
+        onChange={(period) => go(context.orgUnitId, period)}
+      />
     </div>
   );
 }

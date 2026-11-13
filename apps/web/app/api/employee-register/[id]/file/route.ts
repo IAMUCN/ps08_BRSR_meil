@@ -6,7 +6,7 @@ import { getSessionContext } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { downloadRegister } from "@/lib/register/service";
 
-// Open an uploaded employee register (migration 0070): the Super Admin and HR, inside the units where their
+// Open an uploaded employee register (migration 0083): the Super Admin and HR, inside the units where their
 // role holds employee_register.view. The file holds personal data, so every opening is audited.
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {

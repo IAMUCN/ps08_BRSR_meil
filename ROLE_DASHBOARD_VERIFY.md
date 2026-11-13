@@ -16,8 +16,8 @@ Run on the machine that has the local Supabase stack (`D:\Non Newtonian Things\B
 
 ## To run (database needed)
 
-1. `pnpm db:start`, then apply **0067** and **0068** (`supabase migration up --local`) on a database that already has 0001-0066.
-   - **0068 is a DRAFT**: the owner has not approved which written BRSR answers HR and Finance may type. Read it first.
+1. `pnpm db:start`, then apply **0080** and **0081** (`supabase migration up --local`) on a database that already has 0001-0079 (renumbered from 0067-0071 on 2026-11-13: those numbers were taken).
+   - **0081 is a DRAFT**: the owner has not approved which written BRSR answers HR and Finance may type. Read it first.
    - Migration numbers: `feature/esg-decision-intelligence` also uses 0053-0055, which `main` already has. Whoever merges second renumbers.
 2. `pnpm db:test`. Expected new or changed assertions:
    - `role_dashboard_permissions.test.sql` (13, new).
@@ -45,20 +45,20 @@ Run on the machine that has the local Supabase stack (`D:\Non Newtonian Things\B
 - Net worth is stored with the yearly inputs and printed in the report's methodology table (unit-tested); not yet in the Excel workbook or the A-24 answer.
 - Not started: the employee register, the dashboard itself.
 
-## Capture fields and certificates (migration 0069, OCR `rules-15`)
+## Capture fields and certificates (migration 0082, OCR `rules-15`)
 
 Written without a database; **not run**. Worker unit tests (59, including 8 new in `tests/unit/test_rules15.py`) pass; Ruff and the Docker image build were not run.
 
-1. Apply **0069** after 0067/0068, then `pnpm db:test` (new `capture_fields_and_certificates.test.sql`, 9 assertions). Also watch `audit_2.test.sql` ("no metric is left without a BRSR mapping"): the certificate metric is mapped to P6-E13 as **not applicable** to keep that invariant.
+1. Apply **0082** after 0080/0081, then `pnpm db:test` (new `capture_fields_and_certificates.test.sql`, 9 assertions). Also watch `audit_2.test.sql` ("no metric is left without a BRSR mapping"): the certificate metric is mapped to P6-E13 as **not applicable** to keep that invariant.
 2. **Order matters:** push the migration to hosted first, then rebuild the worker image (`docker build -t traceesg-ocr-worker apps/ocr-worker`, check `EXTRACTOR_VERSION` is `rules-15`) and recreate the hosted worker container. A worker newer than the database fails every job.
 3. Upload a CSR payment record with a "Number of beneficiaries" line and a procurement statement with a "Procured from within India" line: both should appear as optional fields on Verify. Upload a consent order: the type should classify (or be pickable) and Valid until should be read.
 4. Known limits: **Validity (months)** is typed by the person (Verify needs exactly one required number field, and a certificate rarely prints it); no part-of-whole rule for within-India spend (the existing rule fails when the field is empty); the report still prints only the MSME share under P8-E4; certificates are not in the BRSR report.
 
-## Employee register (migration 0070, `/app/employee-register`)
+## Employee register (migration 0083, `/app/employee-register`)
 
 Written without a database or a browser; **not run**. `pnpm typecheck`, lint, Prettier and the unit tests (318, including 8 for the register's reading and totals) pass.
 
-1. Apply **0070** after 0069, then `pnpm db:test` (new `employee_registers.test.sql`, 9 assertions; `phase2_smoke` and `role_permission_defaults` now expect 26 permissions and the new table).
+1. Apply **0083** after 0082, then `pnpm db:test` (new `employee_registers.test.sql`, 9 assertions; `phase2_smoke` and `role_permission_defaults` now expect 26 permissions and the new table).
 2. In a browser as **HR** assigned at a unit:
    - sidebar shows **Employee Register**; download the template; fill a few rows (include a duplicate ID and a bad gender) -> upload is refused with the row numbers and nothing is saved;
    - a clean file -> totals appear, status "Waiting for HR to confirm"; Confirm; then as **an approver who is not the uploader or confirmer** (Corporate ESG at the same unit) Approve or Return (a note of 10+ characters);
@@ -199,7 +199,7 @@ Written without a database or a browser; **not run, not seen**. Typecheck, ESLin
 
 Written on a machine with no database, no Docker and no browser: **none of these scripts has been run.** Unit tests (358) pass here.
 
-1. Everything before this section first: migrations `0067`-`0070` on a database at `0066`, `pnpm db:test`, `pnpm --filter web test:isolation`.
+1. Everything before this section first: migrations `0080`-`0083` on a database at `0079`, `pnpm db:test`, `pnpm --filter web test:isolation`.
 2. **API, every role** - `pnpm --filter web test:e2e role-dashboard` (also in the full suite). Signs in the E2E Admin (Super Admin), Project Manager, HR, EHS
    and Corporate ESG and checks: who sees which tiles; every tile has a title, an in-app link, a scope caption and a summary; **no tile falls back to
    "could not be loaded"** (a wrong column in a loader's SQL shows up here, so read a failure's tile id and fix that loader); the scope caption names only
