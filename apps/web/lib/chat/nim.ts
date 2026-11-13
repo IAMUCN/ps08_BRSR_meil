@@ -398,12 +398,21 @@ export function createModelCaller(options: {
             }
 
             if (!response.ok) {
+              const errBody = await response.text().catch(() => "");
+              console.error(`Chat LLM HTTP ${response.status} from ${provider.name} (${model}):`, errBody.slice(0, 300));
               last = response.status >= 500 ? "provider" : "bad_response";
               onFailure(model, `status ${response.status}`);
               break;
             }
 
-            const parsed = replySchema.safeParse(await response.json().catch(() => null));
+            const rawText = await response.text().catch(() => "");
+            let json: unknown = null;
+            try {
+              json = JSON.parse(rawText);
+            } catch {
+              console.error(`Chat LLM non-JSON from ${provider.name} (${model}):`, rawText.slice(0, 300));
+            }
+            const parsed = replySchema.safeParse(json);
             const message = parsed.success ? parsed.data.choices[0].message : null;
             // Some models print their reasoning inline; it is not part of the answer.
             const content =
@@ -414,6 +423,7 @@ export function createModelCaller(options: {
             }));
 
             if (!message || (!content && toolCalls.length === 0)) {
+              console.error(`Chat LLM unusable reply from ${provider.name} (${model}). Parsed:`, parsed.success, "Raw content:", rawText.slice(0, 300));
               last = "bad_response";
               onFailure(model, "unusable reply");
               break;
