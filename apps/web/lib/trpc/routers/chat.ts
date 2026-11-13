@@ -267,7 +267,7 @@ export const chatRouter = router({
           });
         } catch (error) {
           if (error instanceof ProviderError) {
-            console.error(`chat: no answer (${error.kind})`);
+            console.error(`chat: no answer (${error.kind})`, error.message, error.details);
             const trpcCode =
               error.kind === "busy" || error.kind === "rate_limit"
                 ? "TOO_MANY_REQUESTS"
@@ -278,6 +278,7 @@ export const chatRouter = router({
                     : "SERVICE_UNAVAILABLE";
             throw new TRPCError({ code: trpcCode, message: error.message });
           }
+          console.error("chat: unhandled error in answerQuestion:", error);
           throw error;
         }
 

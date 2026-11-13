@@ -284,7 +284,9 @@ export async function answerQuestion(input: {
     .trim()
     .slice(0, LIMITS.answer);
   if (!text) {
-    if (blocks.length === 0) throw new ProviderError("bad_response");
+    if (blocks.length === 0) {
+      throw new ProviderError("bad_response", undefined, "The AI model returned no answer text and no data lookups could be matched.");
+    }
     text = "Here is what the data shows.";
   }
   const kept = blocks.slice(0, MAX_BLOCKS - 2);

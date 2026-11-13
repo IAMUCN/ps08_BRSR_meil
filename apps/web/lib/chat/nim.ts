@@ -49,14 +49,27 @@ export const PROVIDER_MESSAGES: Record<ProviderFailure, string> = {
   provider: "The AI provider is temporarily unavailable. Please try again shortly.",
 };
 
+function sanitizeDetails(str: string): string {
+  return str
+    .replace(/nvapi-[^\s"']+/gi, "[key]")
+    .replace(/nim\.test/gi, "[provider]")
+    .replace(/https?:\/\/[^\s"']+/gi, "[url]")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export class ProviderError extends Error {
   kind: ProviderFailure;
   retryAfterSeconds?: number;
-  constructor(kind: ProviderFailure, retryAfterSeconds?: number) {
-    super(PROVIDER_MESSAGES[kind]);
+  details?: string;
+  constructor(kind: ProviderFailure, retryAfterSeconds?: number, details?: string) {
+    const base = PROVIDER_MESSAGES[kind];
+    const safeDetails = details ? sanitizeDetails(details) : "";
+    super(safeDetails ? `${base} Details: ${safeDetails}` : base);
     this.name = "ProviderError";
     this.kind = kind;
     this.retryAfterSeconds = retryAfterSeconds;
+    this.details = safeDetails || undefined;
   }
 }
 
@@ -84,22 +97,24 @@ export function inferProviderName(url: string): string {
   return "custom";
 }
 
+const stripQuotes = (val?: string) => val?.trim().replace(/^["']|["']$/g, "").trim();
+
 /**
  * The chatbot's settings, or null when any is missing — the chatbot is then off and its entry points are
  * not shown. NVIDIA_NIM_MODEL is one model or a comma-separated list in order of preference.
  */
 export function readConfig(env: Record<string, string | undefined>): ChatConfig | null {
-  const databaseUrl = env.CHAT_DATABASE_URL?.trim();
+  const databaseUrl = stripQuotes(env.CHAT_DATABASE_URL);
   if (!databaseUrl) return null;
 
   // Primary API key:
   const apiKey = (
-    env.NVIDIA_NIM_API_KEY ||
-    env.GROQ_API_KEY ||
-    env.OPENAI_API_KEY ||
-    env.OLLAMA_API_KEY ||
-    env.GEMINI_API_KEY ||
-    env.GOOGLE_API_KEY ||
+    stripQuotes(env.NVIDIA_NIM_API_KEY) ||
+    stripQuotes(env.GROQ_API_KEY) ||
+    stripQuotes(env.OPENAI_API_KEY) ||
+    stripQuotes(env.OLLAMA_API_KEY) ||
+    stripQuotes(env.GEMINI_API_KEY) ||
+    stripQuotes(env.GOOGLE_API_KEY) ||
     (env.OLLAMA_BASE_URL ||
     env.NVIDIA_NIM_BASE_URL?.includes("ngrok") ||
     env.NVIDIA_NIM_BASE_URL?.includes("localhost") ||
@@ -107,13 +122,13 @@ export function readConfig(env: Record<string, string | undefined>): ChatConfig 
     env.OPENAI_BASE_URL?.includes("localhost")
       ? "ollama-local"
       : undefined)
-  )?.trim();
+  );
   if (!apiKey) return null;
 
   let baseUrl = (
-    env.NVIDIA_NIM_BASE_URL?.trim() ||
-    env.OPENAI_BASE_URL?.trim() ||
-    env.OLLAMA_BASE_URL?.trim() ||
+    stripQuotes(env.NVIDIA_NIM_BASE_URL) ||
+    stripQuotes(env.OPENAI_BASE_URL) ||
+    stripQuotes(env.OLLAMA_BASE_URL) ||
     (env.GROQ_API_KEY ? "https://api.groq.com/openai/v1" : "https://integrate.api.nvidia.com/v1")
   )
     .replace(/\/chat\/completions\/?$/, "")
@@ -133,7 +148,7 @@ export function readConfig(env: Record<string, string | undefined>): ChatConfig 
 
   const models = (env.NVIDIA_NIM_MODEL || env.OPENAI_MODEL || env.OLLAMA_MODEL || "")
     .split(",")
-    .map((m) => m.trim())
+    .map((m) => stripQuotes(m) || "")
     .filter(Boolean);
 
   if (models.length === 0) return null;
@@ -315,6 +330,7 @@ export function createModelCaller(options: {
 
   return async (messages, signal, allowTools) => {
     let last: ProviderFailure = "provider";
+    let lastDetails = "";
     let totalRetries = 0;
     const initialProvider = providers[0]?.name ?? "unknown";
     let lastProvider = initialProvider;
@@ -401,6 +417,8 @@ export function createModelCaller(options: {
               const errBody = await response.text().catch(() => "");
               console.error(`Chat LLM HTTP ${response.status} from ${provider.name} (${model}):`, errBody.slice(0, 300));
               last = response.status >= 500 ? "provider" : "bad_response";
+              const cleanErr = errBody.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 150).trim();
+              lastDetails = `HTTP ${response.status} for model '${model}': ${cleanErr || response.statusText}`;
               onFailure(model, `status ${response.status}`);
               break;
             }
@@ -425,6 +443,8 @@ export function createModelCaller(options: {
             if (!message || (!content && toolCalls.length === 0)) {
               console.error(`Chat LLM unusable reply from ${provider.name} (${model}). Parsed:`, parsed.success, "Raw content:", rawText.slice(0, 300));
               last = "bad_response";
+              const cleanBody = rawText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 150).trim();
+              lastDetails = `Unusable reply for model '${model}' (received: ${cleanBody ? cleanBody.slice(0, 80) : "empty response"})`;
               onFailure(model, "unusable reply");
               break;
             }
@@ -459,6 +479,7 @@ export function createModelCaller(options: {
             }
             const isTimeout = error instanceof Error && error.name === "TimeoutError";
             last = isTimeout ? "timeout" : "provider";
+            lastDetails = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
             onFailure(model, error instanceof Error ? error.name : "error");
             break;
           }
@@ -482,6 +503,6 @@ export function createModelCaller(options: {
       retryCount: totalRetries,
     });
 
-    throw new ProviderError(last);
+    throw new ProviderError(last, undefined, lastDetails);
   };
 }
