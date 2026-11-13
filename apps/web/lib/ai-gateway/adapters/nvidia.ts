@@ -25,14 +25,32 @@ export class NvidiaNimAdapter implements AiProviderAdapter {
   private fetchFn: typeof fetch;
 
   constructor(config?: NvidiaConfig) {
-    this.apiKey = config?.apiKey || process.env.NVIDIA_NIM_API_KEY || "";
-    this.baseUrl = (
+    this.apiKey =
+      config?.apiKey ||
+      process.env.NVIDIA_NIM_API_KEY ||
+      (process.env.NVIDIA_NIM_BASE_URL?.includes("ngrok") ||
+      process.env.NVIDIA_NIM_BASE_URL?.includes("localhost")
+        ? "ollama-local"
+        : "");
+    let rawBaseUrl = (
       config?.baseUrl ||
       process.env.NVIDIA_NIM_BASE_URL ||
       "https://integrate.api.nvidia.com/v1"
     )
       .replace(/\/chat\/completions\/?$/, "")
       .replace(/\/+$/, "");
+
+    if (rawBaseUrl && !rawBaseUrl.includes("/v1") && !rawBaseUrl.includes("googleapis.com")) {
+      try {
+        const parsed = new URL(rawBaseUrl);
+        if (parsed.pathname === "" || parsed.pathname === "/") {
+          rawBaseUrl = `${rawBaseUrl.replace(/\/+$/, "")}/v1`;
+        }
+      } catch {
+        // ignore invalid url
+      }
+    }
+    this.baseUrl = rawBaseUrl;
     this.defaultModel =
       config?.model || process.env.NVIDIA_NIM_MODEL || "meta/llama-3.1-70b-instruct";
     this.fetchFn = config?.fetchFn || fetch;

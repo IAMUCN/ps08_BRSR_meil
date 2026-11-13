@@ -3,6 +3,7 @@ import type { AiProviderAdapter } from "./adapters/base.ts";
 import { GeminiAdapter } from "./adapters/gemini.ts";
 import { GroqAdapter } from "./adapters/groq.ts";
 import { NvidiaNimAdapter } from "./adapters/nvidia.ts";
+import { OllamaAdapter } from "./adapters/ollama.ts";
 import { validateAiRequestSecurity } from "./security/gatekeeper.ts";
 import { inspectAndSanitizeInjection } from "./security/prompt-guard.ts";
 import { sanitizeContextByClassification } from "./security/sanitizer.ts";
@@ -137,6 +138,7 @@ export class AiGatewayRouter {
       this.adapters.set("nvidia_nim", new NvidiaNimAdapter());
       this.adapters.set("groq", new GroqAdapter());
       this.adapters.set("gemini", new GeminiAdapter());
+      this.adapters.set("local_ollama", new OllamaAdapter());
     }
 
     if (options?.initialKillSwitch) {

@@ -80,6 +80,7 @@ export function inferProviderName(url: string): string {
   if (url.includes("googleapis.com")) return "gemini";
   if (url.includes("nvidia.com")) return "nvidia";
   if (url.includes("openai.com")) return "openai";
+  if (url.includes("ollama") || url.includes("ngrok") || url.includes("localhost") || url.includes("127.0.0.1")) return "ollama";
   return "custom";
 }
 
@@ -96,20 +97,41 @@ export function readConfig(env: Record<string, string | undefined>): ChatConfig 
     env.NVIDIA_NIM_API_KEY ||
     env.GROQ_API_KEY ||
     env.OPENAI_API_KEY ||
+    env.OLLAMA_API_KEY ||
     env.GEMINI_API_KEY ||
-    env.GOOGLE_API_KEY
+    env.GOOGLE_API_KEY ||
+    (env.OLLAMA_BASE_URL ||
+    env.NVIDIA_NIM_BASE_URL?.includes("ngrok") ||
+    env.NVIDIA_NIM_BASE_URL?.includes("localhost") ||
+    env.OPENAI_BASE_URL?.includes("ngrok") ||
+    env.OPENAI_BASE_URL?.includes("localhost")
+      ? "ollama-local"
+      : undefined)
   )?.trim();
   if (!apiKey) return null;
 
-  const baseUrl = (
+  let baseUrl = (
     env.NVIDIA_NIM_BASE_URL?.trim() ||
     env.OPENAI_BASE_URL?.trim() ||
+    env.OLLAMA_BASE_URL?.trim() ||
     (env.GROQ_API_KEY ? "https://api.groq.com/openai/v1" : "https://integrate.api.nvidia.com/v1")
   )
     .replace(/\/chat\/completions\/?$/, "")
     .replace(/\/+$/, "");
 
-  const models = (env.NVIDIA_NIM_MODEL || env.OPENAI_MODEL || "")
+  // If pointing to a root endpoint without /v1 (e.g. Ollama/ngrok/localhost), ensure /v1 is appended
+  if (baseUrl && !baseUrl.includes("/v1") && !baseUrl.includes("googleapis.com")) {
+    try {
+      const parsed = new URL(baseUrl);
+      if (parsed.pathname === "" || parsed.pathname === "/") {
+        baseUrl = `${baseUrl.replace(/\/+$/, "")}/v1`;
+      }
+    } catch {
+      // ignore invalid URL
+    }
+  }
+
+  const models = (env.NVIDIA_NIM_MODEL || env.OPENAI_MODEL || env.OLLAMA_MODEL || "")
     .split(",")
     .map((m) => m.trim())
     .filter(Boolean);

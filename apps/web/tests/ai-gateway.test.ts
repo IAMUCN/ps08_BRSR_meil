@@ -4,6 +4,7 @@ import { z } from "zod";
 import { GeminiAdapter } from "../lib/ai-gateway/adapters/gemini.ts";
 import { GroqAdapter } from "../lib/ai-gateway/adapters/groq.ts";
 import { NvidiaNimAdapter } from "../lib/ai-gateway/adapters/nvidia.ts";
+import { OllamaAdapter } from "../lib/ai-gateway/adapters/ollama.ts";
 import { AiGatewayRouter } from "../lib/ai-gateway/router.ts";
 import {
   AiKillSwitchActiveError,
@@ -172,6 +173,50 @@ test("Milestone 1 — Google Gemini Adapter: handles REST payload and structured
 
   assert.equal(structured.auditReadinessScore, 92);
   assert.equal(structured.status, "COMPLIANT");
+});
+
+test("Milestone 1 — Ollama Adapter: executes request and formats structured JSON response", async () => {
+  const schema = z.object({
+    status: z.string(),
+    model: z.string(),
+  });
+
+  const mockFetch: typeof fetch = async (url, init) => {
+    assert.match(String(url), /chat\/completions/);
+    assert.equal(init?.method, "POST");
+
+    return new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({ status: "ok", model: "qwen2.5:7b" }),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 25, completion_tokens: 12 },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  const adapter = new OllamaAdapter({
+    baseUrl: "https://trunks-rug-outbound.ngrok-free.dev/v1",
+    model: "qwen2.5:7b",
+    fetchFn: mockFetch,
+  });
+
+  const structured = await adapter.generateStructured({
+    schema,
+    messages: [{ role: "user", content: "Test ollama structured output" }],
+    securityContext: {
+      orgUnitId: "00000000-0000-0000-0000-000000000001",
+      dataClassification: "SYNTHETIC_ESG_DATA",
+    },
+  });
+
+  assert.equal(structured.status, "ok");
+  assert.equal(structured.model, "qwen2.5:7b");
 });
 
 test("Security Control 1: Provider-specific data classification permission matrix", () => {
