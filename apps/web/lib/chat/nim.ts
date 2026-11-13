@@ -63,13 +63,11 @@ export class ProviderError extends Error {
   retryAfterSeconds?: number;
   details?: string;
   constructor(kind: ProviderFailure, retryAfterSeconds?: number, details?: string) {
-    const base = PROVIDER_MESSAGES[kind];
-    const safeDetails = details ? sanitizeDetails(details) : "";
-    super(safeDetails ? `${base} Details: ${safeDetails}` : base);
+    super(PROVIDER_MESSAGES[kind]);
     this.name = "ProviderError";
     this.kind = kind;
     this.retryAfterSeconds = retryAfterSeconds;
-    this.details = safeDetails || undefined;
+    this.details = details ? sanitizeDetails(details) : undefined;
   }
 }
 
@@ -107,28 +105,39 @@ export function readConfig(env: Record<string, string | undefined>): ChatConfig 
   const databaseUrl = stripQuotes(env.CHAT_DATABASE_URL);
   if (!databaseUrl) return null;
 
-  // Primary API key:
-  const apiKey = (
+  // Primary API key (or if URL was accidentally entered into API key field):
+  let rawApiKey = (
     stripQuotes(env.NVIDIA_NIM_API_KEY) ||
+    stripQuotes(env.NIM_API_KEY) ||
     stripQuotes(env.GROQ_API_KEY) ||
     stripQuotes(env.OPENAI_API_KEY) ||
     stripQuotes(env.OLLAMA_API_KEY) ||
     stripQuotes(env.GEMINI_API_KEY) ||
-    stripQuotes(env.GOOGLE_API_KEY) ||
-    (env.OLLAMA_BASE_URL ||
-    env.NVIDIA_NIM_BASE_URL?.includes("ngrok") ||
-    env.NVIDIA_NIM_BASE_URL?.includes("localhost") ||
-    env.OPENAI_BASE_URL?.includes("ngrok") ||
-    env.OPENAI_BASE_URL?.includes("localhost")
-      ? "ollama-local"
-      : undefined)
+    stripQuotes(env.GOOGLE_API_KEY)
   );
-  if (!apiKey) return null;
+
+  let detectedUrlFromKey: string | undefined;
+  if (rawApiKey && (rawApiKey.startsWith("http://") || rawApiKey.startsWith("https://"))) {
+    detectedUrlFromKey = rawApiKey;
+    rawApiKey = "ollama-local";
+  }
 
   let baseUrl = (
     stripQuotes(env.NVIDIA_NIM_BASE_URL) ||
-    stripQuotes(env.OPENAI_BASE_URL) ||
+    stripQuotes(env.NIM_BASE_URL) ||
+    stripQuotes(env.NVIDIA_BASE_URL) ||
     stripQuotes(env.OLLAMA_BASE_URL) ||
+    stripQuotes(env.OLLAMA_URL) ||
+    stripQuotes(env.OLLAMA_HOST) ||
+    stripQuotes(env.OPENAI_BASE_URL) ||
+    stripQuotes(env.OPENAI_API_BASE) ||
+    stripQuotes(env.LLM_BASE_URL) ||
+    stripQuotes(env.CHAT_BASE_URL) ||
+    stripQuotes(env.API_BASE_URL) ||
+    stripQuotes(env.API_URL) ||
+    stripQuotes(env.NEXT_PUBLIC_NVIDIA_NIM_BASE_URL) ||
+    stripQuotes(env.NEXT_PUBLIC_OLLAMA_BASE_URL) ||
+    detectedUrlFromKey ||
     (env.GROQ_API_KEY ? "https://api.groq.com/openai/v1" : "https://integrate.api.nvidia.com/v1")
   )
     .replace(/\/chat\/completions\/?$/, "")
@@ -145,6 +154,18 @@ export function readConfig(env: Record<string, string | undefined>): ChatConfig 
       // ignore invalid URL
     }
   }
+
+  const apiKey = (
+    rawApiKey ||
+    (baseUrl.includes("ngrok") ||
+    baseUrl.includes("localhost") ||
+    baseUrl.includes("127.0.0.1") ||
+    env.OLLAMA_BASE_URL ||
+    env.OLLAMA_URL
+      ? "ollama-local"
+      : undefined)
+  );
+  if (!apiKey) return null;
 
   const models = (env.NVIDIA_NIM_MODEL || env.OPENAI_MODEL || env.OLLAMA_MODEL || "")
     .split(",")
@@ -418,7 +439,11 @@ export function createModelCaller(options: {
               console.error(`Chat LLM HTTP ${response.status} from ${provider.name} (${model}):`, errBody.slice(0, 300));
               last = response.status >= 500 ? "provider" : "bad_response";
               const cleanErr = errBody.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 150).trim();
-              lastDetails = `HTTP ${response.status} for model '${model}': ${cleanErr || response.statusText}`;
+              if (response.status === 404 && provider.name === "nvidia" && (model.includes(":") || !model.includes("/"))) {
+                lastDetails = `NVIDIA NIM 404 for model '${model}'. Requests are going to nvidia.com because NVIDIA_NIM_BASE_URL is not set to your Ollama tunnel in Vercel Production Environment Variables.`;
+              } else {
+                lastDetails = `HTTP ${response.status} for model '${model}': ${cleanErr || response.statusText}`;
+              }
               onFailure(model, `status ${response.status}`);
               break;
             }

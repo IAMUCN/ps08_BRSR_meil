@@ -276,7 +276,8 @@ export const chatRouter = router({
                   : error.kind === "timeout"
                     ? "TIMEOUT"
                     : "SERVICE_UNAVAILABLE";
-            throw new TRPCError({ code: trpcCode, message: error.message });
+            const message = error.details ? `${error.message} Details: ${error.details}` : error.message;
+            throw new TRPCError({ code: trpcCode, message });
           }
           console.error("chat: unhandled error in answerQuestion:", error);
           throw error;
