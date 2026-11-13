@@ -13,6 +13,7 @@ import {
   importOrder,
   mergeSharedRows,
   isFrozen,
+  singleParent,
   levelLabel,
   misplaced,
   PROJECT_LEVEL,
@@ -258,6 +259,91 @@ async function applyParents(
     userId,
     oldValue: { parent_id: node.parentId, also_under: node.alsoUnder },
     newValue: { parent_id: parentId, also_under: after.alsoUnder, added, removed },
+  });
+  return nodes.map((n) => (n.id === node.id ? after : n));
+}
+
+/**
+ * Replaces ALL of a unit's parents with the chosen list (owner's request, 2026-11-13: a project's parents can be
+ * picked freely). The current main parent stays the main one while it is ticked; if it is unticked, the first
+ * chosen parent becomes the main one and the old main parent is simply dropped. Every placement is checked as it
+ * will be, like a move and then each further parent.
+ */
+async function applyAllParents(
+  tx: Tx,
+  userId: string,
+  r: Reach,
+  nodes: OrgNodeRow[],
+  levels: OrgLevel[],
+  node: OrgNodeRow,
+  parentIds: readonly string[],
+): Promise<OrgNodeRow[]> {
+  const wanted = [...new Set(parentIds)];
+  if (wanted.length === 0) badRequest("A unit needs at least one parent.");
+  if (node.parentId === null)
+    badRequest("A group is the top of its organization; it has no parent.");
+  if (wanted.includes(node.parentId)) {
+    // The main parent stays: only the further parents change.
+    return applyParents(
+      tx,
+      userId,
+      r,
+      nodes,
+      levels,
+      node,
+      wanted.filter((id) => id !== node.parentId),
+    );
+  }
+  if (singleParent(node.unitType))
+    badRequest("This unit belongs to one parent only; move it instead.");
+  const hidden = node.alsoUnder.filter((id) => r && !r.own.has(id) && !r.managed.has(id));
+  // A parent the structure allows as the MAIN one goes first (a project's main parent is a business unit).
+  const fitsMain = (id: string) => {
+    const p = nodes.find((n) => n.id === id);
+    return !p || structureProblem(levels, p.unitType, node.unitType) === null ? 0 : 1;
+  };
+  const [newMain, ...rest] = [...wanted].sort((a, b) => fitsMain(a) - fitsMain(b));
+  const further = [...new Set([...rest, ...hidden])].filter((id) => id !== newMain);
+  for (const id of [newMain, ...rest].filter(
+    (id) => id !== node.parentId && !node.alsoUnder.includes(id),
+  )) {
+    assertOwnable(r, id);
+  }
+  const nameOf = (id: string) => nodes.find((n) => n.id === id)?.name ?? "A chosen parent";
+  const base = nodes.map((n) => (n.id === node.id ? { ...node, alsoUnder: [] } : n));
+  const move = checkMove(node.id, newMain, base, levels);
+  if (!move.ok) badRequest(`${nameOf(newMain)}: ${move.reason}`);
+  if (isFrozen(newMain, nodes)) badRequest(`${nameOf(newMain)} is inactive.`);
+  const after: OrgNodeRow = { ...node, parentId: newMain, alsoUnder: [] };
+  for (const id of further) {
+    const others = nodes.map((n) => (n.id === node.id ? after : n));
+    const check = checkAlsoUnder(node.id, id, others, levels);
+    if (!check.ok) badRequest(`${nameOf(id)}: ${check.reason}`);
+    if (!node.alsoUnder.includes(id) && isFrozen(id, nodes))
+      badRequest(`${nameOf(id)} is inactive.`);
+    after.alsoUnder = [...after.alsoUnder, id];
+  }
+  // Links first (the new main parent must no longer be an extra one), then the main parent, then new links.
+  const removed = node.alsoUnder.filter((id) => !further.includes(id));
+  const added = further.filter((id) => !node.alsoUnder.includes(id));
+  if (removed.length > 0) {
+    await tx`
+      delete from public.org_unit_parents
+      where org_unit_id = ${node.id} and parent_id = any(${removed}::uuid[])`;
+  }
+  await tx`update public.org_units set parent_id = ${newMain} where id = ${node.id}`;
+  for (const id of added) {
+    await tx`
+      insert into public.org_unit_parents (org_unit_id, parent_id, created_by)
+      values (${node.id}, ${id}, ${userId})`;
+  }
+  await writeAudit(tx, {
+    eventType: "org_unit.parents_changed",
+    entityType: "org_unit",
+    entityId: node.id,
+    userId,
+    oldValue: { parent_id: node.parentId, also_under: node.alsoUnder },
+    newValue: { parent_id: newMain, also_under: after.alsoUnder, added, removed },
   });
   return nodes.map((n) => (n.id === node.id ? after : n));
 }
@@ -641,6 +727,29 @@ export const organizationRouter = router({
           await loadLevels(tx),
           node,
           input.alsoUnder,
+        );
+      });
+      return null;
+    }),
+
+  /** All of a unit's parents at once, the main one included (see applyAllParents). */
+  setAllParents: orgManage
+    .input(z.object({ id: z.uuid(), parentIds: z.array(z.uuid()).min(1).max(50) }))
+    .mutation(async ({ ctx, input }) => {
+      await db().begin(async (tx) => {
+        const nodes = await loadTreeForUpdate(tx);
+        const node = nodes.find((n) => n.id === input.id);
+        if (!node) badRequest("Node not found.");
+        const r = reach(ctx.session, nodes);
+        assertManaged(r, node.id);
+        await applyAllParents(
+          tx,
+          ctx.session.userId,
+          r,
+          nodes,
+          await loadLevels(tx),
+          node,
+          input.parentIds,
         );
       });
       return null;

@@ -34,6 +34,10 @@ export async function setOrgUnitParentsAction(input: { id: string; alsoUnder: st
   return runAction((api) => api.organization.setParents(input));
 }
 
+export async function setOrgUnitAllParentsAction(input: { id: string; parentIds: string[] }) {
+  return runAction((api) => api.organization.setAllParents(input));
+}
+
 export async function orgUnitDeleteCheckAction(input: { id: string }) {
   return runAction((api) => api.organization.deleteCheck(input));
 }

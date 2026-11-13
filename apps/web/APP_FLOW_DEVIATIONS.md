@@ -936,3 +936,16 @@ BRSR answers, the 17 typed SEBI tables, and the yearly inputs behind turnover-ba
 company, so only the group's own report prints it; a unit's report says so under its heading and each written question
 reads "Reported once for the whole company at group level". Snapshot field `companyLevel`. Report tables share the page
 width: long headings wrap, wide tables step down in size, row labels keep a minimum width, rows do not split across pages.
+
+## A65 — A unit's parents are picked freely, the main one included (2026-11-13)
+
+The Parents card of a project (or any unit that may have several parents) lists every possible parent as a box to tick,
+the current main parent too. Unticking the main parent makes the first remaining ticked parent the new main one (where the
+unit is managed) and drops the old one; at least one parent must stay. The business units may belong to different
+subsidiaries of the same group. Procedure `organization.setAllParents` (`applyAllParents`): the placement is checked as a
+move to the new main parent and then each further parent, so a project still cannot sit directly under a subsidiary.
+The Add-a-unit panel offers the same Parents list when a business unit is selected (a new project can be shared by
+several business units, of different subsidiaries, from the start); only a business unit itself has a single parent.
+A project can also be shared directly with a subsidiary (2026-11-13, owner's request; `canShareUnder`): the main parent
+stays a business unit, but the project may also sit under other business units and under other subsidiaries — it then
+counts in that subsidiary's totals and its people see it. A project cannot have a subsidiary as its only (main) parent.

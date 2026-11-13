@@ -38,7 +38,7 @@ import {
   checkMove,
   isFrozen,
   levelLabel,
-  canBeChildOf,
+  canShareUnder,
   BUSINESS_UNIT_LEVEL,
   misplaced,
   PROJECT_LEVEL,
@@ -59,7 +59,7 @@ import {
   orgUnitDeleteCheckAction,
   orgUnitImpactAction,
   setOrgUnitChildrenAction,
-  setOrgUnitParentsAction,
+  setOrgUnitAllParentsAction,
   setOrgUnitStatusAction,
   updateOrgUnitAction,
 } from "./actions";
@@ -629,7 +629,7 @@ function AddChildren({
     ? nodes.filter(
         (n) =>
           n.id !== node.id &&
-          canBeChildOf(levels, n.unitType, childType) &&
+          canShareUnder(levels, n.unitType, childType) &&
           rootOf(n.id, nodes) === group &&
           !isFrozen(n.id, nodes),
       )
@@ -747,22 +747,16 @@ function AddChildren({
               className="font-mono"
             />
           </div>
-          {/* No parent to choose around business units (owner's request, 2026-11-12). */}
+          {/* A business unit has one parent; every other unit can be shared (owner, 2026-11-13). */}
           {asGroup ? null : singleParent(childType) ? (
             <p className="text-xs leading-4 text-muted-foreground">
               A {levelLabel(levels, childType).toLowerCase()} belongs to {node.name} only. Include
               its projects on its own panel once it is added.
             </p>
-          ) : node.unitType === BUSINESS_UNIT_LEVEL ? (
-            <p className="text-xs leading-4 text-muted-foreground">
-              The new unit goes under {node.name}. To share a project with another{" "}
-              {levelLabel(levels, BUSINESS_UNIT_LEVEL).toLowerCase()}, include it in that one&apos;s
-              Projects list.
-            </p>
           ) : (
             <ParentChecklist
               legend="Parents"
-              hint={`Tick every unit the new one belongs to. Leave only ${node.name} included for an ordinary unit; tick more for one that several units share, such as a project two business units run.`}
+              hint={`Tick every unit the new one belongs to. Leave only ${node.name} included for an ordinary unit; tick more to share it: a project can be shared with other business units and with other subsidiaries.`}
               fixed={node}
               fixedNote="selected in the tree"
               choices={parentChoices}
@@ -844,7 +838,7 @@ function ProjectsCard({
       <div className="mt-4 space-y-3">
         <ParentChecklist
           legend={levelLabel(levels, PROJECT_LEVEL) + "s"}
-          hint={`Projects of this group. Beside each: where it sits today.`}
+          hint={`Projects of this group, including those under another ${levelLabel(levels, SUBSIDIARY_LEVEL).toLowerCase()}'s ${unitLabel}s: a project can be shared across subsidiaries. Beside each: where it sits today. You see the projects you manage.`}
           fixed={undefined}
           fixedNote=""
           choices={sorted}
@@ -928,10 +922,14 @@ function NodeDetail({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletable, setDeletable] = useState<OrgDeleteCheck | null>(null);
   // The checklist's ticks; nothing is written until Save parents.
-  const [tickedParents, setTickedParents] = useState<Set<string>>(new Set(node.alsoUnder));
+  // Every parent is a choice, the main one included: unticking it makes the first remaining one the main parent.
+  const currentParents = [node.parentId, ...node.alsoUnder].filter(
+    (id): id is string => id !== null,
+  );
+  const [tickedParents, setTickedParents] = useState<Set<string>>(new Set(currentParents));
   const parentsChanged =
-    tickedParents.size !== node.alsoUnder.length ||
-    node.alsoUnder.some((id) => !tickedParents.has(id));
+    tickedParents.size !== currentParents.length ||
+    currentParents.some((id) => !tickedParents.has(id));
   const alsoUnder = node.alsoUnder.flatMap((id) => nodes.find((n) => n.id === id) ?? []);
   // Placed before the structure rules (a project straight under a subsidiary): the first ticked parent
   // becomes its main one when the parents are saved.
@@ -1178,10 +1176,10 @@ function NodeDetail({
           <div className="mt-4 space-y-3">
             <ParentChecklist
               legend="Parents"
-              hint="Tick every unit this one belongs to, then save."
-              fixed={wrongPlace ? undefined : parent}
-              fixedNote="moved and deactivated from here"
-              choices={[...alsoUnder, ...extraParentTargets]}
+              hint="Tick every unit this one belongs to, then save. The first one is its main parent (where it is managed); untick it to hand that role to another ticked parent. At least one must stay ticked."
+              fixed={undefined}
+              fixedNote=""
+              choices={[...(parent ? [parent] : []), ...alsoUnder, ...extraParentTargets]}
               note={placeNote(nodes, levels)}
               checked={tickedParents}
               levels={levels}
@@ -1198,10 +1196,20 @@ function NodeDetail({
             <Button
               type="button"
               variant="outline"
-              disabled={pending || !parentsChanged}
+              disabled={pending || !parentsChanged || tickedParents.size === 0}
               onClick={() =>
                 run(
-                  () => setOrgUnitParentsAction({ id: node.id, alsoUnder: [...tickedParents] }),
+                  () =>
+                    setOrgUnitAllParentsAction({
+                      id: node.id,
+                      // The current main parent first while it is still ticked, so it stays the main one.
+                      parentIds: [
+                        ...(node.parentId && tickedParents.has(node.parentId)
+                          ? [node.parentId]
+                          : []),
+                        ...[...tickedParents].filter((id) => id !== node.parentId),
+                      ],
+                    }),
                   "Parents saved",
                 )
               }

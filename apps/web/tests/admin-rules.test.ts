@@ -532,7 +532,12 @@ test("MEIL structure: business units under one subsidiary, projects under busine
   assert.deepEqual(also("p", "b2"), { ok: true }, "a project shared by two business units");
   assert.equal(also("b1", "s2").ok, false, "a business unit has one subsidiary");
   assert.match((also("b1", "s2") as { reason: string }).reason, /one Subsidiary/);
-  assert.equal(also("p", "s2").ok, false, "a project is not shared with a subsidiary");
+  assert.deepEqual(
+    also("p", "s2"),
+    { ok: true },
+    "a project is shared with another subsidiary too",
+  );
+  assert.equal(also("b1", "g").ok, false, "a business unit is never shared");
   assert.deepEqual(checkMove("b1", "s2", t, LEVELS), { ok: true }, "moved to another subsidiary");
   assert.equal(checkMove("b1", "g", t, LEVELS).ok, false);
   assert.equal(misplaced(t[6], t, LEVELS) !== null, true, "placed before the rules");

@@ -866,7 +866,7 @@ dev:local-server` (`apps/web/.env.localserver`).
 - **Tests with real documents** and reports what fails (e.g. a real electricity bill photo). Treat such a report as
   a bug to reproduce with the real worker, not a reason to guess.
 - **Asks for features mid-session, outside the plan.** Record each one in `.grill/<topic>-decisions.md`, add a
-  deviation entry (D/A numbers continue: next are **D62** and **A65**; the next migration is `0089`), and note it in PROGRESS.md.
+  deviation entry (D/A numbers continue: next are **D62** and **A66**; the next migration is `0089`), and note it in PROGRESS.md.
 - **Wants to be asked before a decision the documents don't settle**, and wants progress files kept current so
   sessions do not start cold (that is why this file exists).
 - **Two roles work in parallel, each on their own branch** (from 2026-10-05; the previous work is committed on

@@ -65,6 +65,28 @@ export function canBeChildOf(
   return child > parent && structureProblem(levels, parentType, childType) === null;
 }
 
+/**
+ * Whether a unit may ALSO sit under this parent (sharing). Everything that may be a main parent may, and a project
+ * may also be shared with a subsidiary (owner's request, 2026-11-13): it stays managed under a business unit but
+ * counts in that subsidiary's totals and its people see it. The business-unit rule applies to the main parent only.
+ */
+export function canShareUnder(
+  levels: readonly OrgLevel[],
+  parentType: OrgUnitType,
+  childType: OrgUnitType,
+): boolean {
+  if (canBeChildOf(levels, parentType, childType)) return true;
+  const parent = orderOf(levels, parentType);
+  const child = orderOf(levels, childType);
+  return (
+    childType === PROJECT_LEVEL &&
+    parentType === SUBSIDIARY_LEVEL &&
+    parent !== undefined &&
+    child !== undefined &&
+    child > parent
+  );
+}
+
 /** Why a parent can't take a child: the structure's own words, else the ordering rule. */
 function placementReason(
   levels: readonly OrgLevel[],
@@ -341,7 +363,7 @@ export function checkAlsoUnder(
       reason: `A ${levelLabel(levels, node.unitType)} belongs to one ${levelLabel(levels, SUBSIDIARY_LEVEL)} only.`,
     };
   }
-  if (!canBeChildOf(levels, parent.unitType, node.unitType)) {
+  if (!canShareUnder(levels, parent.unitType, node.unitType)) {
     return { ok: false, reason: placementReason(levels, parent.unitType, node.unitType) };
   }
   if (rootOf(nodeId, nodes) !== rootOf(parentId, nodes)) {
