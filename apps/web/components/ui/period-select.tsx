@@ -35,7 +35,7 @@ export function PeriodSelect({
   /** Labels beside the selects (text-sm) rather than above them. */
   inline?: boolean;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const years = [...new Set(periods.map((p) => financialYearOfDate(p.startDate)))].sort(
     (a, b) => b - a,
   );
@@ -87,6 +87,46 @@ export function PeriodSelect({
           ))}
         </NativeSelect>
       </label>
+    </>
+  );
+}
+
+type OptionPeriod = {
+  id: string;
+  label?: string;
+  name?: string;
+  startDate?: string;
+  start_date?: string;
+  periodStart?: string;
+  start?: string;
+};
+
+/**
+ * <option>s for a plain period dropdown, grouped under their financial year, newest first. Periods that have
+ * not begun yet are left out (the source lists should not hold them either); `keep` is always listed.
+ */
+export function PeriodOptions({ periods, keep }: { periods: OptionPeriod[]; keep?: string }) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const dated = periods
+    .map((p) => ({ p, start: p.startDate ?? p.start_date ?? p.periodStart ?? p.start ?? "" }))
+    .filter(({ p, start }) => !start || start <= today || p.id === keep)
+    .sort((a, b) => b.start.localeCompare(a.start));
+  const groups = new Map<number | null, typeof dated>();
+  for (const item of dated) {
+    const year = item.start ? financialYearOfDate(item.start) : null;
+    groups.set(year, [...(groups.get(year) ?? []), item]);
+  }
+  return (
+    <>
+      {[...groups.entries()].map(([year, items]) => (
+        <optgroup key={year ?? "none"} label={year === null ? "Periods" : yearLabel(year)}>
+          {items.map(({ p }) => (
+            <option key={p.id} value={p.id}>
+              {p.label ?? p.name}
+            </option>
+          ))}
+        </optgroup>
+      ))}
     </>
   );
 }

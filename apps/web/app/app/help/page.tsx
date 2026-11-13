@@ -351,7 +351,9 @@ export default async function HelpPage() {
                     ) : null}
                   </th>
                   <td className="px-3 py-2 text-xs whitespace-nowrap">
-                    {r.code === "admin" || r.code === "org_admin" ? "Administration" : "Workspace"}
+                    {r.code === "admin" || r.code === "org_admin" || r.code === "bu_manager"
+                      ? "Administration"
+                      : "Workspace"}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {r.code === "admin"

@@ -8,7 +8,7 @@ import { MFA_EMAIL_COOKIE, emailPassValid } from "@/lib/auth/mfa-email";
 import { sessionIdFromAccessToken } from "@/lib/auth/session-cookie";
 import { aalFromAccessToken, hasVerifiedTotp, mfaEnforced } from "@/lib/auth/mfa";
 import { mustChangePassword } from "@/lib/auth/initial-password";
-import { ADMIN_ROLE, ORG_ADMIN_ROLE } from "@/lib/auth/redirects";
+import { ADMIN_ROLE, isScopedAdminRole } from "@/lib/auth/redirects";
 import { currentSessionId, touchSession } from "@/lib/auth/session-limits";
 import {
   canEditDisclosures,
@@ -161,9 +161,9 @@ export async function resolveSession(supabase: SupabaseClient): Promise<SessionR
       displayName: profile.display_name,
       theme: isTheme(profile.theme) ? profile.theme : DEFAULT_THEME,
       isAdmin: roleCodes.includes(ADMIN_ROLE),
-      isOrgAdmin: roleCodes.includes(ORG_ADMIN_ROLE),
+      isOrgAdmin: roleCodes.some(isScopedAdminRole),
       adminOrgUnitIds: assignments
-        .filter((a) => a.roleCode === ORG_ADMIN_ROLE)
+        .filter((a) => isScopedAdminRole(a.roleCode))
         .map((a) => a.orgUnitId),
       roleCodes,
       permissions,

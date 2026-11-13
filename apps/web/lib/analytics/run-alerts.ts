@@ -159,7 +159,7 @@ export async function runEmissionAlerts(
     join public.org_units o on o.id = a.org_unit_id
     join public.reporting_periods p on p.id = a.reporting_period_id
     join public.user_org_assignments uoa on uoa.revoked_at is null
-    join public.roles r on r.id = uoa.role_id and r.code in ('admin', 'org_admin')
+    join public.roles r on r.id = uoa.role_id and r.code in ('admin', 'org_admin', 'bu_manager')
     join public.users u on u.id = uoa.user_id and u.is_active and u.deleted_at is null
     where a.status = 'open' and a.created_at > now() - make_interval(days => ${DELIVERY_DAYS})
       and (r.code = 'admin'

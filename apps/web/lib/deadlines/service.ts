@@ -131,6 +131,7 @@ export async function getDeadlineData(
   const periodRows = await sql<{ id: string; name: string; is_open: boolean }[]>`
     select id, label as name, (status = 'open') as is_open
     from public.reporting_periods
+    where start_date <= (now() at time zone 'Asia/Kolkata')::date
     order by start_date desc`;
 
   // 2. Fetch available org units (subsidiaries, projects)

@@ -41,7 +41,7 @@ export const helpRouter = router({
         left join public.role_permissions rp on rp.role_id = r.id
         left join public.permissions p on p.id = rp.permission_id
         group by r.id, r.code, r.name, r.description
-        order by r.code = 'admin' desc, r.code = 'org_admin' desc, r.name`,
+        order by r.code = 'admin' desc, r.code = 'org_admin' desc, r.code = 'bu_manager' desc, r.name`,
       sql<{ label: string }[]>`select label from public.org_levels order by sort_order`,
     ]);
     const get = (key: string) =>

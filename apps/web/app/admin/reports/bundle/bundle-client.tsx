@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PeriodOptions } from "@/components/ui/period-select";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { bundlePreviewAction } from "../actions";
@@ -200,11 +201,7 @@ export function BundleClient({ options }: { options: BundleOptions }) {
                   onChange={(e) => setPeriodId(e.target.value)}
                   disabled={loading || generating}
                 >
-                  {options.periods.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
+                  <PeriodOptions periods={options.periods} />
                 </NativeSelect>
               </>
             )}

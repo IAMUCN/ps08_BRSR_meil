@@ -14,7 +14,8 @@ function compareRoles(
   a: { roleCode: string; roleName: string },
   b: { roleCode: string; roleName: string },
 ) {
-  const rank = (code: string) => (code === "admin" ? 0 : code === "org_admin" ? 1 : 2);
+  const rank = (code: string) =>
+    code === "admin" ? 0 : code === "org_admin" ? 1 : code === "bu_manager" ? 2 : 3;
   return rank(a.roleCode) - rank(b.roleCode) || byName(a.roleName, b.roleName);
 }
 

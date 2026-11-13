@@ -138,8 +138,39 @@ export const financialYearLabel = (startYear: number) =>
 const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
 const day = (iso: string) =>
   `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
-/** A custom range of reporting periods as the reports name it: "1 Aug 2026 to 30 Sep 2026". */
-export const rangeLabel = (from: string, to: string) => `${day(from)} to ${day(to)}`;
+/**
+ * The quarter of a financial year (April-March): Q1 April-June, Q2 July-September, Q3 October-December,
+ * Q4 January-March. The dates are the first and last day of its three months.
+ */
+export function quarterRange(startYear: number, quarter: 1 | 2 | 3 | 4) {
+  const firstMonth = [4, 7, 10, 1][quarter - 1]!;
+  const year = quarter === 4 ? startYear + 1 : startYear;
+  const lastMonth = firstMonth + 2;
+  const lastDay = new Date(Date.UTC(year, lastMonth, 0)).getUTCDate();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    from: `${year}-${pad(firstMonth)}-01`,
+    to: `${year}-${pad(lastMonth)}-${pad(lastDay)}`,
+  };
+}
+
+/** The quarter a range is exactly, as { startYear, quarter }; null for any other range. */
+export function quarterOfRange(from: string, to: string) {
+  const startYear = financialYearOf(from);
+  for (const quarter of [1, 2, 3, 4] as const) {
+    const q = quarterRange(startYear, quarter);
+    if (q.from === from && q.to === to) return { startYear, quarter };
+  }
+  return null;
+}
+
+/** A custom range of reporting periods as the reports name it: "1 Aug 2026 to 30 Sep 2026". A whole quarter
+ *  is named as one: "Q2 FY 2026-27 (1 Jul 2026 to 30 Sep 2026)". */
+export const rangeLabel = (from: string, to: string) => {
+  const plain = `${day(from)} to ${day(to)}`;
+  const q = quarterOfRange(from, to);
+  return q ? `Q${q.quarter} ${financialYearLabel(q.startYear)} (${plain})` : plain;
+};
 
 /** The first and last day of a financial year, as ISO dates. */
 export const financialYearRange = (startYear: number) => ({

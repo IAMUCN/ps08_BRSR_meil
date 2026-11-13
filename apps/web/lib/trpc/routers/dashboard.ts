@@ -76,6 +76,7 @@ export const dashboardRouter = router({
              public.reporting_period_late(rp) as late
       from public.reporting_periods rp
       where rp.status = 'open' and not public.reporting_period_locked(rp)
+        and rp.start_date <= (now() at time zone 'Asia/Kolkata')::date
       order by rp.start_date desc`;
     return rows.map((r) => ({
       id: r.id,

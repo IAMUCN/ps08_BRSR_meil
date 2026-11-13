@@ -152,9 +152,9 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
            public.reporting_period_late(rp) as late
     from public.reporting_periods rp
     where rp.status = 'open' and not public.reporting_period_locked(rp)
-    -- Periods that have begun first, newest first (the default choice); months still to come after them
-    -- (a whole financial year can be open at once, 2026-11-12).
-    order by rp.start_date <= (now() at time zone 'Asia/Kolkata')::date desc, rp.start_date desc`;
+      -- Only periods that have begun, newest first: the first is the current one (owner's request, 2026-11-13).
+      and rp.start_date <= (now() at time zone 'Asia/Kolkata')::date
+    order by rp.start_date desc`;
   const periods: UploadPeriod[] = periodRows.map((r) => ({
     id: r.id,
     label: r.label,
@@ -186,7 +186,9 @@ export async function loadUploadOptions(sql: Sql, userId: string): Promise<Uploa
       : []),
   ];
   const administratorRoleIds = new Set(
-    held.filter((a) => a.code === "admin" || a.code === "org_admin").map((a) => a.role_id),
+    held
+      .filter((a) => a.code === "admin" || a.code === "org_admin" || a.code === "bu_manager")
+      .map((a) => a.role_id),
   );
   const uploadRoles = await sql<{ role_id: string }[]>`
     select rp.role_id from public.role_permissions rp

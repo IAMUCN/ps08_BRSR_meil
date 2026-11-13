@@ -71,7 +71,7 @@ select ok(not has_column_privilege('authenticated', 'public.user_display_names',
 -- Seed data
 ------------------------------------------------------------------------------------------------
 
-select is((select count(*)::int from public.roles where is_system_role), 9, '9 system roles (0067 adds the Assurance Reviewer)');
+select is((select count(*)::int from public.roles where is_system_role), 10, '10 system roles (0067 adds the Assurance Reviewer, 0088 the BU Manager)');
 select is((select count(*)::int from public.permissions), 26, '26 permissions (0067 adds four, 0070 two)');
 select is((select count(*)::int from public.role_permissions rp join public.roles r on r.id = rp.role_id
            where r.code = 'admin'), 26, 'admin holds every permission');

@@ -32,6 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PeriodOptions } from "@/components/ui/period-select";
 import { CarbonQuotationPanel } from "./carbon-quotation-panel";
 import {
   evaluateCapexAction,
@@ -496,13 +497,9 @@ export function CarbonCreditsClient({
             >
               <option value="">All-Time Cumulative (Apr 2025 – Present)</option>
               <option value="FY_2025_26">Full FY 2025-26 (Apr 2025 – Mar 2026)</option>
-              <option value="FY_2026_27">FY 2026-27 YTD (Apr 2026 – Sep 2026)</option>
+              <option value="FY_2026_27">FY 2026-27 to date</option>
               <optgroup label="Monthly Reporting Periods">
-                {options.periods.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
+                <PeriodOptions periods={options.periods} />
               </optgroup>
             </NativeSelect>
           </div>
@@ -770,11 +767,7 @@ export function CarbonCreditsClient({
                   }}
                 >
                   <option value="">All Historical Periods</option>
-                  {options.periods.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
+                  <PeriodOptions periods={options.periods} />
                 </NativeSelect>
               </div>
             </div>
@@ -1439,11 +1432,7 @@ export function CarbonCreditsClient({
                     setRetireForm({ ...retireForm, reportingPeriodId: e.target.value })
                   }
                 >
-                  {options.periods.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
+                  <PeriodOptions periods={options.periods} />
                 </NativeSelect>
               </div>
 

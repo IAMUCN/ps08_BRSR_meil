@@ -8,7 +8,14 @@ export const ADMIN_ROLE = "admin";
 /** An Administrator of one org unit and everything beneath it (migration 0050). */
 export const ORG_ADMIN_ROLE = "org_admin";
 
-const isAdminRole = (code: string) => code === ADMIN_ROLE || code === ORG_ADMIN_ROLE;
+/** A BU Manager administers one business unit and the projects beneath it (migration 0088). */
+export const BU_MANAGER_ROLE = "bu_manager";
+
+/** The roles that administer an org unit and what is beneath it (not the group-wide Super Admin). */
+export const isScopedAdminRole = (code: string) =>
+  code === ORG_ADMIN_ROLE || code === BU_MANAGER_ROLE;
+
+const isAdminRole = (code: string) => code === ADMIN_ROLE || isScopedAdminRole(code);
 
 /** Whether these roles open the /admin area at all; what each page shows there is decided per page. */
 export function usesAdminArea(roleCodes: readonly string[]): boolean {

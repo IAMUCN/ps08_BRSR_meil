@@ -16,6 +16,7 @@ export default async function DecisionRulesPage() {
     `,
     sql<{ id: string; label: string; start_date: string }[]>`
       select id, label, start_date::text from public.reporting_periods
+      where start_date <= (now() at time zone 'Asia/Kolkata')::date
       order by start_date desc
     `,
   ]);

@@ -55,7 +55,7 @@ export const rolesRouter = router({
       from public.roles r
       left join public.role_permissions rp on rp.role_id = r.id
       group by r.id
-      order by case r.code when 'admin' then 0 when 'org_admin' then 1 else 2 end,
+      order by case r.code when 'admin' then 0 when 'org_admin' then 1 when 'bu_manager' then 2 else 3 end,
                r.is_system_role desc, r.name`;
     return {
       permissions,

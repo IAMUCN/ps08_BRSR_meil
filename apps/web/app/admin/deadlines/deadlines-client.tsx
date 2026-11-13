@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PeriodOptions } from "@/components/ui/period-select";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import type {
   DeadlineFilter,
@@ -273,11 +274,7 @@ export function DeadlinesClient({
             }}
           >
             <option value="all">All Reporting Periods</option>
-            {periods.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
+            <PeriodOptions periods={periods} />
           </NativeSelect>
         </div>
 

@@ -234,7 +234,7 @@ export const usersRouter = router({
     if (!ctx.session.isAdmin && !ctx.session.isOrgAdmin) return { roles: [] };
     const roles = await db()<{ id: string; code: string; name: string }[]>`
       select id, code, name from public.roles
-      order by case code when 'admin' then 0 when 'org_admin' then 1 else 2 end, name`;
+      order by case code when 'admin' then 0 when 'org_admin' then 1 when 'bu_manager' then 2 else 3 end, name`;
     return { roles: roles.filter((r) => ctx.session.isAdmin || r.code !== "admin") };
   }),
 
@@ -272,7 +272,7 @@ export const usersRouter = router({
       join public.roles r on r.id = uoa.role_id
       join public.org_units ou on ou.id = uoa.org_unit_id
       where uoa.revoked_at is null
-      order by case r.code when 'admin' then 0 when 'org_admin' then 1 else 2 end, r.name, ou.name`;
+      order by case r.code when 'admin' then 0 when 'org_admin' then 1 when 'bu_manager' then 2 else 3 end, r.name, ou.name`;
 
     // "Invited" = the person has neither chosen a password through their link nor ever signed in.
     const { data, error } = await createSupabaseAdminClient().auth.admin.listUsers({
@@ -886,7 +886,7 @@ export const usersRouter = router({
     );
     // The two administrator roles are never handed out from a sheet.
     const roles = await db()<{ code: string; name: string }[]>`
-      select code, name from public.roles where code not in ('admin', 'org_admin') order by name`;
+      select code, name from public.roles where code not in ('admin', 'org_admin', 'bu_manager') order by name`;
     // In tree order with level and parent, so the template's reference sheet reads as the hierarchy does.
     const levels = await loadLevels(db());
     const codeOf = new Map(nodeRows.map((n) => [n.id, n.code]));
@@ -1000,7 +1000,7 @@ async function importOneEmployee(
   const [role] = await sql<{ id: string; code: string }[]>`
     select id, code from public.roles where lower(code) = ${row.roleCode.toLowerCase()}`;
   if (!role) return rowFailed(rowNum, row, `Unknown role "${row.roleCode}".`);
-  if (role.code === "admin" || role.code === "org_admin")
+  if (role.code === "admin" || role.code === "org_admin" || role.code === "bu_manager")
     return rowFailed(
       rowNum,
       row,

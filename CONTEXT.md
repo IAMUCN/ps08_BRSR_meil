@@ -815,6 +815,7 @@ _Last updated: 2026-11-13._
   notes; 17 typed SEBI tables with Excel import on BRSR Disclosures. Checked so far: web unit 516, database 548
   (fresh run of `0085`–`0087`), lint (0 errors), format, typecheck, production build. The full end-to-end suite
   was running at the time of the hosted apply; `tests/e2e/brsr-gaps.mjs` and a browser check not yet run.
+- **BU Manager role (2026-11-13, owner's request), uncommitted, migration `0088` on the LOCAL database only, NOT on hosted:** role `bu_manager` holds an Administrator's permissions and is an administrator role in every scope check (`isScopedAdminRole`, `lib/auth/redirects.ts`; session, reminders, alerts, report forwarding, users). A trigger and `checkRoleAtNode` allow it only at a business unit, so it manages that BU and the projects beneath it. Database tests 555/555 (new `bu_manager.test.sql`), web unit 535, typecheck. **Not run:** the Users screen with the new role in a browser. Hosted tree is not rearranged: only BU Transport exists (under Olectra, holding BEST and MSRTC); Seetharampur sits straight under Olectra and TGSRTC straight under EVEY.
 - **Commit only when the owner asks.** One phase at a time; stop and wait for the go-ahead.
 
 ## 2. Waiting on the owner (do not decide these alone)

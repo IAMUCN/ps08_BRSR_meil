@@ -33,6 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PeriodOptions } from "@/components/ui/period-select";
 import type { MultiVectorBaseline, MultiVectorSimulationResult } from "@/lib/simulator/engine";
 import {
   comparePathwaysAction,
@@ -285,11 +286,7 @@ export function SimulatorTab({
                 onChange={(e) => onSelectPeriod(e.target.value)}
                 className="mt-1 text-xs"
               >
-                {periods.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
+                <PeriodOptions periods={periods} />
               </NativeSelect>
             </div>
           </div>

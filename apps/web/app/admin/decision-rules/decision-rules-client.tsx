@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PeriodOptions } from "@/components/ui/period-select";
 import {
   Dialog,
   DialogContent,
@@ -742,11 +743,7 @@ export default function DecisionRulesClient({ initialRules, orgUnits, periods }:
                     onChange={(e) => setSelectedPeriod(e.target.value)}
                     className="mt-1"
                   >
-                    {periods.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
+                    <PeriodOptions periods={periods} />
                   </NativeSelect>
                 </div>
               </div>
@@ -962,11 +959,7 @@ export default function DecisionRulesClient({ initialRules, orgUnits, periods }:
                     onChange={(e) => setSelectedPeriod(e.target.value)}
                     className="mt-1 text-xs"
                   >
-                    {periods.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
+                    <PeriodOptions periods={periods} />
                   </NativeSelect>
                 </div>
               </div>
@@ -1215,11 +1208,7 @@ export default function DecisionRulesClient({ initialRules, orgUnits, periods }:
                     onChange={(e) => setSelectedPeriod(e.target.value)}
                     className="mt-1 text-xs"
                   >
-                    {periods.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
+                    <PeriodOptions periods={periods} />
                   </NativeSelect>
                 </div>
 
@@ -1820,11 +1809,7 @@ export default function DecisionRulesClient({ initialRules, orgUnits, periods }:
                     onChange={(e) => setSelectedPeriod(e.target.value)}
                     className="mt-1 text-xs"
                   >
-                    {periods.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
+                    <PeriodOptions periods={periods} />
                   </NativeSelect>
                 </div>
 

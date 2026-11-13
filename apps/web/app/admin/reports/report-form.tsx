@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PeriodOptions } from "@/components/ui/period-select";
+import { quarterRange } from "@/lib/consolidation/aggregate";
 import { REPORT_TEMPLATES, TEMPLATE_INFO, type ReportTemplate } from "@/lib/reports/templates";
 import type { ReportOptions } from "@/lib/trpc/routers/reports";
 import { generateReportAction } from "./actions";
@@ -22,6 +24,9 @@ export type ReportPreset = {
   to?: string;
   template?: ReportTemplate;
 };
+
+const QUARTER_NAMES = ["1st", "2nd", "3rd", "4th"];
+const QUARTER_MONTHS = ["April–June", "July–September", "October–December", "January–March"];
 
 export function ReportForm({
   options,
@@ -49,7 +54,7 @@ export function ReportForm({
       options.orgUnits[0]?.id ??
       "",
   );
-  const [coverage, setCoverage] = useState<"period" | "year" | "range">(
+  const [coverage, setCoverage] = useState<"period" | "year" | "quarter" | "range">(
     rangeStart && rangeEnd ? "range" : preset.financialYear !== undefined ? "year" : "period",
   );
   const [periodId, setPeriodId] = useState(
@@ -65,6 +70,17 @@ export function ReportForm({
         "",
     ),
   );
+  // Quarters of the chosen financial year (Q1 April-June ... Q4 January-March); only ones that have begun.
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const quarterOptions = ([1, 2, 3, 4] as const).filter(
+    (q) => quarterRange(Number(year), q).from <= today,
+  );
+  const [quarter, setQuarter] = useState<string>(
+    String(quarterOptions[quarterOptions.length - 1] ?? 1),
+  );
+  const chosenQuarter = quarterOptions.includes(Number(quarter) as 1 | 2 | 3 | 4)
+    ? (Number(quarter) as 1 | 2 | 3 | 4)
+    : (quarterOptions[quarterOptions.length - 1] ?? 1);
   const [template, setTemplate] = useState<ReportTemplate>(
     preset.template && REPORT_TEMPLATES.includes(preset.template) ? preset.template : "brsr",
   );
@@ -85,7 +101,9 @@ export function ReportForm({
           ? { orgUnitId, periodId, template }
           : coverage === "year"
             ? { orgUnitId, financialYear: Number(year), template }
-            : { orgUnitId, from, to, template },
+            : coverage === "quarter"
+              ? { orgUnitId, ...quarterRange(Number(year), chosenQuarter), template }
+              : { orgUnitId, from, to, template },
       );
       if (!result.ok) {
         toast.error(result.error);
@@ -161,6 +179,15 @@ export function ReportForm({
             <input
               type="radio"
               name="coverage"
+              checked={coverage === "quarter"}
+              onChange={() => setCoverage("quarter")}
+            />
+            Quarter
+          </label>
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="coverage"
               checked={coverage === "range"}
               onChange={() => setCoverage("range")}
             />
@@ -177,21 +204,13 @@ export function ReportForm({
               value={fromId}
               onChange={(e) => setFromId(e.target.value)}
             >
-              {options.periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
+              <PeriodOptions periods={options.periods} />
             </NativeSelect>
           </div>
           <div className="space-y-2">
             <Label htmlFor="report-to">To period</Label>
             <NativeSelect id="report-to" value={toId} onChange={(e) => setToId(e.target.value)}>
-              {options.periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
+              <PeriodOptions periods={options.periods} />
             </NativeSelect>
           </div>
         </>
@@ -203,13 +222,40 @@ export function ReportForm({
             value={periodId}
             onChange={(e) => setPeriodId(e.target.value)}
           >
-            {options.periods.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
+            <PeriodOptions periods={options.periods} />
           </NativeSelect>
         </div>
+      ) : coverage === "quarter" ? (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="report-quarter-year">Financial year (April–March)</Label>
+            <NativeSelect
+              id="report-quarter-year"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+            >
+              {options.financialYears.map((y) => (
+                <option key={y.startYear} value={y.startYear}>
+                  {y.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="report-quarter">Quarter</Label>
+            <NativeSelect
+              id="report-quarter"
+              value={String(chosenQuarter)}
+              onChange={(e) => setQuarter(e.target.value)}
+            >
+              {quarterOptions.map((q) => (
+                <option key={q} value={q}>
+                  {QUARTER_NAMES[q - 1]} quarter ({QUARTER_MONTHS[q - 1]})
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+        </>
       ) : (
         <div className="space-y-2">
           <Label htmlFor="report-year">Financial year (April–March)</Label>

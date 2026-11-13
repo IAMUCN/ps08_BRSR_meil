@@ -53,6 +53,7 @@ export const carbonCreditsRouter = router({
       >`
         select id, label, start_date::text as period_start, end_date::text as period_end, status
         from public.reporting_periods
+        where start_date <= (now() at time zone 'Asia/Kolkata')::date
         order by start_date desc
       `,
     ]);

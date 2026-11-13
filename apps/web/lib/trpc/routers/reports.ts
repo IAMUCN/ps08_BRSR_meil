@@ -232,6 +232,7 @@ export const reportsRouter = router({
         select id, name, depth from tree order by path`,
       sql<{ id: string; label: string; start_date: string; end_date: string; status: string }[]>`
         select id, label, start_date::text, end_date::text, status::text from public.reporting_periods
+        where start_date <= (now() at time zone 'Asia/Kolkata')::date
         order by start_date desc`,
       scopedOrgUnitIds(sql, ctx.session, "report.generate"),
     ]);

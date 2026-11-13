@@ -53,7 +53,7 @@ async function loadAdminLevels(
     select t.descendant_id::text as unit_id, min(t.depth)::int as depth, u.id as user_id,
            u.display_name as name, u.email
     from public.user_org_assignments a
-    join public.roles r on r.id = a.role_id and r.code = 'org_admin'
+    join public.roles r on r.id = a.role_id and r.code in ('org_admin', 'bu_manager')
     join public.users u on u.id = a.user_id and u.is_active and u.deleted_at is null
     join public.org_unit_tree t on t.ancestor_id = a.org_unit_id
     where a.revoked_at is null and t.descendant_id = any(${unitIds}::uuid[])
@@ -129,7 +129,7 @@ export async function runReminders(by: { userId: string | null }): Promise<RunSu
     select u.id as user_id, u.display_name as name, u.email, r.code,
            array_agg(distinct t.descendant_id::text) as units
     from public.user_org_assignments a
-    join public.roles r on r.id = a.role_id and r.code in ('org_admin', 'admin')
+    join public.roles r on r.id = a.role_id and r.code in ('org_admin', 'bu_manager', 'admin')
     join public.users u on u.id = a.user_id and u.is_active and u.deleted_at is null
     join public.org_unit_tree t on t.ancestor_id = a.org_unit_id
     where a.revoked_at is null

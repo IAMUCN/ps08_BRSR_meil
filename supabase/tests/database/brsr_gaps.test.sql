@@ -37,6 +37,9 @@ insert into auth.users (id, email, aud, role) values
 insert into public.users (id, display_name, email) values
   ('78111111-1111-4111-8111-111111111111', 'Tables Test', 'tables.test@example.test');
 
+-- A local database the e2e suite has run on may already hold figures for this table-year.
+delete from public.brsr_table_answers where financial_year in (2025, 2026) and brsr_indicator_id = (select id from public.brsr_indicators where code = 'A-21');
+
 select lives_ok(
   $$insert into public.brsr_table_answers (brsr_indicator_id, financial_year, cells, updated_by)
     select id, 2026, '{"main.board": {"total": 12, "female": 3}}', '78111111-1111-4111-8111-111111111111'

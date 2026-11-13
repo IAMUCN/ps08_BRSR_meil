@@ -14,6 +14,12 @@ export function checkRoleAtNode(roleCode: string, orgUnitType: string): RuleChec
       reason: "The Admin role can only be assigned at the root organization.",
     };
   }
+  if (roleCode === "bu_manager" && orgUnitType !== "business_unit") {
+    return {
+      ok: false,
+      reason: "The BU Manager role can only be assigned at a business unit.",
+    };
+  }
   return { ok: true };
 }
 
@@ -121,7 +127,10 @@ export function checkGrant(
   if (!scope.has(orgUnitId)) {
     return { ok: false, reason: "That part of the organisation isn't in your scope." };
   }
-  if (roleCode === "org_admin" && grantor.adminOrgUnitIds.includes(orgUnitId)) {
+  if (
+    (roleCode === "org_admin" || roleCode === "bu_manager") &&
+    grantor.adminOrgUnitIds.includes(orgUnitId)
+  ) {
     return {
       ok: false,
       reason:

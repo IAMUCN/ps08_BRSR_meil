@@ -139,7 +139,7 @@ async function forwardFrom(
   const admins = await tx<{ org_unit_id: string }[]>`
     select distinct uoa.org_unit_id
     from public.user_org_assignments uoa
-    join public.roles r on r.id = uoa.role_id and r.code = 'org_admin'
+    join public.roles r on r.id = uoa.role_id and r.code in ('org_admin', 'bu_manager')
     join public.users u on u.id = uoa.user_id and u.is_active and u.deleted_at is null
     where uoa.revoked_at is null`;
   const receivers = recipientUnits(nodes, fromUnit, new Set(admins.map((a) => a.org_unit_id)));
@@ -174,7 +174,7 @@ async function forwardFrom(
         and ${
           toUnit === null
             ? tx`r.code = 'admin'`
-            : tx`r.code = 'org_admin' and uoa.org_unit_id = ${toUnit}`
+            : tx`r.code in ('org_admin', 'bu_manager') and uoa.org_unit_id = ${toUnit}`
         }
         and uoa.user_id <> ${session.userId}`;
   }
