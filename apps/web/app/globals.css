@@ -94,6 +94,10 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-chart-6: var(--chart-6);
+  --color-chart-primary: var(--chart-primary);
+  --color-chart-secondary: var(--chart-secondary);
+  --color-chart-tertiary: var(--chart-tertiary);
+  --color-chart-neutral-reference: var(--chart-neutral-reference);
 }
 
 /*
@@ -179,6 +183,10 @@
   --chart-4: #5b4aa8;
   --chart-5: #2f7d4f;
   --chart-6: #6b5b4a;
+  --chart-primary: #ca2851;
+  --chart-secondary: #ff6766;
+  --chart-tertiary: #ffb173;
+  --chart-neutral-reference: #ffe3b3;
 
   /* §6.9 status colors, never substituted with brand colors. The supplied #1e8e5a / #b8860b / #d92d20 are
      darkened for 4.5:1 text on the light themes and lightened in Theme 3 (A19). */
@@ -252,6 +260,10 @@
   --chart-4: #be185d;
   --chart-5: #4d7c0f;
   --chart-6: #6b7280;
+  --chart-primary: #37358f;
+  --chart-secondary: #ef102d;
+  --chart-tertiary: #dddddd;
+  --chart-neutral-reference: #e5e7eb;
 
   /* §6.9 status colors, never substituted with brand colors. The supplied #1e8e5a / #b8860b / #d92d20 are
      darkened for 4.5:1 text on the light themes and lightened in Theme 3 (A19). */
@@ -326,6 +338,10 @@
   --chart-4: #f08bb5;
   --chart-5: #8fcf6a;
   --chart-6: #c9c3bf;
+  --chart-primary: #9a98e8;
+  --chart-secondary: #f08bb5;
+  --chart-tertiary: #4cc3d9;
+  --chart-neutral-reference: #493e3c;
 
   --status-success: #76ba9a;
   --status-warning: #cca84f;

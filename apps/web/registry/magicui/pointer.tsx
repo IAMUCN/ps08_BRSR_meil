@@ -427,50 +427,55 @@ export function Pointer({
             style={{
               x,
               y,
-              translateX: -currentHotspot.x,
-              translateY: -currentHotspot.y,
               willChange: "transform",
               ...style,
             }}
-            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
+            initial={false}
             animate={{
               opacity: 1,
               scale: prefersReducedMotion ? 1 : isPressed ? 0.92 : 1,
             }}
-            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
+            exit={{ opacity: 0 }}
             transition={{
               duration: prefersReducedMotion ? 0 : 0.08,
               ease: "easeOut",
             }}
             {...props}
           >
-            <PointerContext.Provider
-              value={{ isHovered, isEditable, isPressed, isNotAllowed, cursorMode, isActive }}
+            <div
+              style={{
+                transform: `translate(${-currentHotspot.x}px, ${-currentHotspot.y}px)`,
+                willChange: "transform",
+              }}
             >
-              {typeof children === "function"
-                ? (children as (ctx: PointerContextValue) => React.ReactNode)({
-                    isHovered,
-                    isEditable,
-                    isPressed,
-                    isNotAllowed,
-                    cursorMode,
-                    isActive,
-                  })
-                : children || (
-                    <svg
-                      stroke="currentColor"
-                      fill="currentColor"
-                      strokeWidth="1"
-                      viewBox="0 0 16 16"
-                      height="24"
-                      width="24"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="rotate-[-70deg] stroke-white text-black"
-                    >
-                      <path d="M14.082 2.182a.5.5 0 0 1 .103.557L8.528 15.467a.5.5 0 0 1-.917-.007L5.57 10.694.803 8.652a.5.5 0 0 1-.006-.916l12.728-5.657a.5.5 0 0 1 .556.103z" />
-                    </svg>
-                  )}
-            </PointerContext.Provider>
+              <PointerContext.Provider
+                value={{ isHovered, isEditable, isPressed, isNotAllowed, cursorMode, isActive }}
+              >
+                {typeof children === "function"
+                  ? (children as (ctx: PointerContextValue) => React.ReactNode)({
+                      isHovered,
+                      isEditable,
+                      isPressed,
+                      isNotAllowed,
+                      cursorMode,
+                      isActive,
+                    })
+                  : children || (
+                      <svg
+                        stroke="currentColor"
+                        fill="currentColor"
+                        strokeWidth="1"
+                        viewBox="0 0 16 16"
+                        height="24"
+                        width="24"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="rotate-[-70deg] stroke-white text-black"
+                      >
+                        <path d="M14.082 2.182a.5.5 0 0 1 .103.557L8.528 15.467a.5.5 0 0 1-.917-.007L5.57 10.694.803 8.652a.5.5 0 0 1-.006-.916l12.728-5.657a.5.5 0 0 1 .556.103z" />
+                      </svg>
+                    )}
+              </PointerContext.Provider>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

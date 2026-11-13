@@ -58,30 +58,60 @@ export function DefaultCursorIcon({
   const isHover = variant === "hover";
 
   return (
-    <svg
-      width="20.4"
-      height="25.5"
-      viewBox="0 0 24 30"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      style={{
-        overflow: "visible",
-        filter: isHover ? HOVER_FILTER : DEFAULT_FILTER,
-        transition: "filter 0.18s ease-out",
-      }}
-      aria-hidden="true"
-    >
-      <path
-        d={CURSOR_PATH}
-        fill="#313490"
-        stroke="#FFFFFF"
-        strokeWidth="2.75"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        style={{ paintOrder: "stroke fill" }}
-      />
-    </svg>
+    <div className={cn("relative inline-block pointer-events-none", className)}>
+      {/* Default State Cursor (soft gray shadow) */}
+      <svg
+        width="20.4"
+        height="25.5"
+        viewBox="0 0 24 30"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{
+          overflow: "visible",
+          filter: DEFAULT_FILTER,
+          opacity: isHover ? 0 : 1,
+          transition: "opacity 0.15s ease-out",
+        }}
+        aria-hidden="true"
+      >
+        <path
+          d={CURSOR_PATH}
+          fill="#313490"
+          stroke="#FFFFFF"
+          strokeWidth="2.75"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          style={{ paintOrder: "stroke fill" }}
+        />
+      </svg>
+
+      {/* Hover State Cursor (radiant blue/indigo glow) */}
+      <svg
+        width="20.4"
+        height="25.5"
+        viewBox="0 0 24 30"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="absolute top-0 left-0"
+        style={{
+          overflow: "visible",
+          filter: HOVER_FILTER,
+          opacity: isHover ? 1 : 0,
+          transition: "opacity 0.15s ease-out",
+        }}
+        aria-hidden="true"
+      >
+        <path
+          d={CURSOR_PATH}
+          fill="#313490"
+          stroke="#FFFFFF"
+          strokeWidth="2.75"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          style={{ paintOrder: "stroke fill" }}
+        />
+      </svg>
+    </div>
   );
 }
 
