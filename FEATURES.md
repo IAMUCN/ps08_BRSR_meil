@@ -94,7 +94,7 @@ Phones and tablets (bottom bar, installable app), Help page, three themes, WCAG 
 | Item                                                       | State                                                                                                                                        |
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Industry's extra report list and base company tables       | Never received                                                                                                                               |
-| Hosted: migration `0078` (travel as distance × passengers) | Not applied; `hosted-0078.cjs` also records `0068`–`0076`, whose objects are already there (`DEPLOYMENT.md` §0)                              |
+| Hosted migrations | Complete through `0088` (`0078` applied and `0068`–`0076` recorded on 2026-11-13). Vercel must be redeployed so the code matches |
 | Hosted OCR worker                                          | Older rules until the `rules-18` image replaces it                                                                                           |
 | Supabase MFA (TOTP) on the hosted project                  | Must be switched on in the dashboard, or nobody can sign in with 2FA required                                                                |
 | `CRON_SECRET` on Vercel                                    | The project has `CRON_KEY` and `NVDIA_NIM_BASE_URL` (misspelled); the code reads `CRON_SECRET` and `NVIDIA_NIM_BASE_URL` / `OLLAMA_BASE_URL` |

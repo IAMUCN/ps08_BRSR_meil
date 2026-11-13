@@ -7,11 +7,10 @@ try on it.
 
 ## 0. Before the final deploy (2026-11-13) — do these in order
 
-1. **Hosted migrations.** Checked 2026-11-13: the hosted history is at `0088`. `0078` (travel as distance ×
-   passengers) is **missing**; `0068`–`0076` (Decision Center, pgvector) have their tables, extension and functions
-   on hosted already but no history rows. `node "test data/_backup/hosted-0078.cjs" check` then `apply` records
-   `0068`–`0076` without running them and runs `0078`, in one transaction. Apply it **just before** the new code goes
-   live: the old code asks for one "quantity" field on travel uploads and stops accepting them once `0078` is in.
+1. **Hosted migrations — done 2026-11-13.** The hosted history is complete through `0088` (`0068`–`0076` recorded without
+   re-running, their objects were already there; `0078` applied; users, records and assignments unchanged). **The code on
+   Vercel must now be redeployed from `main`:** until then the old code asks for one "quantity" field on travel uploads
+   and refuses the new distance × passengers fields.
 2. **OCR worker.** Rebuild `traceesg-ocr-worker` (`rules-18`), then recreate the hosted container from it (keep
    the old one stopped for rollback). Only after step 1.
 3. **Supabase Authentication → Multi-Factor:** switch **TOTP** (enroll and verify) on. Two-step sign-in is required for

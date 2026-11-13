@@ -4,7 +4,7 @@ The single place to find out **what this project is, what has been built, how we
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-11-13 — final submission: every feature through the BRSR gaps, typed SEBI tables, the BU Manager role, two-step sign-in, financial-year pickers and quarterly reports is merged on `main` (migrations `0001`–`0088`; hosted lacks `0078`, and `0068`–`0076` have objects but no history rows). The complete feature list is [`FEATURES.md`](FEATURES.md). Earlier summaries follow:_
+_Last updated: 2026-11-13 — final submission: every feature through the BRSR gaps, typed SEBI tables, the BU Manager role, two-step sign-in, financial-year pickers and quarterly reports is merged on `main` (migrations `0001`–`0088`; hosted migrations are complete through `0088`). The complete feature list is [`FEATURES.md`](FEATURES.md). Earlier summaries follow:_
 
 _2026-10-13 — stages 1–3 of the scoped-administrator work (Super Admins and Administrators, invitation links, session time limits; migrations `0050`–`0052`) were done locally. Before that:_
 
@@ -964,8 +964,7 @@ Checks: web unit 384, database 500/500, worker unit 63/63, end-to-end `row-uploa
 
 ## 4. What comes next
 
-**The final deploy (next).** `DEPLOYMENT.md` §0 is the ordered checklist: apply hosted migration `0078` and record `0068`–`0076`, whose objects are already there
-(`hosted-0078.cjs`, check first, read back), rebuild and replace the OCR worker (`rules-18`), switch TOTP on in hosted
+**The final deploy (next).** `DEPLOYMENT.md` §0 is the ordered checklist: hosted migrations are complete through `0088` (done 2026-11-13), rebuild and replace the OCR worker (`rules-18`), switch TOTP on in hosted
 Supabase, fix the Vercel variable names (`CRON_SECRET`, `OLLAMA_BASE_URL` for Production and Preview, delete the misspelled
 `NVDIA_NIM_BASE_URL`), deploy `main`, then work through the first-deployment checks in §5. Afterwards: a second Super
 Admin approves the calorific-value drafts, real figures replace the SAMPLE SEBI tables, and the update of the hosted email

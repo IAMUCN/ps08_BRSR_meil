@@ -427,7 +427,7 @@ F new activities (a flight and a train of the same distance give different resul
 
 | Item | State |
 |---|---|
-| Hosted: migration `0078` (travel as distance × passengers) | Not applied yet; applied just before the final deploy (`DEPLOYMENT.md` §0) |
+| Hosted travel fields (migration `0078`) | Applied 2026-11-13; the deployed web app must be redeployed to match |
 | Hosted OCR worker | Older rules until the `rules-18` image replaces it |
 | Factors for PNG, steam / heat, spend-based activities, waste, NOx/SOx/PM | None with a source — those activities show "Not calculated" |
 | Calorific values (energy in GJ) | Nine drafts on hosted; a second Super Admin must approve them |
