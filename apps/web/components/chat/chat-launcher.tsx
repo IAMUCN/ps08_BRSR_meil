@@ -58,6 +58,7 @@ export function ChatLauncher() {
   const [draft, setDraft] = useState("");
   /** The question being answered, shown until its answer arrives. */
   const [pending, setPending] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [error, setError] = useState<{ message: string; question?: string } | null>(null);
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -143,25 +144,46 @@ export function ChatLauncher() {
     setDraft("");
     setError(null);
     setPending(message);
-    // What the page shows, for "this project"; the server uses it only if it is inside the person's scope.
-    const params = new URLSearchParams(window.location.search);
-    const result = await sendChatMessageAction({
-      conversationId,
-      message,
-      page: {
-        orgUnitId: uuid(params.get("org")),
-        periodId: uuid(params.get("period")),
-        path: window.location.pathname.slice(0, 200),
-      },
-    });
-    setPending(null);
-    if (!result.ok) return setError({ message: result.error, question: message });
-    setConversationId(result.data.conversation.id);
-    setMessages((current) => [...current, ...result.data.messages]);
-    setConversations(null);
-    // "Show me the report for…": the answer carries the Reports page with that selection; go there.
-    const link = result.data.messages.flatMap((m) => m.blocks).find((b) => b.type === "link");
-    if (link) router.push(link.href);
+    try {
+      // What the page shows, for "this project"; the server uses it only if it is inside the person's scope.
+      const params = new URLSearchParams(window.location.search);
+      const result = await sendChatMessageAction({
+        conversationId,
+        message,
+        page: {
+          orgUnitId: uuid(params.get("org")),
+          periodId: uuid(params.get("period")),
+          path: window.location.pathname.slice(0, 200),
+        },
+      });
+      if (!result.ok) {
+        setError({ message: result.error, question: message });
+        return;
+      }
+      setConversationId(result.data.conversation.id);
+      setMessages((current) => [...current, ...result.data.messages]);
+      setConversations(null);
+      // "Show me the report for…": the answer carries the Reports page with that selection; go there.
+      const link = result.data.messages.flatMap((m) => m.blocks).find((b) => b.type === "link");
+      if (link) router.push(link.href);
+    } catch {
+      setError({
+        message: "Unable to connect to Tracey. Check your network connection and retry.",
+        question: message,
+      });
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const retry = async (question: string) => {
+    if (pending || isRetrying) return;
+    setIsRetrying(true);
+    try {
+      await ask(question);
+    } finally {
+      setIsRetrying(false);
+    }
   };
 
   const submit = (event: FormEvent) => {
@@ -330,8 +352,8 @@ export function ChatLauncher() {
                       <Bubble mine>{pending}</Bubble>
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="size-4 animate-spin" aria-hidden />
-                      Looking up the records…
+                      <Loader2 className="size-4 animate-spin text-primary" aria-hidden />
+                      Tracey is analysing your ESG data...
                     </li>
                   </>
                 ) : null}
@@ -347,10 +369,18 @@ export function ChatLauncher() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="mt-2"
-                      onClick={() => void ask(error.question!)}
+                      className="mt-2 inline-flex items-center gap-1.5"
+                      disabled={pending !== null || isRetrying}
+                      onClick={() => void retry(error.question!)}
                     >
-                      Try again
+                      {isRetrying ? (
+                        <>
+                          <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                          Retrying…
+                        </>
+                      ) : (
+                        "Try again"
+                      )}
                     </Button>
                   ) : null}
                 </div>
@@ -372,13 +402,14 @@ export function ChatLauncher() {
                 onKeyDown={onKeyDown}
                 maxLength={MAX_QUESTION}
                 rows={1}
+                disabled={pending !== null || isRetrying}
                 placeholder="Ask Tracey about your ESG data…"
-                className="max-h-40 min-h-9 flex-1 resize-none rounded-sm border border-input bg-transparent px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="max-h-40 min-h-9 flex-1 resize-none rounded-sm border border-input bg-transparent px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
               />
               <Button
                 type="submit"
                 variant="secondary"
-                disabled={!draft.trim() || pending !== null}
+                disabled={!draft.trim() || pending !== null || isRetrying}
               >
                 <SendHorizontal aria-hidden />
                 Send

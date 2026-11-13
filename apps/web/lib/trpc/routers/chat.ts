@@ -240,6 +240,7 @@ export const chatRouter = router({
         );
 
         let answer;
+        const requestId = crypto.randomUUID();
         try {
           answer = await answerQuestion({
             question: input.message,
@@ -248,7 +249,12 @@ export const chatRouter = router({
             callModel: createModelCaller({
               config,
               tools: toolSpecs(isAdmin),
+              requestId,
+              orgUnitId: input.page?.orgUnitId,
               onFailure: (model, reason) => console.warn(`chat: ${model} failed (${reason})`),
+              onProviderFallback: (from, to, reason) =>
+                console.warn(`chat: provider fallback ${from} -> ${to} (${reason})`),
+              onLog: (log) => console.info(`[chat-observability] ${JSON.stringify(log)}`),
             }),
             runTool: (name, rawArguments) =>
               runTool(name, rawArguments, toolContext, (error) =>
@@ -262,7 +268,15 @@ export const chatRouter = router({
         } catch (error) {
           if (error instanceof ProviderError) {
             console.error(`chat: no answer (${error.kind})`);
-            throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: error.message });
+            const trpcCode =
+              error.kind === "busy" || error.kind === "rate_limit"
+                ? "TOO_MANY_REQUESTS"
+                : error.kind === "auth" || error.kind === "config"
+                  ? "PRECONDITION_FAILED"
+                  : error.kind === "timeout"
+                    ? "TIMEOUT"
+                    : "SERVICE_UNAVAILABLE";
+            throw new TRPCError({ code: trpcCode, message: error.message });
           }
           throw error;
         }

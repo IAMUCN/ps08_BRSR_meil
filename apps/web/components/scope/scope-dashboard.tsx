@@ -1,11 +1,13 @@
 "use client";
 
 import { rowClick } from "@/components/ui/row-click";
-import { BarChart3, ChevronRight, Table2 } from "lucide-react";
+import { BarChart3, ChevronRight, Minus, Table2, TrendingDown, TrendingUp } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { cn } from "cn";
 import { CalculationTraceView } from "@/components/calculation/calculation-trace";
+import { DonutChart, type DonutSlice } from "@/components/charts/donut";
 import { DocumentViewer } from "@/components/document-viewer/document-viewer";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -18,6 +20,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { formatNumber, linear, linePath, niceTicks } from "@/lib/charts/geometry";
 import type { CalculationState } from "@/lib/calculation/trace";
 import { barValue, formatCompact, formatTotal } from "@/lib/scope/display";
 import type {
@@ -77,6 +80,43 @@ export function ScopeDashboard({
   }
 
   const hasNumbers = view.node.totals.length > 0;
+  const primaryUnit =
+    barValue(view.node.totals)?.unit ?? view.node.totals[0]?.unit ?? "tCO2e";
+
+  const categorySlices: DonutSlice[] = view.categories
+    .filter((c) => c.active)
+    .map((c) => {
+      const b = barValue(c.totals);
+      return {
+        key: c.code,
+        label: c.name,
+        value: b?.value ?? 0,
+      };
+    })
+    .filter((s) => s.value > 0);
+
+  const activitySlices: DonutSlice[] = view.byActivity
+    .map((a) => {
+      const b = barValue(a.totals);
+      return {
+        key: a.metricId,
+        label: a.metricName,
+        value: b?.value ?? 0,
+      };
+    })
+    .filter((s) => s.value > 0);
+
+  const branchSlices: DonutSlice[] = view.children
+    .map((b) => {
+      const v = barValue(b.totals);
+      return {
+        key: b.id,
+        label: b.name,
+        value: v?.value ?? 0,
+        href: href({ org: b.id }),
+      };
+    })
+    .filter((s) => s.value > 0);
 
   return (
     <div className="space-y-4">
@@ -177,12 +217,21 @@ export function ScopeDashboard({
             {view.categories.length} active
           </h2>
           {mode === "chart" ? (
-            <Bars
-              label="Approved emissions by category"
-              items={view.categories
-                .filter((c) => c.active)
-                .map((c) => ({ key: c.code, label: c.name, totals: c.totals }))}
-            />
+            <div className="grid items-start gap-4 lg:grid-cols-2">
+              <DonutChart
+                title="Emissions by Category"
+                description="Share of approved emissions across active categories"
+                unit={primaryUnit}
+                centreLabel={scopeName}
+                slices={categorySlices}
+              />
+              <Bars
+                label="Approved emissions by category"
+                items={view.categories
+                  .filter((c) => c.active)
+                  .map((c) => ({ key: c.code, label: c.name, totals: c.totals }))}
+              />
+            </div>
           ) : (
             <CategoryTable categories={view.categories} />
           )}
@@ -195,14 +244,23 @@ export function ScopeDashboard({
             By activity
           </h2>
           {mode === "chart" ? (
-            <Bars
-              label="Approved emissions by activity"
-              items={view.byActivity.map((a) => ({
-                key: a.metricId,
-                label: a.metricName,
-                totals: a.totals,
-              }))}
-            />
+            <div className="grid items-start gap-4 lg:grid-cols-2">
+              <DonutChart
+                title="Emissions by Activity"
+                description="Share of approved emissions across ESG activities"
+                unit={primaryUnit}
+                centreLabel={scopeName}
+                slices={activitySlices}
+              />
+              <Bars
+                label="Approved emissions by activity"
+                items={view.byActivity.map((a) => ({
+                  key: a.metricId,
+                  label: a.metricName,
+                  totals: a.totals,
+                }))}
+              />
+            </div>
           ) : (
             <ActivityTable activities={view.byActivity} />
           )}
@@ -215,15 +273,24 @@ export function ScopeDashboard({
             By organization unit
           </h2>
           {mode === "chart" ? (
-            <Bars
-              label="Approved emissions by organization unit"
-              items={view.children.map((b) => ({
-                key: b.id,
-                label: b.name,
-                totals: b.totals,
-                onOpen: () => go({ org: b.id }),
-              }))}
-            />
+            <div className="grid items-start gap-4 lg:grid-cols-2">
+              <DonutChart
+                title="Emissions by Organization Unit"
+                description="Share of approved emissions across project units"
+                unit={primaryUnit}
+                centreLabel={scopeName}
+                slices={branchSlices}
+              />
+              <Bars
+                label="Approved emissions by organization unit"
+                items={view.children.map((b) => ({
+                  key: b.id,
+                  label: b.name,
+                  totals: b.totals,
+                  onOpen: () => go({ org: b.id }),
+                }))}
+              />
+            </div>
           ) : (
             <BranchTable branches={view.children} onOpen={(id) => go({ org: id })} />
           )}
@@ -244,7 +311,15 @@ export function ScopeDashboard({
           <h2 id="scope-trend" className="text-sm leading-5 font-semibold">
             Across periods
           </h2>
-          {mode === "chart" ? <TrendBars trend={view.trend} /> : <TrendTable trend={view.trend} />}
+          {mode === "chart" ? (
+            <TrendBars
+              trend={view.trend}
+              currentPeriodLabel={view.periodLabel}
+              getHref={(periodId) => href({ period: periodId })}
+            />
+          ) : (
+            <TrendTable trend={view.trend} />
+          )}
         </section>
       ) : null}
 
@@ -253,6 +328,8 @@ export function ScopeDashboard({
           The contributing records stay a table: each row is a document to open.
         </p>
       ) : null}
+
+      <ScopeFooter />
 
       <Sheet open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
         <SheetContent className="w-[720px] max-w-full">
@@ -287,6 +364,150 @@ export function ScopeDashboard({
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+/**
+ * Multi-column footer for Scope reporting (Scope 1, 2, and 3).
+ * Provides cross-scope navigation, compliance workflows, and methodology references.
+ */
+function ScopeFooter() {
+  return (
+    <footer
+      aria-label="Scope Navigation & Guidance"
+      className="mt-8 rounded-lg border border-border bg-card/60 p-6 backdrop-blur"
+    >
+      <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-3">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            Emissions Scopes
+          </h3>
+          <ul className="mt-3 space-y-2 text-xs">
+            <li>
+              <Link
+                href="/admin/scope-1"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Scope 1 — Direct Combustion & Fuels
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/admin/scope-2"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Scope 2 — Purchased Electricity & Grid
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/admin/scope-3"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Scope 3 — Value Chain & Supply Chain
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/admin/data-explorer"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Data Explorer & Cross-Scope Pivot
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            Oversight & Compliance
+          </h3>
+          <ul className="mt-3 space-y-2 text-xs">
+            <li>
+              <Link
+                href="/admin/submissions"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Submission Monitoring & Deadlines
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/admin/validation-queue"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Validation & Anomaly Alerts
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/admin/approval-queue"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Approval Sign-off & Audit Evidence
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/admin/reports"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                BRSR Core & Greenhouse Gas Inventory
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            Methodology & Standards
+          </h3>
+          <ul className="mt-3 space-y-2 text-xs">
+            <li>
+              <Link
+                href="/admin/conversion-factors"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Conversion Factors & Coefficients
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/admin/audit-trail"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Immutable Audit Trail & Activity Logs
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/admin/carbon-intelligence"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Carbon Intelligence & Forecasts
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/app/help"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Help & BRSR Reporting Documentation
+              </Link>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-border pt-4 text-[11px] text-muted-foreground sm:flex-row">
+        <p>© {new Date().getFullYear()} EmeilSG · Evidence-first ESG & BRSR reporting platform.</p>
+        <p className="flex items-center gap-1.5 font-mono">
+          <span>GHG Protocol</span>
+          <span>·</span>
+          <span>SEBI BRSR Format</span>
+        </p>
+      </div>
+    </footer>
   );
 }
 
@@ -660,26 +881,422 @@ function TrendTable({ trend }: { trend: ScopeView["trend"] }) {
   );
 }
 
-function TrendBars({ trend }: { trend: ScopeView["trend"] }) {
+function TrendBars({
+  trend,
+  currentPeriodLabel,
+  getHref,
+}: {
+  trend: ScopeView["trend"];
+  currentPeriodLabel?: string;
+  getHref?: (periodId: string) => string;
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
   const bars = trend.map((t) => barValue(t.totals));
   const values = bars.map((b) => b?.value ?? 0);
+  const unit = bars.find((b) => b?.unit)?.unit ?? "tCO2e";
+
+  const nonZero = values.filter((v) => v > 0);
   const max = Math.max(...values, 1);
+  const min = nonZero.length > 0 ? Math.min(...nonZero) : 0;
+  const avg = nonZero.length > 0 ? nonZero.reduce((s, v) => s + v, 0) / nonZero.length : 0;
+
+  const firstVal = values.find((v) => v > 0) ?? 0;
+  const lastVal = [...values].reverse().find((v) => v > 0) ?? 0;
+  const overallDelta = firstVal > 0 ? ((lastVal - firstVal) / firstVal) * 100 : 0;
+
+  const maxPeriod = trend[values.indexOf(max)];
+
+  // Layout parameters for SVG
+  const W = Math.max(760, trend.length * 115);
+  const H = 260;
+  const M = { top: 40, right: 32, bottom: 48, left: 64 };
+
+  const ticks = niceTicks(0, max * 1.15, 5);
+  const topTick = ticks[ticks.length - 1] || max;
+  const yScale = linear(0, topTick, H - M.bottom, M.top);
+  const band = (W - M.left - M.right) / Math.max(1, trend.length);
+  const barW = Math.min(46, Math.max(26, band * 0.46));
+
+  const points = values.map((v, i) => ({
+    x: M.left + band * i + band / 2,
+    y: yScale(v),
+  }));
+
+  const trendLine = linePath(points);
+  const areaPath =
+    points.length > 1
+      ? `${trendLine} L ${points[points.length - 1].x} ${yScale(0)} L ${points[0].x} ${yScale(0)} Z`
+      : "";
+
   return (
-    <ol className="flex items-end gap-3 overflow-x-auto rounded-md border bg-card p-4">
-      {trend.map((period, i) => (
-        <li key={period.periodId} className="flex w-20 shrink-0 flex-col items-center gap-1">
-          <span className="font-mono text-[11px] text-muted-foreground">
-            {bars[i] ? formatCompact(bars[i]!.value, bars[i]!.unit) : "—"}
+    <div className="space-y-3 rounded-lg border bg-card p-5 shadow-xs">
+      {/* Header & KPI Summary strip */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-foreground">Monthly Emission Trend</span>
+          <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+            {unit}
           </span>
-          <span
-            className={cn("w-full rounded-t-sm bg-[var(--chart-primary)]")}
-            style={{ height: `${Math.max(4, Math.round((values[i] / max) * 120))}px` }}
-            aria-hidden
-          />
-          <span className="text-center text-[11px] text-muted-foreground">{period.label}</span>
-        </li>
-      ))}
-    </ol>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Overall Trend Pill */}
+          <div
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium",
+              overallDelta > 0
+                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                : overallDelta < 0
+                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                  : "bg-muted text-muted-foreground",
+            )}
+          >
+            {overallDelta > 0 ? (
+              <TrendingUp className="size-3.5" aria-hidden />
+            ) : overallDelta < 0 ? (
+              <TrendingDown className="size-3.5" aria-hidden />
+            ) : (
+              <Minus className="size-3.5" aria-hidden />
+            )}
+            <span>
+              {overallDelta > 0 ? `+${overallDelta.toFixed(1)}%` : `${overallDelta.toFixed(1)}%`} overall
+            </span>
+          </div>
+
+          {/* Average */}
+          {avg > 0 && (
+            <div className="rounded-full bg-muted/60 px-2.5 py-1 text-muted-foreground">
+              Avg:{" "}
+              <span className="font-mono font-medium text-foreground">
+                {avg.toFixed(2)} {unit}
+              </span>
+              /mo
+            </div>
+          )}
+
+          {/* Peak */}
+          {maxPeriod && max > 0 && (
+            <div className="rounded-full bg-muted/60 px-2.5 py-1 text-muted-foreground">
+              Peak:{" "}
+              <span className="font-medium text-foreground">{maxPeriod.label}</span> (
+              <span className="font-mono font-medium text-foreground">
+                {max.toFixed(2)}
+              </span>
+              )
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SVG Graphical Chart */}
+      <div className="relative overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="h-auto w-full min-w-[680px] select-none overflow-visible"
+          role="img"
+          aria-label="Scope emissions trend chart across periods"
+        >
+          <defs>
+            {/* Gradient for regular bars */}
+            <linearGradient id="trend-bar-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--chart-1)" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="var(--chart-1)" stopOpacity="0.75" />
+            </linearGradient>
+
+            {/* Gradient for active / selected period bar */}
+            <linearGradient id="trend-bar-active" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity="1" />
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.85" />
+            </linearGradient>
+
+            {/* Gradient for area fill beneath trend line */}
+            <linearGradient id="trend-area-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--chart-2)" stopOpacity="0.16" />
+              <stop offset="100%" stopColor="var(--chart-2)" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
+          {/* Horizontal Gridlines & Y-Axis Scale */}
+          {ticks.map((t) => {
+            const y = yScale(t);
+            return (
+              <g key={t}>
+                <line
+                  x1={M.left}
+                  x2={W - M.right}
+                  y1={y}
+                  y2={y}
+                  stroke="currentColor"
+                  className={cn(t === 0 ? "text-border" : "text-border/40")}
+                  strokeWidth={t === 0 ? 1.5 : 1}
+                  strokeDasharray={t === 0 ? undefined : "3 3"}
+                />
+                <text
+                  x={M.left - 8}
+                  y={y + 3.5}
+                  textAnchor="end"
+                  className="fill-muted-foreground font-mono text-[10px]"
+                >
+                  {formatNumber(t)}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Subtle Area Fill under Trend Line */}
+          {areaPath && <path d={areaPath} fill="url(#trend-area-grad)" />}
+
+          {/* Trend Polyline */}
+          {trendLine && (
+            <path
+              d={trendLine}
+              fill="none"
+              stroke="var(--chart-2)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+
+          {/* Individual Period Bars & Markers */}
+          {trend.map((period, i) => {
+            const cx = points[i].x;
+            const v = values[i];
+            const y = yScale(v);
+            const y0 = yScale(0);
+            const barH = Math.max(4, y0 - y);
+            const isCurrent = currentPeriodLabel === period.label;
+            const isHovered = hoveredIdx === i;
+            const prevVal = i > 0 ? values[i - 1] : null;
+            const delta =
+              prevVal !== null && prevVal > 0 ? ((v - prevVal) / prevVal) * 100 : null;
+
+            const barContent = (
+              <g
+                key={period.periodId}
+                className="cursor-pointer transition-opacity"
+                onMouseEnter={() => setHoveredIdx(i)}
+                onMouseLeave={() => setHoveredIdx(null)}
+              >
+                {/* Background track column */}
+                <rect
+                  x={cx - barW / 2}
+                  y={M.top}
+                  width={barW}
+                  height={y0 - M.top}
+                  rx={5}
+                  fill="currentColor"
+                  className={cn(
+                    "transition-colors",
+                    isCurrent
+                      ? "text-primary/10"
+                      : isHovered
+                        ? "text-muted/50"
+                        : "text-muted/20",
+                  )}
+                />
+
+                {/* Vertical Bar */}
+                <rect
+                  x={cx - barW / 2}
+                  y={y}
+                  width={barW}
+                  height={barH}
+                  rx={5}
+                  fill={isCurrent ? "url(#trend-bar-active)" : "url(#trend-bar-grad)"}
+                  stroke={isCurrent ? "var(--primary)" : isHovered ? "var(--foreground)" : "transparent"}
+                  strokeWidth={isCurrent || isHovered ? 1.5 : 0}
+                  className="transition-all duration-200"
+                />
+
+                {/* Trend line vertex circle */}
+                <circle
+                  cx={cx}
+                  cy={y}
+                  r={isHovered ? 6 : isCurrent ? 5 : 4}
+                  fill="var(--chart-2)"
+                  stroke="var(--card)"
+                  strokeWidth="2"
+                  className="transition-all"
+                />
+
+                {/* Value Label above Bar */}
+                <text
+                  x={cx}
+                  y={y - (delta !== null ? 18 : 10)}
+                  textAnchor="middle"
+                  className={cn(
+                    "font-mono text-[11px] transition-all",
+                    isCurrent
+                      ? "fill-primary font-bold"
+                      : isHovered
+                        ? "fill-foreground font-bold"
+                        : "fill-foreground/90 font-medium",
+                  )}
+                >
+                  {bars[i] ? formatCompact(bars[i]!.value, bars[i]!.unit) : "—"}
+                </text>
+
+                {/* Period-over-period Delta Pill */}
+                {delta !== null ? (
+                  <text
+                    x={cx}
+                    y={y - 7}
+                    textAnchor="middle"
+                    className={cn(
+                      "font-mono text-[10px] font-semibold",
+                      delta > 0
+                        ? "fill-amber-600 dark:fill-amber-400"
+                        : delta < 0
+                          ? "fill-emerald-600 dark:fill-emerald-400"
+                          : "fill-muted-foreground",
+                    )}
+                  >
+                    {delta > 0 ? `+${delta.toFixed(1)}%` : `${delta.toFixed(1)}%`}
+                  </text>
+                ) : null}
+
+                {/* Active Period Indicator */}
+                {isCurrent && (
+                  <rect
+                    x={cx - 18}
+                    y={H - M.bottom + 4}
+                    width={36}
+                    height={3}
+                    rx={1.5}
+                    fill="var(--primary)"
+                  />
+                )}
+
+                {/* Period Label on X-Axis */}
+                <text
+                  x={cx}
+                  y={H - M.bottom + 20}
+                  textAnchor="middle"
+                  className={cn(
+                    "text-[11px] transition-colors",
+                    isCurrent
+                      ? "fill-foreground font-bold"
+                      : isHovered
+                        ? "fill-foreground font-medium"
+                        : "fill-muted-foreground",
+                  )}
+                >
+                  {period.label}
+                </text>
+              </g>
+            );
+
+            return getHref ? (
+              <Link
+                key={period.periodId}
+                href={getHref(period.periodId)}
+                title={`Switch to ${period.label}`}
+                className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {barContent}
+              </Link>
+            ) : (
+              barContent
+            );
+          })}
+        </svg>
+
+        {/* Hover Floating Details Card */}
+        {hoveredIdx !== null && (
+          <div
+            className="pointer-events-none absolute z-20 rounded-md border bg-popover px-3 py-2 text-xs shadow-lg transition-all"
+            style={{
+              left: `${Math.min(
+                Math.max(10, (points[hoveredIdx].x / W) * 100),
+                90,
+              )}%`,
+              top: `${Math.max(10, (points[hoveredIdx].y / H) * 100 - 18)}%`,
+              transform: "translate(-50%, -100%)",
+            }}
+          >
+            <div className="font-semibold text-popover-foreground">
+              {trend[hoveredIdx].label}
+            </div>
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <span className="font-mono text-sm font-bold text-foreground">
+                {values[hoveredIdx].toFixed(2)}
+              </span>
+              <span className="font-mono text-[11px] text-muted-foreground">{unit}</span>
+            </div>
+            {hoveredIdx > 0 && values[hoveredIdx - 1] > 0 && (
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                vs {trend[hoveredIdx - 1].label}:{" "}
+                <span
+                  className={cn(
+                    "font-mono font-medium",
+                    values[hoveredIdx] > values[hoveredIdx - 1]
+                      ? "text-amber-600 dark:text-amber-400"
+                      : values[hoveredIdx] < values[hoveredIdx - 1]
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-muted-foreground",
+                  )}
+                >
+                  {values[hoveredIdx] >= values[hoveredIdx - 1] ? "+" : ""}
+                  {(values[hoveredIdx] - values[hoveredIdx - 1]).toFixed(2)} (
+                  {(
+                    ((values[hoveredIdx] - values[hoveredIdx - 1]) /
+                      values[hoveredIdx - 1]) *
+                    100
+                  ).toFixed(1)}
+                  %)
+                </span>
+              </div>
+            )}
+            {getHref && (
+              <div className="mt-1 border-t pt-1 text-[10px] text-primary-text">
+                Click to switch dashboard to this period
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Legend & Instructions */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <span
+              className="inline-block size-3 rounded-xs"
+              style={{ background: "var(--chart-1)" }}
+              aria-hidden
+            />
+            <span>Approved Emissions</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-0.5 w-3.5 rounded-full"
+              style={{ background: "var(--chart-2)" }}
+              aria-hidden
+            />
+            <span
+              className="inline-block size-2 rounded-full"
+              style={{ background: "var(--chart-2)" }}
+              aria-hidden
+            />
+            <span>Trend Trajectory</span>
+          </div>
+          {currentPeriodLabel && (
+            <div className="flex items-center gap-1.5">
+              <span
+                className="inline-block size-3 rounded-xs border-2 border-primary bg-primary/20"
+                aria-hidden
+              />
+              <span>Current Period ({currentPeriodLabel})</span>
+            </div>
+          )}
+        </div>
+        <div>
+          <span>Click any bar to jump to that period</span>
+        </div>
+      </div>
+    </div>
   );
 }
 

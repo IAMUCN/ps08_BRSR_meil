@@ -7,12 +7,14 @@ import { percentChange, resolvePeriods, type Period } from "../lib/chat/analysis
 import { blocksSchema } from "../lib/chat/blocks.ts";
 import {
   createModelCaller,
+  parseRetryAfter,
   PROVIDER_MESSAGES,
   ProviderError,
   readConfig,
   type CallModel,
   type ChatMessage,
   type ModelReply,
+  type ObservabilityLog,
 } from "../lib/chat/nim.ts";
 import {
   answerQuestion,
@@ -990,6 +992,269 @@ test("provider failures become safe messages that never carry the key or the pro
   // A model that says nothing and looked nothing up is a failure, not an empty answer.
   await assert.rejects(ask(ctx, scripted({ content: "  " }).callModel, "hi"), {
     message: PROVIDER_MESSAGES.bad_response,
+  });
+});
+
+test("Tracey AI Assistant Reliability & Multi-Provider Fallback — 14 Scenarios", async (t) => {
+  await t.test("Scenario 1: Successful AI response", async () => {
+    const callModel = createModelCaller({
+      config: CONFIG,
+      tools: [],
+      fetch: async () => said("Total Scope 1 emissions were 250 tCO2e."),
+    });
+    const res = await callModel([{ role: "user", content: "emissions?" }], signal(), false);
+    assert.equal(res.content, "Total Scope 1 emissions were 250 tCO2e.");
+    assert.equal(res.model, "first");
+  });
+
+  await t.test("Scenario 2: Missing API key returns null config", () => {
+    const cfg = readConfig({ CHAT_DATABASE_URL: "postgres://x" });
+    assert.equal(cfg, null);
+  });
+
+  await t.test("Scenario 3: Invalid API key (401/403) stops immediately", async () => {
+    let attempts = 0;
+    const callModel = createModelCaller({
+      config: CONFIG,
+      tools: [],
+      fetch: async () => {
+        attempts++;
+        return reply({ error: "Invalid API Key" }, 401);
+      },
+    });
+    await assert.rejects(
+      callModel([{ role: "user", content: "hi" }], signal(), false),
+      (err: unknown) => err instanceof ProviderError && err.kind === "auth",
+    );
+    assert.equal(attempts, 1);
+  });
+
+  await t.test("Scenario 4: HTTP 429 rate limit parses headers and applies backoff", async () => {
+    const resp429 = new Response(JSON.stringify({ error: "rate limit" }), {
+      status: 429,
+      headers: { "retry-after": "1", "x-ratelimit-reset-tokens": "1.5s" },
+    });
+    assert.equal(parseRetryAfter(resp429), 1);
+
+    let calls = 0;
+    let sleptMs = 0;
+    const callModel = createModelCaller({
+      config: { ...CONFIG, models: ["m1"] },
+      tools: [],
+      sleep: async (ms) => {
+        sleptMs += ms;
+      },
+      fetch: async () => {
+        calls++;
+        return calls === 1 ? resp429.clone() : said("Success after rate limit backoff");
+      },
+    });
+    const res = await callModel([{ role: "user", content: "test" }], signal(), false);
+    assert.equal(res.content, "Success after rate limit backoff");
+    assert.equal(calls, 2);
+    assert.ok(sleptMs >= 500);
+  });
+
+  await t.test("Scenario 5: HTTP 503 service unavailable transitions to next model", async () => {
+    const modelsCalled: string[] = [];
+    const callModel = createModelCaller({
+      config: CONFIG,
+      tools: [],
+      fetch: async (_, init) => {
+        const body = JSON.parse(String(init?.body));
+        modelsCalled.push(body.model);
+        if (body.model === "first") return reply({ error: "Overloaded" }, 503);
+        return said("Recovered on second model");
+      },
+    });
+    const res = await callModel([{ role: "user", content: "test" }], signal(), false);
+    assert.equal(res.content, "Recovered on second model");
+    assert.deepEqual(modelsCalled, ["first", "second"]);
+  });
+
+  await t.test("Scenario 6: Provider timeout aborts and returns timeout error", async () => {
+    const callModel = createModelCaller({
+      config: CONFIG,
+      tools: [],
+      timeoutMs: 10,
+      fetch: async () =>
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new DOMException("Timeout", "TimeoutError")), 15),
+        ),
+    });
+    await assert.rejects(
+      callModel([{ role: "user", content: "long query" }], signal(), false),
+      (err: unknown) => err instanceof ProviderError && err.kind === "timeout",
+    );
+  });
+
+  await t.test(
+    "Scenario 7: Network failure returns safe provider error without leaking info",
+    async () => {
+      const callModel = createModelCaller({
+        config: CONFIG,
+        tools: [],
+        fetch: async () => {
+          throw new TypeError("fetch failed: connect ECONNREFUSED 127.0.0.1:443");
+        },
+      });
+      await assert.rejects(
+        callModel([{ role: "user", content: "hi" }], signal(), false),
+        (err: unknown) => err instanceof ProviderError && err.kind === "provider",
+      );
+    },
+  );
+
+  await t.test(
+    "Scenario 8: Multi-provider fallback transfers to second provider on 429",
+    async () => {
+      const providersCalled: string[] = [];
+      const multiConfig = {
+        apiKey: "key1",
+        baseUrl: "https://api.groq.com/openai/v1",
+        models: ["groq-m1"],
+        databaseUrl: "x",
+        providers: [
+          {
+            name: "groq",
+            baseUrl: "https://api.groq.com/openai/v1",
+            apiKey: "gkey",
+            models: ["groq-m1"],
+          },
+          {
+            name: "gemini",
+            baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+            apiKey: "gmkey",
+            models: ["gemini-2.0-flash"],
+          },
+        ],
+      };
+      const fallbacks: string[] = [];
+      const callModel = createModelCaller({
+        config: multiConfig,
+        tools: [],
+        onProviderFallback: (from, to, reason) => fallbacks.push(`${from}->${to}:${reason}`),
+        fetch: async (url) => {
+          const u = String(url);
+          if (u.includes("groq.com")) {
+            providersCalled.push("groq");
+            return reply({ error: "rate limit" }, 429);
+          }
+          providersCalled.push("gemini");
+          return said("Response from Gemini fallback");
+        },
+      });
+      const res = await callModel([{ role: "user", content: "query" }], signal(), false);
+      assert.equal(res.content, "Response from Gemini fallback");
+      assert.deepEqual(providersCalled, ["groq", "gemini"]);
+      assert.equal(fallbacks.length, 1);
+    },
+  );
+
+  await t.test("Scenario 9: All providers unavailable produces safe error", async () => {
+    const multiConfig = {
+      apiKey: "key1",
+      baseUrl: "https://api.groq.com/openai/v1",
+      models: ["groq-m1"],
+      databaseUrl: "x",
+      providers: [
+        {
+          name: "groq",
+          baseUrl: "https://api.groq.com/openai/v1",
+          apiKey: "gkey",
+          models: ["groq-m1"],
+        },
+        {
+          name: "gemini",
+          baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+          apiKey: "gmkey",
+          models: ["gemini-m1"],
+        },
+      ],
+    };
+    const callModel = createModelCaller({
+      config: multiConfig,
+      tools: [],
+      fetch: async () => reply({ error: "service down" }, 503),
+    });
+    await assert.rejects(
+      callModel([{ role: "user", content: "query" }], signal(), false),
+      (err: unknown) =>
+        err instanceof ProviderError && (err.kind === "provider" || err.kind === "busy"),
+    );
+  });
+
+  await t.test(
+    "Scenario 10: Structured observability logging tracks request without secrets",
+    async () => {
+      let logged: ObservabilityLog | undefined;
+      const callModel = createModelCaller({
+        config: CONFIG,
+        tools: [],
+        requestId: "req-1234",
+        orgUnitId: "ou-5678",
+        onLog: (entry) => {
+          logged = entry;
+        },
+        fetch: async () => said("Success response"),
+      });
+      await callModel([{ role: "user", content: "hello" }], signal(), false);
+      assert.ok(logged);
+      assert.equal(logged?.requestId, "req-1234");
+      assert.equal(logged?.orgUnitId, "ou-5678");
+      assert.equal(logged?.status, "success");
+      assert.equal(typeof logged?.durationMs, "number");
+      assert.doesNotMatch(JSON.stringify(logged), /nvapi|SECRET|hello/);
+    },
+  );
+
+  await t.test(
+    "Scenario 11: Specific contextual error messages exist for all failure modes",
+    () => {
+      assert.ok(
+        PROVIDER_MESSAGES.busy.includes("too many requests") ||
+          PROVIDER_MESSAGES.busy.includes("busy"),
+      );
+      assert.ok(PROVIDER_MESSAGES.provider_unavailable.includes("temporarily unavailable"));
+      assert.ok(PROVIDER_MESSAGES.network_error.includes("network connection"));
+      assert.ok(PROVIDER_MESSAGES.auth.includes("administrator"));
+      assert.ok(PROVIDER_MESSAGES.timeout.includes("too long"));
+    },
+  );
+
+  await t.test("Scenario 12: Conversation history preserves earlier turns", () => {
+    const history = historyMessages([
+      { role: "user", content: "What is Scope 1?" },
+      { role: "assistant", content: "Scope 1 covers direct emissions." },
+    ]);
+    assert.equal(history.length, 2);
+    assert.equal(history[0].role, "user");
+    assert.equal(history[1].role, "assistant");
+  });
+
+  await t.test(
+    "Scenario 13: Organization-level authorization refuses out-of-scope access",
+    async () => {
+      const { ctx } = PROJECT_X_MANAGER();
+      const res = await ask(
+        ctx,
+        scripted(
+          { toolCalls: [toolCall("list_org_units", { under: "Subsidiary B" })] },
+          { content: "Subsidiary B has project Z." },
+        ).callModel,
+        "Tell me about Subsidiary B",
+      );
+      assert.ok(res.outOfScope || res.text.includes("scope"));
+    },
+  );
+
+  await t.test("Scenario 14: Read-only restrictions: no mutation tools exist", () => {
+    const allToolNames = Object.keys(TOOLS);
+    for (const name of allToolNames) {
+      assert.doesNotMatch(name, /insert|update|delete|modify|approve|change|save_factor/i);
+    }
+    assert.ok(!claimsAChange("Looking at consumption numbers for September 2026."));
+    assert.ok(claimsAChange("I have approved the record for September 2026."));
   });
 });
 

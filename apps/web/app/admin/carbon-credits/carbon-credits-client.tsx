@@ -4,11 +4,9 @@ import { useEffect, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Award,
-  Calculator,
   CheckCircle2,
   Coins,
   Flame,
-  Leaf,
   Minus,
   Plus,
   RefreshCw,
