@@ -1,4 +1,4 @@
-# TraceESG — Security audit, 2026-10-12
+# EmeilSG — Security audit, 2026-10-12
 
 _Audited commit: `d7add8c` (`main`). Fixes are on branch `feature-security-audit-fixes`, **uncommitted**, no
 migration, nothing pushed, nothing done on the hosted project._

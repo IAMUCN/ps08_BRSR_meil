@@ -1,4 +1,4 @@
-# TraceESG — Dependency and production configuration audit, 2026-10-12
+# EmeilSG — Dependency and production configuration audit, 2026-10-12
 
 _Seventh report of the 2026-10-12 audit. Branch `feature-security-audit-fixes`, uncommitted. **Nothing was
 changed on hosted infrastructure, in any dashboard, or in the deployed worker image.** Secret values were

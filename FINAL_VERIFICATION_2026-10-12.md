@@ -1,4 +1,4 @@
-# TraceESG — Final security and compliance verification, 2026-10-12
+# EmeilSG — Final security and compliance verification, 2026-10-12
 
 _Closes the 2026-10-12 audit. Branch `feature-security-audit-fixes` on top of `main` at `d7add8c`:
 82 files changed, 22 new, **nothing committed, nothing pushed, nothing changed on hosted or in any dashboard**._

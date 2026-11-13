@@ -1,4 +1,4 @@
-# TraceESG — Privacy notice (DRAFT)
+# EmeilSG — Privacy notice (DRAFT)
 
 > **Draft for legal review. Not published, not a policy, and not legal advice.** Written by an engineer from
 > what the application was verified to do on 2026-10-12 (`COMPLIANCE_AUDIT_2026-10-12.md`). Everything in
@@ -7,13 +7,13 @@
 
 ## Who we are
 
-TraceESG is operated by `[legal name of the operating entity]`, `[registered address]`.
+EmeilSG is operated by `[legal name of the operating entity]`, `[registered address]`.
 For any question about your personal data, contact `[name or role, email, postal address]`.
 `[If a grievance officer or data protection officer is required: name and contact.]`
 
 ## Who this notice is for
 
-People who are given a TraceESG account by their organisation: `[e.g. employees and contractors of …]`.
+People who are given a EmeilSG account by their organisation: `[e.g. employees and contractors of …]`.
 Accounts are created by an administrator; there is no public registration. The service is not intended for
 children.
 
@@ -104,7 +104,7 @@ you of a breach — to be completed by counsel.]`
 > For an internal tool this is usually an internal policy rather than public terms of service. Headings only;
 > the content is the operator's to decide.
 
-1. Who may use TraceESG and how accounts are issued and withdrawn.
+1. Who may use EmeilSG and how accounts are issued and withdrawn.
 2. Use your own account; keep your password to yourself; change the temporary password at first sign-in.
 3. Upload only genuine source documents for your own part of the organisation; do not upload documents with
    personal details that are not needed.

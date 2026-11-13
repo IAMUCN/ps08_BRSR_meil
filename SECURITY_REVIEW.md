@@ -1,4 +1,4 @@
-# TraceESG — Security review (Phase 18)
+# EmeilSG — Security review (Phase 18)
 
 _Date: 2026-09-22. Scope: everything built through Phase 17 — the web app (`apps/web`), the database
 (`supabase/`), Storage and the OCR worker (`apps/ocr-worker`). Plan: `06_IMPLEMENTATION_PLAN.md` Phase 18.

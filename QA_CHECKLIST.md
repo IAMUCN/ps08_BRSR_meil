@@ -1,4 +1,4 @@
-# TraceESG — QA checklist (Phase 20)
+# EmeilSG — QA checklist (Phase 20)
 
 _Run on 2026-09-22 against a local stack (production build of `apps/web`, local Supabase, the
 `traceesg-ocr-worker` image, Edge). Synthetic documents only — accuracy on real MEIL documents is untested

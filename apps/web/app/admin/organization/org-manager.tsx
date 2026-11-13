@@ -400,6 +400,15 @@ export function OrgManager({
  * A unit's parents as a list of boxes to tick (owner's page feedback, 2026-10-11) — several can be chosen,
  * which a dropdown cannot do. `fixed` is the parent that is not a choice here: always ticked.
  */
+/** A unit as a parent choice reads: its level and where it sits, so two business units with one name in
+ *  different subsidiaries can be told apart ("Business Unit · Olectra Greentech"). */
+const placeNote = (nodes: OrgUnitRow[], levels: OrgLevel[]) => (choice: OrgUnitRow) => {
+  const parent = nodes.find((n) => n.id === choice.parentId);
+  return parent
+    ? `${levelLabel(levels, choice.unitType)} · ${parent.name}`
+    : levelLabel(levels, choice.unitType);
+};
+
 function ParentChecklist({
   legend,
   hint,
@@ -711,6 +720,15 @@ function AddChildren({
               </NativeSelect>
             </div>
           )}
+          {!asGroup && !childTypes.includes(PROJECT_LEVEL) && levelLabel(levels, PROJECT_LEVEL) ? (
+            <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs leading-4 text-muted-foreground">
+              {levelLabel(levels, PROJECT_LEVEL)}s can only reside under a{" "}
+              {levelLabel(levels, BUSINESS_UNIT_LEVEL).toLowerCase()}. To add one, select a{" "}
+              {levelLabel(levels, BUSINESS_UNIT_LEVEL).toLowerCase()} in the tree. A project can
+              also be shared with other business units — in this or another{" "}
+              {levelLabel(levels, SUBSIDIARY_LEVEL).toLowerCase()} — from its Parents card.
+            </p>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="child-name">Name</Label>
             <Input
@@ -748,6 +766,7 @@ function AddChildren({
               fixed={node}
               fixedNote="selected in the tree"
               choices={parentChoices}
+              note={placeNote(nodes, levels)}
               checked={new Set(ticked)}
               levels={levels}
               disabled={pending}
@@ -1106,7 +1125,7 @@ function NodeDetail({
                 <option value="">Select the new parent…</option>
                 {moveTargets.map((target) => (
                   <option key={target.id} value={target.id}>
-                    {target.name} ({levelLabel(levels, target.unitType)})
+                    {target.name} ({placeNote(nodes, levels)(target)})
                   </option>
                 ))}
               </NativeSelect>
@@ -1163,6 +1182,7 @@ function NodeDetail({
               fixed={wrongPlace ? undefined : parent}
               fixedNote="moved and deactivated from here"
               choices={[...alsoUnder, ...extraParentTargets]}
+              note={placeNote(nodes, levels)}
               checked={tickedParents}
               levels={levels}
               disabled={pending}

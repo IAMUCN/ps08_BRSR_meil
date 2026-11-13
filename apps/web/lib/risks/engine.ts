@@ -133,7 +133,7 @@ export const STANDARD_RISK_DISCLAIMER =
   "This assesses operational and reporting compliance risks. It supports internal audit and does not establish regulatory penalties.";
 
 /**
- * Pure Risk Engine for TraceESG.
+ * Pure Risk Engine for EmeilSG.
  * Reuses existing historical anomaly checks, validation outcomes, BRSR readiness mappings,
  * and submission monitoring without implementing competing duplicate or anomaly subsystems.
  */

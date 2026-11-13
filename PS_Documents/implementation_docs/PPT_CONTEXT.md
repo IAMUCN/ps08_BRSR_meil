@@ -1,8 +1,9 @@
-# TraceESG — Context for the Mid-Evaluation Presentation
+# EmeilSG — Context for the Mid-Evaluation Presentation
 
 Everything built so far, written so a presentation can be made from it without opening the code.
-Prepared 2026-10-09 from the repository (branch `feature`, 40 database migrations) and the project records
-(`PROGRESS.md`, `CONTEXT.md`, `.grill/`). Where something is unfinished or untested, this file says so — do
+Prepared 2026-10-09 and **brought up to date for the final submission on 2026-11-13** (88 database migrations; the
+full feature list is `FEATURES.md`; sections 0, 4 and 17 below reflect the final state, the others describe the
+core flow, which has not changed) from the repository and the project records (`PROGRESS.md`, `CONTEXT.md`, `.grill/`). Where something is unfinished or untested, this file says so — do
 not present those items as done.
 
 **Hackathon:** BPUT Hackathon 2026, Problem Statement 8 — _Development of an Online Portal for BRSR Reporting of
@@ -10,9 +11,35 @@ Corporate ESG Report._ **Industry partner:** Mega Engineering and Infrastructure
 
 ---
 
+## 0. What changed since the mid-evaluation (read this first)
+
+The product is **EmeilSG**; its chatbot is **Tracey**. Everything below was added after the first version of this
+file; `FEATURES.md` has the complete list and where each feature lives.
+
+- **Manual entry for every submission** (the jury's feedback): the Upload page is a table of rows — bill type, billing
+  period, the value typed from the bill, the unit, the evidence. OCR still reads each bill; the typed and read values
+  are compared, and a difference must be settled on Verify. An Automatic mode keeps the drop-the-bills flow.
+- **Tracey, the ESG data analyst:** ask questions about the data you may see; the language model only words the
+  answer, every figure comes from read-only tools inside your org scope. Runs on NVIDIA NIM or a local Ollama model.
+- **Two-step sign-in** with an authenticator app for every sign-in (and Google sign-in for registered accounts);
+  one session per account; session time limits; invitation links instead of emailed passwords.
+- **More roles and scope:** Super Admin, Administrator, **BU Manager**, Corporate ESG, Employee (uploads for a
+  project manager), Assurance Reviewer; role-wise dashboards; employee register; overdue escalation.
+- **The full SEBI format:** all 146 questions, 17 typed SEBI tables with Excel import, energy in GJ, water and
+  waste breakdowns; zero values flagged. Figures typed for demonstration are labelled SAMPLE DATA.
+- **Reports:** BRSR, BRSR Core, GHG inventory (also as Excel), executive summary; covering a period, a financial
+  year, **a quarter (1st–4th)** or a custom range; forwarding for verification; an audit evidence bundle.
+- **Carbon Intelligence and the Decision Center:** year-wise trends, suggested actions, emission alerts, forecast,
+  what-if simulator, decision rules, risk and recommendations, carbon credit registry. (This replaces the old
+  "AI analytics: not built" line.)
+- **Operations:** several open periods with late uploads, daily deadline reminders, factor sources with approval and
+  yearly review, financial-year and period pickers that never show the future, phone and installable app.
+
+---
+
 ## 1. The one-line pitch
 
-**TraceESG is an evidence-first BRSR portal: people upload the bill, the system reads it, a person confirms it,
+**EmeilSG is an evidence-first BRSR portal: people upload the bill, the system reads it, a person confirms it,
 and every number in the final SEBI-format report can be clicked back to the original document.**
 
 Three ideas to repeat through the deck:
@@ -46,7 +73,7 @@ From the KT session (`ps_documents/provided_docs/KT_Session_Transcript_and_Conte
 | Validation rules; ease of data entry; report quality | Built |
 | The industry's additional list of reports | **Not received yet** — nothing to build until they send it |
 | The industry's base company tables | **Not received yet** — we use our own tables |
-| AI analysis on top of the data | Not built (they placed it last, after reliable data capture) |
+| AI analysis on top of the data | Built after data capture: Tracey (read-only analyst), Carbon Intelligence, Decision Center |
 
 They also said: teams may use their own sample data for mid evaluation; real company data comes to finalists.
 
@@ -78,22 +105,27 @@ Upload  →  OCR reads it  →  Person verifies  →  Validation  →  Calculati
 
 ## 4. Users and roles
 
-Seven roles, sixteen permissions, all configuration (an Admin can add roles and change the permission matrix).
+Eleven roles, thirty-four permissions, all configuration (a Super Admin can add roles, edit them and change the permission matrix; each built-in role has a suggested permission set).
 
 | Role | What they do |
 |---|---|
-| Admin | Everything in the Admin area: organisation, users, factors, mapping, reports, audit trail |
+| Super Admin (at most two) | Group-wide configuration and every org unit: organisation, users, factors, mapping, periods, reports, audit trail |
+| Administrator | One org unit and everything beneath it: people, hierarchy, queues, figures, reports, uploads |
+| BU Manager | One business unit and the projects beneath it (same powers as an Administrator, assignable only at a business unit) |
 | Project Manager | Uploads fuel and electricity bills for their project |
 | EHS | Waste, water, refrigerants, air emissions |
 | HR | Headcount and training records; bulk-imports employees |
 | Procurement | MSME sourcing, materials |
 | Finance / CSR | Travel, CSR spend, fines |
-| Approver (Corporate ESG) | Approves or returns records in their part of the organisation |
+| Corporate ESG | Approves or returns records, reviews flagged values, generates reports |
+| Employee | Uploads on behalf of a Project Manager |
+| Assurance Reviewer | Read-only: audit trail, evidence, monitoring |
 
 - A user only sees and uploads for the org units they are assigned to, and only the activities their role owns
   (a Project Manager is never offered a water bill).
 - Accounts are created by an Admin — there is no public sign-up.
-- Two separate areas: `/admin` for Admins, `/app` for everyone else.
+- Two areas: `/admin` for Super Admins and Administrators (what each page shows follows their scope), `/app` for everyone.
+- Every sign-in needs a code from an authenticator app (or an emailed code through "Try another way").
 
 ---
 
@@ -301,9 +333,9 @@ original document, three clicks.
 
 - Written answers are plain text; L&T prints structured tables for many of them (employees by category, policy
   matrix, safety statistics).
-- Energy in joules, water discharge by destination and water in stressed areas are typed, not calculated yet.
+- Energy is calculated in GJ from fuels and electricity once calorific-value factors are approved; the SEBI tables (water by source, waste by category, workforce and the rest) are typed grids with Excel import; zero values are flagged.
 - SEBI's format contains no SDGs; the SDG table is our addition and is labelled as an indicative mapping.
-- PDF only — there is no Excel export of the report.
+- PDF for every template; the GHG inventory also comes as an Excel workbook.
 
 ---
 
@@ -395,22 +427,22 @@ F new activities (a flight and a train of the same distance give different resul
 
 | Item | State |
 |---|---|
-| Hosted demo database | Has all 40 migrations but **still the wrong 0.02 grid factor**, one org unit, few records. The 28 factors and an org tree must be entered first |
-| Hosted OCR worker | Runs the older rules (`rules-11`); works, but does not read the waste-category label |
-| Factors for PNG, steam / heat, spend-based activities, waste | None — those activities show "Not calculated" |
-| Industry's report list and company tables | Not received |
-| Energy in joules; water discharge breakdown | Typed, not calculated |
-| Structured tables for written disclosures | Free text only |
-| Excel export of the report | Not built |
-| Deployment (hosting for web app and worker) | Not done; runs on a laptop + hosted Supabase |
-| AI analytics layer | Not built |
-| Real MEIL documents | Not available until the final round |
+| Hosted: migration `0078` (travel as distance × passengers) | Not applied yet; applied just before the final deploy (`DEPLOYMENT.md` §0) |
+| Hosted OCR worker | Older rules until the `rules-18` image replaces it |
+| Factors for PNG, steam / heat, spend-based activities, waste, NOx/SOx/PM | None with a source — those activities show "Not calculated" |
+| Calorific values (energy in GJ) | Nine drafts on hosted; a second Super Admin must approve them |
+| Typed SEBI table figures | Labelled SAMPLE DATA; replace with MEIL's before any filing |
+| Industry's report list and company tables | Never received |
+| Real MEIL documents | Not available until the final round; OCR tried on a few real bills only |
+| Handwritten bus tickets | Waits for sample photos |
+| Two-step sign-in, Tracey on Vercel, BU Manager screens | Built and unit/database tested; not yet confirmed end to end in a browser on the live site |
+| Accessibility | Automated checks pass; no screen-reader or human pass |
 
 ---
 
 ## 18. Suggested slide order
 
-1. **Title** — TraceESG; problem statement; team.
+1. **Title** — EmeilSG; problem statement; team.
 2. **The problem** — auditors reject numbers without documents; 300 projects; data scattered.
 3. **Our idea** — evidence first; AI assists, people decide; audit-ready (section 1).
 4. **The flow** — the eight-step diagram (section 3).
@@ -454,7 +486,7 @@ same machine; keep one record already processed as a fallback.
 | What if OCR reads it wrong? | A person always confirms; low-confidence fields block Confirm; edits are audited |
 | Can someone change a number later? | Not silently — calculations and the audit log are append-only |
 | 300 projects? | Tested: 86,400 records roll up in 0.23 s |
-| Where is the AI? | OCR today; analytics later — as the industry advised, data capture first |
+| Where is the AI? | OCR reads documents; Tracey answers questions about the data (the model words it, the application supplies every figure); Carbon Intelligence and the Decision Center suggest actions. A person always confirms captured values and calculations are fixed formulas |
 | Is the whole BRSR covered? | All 146 questions print; emissions are evidence-backed; the written disclosures are typed |
 | Why no typed entry for emissions? | Auditors need the document; the document is the entry |
 | What about S and G? | In the report; a few items measured (gender, training, MSME, CSR, fines), the rest typed |

@@ -1,19 +1,19 @@
-# TraceESG Intelligence Platform — Technical Implementation & Architecture Guide
+# EmeilSG Intelligence Platform — Technical Implementation & Architecture Guide
 
 > **Enterprise ESG & SEBI BRSR Decision Intelligence Architecture**  
 > **Corporate Entity:** Megha Engineering & Infrastructures Limited (MEIL)  
-> **System Name:** TraceESG Intelligence (`ps08_BRSR_meil`)  
+> **System Name:** EmeilSG Intelligence (`ps08_BRSR_meil`)  
 > **Status:** Production-Ready • Automated CI/CD Verified (241/241 Tests Passing)
 
 ---
 
 ## 1. Architectural Overview & System Design
 
-The **TraceESG Intelligence Platform** is an enterprise-grade AI decision support system designed specifically for corporate ESG governance and statutory SEBI BRSR reporting. Built upon the foundational principle of **evidence-first traceability**, the platform guarantees that every prediction, risk flag, decarbonization recommendation, and statutory disclosure is grounded in verified operational source data.
+The **EmeilSG Intelligence Platform** is an enterprise-grade AI decision support system designed specifically for corporate ESG governance and statutory SEBI BRSR reporting. Built upon the foundational principle of **evidence-first traceability**, the platform guarantees that every prediction, risk flag, decarbonization recommendation, and statutory disclosure is grounded in verified operational source data.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                TRACEESG DECISION CENTER                                │
+│                                EMEILSG DECISION CENTER                                │
 │                   Unified Executive & Administrative Control Plane                     │
 ├────────────────────┬────────────────────┬────────────────────┬─────────────────────────┤
 │ Configurable Rules │  Risk Audit Engine │ Predictive Forecast│   What-If Simulator     │
@@ -69,7 +69,7 @@ The platform enforces mandatory enterprise controls governing external LLM inter
 
 ### 3.1 Vector Database (`pgvector` in PostgreSQL)
 
-TraceESG utilizes the PostgreSQL `pgvector` extension (v0.8.0+) natively inside hosted Supabase:
+EmeilSG utilizes the PostgreSQL `pgvector` extension (v0.8.0+) natively inside hosted Supabase:
 - **Vector Dimension:** 768 dimensions (calibrated for Google `text-embedding-004`).
 - **Distance Metric:** Cosine Distance (`vector_cosine_ops`, operator `<=>`).
 - **Index Type:** Hierarchical Navigable Small World (HNSW) and Inverted File Flat (IVFFlat) indexes for sub-millisecond retrieval.

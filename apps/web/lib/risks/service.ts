@@ -29,7 +29,7 @@ export type RiskEvaluationReportRow = {
 };
 
 /**
- * Runs the TraceESG Risk Engine by reusing existing validation engine anomalies,
+ * Runs the EmeilSG Risk Engine by reusing existing validation engine anomalies,
  * duplicate flags, BRSR mapping readiness, and submission monitoring.
  */
 export async function evaluateAndSaveRisks(

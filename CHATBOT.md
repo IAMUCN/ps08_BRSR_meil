@@ -3,7 +3,7 @@
 The chatbot is called **Tracey** (owner's request, 2026-11-11): "Ask Tracey" in the top bar, her own mark
 (`components/brand/tracey-mark.tsx`), and she answers to the name.
 
-A read-only assistant inside TraceESG. A signed-in person asks a question in plain language ("compare this
+A read-only assistant inside EmeilSG. A signed-in person asks a question in plain language ("compare this
 month's electricity with last month") and gets a short worded answer with the figures, a table and a chart.
 
 Decisions and their reasons: [`.grill/chat-analyst-decisions.md`](.grill/chat-analyst-decisions.md).
@@ -73,6 +73,7 @@ chatbot is **off**: no buttons are shown and `chat.send` answers "not set up".
 | `NVIDIA_NIM_MODEL` | One model, or a comma-separated list in order of preference. |
 | `CHAT_DATABASE_URL` | A connection string for the role `chat_reader` (not the main database user). |
 | `NVIDIA_NIM_BASE_URL` | Optional. Default `https://integrate.api.nvidia.com/v1`. |
+| `OLLAMA_BASE_URL`, `OLLAMA_MODEL` (or `OPENAI_BASE_URL`, `OPENAI_MODEL`) | A local or OpenAI-style endpoint instead of NVIDIA, e.g. Ollama through ngrok (`https://…ngrok-free.dev/v1`, model `qwen2.5:7b`). The address must be set for every Vercel environment that should answer, and the app redeployed. Providers fail over (NVIDIA, Gemini, Groq when their keys are set). |
 
 **Models.** Every request names one model; the key does not switch models by itself. When a model answers
 "rate limited", "not found for this account", a server error, nothing usable, or not at all within 25

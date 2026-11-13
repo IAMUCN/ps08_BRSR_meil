@@ -1,4 +1,4 @@
-# TraceESG — Privacy and legal compliance audit, 2026-10-12
+# EmeilSG — Privacy and legal compliance audit, 2026-10-12
 
 _Fourth report of the 2026-10-12 audit (after the security, database and chatbot reports). Branch
 `feature-security-audit-fixes`, uncommitted._
@@ -16,7 +16,7 @@ reason) · **Legal / external** (needs legal review or configuration outside the
 
 | Question | Finding | Source |
 | -------- | ------- | ------ |
-| Operator | Not stated anywhere in the app. The footer reads "TraceESG by MEIL"; the project was built for MEIL (Megha Engineering & Infrastructures Ltd, India) as problem statement PS-08. Whether MEIL operates it, and under what entity, is **not verifiable from the code**. | landing footer, `PROGRESS.md` |
+| Operator | Not stated anywhere in the app. The footer reads "EmeilSG by MEIL"; the project was built for MEIL (Megha Engineering & Infrastructures Ltd, India) as problem statement PS-08. Whether MEIL operates it, and under what entity, is **not verifiable from the code**. | landing footer, `PROGRESS.md` |
 | Intended users | MEIL staff: Admins, Corporate ESG, Project Managers, HR, EHS, Finance/CSR, Procurement. Accounts are created by an Admin or by bulk import; there is no public sign-up. | `supabase/config.toml` (`enable_signup = false`), seeded roles |
 | Countries served | India, as far as the content shows (SEBI BRSR, Indian DISCOM bills, rupees, Indian financial year). | specification, seed data |
 | Business model | An internal enterprise tool. **No payments, pricing, subscriptions or advertising** exist in the code or its dependencies. | dependency list, route list |
@@ -101,7 +101,7 @@ A development-only feedback widget (`agentation`) loads only when `NODE_ENV` is 
 | ----- | ----- | ------- |
 | "Statutory Due Date", "statutory BRSR reporting deadlines" | Deadline emails and the Deadlines page | The date is the closing date an Admin sets for a reporting period (or the period's end), not a legal deadline. **Fixed:** now "Due date". |
 | "Portfolio-Wide Deployment for MEIL" | Landing, capability card | The product is not deployed (deployment is the remaining phase). Unsupported as worded — owner to reword. |
-| "TraceESG by MEIL. All rights reserved." | Landing footer | Authorship or endorsement by MEIL is not evidenced in the repository, and the licence file says GPL-2.0. Owner to confirm both. |
+| "EmeilSG by MEIL. All rights reserved." | Landing footer | Authorship or endorsement by MEIL is not evidenced in the repository, and the licence file says GPL-2.0. Owner to confirm both. |
 | "Can OCR errors reach a report? No." | Landing FAQ | Too absolute: a person can confirm a wrongly read value, and a manual exception lets values be typed. The mechanism described next to it (provisional until confirmed, flagged fields must be reviewed) is accurate. |
 | "Immutable Timestamped Records" | Landing, audit-trail card | Accurate for the audit log and stored calculations, which the database makes append-only; records themselves are editable until approved. Wording is broader than the control. |
 | Internal carbon price of ₹2,500 attributed to a "MEIL Corporate Sustainability Committee guideline" | Seed row in migration `0046` | No such guideline is in the repository; it reads as an invented source and is what the app falls back to. Owner to replace with a real, sourced value or remove. |

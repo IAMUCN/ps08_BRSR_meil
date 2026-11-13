@@ -1,12 +1,12 @@
-# TraceESG landing page — design brief (from Antigravity handoff)
+# EmeilSG landing page — design brief (from Antigravity handoff)
 
-Role: lead frontend/UI engineer for the TraceESG landing page (MEIL BRSR platform). Goal: refine, elevate and
+Role: lead frontend/UI engineer for the EmeilSG landing page (MEIL BRSR platform). Goal: refine, elevate and
 polish — visual polish, thoughtful motion (`motion/react` + CSS, no layout shift), responsive balance
 (mobile/tablet/ultra-wide), consistency with the existing palette and custom cursor.
 
 ## Business context
 MEIL: irrigation & water, transport & highways, power & renewables, heavy manufacturing, oil & gas.
-TraceESG is evidence-first: upload source documents → OCR/LLM extraction with confidence → human verification →
+EmeilSG is evidence-first: upload source documents → OCR/LLM extraction with confidence → human verification →
 deterministic Scope 1/2/3 engines → BRSR indicator mapping and reports.
 
 ## Design system

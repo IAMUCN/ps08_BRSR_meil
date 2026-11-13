@@ -77,7 +77,7 @@ const DEFAULT_OPTIONS: Required<SuggestionEngineOptions> = {
 };
 
 /**
- * Pure Suggestion Engine for TraceESG & MEIL.
+ * Pure Suggestion Engine for EmeilSG & MEIL.
  * Translates verified feature metrics and triggered decision rules into actionable,
  * quantified decarbonization and governance initiatives.
  */
@@ -400,7 +400,7 @@ export function generateDecarbonizationSuggestions(
         "Conduct quarterly internal limited-assurance mock audits with certified ESG assurance practitioners.",
       ],
       technicalPrerequisites: [
-        "TraceESG OCR pipeline enabled with minimum 80% machine confidence threshold.",
+        "EmeilSG OCR pipeline enabled with minimum 80% machine confidence threshold.",
         "Role-based permission separation between Site EHS Uploaders and Corporate ESG Approvers.",
       ],
       regulatoryDisclaimer: STANDARD_SUGGESTION_DISCLAIMER,

@@ -1,4 +1,4 @@
-# TraceESG — Database security and data isolation audit, 2026-10-12
+# EmeilSG — Database security and data isolation audit, 2026-10-12
 
 _Companion to [`SECURITY_AUDIT_2026-10-12.md`](SECURITY_AUDIT_2026-10-12.md). Work is on branch
 `feature-security-audit-fixes`, **uncommitted**. Migration `0047` is applied to the **local** database only —

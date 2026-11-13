@@ -1,33 +1,17 @@
 # ps08_BRSR_meil
 
-**TraceESG** — an evidence-first ESG/BRSR reporting platform (PS-08). Users upload source documents; the
+**EmeilSG** — an evidence-first ESG/BRSR reporting platform (PS-08). Users upload source documents; the
 system extracts, verifies, validates, calculates and maps them to BRSR, with full lineage back to the
 original evidence.
 
-> **Status:** Phases 1–20 of `ps_documents/implementation_docs/06_IMPLEMENTATION_PLAN.md` — project setup,
-> database schema with RLS, authentication/authorization, the Admin foundation (organization hierarchy,
-> users and assignments, roles and permissions, reporting periods, profile), document upload, the OCR
-> worker (Phase 2B) and its integration (Phase 6), OCR verification (Phase 7: document viewer beside the
-> extracted fields, confidence guard rail, Confirm/Reject, manual-exception and re-upload paths) and the
-> validation engine (Phase 8: six rule categories from configurable `validation_rules`, returns and
-> re-verification, Admin Validation Queue, and a single approval step pulled forward from Phase 16) and the
-> calculation engine (Phase 9: unit normalisation, versioned conversion factors, stored calculation
-> traces, Conversion Factor Management), Scope 1 (Phase 10: diesel, petrol, CNG and LPG as configuration,
-> the Scope 1 dashboard with drill-down to the original invoice), Scope 2 (Phase 11: grid and renewable
-> electricity on the same framework) and the Scope 3 foundation (Phase 12: categories as configuration,
-> waste and business travel live) and the role-specific modules (Phase 13: HR headcount by gender and
-> training coverage, EHS water consumption, Procurement MSME share, Finance/CSR expenditure and fines — with
-> `percentage` and `subtract` formulas derived from verified counts) and BRSR mapping (Phase 14: indicators
-> from SEBI's BRSR format, `/admin/brsr-mapping` with a readiness tree down to the original document) and
-> consolidation (Phase 15: roll-up views over the org tree, `consolidation.query` by period or financial
-> year) and the Admin Control Tower (Phase 16: real KPIs and issue panel, Submission Monitoring, ESG Data
-> Explorer, configurable expected submissions) and reporting (Phase 17: BRSR reports by period or financial
-> year rendered to PDF, with every value drilling down to its original document) and audit and security
-> hardening (Phase 18: the Audit Trail page, an append-only audit log, sign-in and upload rate limits, CSRF
-> protection on tRPC — see [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) and UI polish (Phase 19: the per-user
-> theme switcher on Profile, WCAG AA contrast in all three themes, the tablet icon-rail sidebar, loading
-> skeletons and error/not-found states) and testing (Phase 20: a committed end-to-end suite, database tests in
-> CI and [`QA_CHECKLIST.md`](QA_CHECKLIST.md)). See [`PROGRESS.md`](PROGRESS.md) for the full context, progress and next steps.
+> **Status (2026-11-13, final submission):** all 20 planned phases plus the later feature work are built — evidence-first
+> capture (upload by rows with typed values, automatic mode, OCR, verification), validation, calculation with
+> versioned factors, Scope 1/2/3, BRSR mapping and the full SEBI format with typed tables, consolidation, the Control
+> Tower, reports (BRSR, BRSR Core, GHG inventory, executive summary; period, financial year, **quarter** or custom
+> range), Carbon Intelligence and the Decision Center, scoped roles (Super Admin, Administrator, **BU Manager**),
+> **two-step sign-in with an authenticator app**, and **Tracey**, the ESG data analyst chatbot. The complete list,
+> with where each feature lives and what is not done, is in [`FEATURES.md`](FEATURES.md); history is in
+> [`PROGRESS.md`](PROGRESS.md) and the live state in [`CONTEXT.md`](CONTEXT.md).
 
 ## Repository layout
 
@@ -36,14 +20,14 @@ apps/web/            Next.js app (frontend + backend logic)           — TypeSc
 apps/ocr-worker/     OCR worker (PaddleOCR)                           — Python 3.12
 packages/shared-types/  Types shared across TS code
 supabase/migrations/ SQL migrations (schema, RLS policies)
-ps_documents/        Project documentation only — no application code
+PS_Documents/        Project documentation only — no application code
 ```
 
 Evidence files are served to the browser only through `/api/documents/[documentId]/file`, which
 re-checks the session and the caller's organization scope on every request — the private bucket is never
 exposed by a URL that works without a session.
 
-All design and build decisions come from the documents in `ps_documents/implementation_docs/`
+All design and build decisions come from the documents in `PS_Documents/implementation_docs/`
 (Master Approach → PRD → TRD → App Flow → UI/UX Brief → Backend Schema → Implementation Plan).
 
 ## Prerequisites
@@ -154,11 +138,11 @@ Root commands:
 | `pnpm format` / `pnpm format:check` | Prettier write / check for `apps/web` | `corepack pnpm --filter web format:check` |
 | `pnpm build` | Production build of `apps/web` | `corepack pnpm --filter web build` |
 
-### ESG data analyst (chatbot)
+### Tracey, the ESG data analyst (chatbot)
 
-A read-only assistant behind the _Ask_ button; see [`CHATBOT.md`](CHATBOT.md) for how it works, what it
-sends to the AI service and how to test it. It is off until `NVIDIA_NIM_API_KEY`, `NVIDIA_NIM_MODEL` and
-`CHAT_DATABASE_URL` are set in `apps/web/.env.local`. Locally, after `pnpm db:reset`:
+A read-only assistant behind the _Ask Tracey_ button; see [`CHATBOT.md`](CHATBOT.md) for how it works, what it
+sends to the AI service and how to test it. It is off until `CHAT_DATABASE_URL`, `NVIDIA_NIM_MODEL` and either `NVIDIA_NIM_API_KEY` or a local model's
+`OLLAMA_BASE_URL` are set in `apps/web/.env.local`. Locally, after `pnpm db:reset`:
 `CHAT_DATABASE_URL=postgresql://chat_reader:chat_reader_local@127.0.0.1:55322/postgres`.
 
 ## Database (`supabase/`)
@@ -241,6 +225,13 @@ Notes:
   ```
 
   It reads `apps/web/.env.local` by default. After `pnpm db:reset`, provision the users again.
+- **Two-step sign-in.** Every account must set up an authenticator app (Google Authenticator or similar) at its
+  first sign-in and enter a 6-digit code at every sign-in; "Try another way" emails a code instead. Supabase's
+  multi-factor TOTP must be enabled (already on in `supabase/config.toml` for the local stack; a dashboard setting on
+  the hosted project). `AUTH_MFA_REQUIRED=false` switches it off for tests. A Super Admin resets a lost phone from
+  Admin → Users (A63).
+- **Roles.** Super Admin (at most two), Administrator, BU Manager (a business unit and its projects), and the
+  operational roles; Roles & Permissions suggests a permission set for each.
 - **Local emails** are caught by Mailpit at http://127.0.0.1:55324 — start the stack without excluding
   `mailpit`. Supabase Auth's own email (the `provision-user` invite) arrives there by itself. The app's
   email (invitation links from Invite user and bulk import, reset codes, reminders) arrives there when

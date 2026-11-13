@@ -1,9 +1,30 @@
 # Deploying the web app to Vercel
 
-Written from a deployment check on 2026-10-12. The web app (`apps/web`) goes to Vercel. The OCR worker does
+Written from a deployment check on 2026-10-12; updated for the final submission on 2026-11-13 (section 0). The web app (`apps/web`) goes to Vercel. The OCR worker does
 not: it is a long-running process and stays on its own host (today a Docker container on the owner's machine).
 Nothing here has been tried on Vercel yet — the first deployment is the test, and the last section says what to
 try on it.
+
+## 0. Before the final deploy (2026-11-13) — do these in order
+
+1. **Hosted migrations.** Checked 2026-11-13: the hosted history is at `0088`. `0078` (travel as distance ×
+   passengers) is **missing**; `0068`–`0076` (Decision Center, pgvector) have their tables, extension and functions
+   on hosted already but no history rows. `node "test data/_backup/hosted-0078.cjs" check` then `apply` records
+   `0068`–`0076` without running them and runs `0078`, in one transaction. Apply it **just before** the new code goes
+   live: the old code asks for one "quantity" field on travel uploads and stops accepting them once `0078` is in.
+2. **OCR worker.** Rebuild `traceesg-ocr-worker` (`rules-18`), then recreate the hosted container from it (keep
+   the old one stopped for rollback). Only after step 1.
+3. **Supabase Authentication → Multi-Factor:** switch **TOTP** (enroll and verify) on. Two-step sign-in is required for
+   every account (`AUTH_MFA_REQUIRED` is on unless it is set to `false`); with TOTP off in Supabase nobody can finish
+   setup. Tell every user to have an authenticator app (Google Authenticator) ready.
+4. **Vercel environment variables.** Fix names: the project has `CRON_KEY` (the code reads `CRON_SECRET`, 16+
+   characters) and `NVDIA_NIM_BASE_URL` (misspelled; delete it). For Tracey on the local model set
+   `OLLAMA_BASE_URL` (the ngrok address ending `/v1`) for **Production and Preview**, and `NVIDIA_NIM_MODEL`
+   (for example `qwen2.5:7b`). `CHAT_DATABASE_URL` needs the `chat_reader` role with a password.
+5. **Deploy Production** from `main` (the deployed project follows the MACRO72 repository: push `ucn` `main` there
+   too), then work through section 5 below. A variable only reaches builds made after it was set.
+6. **After deploy:** a Super Admin approves the nine calorific-value drafts; replace the labelled SAMPLE figures in
+   the typed SEBI tables with real ones before any filing; the second Super Admin signs in and sets up their app.
 
 ## 1. What the check found
 
@@ -28,8 +49,7 @@ try on it.
   so Vercel uses that version. If the install step fails on the pnpm version, that is where to look.
 - **Fluid Compute:** on (the default for new projects). Generating a report and a chatbot answer can take
   longer than the 10 seconds a function gets without it.
-- **Branch:** deploy a branch that contains this change. `main` does not have it until
-  `feature-employee-uploads` is merged.
+- **Branch:** deploy `main` (everything is merged there).
 
 ## 3. Environment variables
 
@@ -40,11 +60,14 @@ Set for Production (and Preview if previews should work). Values come from `apps
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Needed at build time: the build fails without them |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server only |
 | `SUPABASE_STORAGE_BUCKET_EVIDENCE` = `evidence`, `SUPABASE_STORAGE_BUCKET_REPORTS` = `reports` | |
-| `DATABASE_URL` | Use Supabase's **transaction pooler, port 6543**. The local file uses the session pooler (port 5432), which holds one connection per client and can run out when several functions run at once |
-| `CHAT_DATABASE_URL`, `NVIDIA_NIM_API_KEY`, `NVIDIA_NIM_MODEL` | The chatbot; leave all out to keep it off. Same pooler note for `CHAT_DATABASE_URL` (user `chat_reader.<project ref>`) |
+| `DATABASE_URL` | Use Supabase's **session pooler, port 5432** — the app limits itself to 3 connections per Vercel instance and closes them when idle (`lib/pooler-url.ts`); the transaction pooler (6543) made queries hang when tried. The old advice was: The local file uses the session pooler (port 5432), which holds one connection per client and can run out when several functions run at once |
+| `CHAT_DATABASE_URL`, `NVIDIA_NIM_MODEL`, and `NVIDIA_NIM_API_KEY` or `OLLAMA_BASE_URL` | Tracey, the chatbot; leave out to keep it off. `OLLAMA_BASE_URL` points at a local model through ngrok (`https://…ngrok-free.dev/v1`). Needs a build made after they are set. Same pooler note for `CHAT_DATABASE_URL` (user `chat_reader.<project ref>`) |
 | `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, `BREVO_SMTP_LOGIN` | Email. Without them accounts are created but no invitation link is sent (send it later with Resend invitation). Do not set `EMAIL_SMTP_HOST` / `EMAIL_SMTP_PORT`: they are for a mail catcher on a developer's machine |
 | `NEXT_PUBLIC_APP_URL` | Optional; set it when a custom domain is added (no trailing slash) |
 | `SENTRY_DSN` | Optional |
+| `CRON_SECRET` | 16+ characters; the daily reminder and alert job refuses every call without it |
+| `AUTH_MFA_REQUIRED` | Leave unset (two-step sign-in required). `false` switches it off — tests only |
+| `APP_TIME_ZONE` | Optional; default `Asia/Kolkata` |
 | `ENABLE_EXPERIMENTAL_COREPACK` = `1` | See above |
 
 **Do not set** `CHROMIUM_EXECUTABLE_PATH` (it is for a local browser; on Vercel it would point at nothing) or
@@ -52,8 +75,7 @@ Set for Production (and Preview if previews should work). Values come from `apps
 
 ## 4. Outside Vercel
 
-- **Database migrations.** The hosted database has all of `0001`–`0049`, recorded in its history (caught up
-  by the owner on 2026-10-12; records, documents and users unchanged). A new migration goes there before the
+- **Database migrations.** The hosted database history is at `0088` (see section 0 for the migrations still missing). A new migration goes there before the
   code that needs it is deployed.
 - **OCR worker.** Uploads are read only while the worker container is running. With the web app on Vercel and
   the worker on a laptop, an upload made while the laptop is off waits in "Processing".

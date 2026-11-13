@@ -96,7 +96,7 @@ export async function askEsgAssistant(
 
   // 3. Construct Grounded Prompt Framing
   const systemPrompt = [
-    "You are the TraceESG Intelligence Assistant advising Mega Engineering and Infrastructure Limited (MEIL).",
+    "You are Tracey, the ESG data analyst inside EmeilSG, advising Mega Engineering and Infrastructure Limited (MEIL).",
     "Your objective is to deliver accurate, evidence-grounded answers to ESG, carbon accounting, and SEBI BRSR inquiries.",
     "",
     "CRITICAL GROUNDING RULES:",

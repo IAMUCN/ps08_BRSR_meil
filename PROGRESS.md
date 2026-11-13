@@ -1,12 +1,12 @@
-# TraceESG (BRSR_MEIL) — Context and Progress
+# EmeilSG (BRSR_MEIL) — Context and Progress
 
 The single place to find out **what this project is, what has been built, how we work, and what comes
 next**. Read this first, whether you are a person joining the project or an AI agent starting a new
 session. Update it at the end of every phase (see [How to update this file](#how-to-update-this-file)).
 
-_Last updated: 2026-10-13 — stages 1–3 of the scoped-administrator work (Super Admins and Administrators,
-invitation links, session time limits; migrations `0050`–`0052`) are done locally, uncommitted and not on
-hosted. Before that:_
+_Last updated: 2026-11-13 — final submission: every feature through the BRSR gaps, typed SEBI tables, the BU Manager role, two-step sign-in, financial-year pickers and quarterly reports is merged on `main` (migrations `0001`–`0088`; hosted lacks `0078`, and `0068`–`0076` have objects but no history rows). The complete feature list is [`FEATURES.md`](FEATURES.md). Earlier summaries follow:_
+
+_2026-10-13 — stages 1–3 of the scoped-administrator work (Super Admins and Administrators, invitation links, session time limits; migrations `0050`–`0052`) were done locally. Before that:_
 
 _2026-10-12 — the app is renamed EmeilSG; the 2026-10-12 audits and their fixes are merged to `main`;
 invites email a temporary password that must be changed at first sign-in; a role can upload on behalf of another
@@ -19,7 +19,7 @@ the owner. `CONTEXT.md` has the detail of what is committed where._
 
 ## 1. What we are building
 
-**TraceESG** is an evidence-first ESG/BRSR reporting platform for MEIL. Users upload source documents
+**EmeilSG** is an evidence-first ESG/BRSR reporting platform for MEIL. Users upload source documents
 (invoices, bills, registers); the system extracts values with OCR, the user reviews and confirms them, and
 the system validates, calculates (deterministically, with versioned factors), maps to Scope 1/2/3 and
 BRSR indicators, consolidates across the organization hierarchy and produces reports — with lineage from
@@ -110,8 +110,14 @@ may run in parallel with Phases 3–5.
 | — | Feature roadmap Phase 8: four report templates (GHG also as Excel), top-bar search, Scope Table / Chart, Ask button, landing fixes (migration `0062`) | Done, **uncommitted**; `0062` on hosted (2026-11-09) | — |
 | — | Feature roadmap Phase 9: phone navigation, tap cursor, installable app | Done, **uncommitted**; no migration | — |
 | — | Feature roadmap Phase 10: Help, production database runbook, release checklist, hosted reset and the local database server | Done, **uncommitted**; hosted reset 2026-11-09 | — |
-| — | Upload by rows with typed values checked against the document; travel as distance × passengers (migration `0077`, OCR `rules-17`) | Done on branch `feature-row-upload`, **uncommitted; `0077` local only** | — |
-| 21 | Deployment (hosting to be decided by the owner; after the audit fixes) | Later | — |
+| — | Upload by rows with typed values checked against the document; travel as distance × passengers (migrations `0077`–`0079`, OCR `rules-17`/`rules-18`) | Done, on `ucn` `main`; `0077`, `0079` on hosted, `0078` not | — |
+| — | Role-wise dashboards, employee register, disclosure owners, overdue escalation, Assurance Reviewer (migrations `0080`–`0084`) | Done, on `ucn` `main`, on hosted | — |
+| — | BRSR gaps against the L&T report: zero values flagged, energy in GJ, water/waste breakdowns, 17 typed SEBI tables with Excel import (migrations `0085`–`0087`, D60, A61) | Done, on `ucn` `main`, on hosted | `03cdb1f` |
+| — | Financial-year and period pickers that never show the future; quarterly reports; Roles page suggestions and search (A62) | Done, on `ucn` `main` | `b0ca757` |
+| — | BU Manager role (migration `0088`, D61) | Done, on `ucn` `main`, on hosted | `b0ca757` |
+| — | Two-step sign-in with an authenticator app and an emailed-code alternative (A63) | Done, on `ucn` `main`; needs TOTP enabled in hosted Supabase | `4fbae55` |
+| — | Tracey (chatbot) on a local Ollama model through ngrok; provider fallback | Done; Vercel variables to fix (`DEPLOYMENT.md` §0) | — |
+| 21 | Deployment — web app on Vercel (checklist in `DEPLOYMENT.md` §0), OCR worker on the owner's Docker host | **Next: the final deploy** | — |
 
 ### What each finished phase delivered
 
@@ -783,7 +789,7 @@ The test data was also regenerated with a mix of single PDFs, images and multi-b
   a skip link and contrast fixes, advisories in what ships down from 14 to 2. Open: 2 Medium, 18 Low, hosting,
   legal documents, a human accessibility pass.
 - **The app is called EmeilSG**, with a new logo in the browser icon and the landing and sign-in headers
-  (`UI_NOTES.md`). The hosted Supabase email templates and the documents still say TraceESG.
+  (`UI_NOTES.md`). The hosted Supabase email templates may still say TraceESG (dashboard setting).
 - **Invite user emails a temporary password** through the app's SMTP sender, as bulk import does, and **the
   first sign-in must change it** (`.grill/invite-smtp-decisions.md`, A36). Deleting a user refuses only for
   real work on record and says what stands in the way. The sign-in password field has a show/hide button.
@@ -941,32 +947,32 @@ distance × passengers, and OCR counts the numbered passenger names on a ticket 
 Checks: web unit 384, database 500/500, worker unit 63/63, end-to-end `row-upload.mjs` 51/51 and the full suite
 (two failures outside this change, see CONTEXT.md), browser 24/24, production build. Not on hosted.
 
-Stages still to come: an org-tree picker with Scope filters and Excel exports, demo requests with public
-docs, the phone and tablet pass.
+**Final submission work (2026-11-13).** Decisions in `.grill/brsr-gaps-decisions.md`, D60, D61, A61–A63, `FEATURES.md`.
+- **BRSR gaps** (`0085`–`0087`): zero values flagged; the fields SEBI's tables group by are required; 17 typed SEBI tables with
+  Excel import and derived cells; energy in GJ through approvable `ENERGY:<activity>` calorific factors; labelled SAMPLE
+  figures entered on hosted for demonstration.
+- **Periods:** every period choice shows the financial year, then periods that have begun, defaulting to the current one;
+  reports can cover a quarter (1st = April–June … 4th = January–March).
+- **Roles:** the BU Manager role (`0088`), suggested permissions per role, search and selected-first order.
+- **Sign-in:** two-step sign-in with an authenticator app for every sign-in; "Try another way" by emailed code; a Super
+  Admin resets a lost phone.
+- **Names and documents:** the app is EmeilSG and the chatbot is Tracey in every document and screen; the Docker image
+  `traceesg-ocr-worker` and the `@traceesg.test` fixtures keep the old name on purpose.
+- Checks: web unit 537, database 555 (fresh run of `0001`–`0088`), lint 0 errors, typecheck, format, production build.
+  Not run: the end-to-end suite on the final tree, a browser pass over the new screens on the live site.
+
 
 ## 4. What comes next
 
-**Deploying the web app to Vercel** (the owner's next step): `DEPLOYMENT.md` has the settings, the
-variables and what to try on the first deployment. Merge `feature-employee-uploads` first — it holds the fix
-that packages the report browser. Still to do around it: rebuild the worker image and replace the hosted
-container, update the hosted email templates to the new name, decide whether the 21 test accounts stay.
+**The final deploy (next).** `DEPLOYMENT.md` §0 is the ordered checklist: apply hosted migration `0078` and record `0068`–`0076`, whose objects are already there
+(`hosted-0078.cjs`, check first, read back), rebuild and replace the OCR worker (`rules-18`), switch TOTP on in hosted
+Supabase, fix the Vercel variable names (`CRON_SECRET`, `OLLAMA_BASE_URL` for Production and Preview, delete the misspelled
+`NVDIA_NIM_BASE_URL`), deploy `main`, then work through the first-deployment checks in §5. Afterwards: a second Super
+Admin approves the calorific-value drafts, real figures replace the SAMPLE SEBI tables, and the update of the hosted email
+templates to the EmeilSG name.
 
-**Organization feedback, to finish:** look at
-the Organization page and the chat pane in a browser; bring `origin` (MACRO72) up to date with `ucn` `main`.
-
-**Chatbot, to finish:** push `feature-chat-analyst` and open its pull request; on hosted (migration `0042` is there since 2026-10-11) the owner sets a password for `chat_reader`, then try its connection through the pooler; set the four variables for the owner's dev server. Review NVIDIA's terms before real MEIL figures go through the free endpoints.
-
-**Demo on hosted, the owner's steps:** create the August and September 2026 periods, import the org units and the
-users from `test data/` (typing the email addresses), upload the documents, approve, generate the report.
-
-**Before Phase 21:** run the end-to-end suite and click
-through BRSR Disclosures. Make the hosted project ready for the demo (the owner chose hosted). In order: push the
-local commits; replace the hosted worker (migrations `0038` and `0039` were pushed on 2026-10-09) with the
-`rules-12` image; the owner invites a second Admin; the reviewed factors are entered through the app (retire the
-0.02 grid factor first) and an org tree is created; one diesel and one electricity record are taken through to a
-report and the PDF is read. Still open: factors for PNG, steam, spend-based activities and waste; energy in
-joules and water discharge (not captured); the industry's promised list of reports; merging pull request #2.
-Set `SENTRY_DSN` on the web host at deployment.
+**Open questions for the owner** are listed in `CONTEXT.md` §2 (for example: should an exact audit-action search match only
+itself; the industry's report list; where the OCR worker is hosted).
 
 **Phase 21 — Deployment** (`06_IMPLEMENTATION_PLAN.md` §Phase 21): the production Supabase project (or the dev
 project promoted — decide explicitly), `apps/web` (Vercel was planned) and the OCR worker (**host to be decided

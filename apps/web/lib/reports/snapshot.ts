@@ -32,6 +32,10 @@ type Sql = Tx | ReturnType<typeof db>;
 
 export const SNAPSHOT_VERSION = 5;
 
+/** What a written question prints in the report of a unit below the group: the answers belong to the company. */
+export const GROUP_LEVEL_ANSWER =
+  "Reported once for the whole company at group level; it is not part of this unit's report.";
+
 export type ReportedRecord = {
   recordId: string;
   calculationId: string | null;
@@ -178,6 +182,8 @@ export type Snapshot = {
   version: number;
   generatedAt: string;
   org: { id: string; name: string; path: string[] };
+  /** True when the report is the group's own: only then the company-wide answers, tables and inputs print. */
+  companyLevel?: boolean;
   /** The node itself and every org unit beneath it — the report's boundary. */
   orgUnitCount: number;
   coverage: {
@@ -540,6 +546,8 @@ async function collect(
   periodIds: string[],
   /** The financial year whose typed answers are printed; null prints none. */
   disclosureYear: number | null,
+  /** False for a unit below the group: written answers are the company's, so its report prints none of them. */
+  companyLevel = true,
 ) {
   const [metrics, indicatorRows, mappings, answers] = await Promise.all([
     loadMetrics(sql),
@@ -721,7 +729,11 @@ async function collect(
       kind: row.answer_kind,
       principle: row.principle,
       part: row.part,
-      answer: answers.find((a) => a.indicator_id === row.id)?.answer ?? null,
+      answer: companyLevel
+        ? (answers.find((a) => a.indicator_id === row.id)?.answer ?? null)
+        : row.answer_kind === "statement"
+          ? GROUP_LEVEL_ANSWER
+          : null,
       metrics: mappings
         .filter((m) => m.indicator_id === row.id)
         .map((m) => reportedMetric(m.metric_id, m.notes, m.reported_value))
@@ -752,14 +764,20 @@ export async function buildSnapshot(
   },
 ): Promise<Snapshot> {
   const { orgUnitId, periodIds, financialYear } = input;
+  // The company's written answers, typed SEBI tables and yearly inputs (turnover, PPP, assurance) describe the
+  // whole company, so only the group's own report carries them. A project's or business unit's report holds
+  // that unit's measured data and nothing from outside its branch of the hierarchy.
+  const [unitRow] = await sql<{ unit_type: string }[]>`
+    select unit_type from public.org_units where id = ${orgUnitId}`;
+  const companyLevel = unitRow?.unit_type === "group";
   const [path, [units], current, before] = await Promise.all([
     sql<{ id: string; name: string }[]>`
       select o.id, o.name from public.org_unit_tree t join public.org_units o on o.id = t.ancestor_id
       where t.descendant_id = ${orgUnitId} order by t.depth desc`,
     sql<{ n: number }[]>`
       select count(*)::int as n from public.org_unit_tree where ancestor_id = ${orgUnitId}`,
-    collect(sql, orgUnitId, periodIds, input.disclosureYear ?? financialYear),
-    input.previous ? collect(sql, orgUnitId, input.previous.periodIds, null) : null,
+    collect(sql, orgUnitId, periodIds, input.disclosureYear ?? financialYear, companyLevel),
+    input.previous ? collect(sql, orgUnitId, input.previous.periodIds, null, companyLevel) : null,
   ]);
   const { scopes, sections } = current;
 
@@ -831,12 +849,13 @@ export async function buildSnapshot(
             })),
           }
         : null,
+    companyLevel,
     typedTables:
-      (input.disclosureYear ?? financialYear) === null
+      !companyLevel || (input.disclosureYear ?? financialYear) === null
         ? undefined
         : await loadTypedTables(sql, (input.disclosureYear ?? financialYear)!),
     inputs:
-      financialYear === null
+      financialYear === null || !companyLevel
         ? null
         : {
             current: await loadReportInputs(sql, financialYear),

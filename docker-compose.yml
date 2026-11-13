@@ -1,4 +1,4 @@
-# TraceESG OCR background processing worker
+# EmeilSG OCR background processing worker
 services:
   ocr-worker:
     build:

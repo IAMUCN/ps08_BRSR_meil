@@ -902,3 +902,37 @@ the evidence (required) per row; "Several documents" (pages of one bill, or sepa
 separation page; the separation page pairs bills with typed rows. Verify shows each typed value against the reading
 and requires a choice where they differ; keeping a typed value against the document is a review flag. Drafts are
 saved per person. Replacing a document keeps the one-file form. `.grill/row-upload-decisions.md`.
+
+## A61 — BRSR gaps: typed SEBI tables, energy in GJ, breakdowns (2026-11-13)
+
+BRSR Disclosures gains the 17 typed SEBI tables (type in the grid or import an Excel file; derived cells such as
+totals, percentages and days of accounts payable are computed), a calorific value form for energy in GJ, and notes per
+table-year. Figures entered for demonstration are labelled "SAMPLE DATA" and print that label in the report.
+`.grill/brsr-gaps-decisions.md`.
+
+## A62 — Financial year and period pickers, quarterly reports, Roles page (2026-11-13)
+
+Every period choice lists only periods that have begun (India time), grouped under their financial year, and
+defaults to the current one (`components/ui/period-select.tsx`: `PeriodSelect`, `PeriodOptions`). Reports can cover a
+quarter (1st = April–June … 4th = January–March, `quarterRange`); a range that is exactly a quarter is named so.
+Roles & Permissions shows suggested permissions per role (`lib/roles/suggested-permissions.ts`), a search box, and
+lists selected permissions first, suggested ones leading each group. The Reporting Periods admin page still lists
+every period, because that is where periods are created.
+
+## A63 — Two-step sign-in with an authenticator app (2026-11-13)
+
+Every account must set up an authenticator app (TOTP on Supabase Auth's multi-factor support) at its first sign-in
+and enter its code at every sign-in, password or Google. `AUTH_MFA_REQUIRED=false` is the only way to switch it off.
+"Try another way" emails a 6-digit code (derived from a server secret, the account, the sign-in's session id and a
+10-minute window; nothing stored); a second "Try another way" says to contact the administrator. A Super Admin can
+reset a lost device on Admin → Users; setup, turn-off, reset and email-code use are audited. The hosted Supabase
+project must have TOTP enabled (dashboard).
+
+## A64 — A unit's report holds that unit's data only; tables fit the page (2026-11-13)
+
+A report for a project, business unit or subsidiary counts only records recorded under that org unit and the units
+beneath it (the hierarchy views `org_unit_tree` and `consolidation_records`). Company-wide material — the written
+BRSR answers, the 17 typed SEBI tables, and the yearly inputs behind turnover-based intensities — belongs to the
+company, so only the group's own report prints it; a unit's report says so under its heading and each written question
+reads "Reported once for the whole company at group level". Snapshot field `companyLevel`. Report tables share the page
+width: long headings wrap, wide tables step down in size, row labels keep a minimum width, rows do not split across pages.

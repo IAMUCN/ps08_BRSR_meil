@@ -1,5 +1,5 @@
 /**
- * Feature Engine for TraceESG Decision & Suggestion Pipeline.
+ * Feature Engine for EmeilSG Decision & Suggestion Pipeline.
  *
  * Computes high-fidelity feature dictionaries using VERIFIED data only.
  * Enforces organizational size normalization (intensity metrics) and

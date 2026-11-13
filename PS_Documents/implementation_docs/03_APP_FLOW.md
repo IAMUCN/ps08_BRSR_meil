@@ -1,5 +1,5 @@
 # Application Flow Document (App Flow)
-## PS-08 — Evidence-First ESG/BRSR Reporting Platform (TraceESG)
+## PS-08 — Evidence-First ESG/BRSR Reporting Platform (EmeilSG)
 
 **Document ID:** 03_APP_FLOW.md
 **Version:** 1.0

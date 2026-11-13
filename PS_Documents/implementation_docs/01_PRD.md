@@ -20,9 +20,9 @@ Where a requirement depends on exact regulatory wording (e.g., specific BRSR ind
 
 ## 2. Product Name
 
-**Working name:** TraceESG — *ESG/BRSR Evidence Platform*
+**Working name:** EmeilSG — *ESG/BRSR Evidence Platform*
 
-(The Master Approach does not fix a product name; "TraceESG" is a working title chosen to reflect the evidence-first differentiator. It may be renamed without affecting any requirement in this document.)
+(The Master Approach does not fix a product name; "EmeilSG" is a working title chosen to reflect the evidence-first differentiator. It may be renamed without affecting any requirement in this document.)
 
 ---
 
@@ -34,7 +34,7 @@ Where a requirement depends on exact regulatory wording (e.g., specific BRSR ind
 
 ## 4. Executive Summary
 
-TraceESG is a web-based ESG/BRSR reporting platform for large, multi-entity infrastructure organizations. It solves the problem of collecting sustainability and BRSR-relevant data from hundreds of projects, business units, and departments, and consolidating that data into reliable, auditable ESG and BRSR outputs.
+EmeilSG is a web-based ESG/BRSR reporting platform for large, multi-entity infrastructure organizations. It solves the problem of collecting sustainability and BRSR-relevant data from hundreds of projects, business units, and departments, and consolidating that data into reliable, auditable ESG and BRSR outputs.
 
 The platform's defining product decision is that **normal users never manually fill an ESG data-entry form.** Instead, users upload the source document they already have — a fuel invoice, an electricity bill, a waste disposal certificate, an HR record — and the system extracts the relevant data via OCR/document intelligence, presents it for human verification, and only then allows it to flow into validation, calculation, scope classification, consolidation, and BRSR mapping.
 
@@ -56,7 +56,7 @@ Today this data is typically collected manually — spreadsheets, emails, physic
 - **Reporting risk** — incomplete or unverifiable data discovered late in the reporting cycle, close to filing deadlines.
 - **No scalable data model** — organizations often build one-off spreadsheets or forms per project, which does not scale to hundreds of projects.
 
-TraceESG addresses this by making the **document the unit of data entry**, and by building traceability into the data model from day one rather than as an afterthought.
+EmeilSG addresses this by making the **document the unit of data entry**, and by building traceability into the data model from day one rather than as an afterthought.
 
 ---
 
@@ -90,7 +90,7 @@ The system does not merely produce a number — it preserves *how* the number wa
 
 ## 8. Core Value Proposition
 
-| For | TraceESG provides |
+| For | EmeilSG provides |
 |---|---|
 | **Field users** (PM, HR, EHS, Procurement, Finance/CSR) | A single, simple action — upload the document you already have — instead of learning and filling ESG forms. |
 | **Corporate ESG/Sustainability teams** | Consistent, comparable, centrally consolidated data across every project and subsidiary, with visibility into completeness and readiness at any time, not only at filing deadline. |

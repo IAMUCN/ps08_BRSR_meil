@@ -1021,10 +1021,21 @@ export const REPORT_STYLE = `
   .type { margin-left: 6pt; font-weight: normal; color: #666; text-transform: capitalize; }
   .question { margin: 0 0 4pt; color: #444; }
   .meta { color: #555; margin: 0 0 2pt; }
-  table { width: 100%; border-collapse: collapse; margin: 4pt 0; }
-  th, td { border: 1px solid #ddd; padding: 3pt 5pt; text-align: left; vertical-align: top; }
+  /* Every table fits the page: columns share the width, long text breaks inside its cell, and tables with many
+     columns step down in size (and let numbers wrap) instead of running off the page edge. */
+  table { width: 100%; max-width: 100%; border-collapse: collapse; margin: 4pt 0; table-layout: auto; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  th, td { border: 1px solid #ddd; padding: 3pt 5pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; word-break: normal; }
   th { background: #f6f6f6; font-weight: 600; }
   .num { text-align: right; font-family: Consolas, monospace; white-space: nowrap; }
+  td:first-child, th:first-child { min-width: 11ch; overflow-wrap: break-word; }
+  th.num { white-space: normal; font-family: "Segoe UI", Arial, sans-serif; }
+  table:has(th:nth-child(6)) { font-size: 8.5pt; }
+  table:has(th:nth-child(6)) th, table:has(th:nth-child(6)) td { padding: 2pt 3pt; }
+  table:has(th:nth-child(8)) { font-size: 7.5pt; }
+  table:has(th:nth-child(8)) .num { white-space: normal; overflow-wrap: anywhere; }
+  table:has(th:nth-child(11)) { font-size: 6.5pt; }
   .wrap { overflow-wrap: anywhere; }
   .note, .basis { color: #666; font-size: 8.5pt; font-family: "Segoe UI", Arial, sans-serif; white-space: normal; }
   .none { color: #888; font-style: italic; font-family: "Segoe UI", Arial, sans-serif; }
@@ -1058,6 +1069,11 @@ export function reportPage(
       ? ` — ${s.excludedAwaitingApproval} record(s) still awaiting approval are not included`
       : ""
   }.</p>
+  ${
+    s.companyLevel === false
+      ? `<p class="meta">This report holds only the data recorded under ${escapeHtml(s.org.name)} and the units beneath it (${s.orgUnitCount} org unit${s.orgUnitCount === 1 ? "" : "s"}). Company-wide written answers, SEBI tables and turnover-based intensities are reported at group level.</p>`
+      : ""
+  }
   ${partialYearNote(s)}
 ${page.body}
   <p class="footer">${page.footer}</p>

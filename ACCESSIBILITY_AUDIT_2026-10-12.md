@@ -1,4 +1,4 @@
-# TraceESG — Accessibility audit (WCAG 2.2 AA), 2026-10-12
+# EmeilSG — Accessibility audit (WCAG 2.2 AA), 2026-10-12
 
 _Sixth report of the 2026-10-12 audit. Branch `feature-security-audit-fixes`, uncommitted. UI changes are
 listed in `UI_NOTES.md`._

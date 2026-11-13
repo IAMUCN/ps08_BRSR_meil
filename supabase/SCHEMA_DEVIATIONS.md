@@ -799,3 +799,17 @@ per person. Both tables have RLS and no browser grants. Travel by air, rail and 
 `inputs: [distance, passengers]`) replaces version 1, which is superseded, not deleted. `.grill/row-upload-decisions.md`.
 Migration `0079` (2026-11-13) adds `page_from` / `page_to` to `upload_declarations` (both or neither, the last not
 before the first), covered by the same no-change trigger: the pages of a bill typed for a file of several.
+
+## D60 — BRSR gaps against the L&T report: zero values, required fields, typed SEBI tables (migrations `0085`–`0087`), 2026-11-13
+
+`0085`: the "greater than zero" rule becomes `min 0` with `flag_zero`, so a zero is allowed but flagged for review.
+`0086`: the fields SEBI's tables group by (water source, waste category and operation, MSME within-India spend) are
+required on their metrics. `0087`: `brsr_table_answers` holds SEBI's typed tables, one row per indicator and
+financial year (`cells` JSON, `notes`, `updated_by`), RLS on and no browser grants. Calorific values for energy in GJ
+are ordinary conversion factors named `ENERGY:<activity>` (the factor approval step applies). `.grill/brsr-gaps-decisions.md`.
+
+## D61 — BU Manager role (migration `0088`), 2026-11-13
+
+A system role `bu_manager` with an Administrator's permissions. A trigger (`enforce_bu_manager_level`) allows it only
+at a business unit (`org_units.unit_type = 'business_unit'`); the app's `checkRoleAtNode` gives the same message. The
+role is an administrator role in every scope check (`isScopedAdminRole`). No table or column added.

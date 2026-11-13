@@ -1,4 +1,4 @@
-# TraceESG — Security regression and application validation, 2026-10-12
+# EmeilSG — Security regression and application validation, 2026-10-12
 
 _Eighth and last report of the 2026-10-12 audit. Branch `feature-security-audit-fixes`, uncommitted. Everything
 ran on this machine against the **local** stack with synthetic accounts and records; nothing touched the

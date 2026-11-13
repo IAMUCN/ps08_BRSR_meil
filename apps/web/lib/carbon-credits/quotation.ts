@@ -170,10 +170,10 @@ Net Zero Status:               ${brief.postProcurementResidualTco2e === 0 ? "100
 * Every purchased credit must be issued under an accredited registry standard
   (e.g., Verra VCS, Gold Standard, CCTS India, or I-REC).
 * Cancellation/retirement letters must name "${brief.orgUnitName}" as beneficiary.
-* Serial number ranges (start to end) must be entered into the TraceESG ledger
+* Serial number ranges (start to end) must be entered into the EmeilSG ledger
   to guarantee anti-double-counting audit verification.
 
 ================================================================================
-TraceESG Carbon Intelligence · Data-Driven Carbon Credit Procurement Specification
+EmeilSG Carbon Intelligence · Data-Driven Carbon Credit Procurement Specification
 ================================================================================`;
 }

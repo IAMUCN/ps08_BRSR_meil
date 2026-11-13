@@ -73,7 +73,7 @@ settings are in `DEPLOYMENT.md`, the production database in `docs/PRODUCTION_DAT
 | Web app | Vercel → Deployments → promote the previous deployment. |
 | A migration | The undo SQL is in the header of every migration since `0050`. Run it in a transaction after a dump; then remove the row from `supabase_migrations.schema_migrations`. |
 | Data | Restore the dump taken before the change (`pg_restore`). Every hosted change since Phase 1 went through a script that wrote one. The full pre-reset state of 2026-11-09 is in `test data/_backup/hosted-reset-2026-11-09/`. |
-| OCR worker | Start the previous container (the last one is kept stopped as `traceesg-ocr-worker-hosted-rules13`). |
+| OCR worker | Start the previous container (kept stopped, for example `traceesg-ocr-worker-hosted-rules15`). |
 
 **Tested:** the 2026-11-09 backup was restored into a throwaway database and matched hosted on all 55 tables. The
 local server was built the same way and verified against hosted.
@@ -96,8 +96,7 @@ local server was built the same way and verified against hosted.
 - **Requirement 15** (handwriting) is blocked on sample photos.
 - **The installable app** is verified only in emulation. There is no store app and no push notifications
   (`docs/MOBILE_APP.md`).
-- **AI wording and the chatbot** need a working NVIDIA model in the settings. Real figures would go to a trial
-  service, so read its terms first.
+- **AI wording and Tracey** need a working model: NVIDIA NIM, or a local Ollama model through ngrok (`OLLAMA_BASE_URL`). With NVIDIA, real figures would go to a trial service, so read its terms first; a local model keeps them on MEIL's machine but must be running.
 - **The transaction pooler** is not yet used in production (`docs/PRODUCTION_DATABASE.md`).
 - **Some BRSR answers are typed, not evidence-backed:** energy in joules, wages and complaints, among others
   (`ASSURANCE.md`).

@@ -1,5 +1,5 @@
 # Technical Requirements Document (TRD)
-## PS-08 — Evidence-First ESG/BRSR Reporting Platform (TraceESG)
+## PS-08 — Evidence-First ESG/BRSR Reporting Platform (EmeilSG)
 
 **Document ID:** 02_TRD.md
 **Version:** 1.0

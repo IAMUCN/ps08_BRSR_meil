@@ -1,9 +1,9 @@
-# TraceESG — How the system supports assurance on BRSR Core KPIs
+# EmeilSG — How the system supports assurance on BRSR Core KPIs
 
 **What this document is.** SEBI requires listed entities to obtain independent assessment or assurance on a
 defined set of key indicators, "BRSR Core". An assurer does not take a number on trust: they pick a reported
 figure and ask where it came from, who checked it, and whether it could have been changed. This document
-describes, KPI by KPI and control by control, what TraceESG gives them. It is written from what the system
+describes, KPI by KPI and control by control, what EmeilSG gives them. It is written from what the system
 does today; where a KPI is not yet evidence-backed it says so.
 
 _Prepared 2026-10-09 against the repository at 41 database migrations. Sources for the KPI list: SEBI's BRSR
@@ -15,7 +15,7 @@ list against it before relying on this for a filing._
 
 ## 1. The principle: a figure is only as good as its evidence
 
-Every measured figure in TraceESG starts as an uploaded document and passes through fixed stages. Nothing
+Every measured figure in EmeilSG starts as an uploaded document and passes through fixed stages. Nothing
 reaches a report by being typed into a total.
 
 ```
@@ -27,7 +27,7 @@ those records.
 
 ## 2. The controls an assurer relies on
 
-| What the assurer needs to know | How TraceESG provides it | Where to see it |
+| What the assurer needs to know | How EmeilSG provides it | Where to see it |
 |---|---|---|
 | **The figure has a source document** | A record cannot exist without an uploaded file, and cannot be verified without one (a database rule, not only a screen rule). Supporting files can be added. | Verify screen; Reports → Evidence for the financial year |
 | **The document is the one that was uploaded** | Each file's SHA-256 fingerprint is computed on the server at upload and re-checked every time the file is read. A file that no longer matches is refused. | Evidence route; `documents.file_hash` |
@@ -71,7 +71,7 @@ and new text), but there is no source document, verification or calculation behi
 evidence-backed. Energy and the wage, complaint, payables and related-party KPIs are typed. Scope 3 (P6-L2) is
 evidence-backed in the system but is a leadership indicator, outside BRSR Core.
 
-## 4. How an assurer tests a figure in TraceESG
+## 4. How an assurer tests a figure in EmeilSG
 
 Worked example: _"Total Scope 1 emissions, FY 2026-27: 215.7 tCO2e."_
 

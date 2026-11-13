@@ -2,7 +2,7 @@
 Date: 2026-09-17
 
 ## Intent
-Start implementation of the TraceESG / PS-08 platform with Phase 1 of `06_IMPLEMENTATION_PLAN.md` only: an empty, buildable, lint-clean monorepo at the `BRSR_MEIL/` project root, then stop.
+Start implementation of the EmeilSG / PS-08 platform with Phase 1 of `06_IMPLEMENTATION_PLAN.md` only: an empty, buildable, lint-clean monorepo at the `BRSR_MEIL/` project root, then stop.
 
 ## Constraints
 - `BRSR_MEIL/` is the application root; `ps_documents/` is documentation only — no code inside it, no doc edits.

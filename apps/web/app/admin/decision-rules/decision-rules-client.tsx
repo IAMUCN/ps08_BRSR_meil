@@ -402,7 +402,7 @@ export default function DecisionRulesClient({ initialRules, orgUnits, periods }:
       if (res.ok) {
         setAssistantAnswer(res.data);
       } else {
-        alert(res.error || "Failed to query ESG assistant");
+        alert(res.error || "Failed to ask Tracey");
       }
     });
   };
@@ -2179,7 +2179,7 @@ export default function DecisionRulesClient({ initialRules, orgUnits, periods }:
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Bot className="h-5 w-5 text-violet-500" />
-                      TraceESG Intelligence & Grounded Evidence Assistant
+                      Tracey — EmeilSG Intelligence & Grounded Evidence Assistant
                     </CardTitle>
                     <Badge
                       variant="outline"
@@ -2337,7 +2337,7 @@ export default function DecisionRulesClient({ initialRules, orgUnits, periods }:
                   className="bg-violet-600 hover:bg-violet-700 text-white text-xs gap-1.5"
                 >
                   <Bot className={`h-4 w-4 ${isAsking ? "animate-spin" : ""}`} />
-                  {isAsking ? "Grounding in Evidence..." : "Query ESG Assistant"}
+                  {isAsking ? "Grounding in Evidence..." : "Ask Tracey"}
                 </Button>
               </div>
             </CardContent>

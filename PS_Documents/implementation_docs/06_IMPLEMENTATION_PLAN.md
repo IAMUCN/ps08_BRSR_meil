@@ -1,5 +1,5 @@
 # Implementation Plan
-## PS-08 — Evidence-First ESG/BRSR Reporting Platform (TraceESG)
+## PS-08 — Evidence-First ESG/BRSR Reporting Platform (EmeilSG)
 
 **Document ID:** 06_IMPLEMENTATION_PLAN.md
 **Version:** 1.0

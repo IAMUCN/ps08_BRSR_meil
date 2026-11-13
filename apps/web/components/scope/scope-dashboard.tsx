@@ -80,8 +80,7 @@ export function ScopeDashboard({
   }
 
   const hasNumbers = view.node.totals.length > 0;
-  const primaryUnit =
-    barValue(view.node.totals)?.unit ?? view.node.totals[0]?.unit ?? "tCO2e";
+  const primaryUnit = barValue(view.node.totals)?.unit ?? view.node.totals[0]?.unit ?? "tCO2e";
 
   const categorySlices: DonutSlice[] = view.categories
     .filter((c) => c.active)
@@ -960,7 +959,8 @@ function TrendBars({
               <Minus className="size-3.5" aria-hidden />
             )}
             <span>
-              {overallDelta > 0 ? `+${overallDelta.toFixed(1)}%` : `${overallDelta.toFixed(1)}%`} overall
+              {overallDelta > 0 ? `+${overallDelta.toFixed(1)}%` : `${overallDelta.toFixed(1)}%`}{" "}
+              overall
             </span>
           </div>
 
@@ -978,12 +978,8 @@ function TrendBars({
           {/* Peak */}
           {maxPeriod && max > 0 && (
             <div className="rounded-full bg-muted/60 px-2.5 py-1 text-muted-foreground">
-              Peak:{" "}
-              <span className="font-medium text-foreground">{maxPeriod.label}</span> (
-              <span className="font-mono font-medium text-foreground">
-                {max.toFixed(2)}
-              </span>
-              )
+              Peak: <span className="font-medium text-foreground">{maxPeriod.label}</span> (
+              <span className="font-mono font-medium text-foreground">{max.toFixed(2)}</span>)
             </div>
           )}
         </div>
@@ -1069,8 +1065,7 @@ function TrendBars({
             const isCurrent = currentPeriodLabel === period.label;
             const isHovered = hoveredIdx === i;
             const prevVal = i > 0 ? values[i - 1] : null;
-            const delta =
-              prevVal !== null && prevVal > 0 ? ((v - prevVal) / prevVal) * 100 : null;
+            const delta = prevVal !== null && prevVal > 0 ? ((v - prevVal) / prevVal) * 100 : null;
 
             const barContent = (
               <g
@@ -1089,11 +1084,7 @@ function TrendBars({
                   fill="currentColor"
                   className={cn(
                     "transition-colors",
-                    isCurrent
-                      ? "text-primary/10"
-                      : isHovered
-                        ? "text-muted/50"
-                        : "text-muted/20",
+                    isCurrent ? "text-primary/10" : isHovered ? "text-muted/50" : "text-muted/20",
                   )}
                 />
 
@@ -1105,7 +1096,9 @@ function TrendBars({
                   height={barH}
                   rx={5}
                   fill={isCurrent ? "url(#trend-bar-active)" : "url(#trend-bar-grad)"}
-                  stroke={isCurrent ? "var(--primary)" : isHovered ? "var(--foreground)" : "transparent"}
+                  stroke={
+                    isCurrent ? "var(--primary)" : isHovered ? "var(--foreground)" : "transparent"
+                  }
                   strokeWidth={isCurrent || isHovered ? 1.5 : 0}
                   className="transition-all duration-200"
                 />
@@ -1208,17 +1201,12 @@ function TrendBars({
           <div
             className="pointer-events-none absolute z-20 rounded-md border bg-popover px-3 py-2 text-xs shadow-lg transition-all"
             style={{
-              left: `${Math.min(
-                Math.max(10, (points[hoveredIdx].x / W) * 100),
-                90,
-              )}%`,
+              left: `${Math.min(Math.max(10, (points[hoveredIdx].x / W) * 100), 90)}%`,
               top: `${Math.max(10, (points[hoveredIdx].y / H) * 100 - 18)}%`,
               transform: "translate(-50%, -100%)",
             }}
           >
-            <div className="font-semibold text-popover-foreground">
-              {trend[hoveredIdx].label}
-            </div>
+            <div className="font-semibold text-popover-foreground">{trend[hoveredIdx].label}</div>
             <div className="mt-1 flex items-baseline gap-1.5">
               <span className="font-mono text-sm font-bold text-foreground">
                 {values[hoveredIdx].toFixed(2)}
@@ -1241,8 +1229,7 @@ function TrendBars({
                   {values[hoveredIdx] >= values[hoveredIdx - 1] ? "+" : ""}
                   {(values[hoveredIdx] - values[hoveredIdx - 1]).toFixed(2)} (
                   {(
-                    ((values[hoveredIdx] - values[hoveredIdx - 1]) /
-                      values[hoveredIdx - 1]) *
+                    ((values[hoveredIdx] - values[hoveredIdx - 1]) / values[hoveredIdx - 1]) *
                     100
                   ).toFixed(1)}
                   %)

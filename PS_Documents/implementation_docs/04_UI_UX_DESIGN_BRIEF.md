@@ -1,5 +1,5 @@
 # UI/UX Design Brief
-## PS-08 — Evidence-First ESG/BRSR Reporting Platform (TraceESG)
+## PS-08 — Evidence-First ESG/BRSR Reporting Platform (EmeilSG)
 
 **Document ID:** 04_UI_UX_DESIGN_BRIEF.md
 **Version:** 1.0

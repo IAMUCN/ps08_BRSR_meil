@@ -1,4 +1,4 @@
-# TraceESG — AI chatbot security and data-access audit, 2026-10-12
+# EmeilSG — AI chatbot security and data-access audit, 2026-10-12
 
 _Third report of the 2026-10-12 audit, after [`SECURITY_AUDIT_2026-10-12.md`](SECURITY_AUDIT_2026-10-12.md)
 and [`DATABASE_AUDIT_2026-10-12.md`](DATABASE_AUDIT_2026-10-12.md). Work is on branch

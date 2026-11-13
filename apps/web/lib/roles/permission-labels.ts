@@ -8,7 +8,7 @@ export const PERMISSION_LABELS: Readonly<Record<string, string>> = {
   "brsr_mapping.manage": "Manage BRSR mapping",
   "carbon_credit.manage": "Manage carbon credits",
   "carbon_credit.view": "View carbon credits",
-  "chat.use": "Use the ESG assistant",
+  "chat.use": "Use Tracey, the ESG data analyst",
   "document.upload": "Upload documents",
   "factor.manage": "Manage conversion factors",
   "icp.manage": "Manage internal carbon pricing",

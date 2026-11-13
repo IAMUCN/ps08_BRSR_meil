@@ -10,7 +10,7 @@ import { CLASSIFICATION_POLICY_MAP } from "../types.ts";
 export class AiSecurityViolationError extends Error {
   code: string;
   constructor(message: string, code = "AI_SECURITY_VIOLATION") {
-    super(`[TraceESG Security Gatekeeper] ${message}`);
+    super(`[EmeilSG Security Gatekeeper] ${message}`);
     this.name = "AiSecurityViolationError";
     this.code = code;
   }
@@ -19,7 +19,7 @@ export class AiSecurityViolationError extends Error {
 export class AiKillSwitchActiveError extends Error {
   constructor(reason?: string | null) {
     super(
-      `[TraceESG Emergency Kill Switch] External AI provider access is currently disabled by Admin. Reason: ${
+      `[EmeilSG Emergency Kill Switch] External AI provider access is currently disabled by Admin. Reason: ${
         reason || "Security lockdown active"
       }`,
     );
