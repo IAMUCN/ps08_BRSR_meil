@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/shell/page-header";
 import { requireAdminAreaSession } from "@/lib/auth/session";
+import { canAdminister } from "@/lib/auth/workspace";
 import { api } from "@/lib/trpc/server";
 import {
   CarbonIntelligenceClient,
@@ -148,6 +149,7 @@ export default async function CarbonIntelligencePage({
         alerts={alerts}
         settings={settings}
         isSuperAdmin={session.isAdmin}
+        canAcknowledge={canAdminister(session)}
         aiAvailable={overview.aiAvailable}
         forecastOptions={forecastOptions}
         simulatorOptions={simulatorOptions}

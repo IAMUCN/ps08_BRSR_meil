@@ -95,7 +95,11 @@ export function FieldRow({
             <span
               className={cn(
                 "size-2 shrink-0 rounded-full",
-                missing ? "bg-muted-foreground" : flagged ? "bg-status-warning" : "bg-status-success",
+                missing
+                  ? "bg-muted-foreground"
+                  : flagged
+                    ? "bg-status-warning"
+                    : "bg-status-success",
               )}
               aria-hidden
             />

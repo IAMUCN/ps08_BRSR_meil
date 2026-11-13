@@ -27,7 +27,11 @@ export default async function WorkspaceLayout({ children }: LayoutProps<"/app">)
           profileHref={administrator ? "/admin/profile" : "/app/profile"}
           notificationsHref="/app/notifications"
         />
-        <main id="main-content" tabIndex={-1} className="flex-1 max-w-full p-4 pb-24 outline-none md:p-6">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 max-w-full p-4 pb-24 outline-none md:p-6"
+        >
           {children}
         </main>
       </div>

@@ -122,7 +122,11 @@ export function Sidebar({ items, label }: { items: NavItem[]; label: string }) {
     <>
       {/* The placeholder keeps the page clear of the fixed rail. On phones there is no rail: a bottom bar and a
           Menu drawer instead (feature_enhancement.md 9.1, requirement 3). */}
-      <div data-shell="sidebar-placeholder" className="hidden shrink-0 md:block md:w-16 xl:w-60" aria-hidden="true" />
+      <div
+        data-shell="sidebar-placeholder"
+        className="hidden shrink-0 md:block md:w-16 xl:w-60"
+        aria-hidden="true"
+      />
       {expanded ? (
         <div
           aria-hidden

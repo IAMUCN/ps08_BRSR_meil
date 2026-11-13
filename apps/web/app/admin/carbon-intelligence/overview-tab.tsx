@@ -67,12 +67,14 @@ export function OverviewTab({
   alerts,
   settings,
   isSuperAdmin,
+  canAcknowledge = isSuperAdmin,
   aiAvailable,
 }: {
   overview: AnalyticsOverview;
   alerts: EmissionAlert[];
   settings: AlertSettings;
   isSuperAdmin: boolean;
+  canAcknowledge?: boolean;
   aiAvailable: boolean;
 }) {
   const { years, activities } = overview.trends;
@@ -455,7 +457,12 @@ export function OverviewTab({
           )}
 
           {/* Threshold Alerts Panel */}
-          <AlertsPanel alerts={alerts} settings={settings} isSuperAdmin={isSuperAdmin} />
+          <AlertsPanel
+            alerts={alerts}
+            settings={settings}
+            isSuperAdmin={isSuperAdmin}
+            canAcknowledge={canAcknowledge}
+          />
         </div>
       </div>
     </div>
