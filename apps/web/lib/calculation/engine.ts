@@ -19,8 +19,8 @@ import { normalize, type Normalized } from "./units.ts";
 // factor version always produce the same number. Called from submitForApproval, so nothing reaches an
 // approver without its trace, and from calculation.recalculate.
 
-/** Bumped by hand whenever the maths changes; stored on every calculations row for reproducibility. */
-export const ENGINE_VERSION = "calc-1.1.0";
+import { ENGINE_VERSION } from "./version.ts";
+export { ENGINE_VERSION };
 
 export type CalculationOutcome =
   | { status: "calculated"; calculationId: string; resultValue: number; resultUnit: string }
