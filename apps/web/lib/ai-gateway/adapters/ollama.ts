@@ -71,6 +71,7 @@ export class OllamaAdapter implements AiProviderAdapter {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.apiKey}`,
+        "ngrok-skip-browser-warning": "true",
       },
       body: JSON.stringify({
         model,
@@ -118,6 +119,7 @@ export class OllamaAdapter implements AiProviderAdapter {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.apiKey}`,
+        "ngrok-skip-browser-warning": "true",
       },
       body: JSON.stringify({
         model,

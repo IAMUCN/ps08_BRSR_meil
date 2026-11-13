@@ -341,6 +341,7 @@ export function createModelCaller(options: {
               headers: {
                 authorization: `Bearer ${provider.apiKey}`,
                 "content-type": "application/json",
+                "ngrok-skip-browser-warning": "true",
               },
               body: JSON.stringify({
                 model,

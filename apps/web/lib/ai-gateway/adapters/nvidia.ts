@@ -68,7 +68,8 @@ export class NvidiaNimAdapter implements AiProviderAdapter {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${this.apiKey || "ollama-local"}`,
+        "ngrok-skip-browser-warning": "true",
       },
       body: JSON.stringify({
         model,
