@@ -18,7 +18,6 @@ import type { AnalyticsOverview } from "@/lib/analytics/service";
 import {
   monthsLabel,
   NOTABLE_PCT,
-  SCOPES,
   type Comparison,
   type ScopeCode,
   type YearSummary,
