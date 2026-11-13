@@ -1,7 +1,5 @@
 "use server";
 
-export const maxDuration = 60;
-
 import { runAction } from "@/lib/trpc/server";
 
 // The chat panel calls these from the browser (.grill/chat-analyst-decisions.md); identity and org scope
